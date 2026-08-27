@@ -144,7 +144,31 @@ Tests 2, 3, 4, 6, 11, 12, 13 are unchanged except that Test 2's daily figures (3
 
 Added/changed checks: billing total must equal transaction price exactly (blocking); each `consideration_event` must have `unconditional_right_date >= invoice_date` unless the accountant supplies a rationale (warning) and both dates valid; each promise must carry all three distinctness fields; each PO must have a non-empty `ssp_basis`. Removed: checks on `unbilled_right_treatment`. The "contract asset and liability not simultaneously non-zero" check is now structural — the net position makes it impossible — and is retained as an engine assertion.
 
-## 9. Remaining accounting issues before Phase 1
+## 9. Final corrections carried into the specification **[NEW]**
+
+**A1 — Distinct conclusion is derived.** `contract_promises` stores only `capable_of_being_distinct`, `distinct_within_contract_context`, and `distinct_rationale`. `distinct_conclusion` is a derived read-only value equal to `capable_of_being_distinct && distinct_within_contract_context`, exposed by a pure helper `deriveDistinctConclusion(promise)`. The accountant cannot override it; the Step 2 UI remains Phase 2 work.
+
+**A2 — Two horizons.** The **revenue-recognition horizon** is bounded by the POs' recognition periods. The separate **accounting horizon** used by later contract-balance and journal-entry schedules is `first = min(first revenue month, earliest unconditional-right month)` and `last = max(last revenue month, latest unconditional-right month)`. Phase 1 ships the horizon helpers (`accountingHorizon`, `monthRange`) in `dates.ts` but uses only the recognition horizon; Phase 3 consumes the wider range. Test 9's December 2027 revenue whose right becomes unconditional 1/31/2028 therefore produces an accounting schedule running through 2028-01. Invoice dates are retained for informational presentation even when they generate no entry.
+
+**A3 — Test 10 billing completeness.** Test 10 now uses four consideration events of $30,000.00, unconditional (and invoiced) on 3/31/27, 6/30/27, 9/30/27, and 12/31/27, totalling $120,000.00 so the billing-reconciliation control passes. March 31 expectations are unchanged: beginning contract asset $19,397.26; `Dr AR 30,000.00 / Cr Contract Asset 19,397.26 / Cr Contract Liability 10,602.74`; then `Dr Contract Liability 10,191.78 / Cr Revenue 10,191.78`; ending contract liability $410.96. Year-end balances return to zero.
+
+## 10. Phase 1 build (authorized scope) **[NEW]**
+
+**Modules** (`src/lib/asc606/`, pure — no React, DOM, network, database, AI, or mutable global state):
+
+- `types.ts` — integer-cent and `YYYY-MM-DD` types, promise/PO inputs, allocation, schedule and validation result types, plus `deriveDistinctConclusion`.
+- `money.ts` — cent validation (finite, integer, non-negative where applicable, within a safe maximum), BigInt-internal exact math, and the single canonical `roundRatioHalfUp(numerator, denominator)` using integer quotient/remainder (`2 * remainder >= denominator` rounds up). BigInt never escapes into public objects, which stay JSON-serializable.
+- `dates.ts` — UTC-only calendar utilities: validation, leap years, inclusive day counts, month enumeration, service-period/month overlap days, horizon helpers.
+- `allocation.ts` — largest-fractional-remainder relative SSP allocation over BigInt numerators (`TP x SSP`), residual cents distributed by descending remainder with lowest PO sequence as tie-breaker, asserting `sum(allocated) === transactionPrice`. Percentages derived for display only.
+- `recognition.ts` — `recognizeOverTime(po, allocatedCents, convention)` with the single convention `daily_ratable`, `recognizePointInTime(...)`, and `generateRevenueSchedule(...)` producing by-PO and by-month views with cumulative totals; the final recognition month absorbs the residual so each PO's schedule equals its allocation exactly.
+- `validation.ts` — Phase 1 subset only: valid transaction price, at least one PO, unique sequences, SSP > 0 and total SSP > 0, recognition method present, valid inclusive over-time dates (end >= start), point-in-time date present and valid, every promise assigned to a PO when promises are supplied.
+- `index.ts` — focused exports plus a Phase 1-level `analyzePhase1()` returning validation, allocation, and revenue schedule, with `null` outputs when a blocking check fails. No fake full `analyzeContract()`.
+
+**Tests** (Vitest, `src/lib/asc606/__tests__/`): scenarios 1, 2, 3, 4, 5, 6, 7, 11, 12 using the predetermined cent values recorded above, plus invariant tests — allocations always sum to the transaction price; each PO's schedule sums to its allocation; contract revenue sums to the transaction price; leap-year day counts; invalid date sequences produce no schedule; reordering PO inputs without changing sequence numbers leaves allocation unchanged; equal fractional remainders follow the sequence tie-breaker. All monetary assertions compare exact integer cents with `toBe`; no `toBeCloseTo`, and no test recomputes the implementation formula against itself.
+
+**Explicitly not in Phase 1:** contract balances, AR, contract assets/liabilities, consideration-event processing, journal entries, persistence, the five-step wizard, the Results page, the Phase 1b `/engine-check` page, AI, PDF upload, and any UI change.
+
+## 11. Remaining accounting issues before Phase 1
 
 None that block Phase 1. Two items are flagged for your awareness, both with a stated V1 default that can be revisited later:
 
