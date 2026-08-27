@@ -1,220 +1,152 @@
-# ASC 606 SaaS Revenue Recognition — Revised Specification (Phase 0)
+# ASC 606 SaaS Revenue Recognition — Specification (Phase 0, Final Corrections)
 
-## 0. Conflict that must be resolved first (accounting policy)
+Sections below marked **[REVISED]** changed in response to the director review. Unchanged sections (architecture layers, PO classification, module structure, phase sequence, judgments/reference handling) stand as previously approved and are restated only where needed for continuity.
 
-Test 1 expects **$10,000 per month** for a $120,000 annual SaaS PO. A pure daily-ratable convention does **not** produce that: 365 service days at $328.767123/day gives January $10,191.78, February $9,205.48, April $9,863.01. The two requirements are mathematically incompatible.
+## 1. Decided conventions
 
-Two defensible policies:
+- **Over-time ratable = Policy A (pure daily ratable), the only convention in V1.** Monthly revenue = allocated price x eligible service days in the month / total service days. Start and end dates inclusive; calendar days; leap years natural; mid-month commencement/termination natural. `recognizeOverTime(po, convention)` takes a `convention` argument with the single value `'daily_ratable'` in V1, so straight-line/stub conventions plug in later without an engine rewrite.
+- **Point in time:** one accountant-entered `recognition_date`; full allocated amount in the month containing it. No delivery/acceptance/transfer dates in V1.
+- **Currency: USD only.** No currency column, no selector; "USD" is a static label.
+- **Billing reconciliation:** fixed consideration only, so transaction price = expected total billings. Sum of billing events must equal the transaction price exactly; a mismatch is a **blocking** validation failure.
 
-- **Policy A — Pure daily ratable.** Every month = allocated price x days in month / total service days. Test 1 expected results become $10,191.78 / $9,205.48 / ... (not $10,000).
-- **Policy B — Full-month + daily stub (recommended default).** A calendar month wholly inside the service period receives an equal share of the whole-month portion; only partial (stub) months are prorated on days. A Jan 1–Dec 31 contract yields exactly $10,000/month, and a Jan 15 start yields a prorated January plus equal later months.
-
-**Recommendation: Policy B**, as the default, with Policy A selectable per PO later. It matches how most SaaS revenue teams actually schedule ratable subscriptions and matches the Test 1 expectation. Everything below is written so either policy plugs into one function (`recognizeOverTime`). **Please confirm A or B before Phase 1.**
-
-## 1. Revised architecture
-
-Four layers, strictly separated:
-
-1. **Inputs (authoritative):** contract facts, Step 1 criteria, promises, promise-to-PO grouping, PO-level SSP, transaction price, billing events, recognition method/dates, unbilled-right classification, judgments.
-2. **Engine (pure TypeScript, no React, no I/O):** allocation, recognition, billing, contract balances, journal entries, validation. Deterministic and unit-testable.
-3. **Derived outputs (read-only):** allocation table, revenue schedule, balance roll-forward, journal entries, validation results. Never user-editable; always recomputed from inputs.
-4. **Presentation:** React components that render engine output and never perform arithmetic.
-
-```text
-Inputs ──> engine.analyzeContract(input) ──> ContractAnalysis (all outputs + explanations)
-                                              └─> UI renders; nothing is edited downstream
-```
-
-Future `analysis_versions` snapshot: the engine returns a single serializable `ContractAnalysis` object, so "finalize" can later persist that object plus an input hash. Not built in MVP.
-
-## 2. Entity model
+## 2. Revised entity model **[REVISED]**
 
 ```text
 contracts(id, customer_name, contract_number, contract_date,
-          term_start, term_end, transaction_price_cents, currency,
+          term_start, term_end, transaction_price_cents,
           step1_approved, step1_rights_identifiable, step1_payment_terms_identifiable,
-          step1_commercial_substance, step1_collection_probable, step1_notes,
-          step1_conclusion  -- derived: qualifies / does not qualify
-         )
+          step1_commercial_substance, step1_collection_probable, step1_notes)
+          -- no currency column; USD is implicit in V1
 
 contract_promises(id, contract_id, seq, description, category, notes,
-                  is_distinct, distinct_rationale,
-                  performance_obligation_id NULL)      -- the grouping link
+                  capable_of_being_distinct        boolean,
+                  distinct_within_contract_context boolean,
+                  distinct_conclusion              boolean,   -- accountant's Step 2 conclusion
+                  distinct_rationale               text,
+                  performance_obligation_id        FK NULL)
 
 performance_obligations(id, contract_id, seq, name,
-                        classification ('single_distinct' | 'bundle_not_distinct' | 'series'),
+                        classification ('single_distinct'|'bundle_not_distinct'|'series'),
                         classification_rationale,
-                        ssp_cents,                      -- SSP lives HERE, not on promises
-                        recognition_method ('over_time_ratable' | 'point_in_time'),
-                        service_start, service_end,     -- over time
-                        recognition_date,               -- point in time
-                        unbilled_right_treatment ('contract_asset' | 'receivable'),
-                        unbilled_right_rationale,
-                        unconditional_date NULL)        -- when a contract asset becomes AR
+                        ssp_cents,
+                        ssp_basis                    text,     -- how SSP was determined
+                        recognition_method ('over_time_ratable'|'point_in_time'),
+                        service_start, service_end,            -- over time, inclusive
+                        recognition_date)                      -- point in time
+                        -- unbilled_right_treatment and unconditional_date REMOVED
 
-billing_events(id, contract_id, billing_date, amount_cents, description)
+consideration_events(id, contract_id, seq, invoice_date, amount_cents,
+                     unconditional_right_date,  -- defaults to invoice_date, overridable
+                     description)
+                     -- replaces billing_events
 
 accounting_judgments(id, contract_id, issue, conclusion, reasoning, asc_reference)
 ```
 
-**Promise ↔ PO relationship:** one-to-many (a PO has many promises; each promise belongs to exactly zero or one PO). A promise with no PO is a validation failure. Implemented as a nullable FK on `contract_promises` — the simplest structure that supports the required grouping and is easy to query in SQL. No join table, because a promise cannot belong to two POs.
+Promise-to-PO relationship is unchanged: one-to-many via the nullable FK on `contract_promises`; grouping follows the accountant's Step 2 conclusions. SSP is entered **only at the PO level**, after grouping, with a required `ssp_basis` note. The engine never determines distinctness.
 
-**UI for grouping (Step 2, kept simple):** a two-panel screen. Left: the promise list the accountant entered, each row with distinct? + rationale. Right: performance obligations. Each promise row has a "Performance obligation" dropdown listing existing POs plus "+ New performance obligation". Selecting a PO moves the promise under it visually. Unassigned promises sit in a highlighted "Not yet assigned" tray. No drag-and-drop (fragile, unnecessary).
+UI note: the Step 2 screen now shows three fields per promise — capable of being distinct, distinct within the context of the contract, and the resulting conclusion (defaulted to the logical AND but editable, with rationale required whenever it is overridden).
 
-**Persistence split:** store inputs (all tables above). Do **not** store revenue schedules, allocations, waterfalls, or JEs — regenerate them. The only future exception is an immutable finalized snapshot.
+## 3. Billing / unconditional-right model **[REVISED]**
 
-## 3. PO classification (documentation field)
+A `consideration_event` records an invoice **and** the date the related right to consideration becomes unconditional:
 
-`classification` is a required select with rationale text: single distinct good or service; bundle of promises not separately distinct; series of distinct goods/services accounted for as one PO. It drives no calculation in V1 — it appears on the PO tab, the results summary, and the judgments export.
+- `invoice_date` — when the invoice is issued. Used for presentation and memos only.
+- `unconditional_right_date` — defaults to `invoice_date`; the accountant may override it when the right becomes unconditional on another discrete date. **This date, not the invoice, drives Accounts Receivable recognition.**
+- An invoice whose unconditional-right date has not yet arrived produces no AR and no entry; it is listed as an issued-but-conditional invoice.
 
-## 4. Engine inputs and outputs
+**MVP limitation (documented in the app):** Version 1 models unconditional rights as discrete dated events. It does not model continuously accruing unbilled receivables, partial conditionality, or rights that become unconditional in tranches within a single invoice.
 
-```ts
-analyzeContract(input: ContractInput): ContractAnalysis
+## 4. Contract balance roll-forward **[REVISED]**
 
-ContractAnalysis = {
-  step1: { qualifies: boolean; failedCriteria: string[] }
-  allocation: AllocationRow[]          // po, ssp, totalSsp, pct, allocatedCents, explanation
-  revenueSchedule: {
-    byPo: { poId, month, revenueCents, explanation }[]
-    byMonth: { month, perPo: Record<poId, cents>, totalCents, cumulativeCents }[]
-  }
-  billingSchedule: { month, billedCents, cumulativeCents }[]
-  balances: BalanceRow[]               // see §7
-  journalEntries: JournalEntry[]       // see §8
-  validation: { status: 'passed' | 'attention'; results: CheckResult[] }
-  totals: { transactionPrice, allocated, revenue, billed }
-}
-```
-
-Every numeric row carries an `explanation` object (`{ template, inputs }`, e.g. `{ template: 'ratable_month', inputs: { allocated: 8000000, days: 31, totalDays: 365 } }`) so the UI can later render "…x 31 March days / 365 total days" without recomputation.
-
-## 5. Date conventions
-
-- Dates are **plain `YYYY-MM-DD` strings** everywhere — inputs, engine, storage. No JS `Date` objects in the engine, no ISO timestamps, no timezone conversion. Arithmetic uses a small `dateUtils` module that converts to a day index via UTC-only math and back.
-- Service **start and end dates are both inclusive**; total service days = `daysBetween(start, end) + 1`.
-- Calendar days; leap years fall out naturally (2028 Jan 1–Dec 31 = 366 days).
-- Mid-month commencement and termination supported; a month's eligible days = overlap of [month start, month end] with [service start, service end].
-- Reporting periods are calendar months keyed `YYYY-MM`.
-- Point in time: full allocated amount in the month containing `recognition_date`.
-
-## 6. Rounding conventions
-
-- All money is stored and computed as **integer cents**. Intermediate ratios use floating point only inside a single expression, never accumulated.
-- **Allocation:** `raw_i = transactionPrice x ssp_i / totalSsp`, rounded half-up to cents; the residual (`transactionPrice - sum(rounded)`) is assigned to the **PO with the largest SSP** (deterministic, tie broken by lowest sequence). Guarantees exact tie-out.
-- **Recognition:** months computed in order, each rounded to cents; the **final recognition month** of each PO receives `allocated - sum(prior months)`. Guarantees each PO's schedule sums exactly to its allocation, and therefore total revenue = transaction price.
-- Displayed values are already cents — no display-time rounding, so screen totals always foot.
-
-## 7. Contract balances: AR, contract asset, contract liability
-
-Billing and revenue are tracked as separate event streams and combined per month:
+Definitions for month *t*:
 
 ```text
-For each month, per contract (V1 presents one net contract position):
-  beginning_liability, beginning_asset, beginning_ar   (prior month's endings)
-  + billings_this_month           -> Dr AR, Cr liability (or relieves an asset first, see §8)
-  + revenue_this_month            -> relieves liability first, then creates asset or AR
-  + reclass_this_month            -> contract asset -> AR on unconditional_date
-  = ending_liability, ending_asset, ending_ar
+Rev_t   = revenue recognized in month t (sum across POs)
+Unc_t   = consideration amounts whose unconditional_right_date falls in month t
+CumRev_t = sum(Rev_1..t)      CumUnc_t = sum(Unc_1..t)
+
+AR_t            = CumUnc_t                     (no cash receipts in V1)
+NetPosition_t   = CumRev_t - CumUnc_t
+  NetPosition_t > 0  -> Contract Asset  = NetPosition_t,     Contract Liability = 0
+  NetPosition_t < 0  -> Contract Liability = -NetPosition_t, Contract Asset     = 0
+  NetPosition_t = 0  -> both zero
 ```
 
-Rules:
-1. Revenue first relieves any existing contract liability, up to its balance.
-2. Revenue in excess of the liability creates an **unbilled right**, classified by the accountant's PO-level `unbilled_right_treatment`: `receivable` (unconditional, right depends only on passage of time) or `contract_asset` (conditional on something else). Never inferred automatically.
-3. Billings first relieve any existing contract asset for that PO's unbilled amount, then create a contract liability.
-4. On a PO's `unconditional_date`, its remaining contract asset reclassifies to AR.
-5. Control: `cumulative_billings + cumulative_reclass_neutral = cumulative_revenue + ending_liability - ending_asset` must hold every month; the engine asserts `beginning + billings - revenue +/- reclass = ending`.
-
-No cash receipts in V1; AR simply accumulates.
-
-## 8. Journal entry generation
-
-Entries are derived per month from the three event types, in this fixed order:
-
-1. **Billing:** `Dr Accounts Receivable / Cr Contract Liability` for the billed amount (reduced by any contract asset relieved, which instead books `Dr AR / Cr Contract Asset`).
-2. **Revenue against liability:** for the portion of the month's revenue covered by the liability balance — `Dr Contract Liability / Cr Revenue`.
-3. **Revenue creating an unbilled right:** remainder — `Dr Contract Asset / Cr Revenue` or `Dr Accounts Receivable / Cr Revenue`, per the PO's classification.
-4. **Reclassification:** on `unconditional_date` — `Dr Accounts Receivable / Cr Contract Asset`.
-
-Each entry line references the month, source event, amount in cents, and a memo naming the PO. Control: total debits = total credits per month, and JE-derived account balances must equal the roll-forward balances in §7 (asserted by a validation check, not by trust).
-
-## 9. Validation architecture
-
-A single `validation.ts` returns `CheckResult[]` (`id`, `category`, `severity`, `message`, `passed`, optional `detail`). UI components render this list and never author checks. Categories and checks:
-
-- **Contract setup:** all five Step 1 criteria satisfied (blocking for finalization); transaction price >= 0; term start/end present; term end >= term start.
-- **Performance obligations:** every promise assigned to a PO; every PO has >= 1 promise; every PO has SSP > 0; total SSP > 0; every PO has a recognition method; PO classification documented.
-- **Allocation:** SSP percentages total 100%; allocated total = transaction price exactly.
-- **Revenue:** over-time POs have valid start <= end; point-in-time POs have a recognition date; recognition dates fall within the contract term (warning if outside); total scheduled revenue = total allocated.
-- **Billing:** each event has a valid date and non-negative amount; total billings reconcile to the expected total billings entered by the accountant.
-- **Balances:** roll-forward reconciles each month; asset and liability are never simultaneously non-zero for the same PO; JE debits = credits and JE balances tie to the roll-forward.
-
-**Status banner:** `All Accounting Checks Passed` only when every blocking check passes **and** Step 1 qualifies. If Step 1 fails, the Results page renders a prominent "Analysis not finalized — ASC 606 contract criteria not met" banner, keeps all entered data and schedules visible as illustrative, and marks them "not a completed ASC 606 analysis." No pre-contract (ASC 606-25-7) accounting in V1.
-
-## 10. Module structure
+Presented roll-forward, one net contract-level position per month, AR shown separately:
 
 ```text
-src/lib/asc606/
-  types.ts          contract input + analysis output types
-  dates.ts          YYYY-MM-DD arithmetic, month enumeration, day overlap
-  money.ts          cents math, half-up rounding, residual assignment
-  allocation.ts     relative SSP allocation across POs
-  recognition.ts    over-time (policy A/B) + point-in-time schedules
-  billing.ts        billing events -> monthly billing schedule
-  balances.ts       AR / contract asset / contract liability roll-forward
-  journalEntries.ts entries derived from billing, revenue, reclass events
-  validation.ts     all checks, single source of truth
-  explain.ts        explanation templates for UI
-  index.ts          analyzeContract() orchestrator
-  __tests__/        one spec file per module + scenarios.spec.ts
-src/data/sampleContracts.ts   fictional seed data
+Beginning contract asset / (liability)
+  + Revenue recognized                (increases asset / decreases liability)
+  - Unconditional rights arising      (decreases asset / increases liability)
+  = Ending contract asset / (liability)
+
+Beginning AR + Unconditional rights arising = Ending AR
 ```
 
-## 11. Test suite (Vitest) — expected results
+**Event processing order within a month:** (1) unconditional-right events, (2) revenue recognition. This ordering only affects how a month's activity splits between relieving an existing balance and creating a new one in the journal entries; ending balances are order-independent because they derive from cumulative totals.
 
-Assumes Policy B where relevant; Policy A numbers noted.
+Because AR is created exactly once, at the unconditional-right date, and revenue never creates AR, there is no path that recognizes AR twice for the same right. Per-PO revenue detail is retained inside the engine for explanations and drill-down, but presentation is a single net contract position — never simultaneous gross asset and liability.
 
-| # | Scenario | Expected |
-|---|---|---|
-| 1 | Annual SaaS, 1 PO, $120,000, 1/1/27–12/31/27 | $10,000.00 each month; total $120,000.00 (Policy A: Jan $10,191.78, Feb $9,205.48, Apr $9,863.01) |
-| 2 | Mid-month start: $35,100, 1/15/27–12/31/27 (351 days) | $100.00/day; Jan (17 days) $1,700.00; Feb $2,800.00; Dec $3,100.00; total $35,100.00 (Policy A figures; Policy B prorates Jan only and spreads the rest equally over 11 months at $3,036.36/$3,036.40 final) |
-| 3 | Leap year: $366,000, 1/1/28–12/31/28 (366 days) | $1,000.00/day; Feb $29,000.00; total $366,000.00 |
-| 4 | Two POs: SaaS SSP $120,000, Training SSP $20,000, TP $120,000 | 85.714286% / 14.285714%; allocated $102,857.14 and $17,142.86; sum $120,000.00 |
-| 5 | Penny rounding: TP $100,000, three POs SSP $10,000 each | $33,333.33 / $33,333.33 / $33,333.34 (residual to largest SSP, tie -> lowest seq... documented as last) ; sum exactly $100,000.00 |
-| 6 | SaaS + non-distinct implementation grouped into 1 PO | Exactly one allocation row; no separate allocation to the two promises; PO classification `bundle_not_distinct` |
-| 7 | SaaS over time + distinct training point-in-time (Test 4 amounts, training 1/15/27) | Training $17,142.86 all in Jan-2027; SaaS $102,857.14 ratably; Jan total $25,714.62 (Policy B) |
-| 8 | Upfront billing $120,000 on 1/1/27 | Jan beginning liability $0, billings $120,000, revenue $10,000, ending liability $110,000; Dec ending $0 |
-| 9 | Billing in arrears (bill $10,000 on the last day of each following month) | Month 1 revenue $10,000 with no billing -> unbilled right $10,000, presented as contract asset or AR per the PO election; both variants tested |
-| 10 | Contract asset then unconditional on 3/31/27 | Asset balance reclassifies: `Dr AR / Cr Contract Asset` for the full asset balance on 3/31/27; ending asset $0 |
-| 11 | service_end before service_start | Validation fails (`po.dates.sequence`); status = attention; no schedule produced for that PO |
-| 12 | SSP missing or zero on one PO | Validation fails (`po.ssp.positive`); allocation not finalized |
-| 13 | Step 1 collection-probable = false | `step1.qualifies = false`; status never `passed`; results banner shows not finalized |
-| 14 | Irregular billings: $50,000 on 1/10/27, $25,000 on 4/5/27, $45,000 on 9/22/27 | Roll-forward reconciles every month; Dec ending liability and asset both $0; cumulative billings $120,000 = cumulative revenue |
-| 15 | Full multi-element: SaaS + non-distinct implementation (PO1, SSP $130,000, over time) + distinct training (PO2, SSP $20,000, point-in-time 2/10/27), TP $135,000, billed $67,500 on 1/1/27 and 7/1/27 | PO1 86.666667% -> $117,000.00; PO2 13.333333% -> $18,000.00; sum $135,000.00; full schedule, roll-forward, and JEs all reconcile; validation passed |
+## 5. Journal entry logic **[REVISED]**
 
-Every numeric expectation is written into the spec files **before** the corresponding code.
+Per month, derived from the two event streams, in the fixed order above:
 
-## 12. Phased sequence (your sequence, accepted with one change)
+1. **Unconditional right arises (amount `U`).** `Dr Accounts Receivable U`. Credit side: relieve any existing contract asset first, up to the beginning contract-asset balance -> `Cr Contract Asset`; any remainder -> `Cr Contract Liability`.
+2. **Revenue recognized (amount `R`).** `Cr Revenue R`. Debit side: relieve the contract liability balance available after step 1, up to that balance -> `Dr Contract Liability`; any remainder -> `Dr Contract Asset`.
 
-- **Phase 0** — this specification + resolution of the open decisions below. No code.
-- **Phase 1** — engine: types, dates, money, allocation, recognition, plus tests 1–7, 11, 12. No UI.
-- **Phase 1b (added)** — a minimal internal `/engine-check` page that renders the sample contract's engine output as plain tables. Reason: it lets you eyeball real schedules before any wizard exists, at almost no cost. Removed or folded into Results in Phase 5.
-- **Phase 2** — five-step workflow UI: contract facts, Step 1 criteria, promise entry, promise-to-PO grouping, PO setup (classification, SSP, method, dates).
-- **Phase 3** — billing events, unbilled-right classification, contract balance roll-forward; tests 8, 9, 10, 14.
-- **Phase 4** — journal entries + validation dashboard; test 13, JE/roll-forward reconciliation checks.
-- **Phase 5** — Results experience: summary, allocation, schedule, waterfall, JEs, judgments, explanations; test 15 end to end.
-- **Phase 6** — persistence (Lovable Cloud / Postgres) using the §2 model.
-- **Phase 7** — portfolio polish: sample contracts, landing page, empty states, responsive pass, README.
-- **Post-MVP** — as you listed.
+Consequences: billing ahead of performance produces `Dr AR / Cr Contract Liability` then `Dr Contract Liability / Cr Revenue`; performance ahead of billing produces `Dr Contract Asset / Cr Revenue` then, when the right becomes unconditional, `Dr AR / Cr Contract Asset` — the reclassification entry falls out of the same rule rather than needing a separate mechanism. No cash receipt entries in V1.
 
-Each phase closes with a report: Completed / Accounting behavior / Tests / Assumptions / Known limitations / Next phase.
+Controls: per month, total debits = total credits; and the account balances rolled forward from the journal entries must equal the §4 balances exactly (asserted as a validation check).
 
-## 13. Decisions I need from you before Phase 1
+## 6. Rounding algorithm **[REVISED]**
 
-1. **Ratable convention (blocking):** Policy A (pure daily) or Policy B (full-month + daily stub, recommended). This changes Tests 1, 2, 7, 15.
-2. **Rounding residual placement in allocation:** to the largest-SSP PO (recommended) or to the last PO by sequence. Test 5's expected numbers depend on it.
-3. **Expected total billings:** should the accountant enter an expected billing total independent of the transaction price (so a mismatch is a real control), or should billings always be validated against the transaction price? Recommend the former.
-4. **Unbilled-right election granularity:** per performance obligation (recommended, since conditionality is usually PO-specific) or a single contract-level election.
-5. **Contract balance presentation:** one net contract-level position (recommended for V1, simpler) versus per-PO balances. Per-PO is more precise but doubles the roll-forward UI.
-6. **Point-in-time recognition month:** recognized in the month containing the recognition date (recommended) — confirm no separate delivery-vs-acceptance date is needed.
-7. **Contract asset vs receivable on reclass:** should `unconditional_date` be a single date per PO (recommended for V1) or a schedule of partial reclassifications?
+All money is integer cents. No floating-point arithmetic in allocation.
+
+**Allocation (largest fractional remainder):**
+1. For each PO *i*: `numerator_i = TP_cents * ssp_i`, `floor_i = numerator_i / totalSsp` using integer division, `remainder_i = numerator_i % totalSsp`. All values are exact integers (BigInt where products could exceed the safe integer range).
+2. Start each PO at `floor_i` (never exceeds its exact entitlement). Compute `residual = TP_cents - sum(floor_i)`.
+3. Distribute the `residual` cents one at a time to the POs with the largest `remainder_i`; ties broken by **lowest PO sequence number**.
+4. Assertion: `sum(allocated_i) === TP_cents`.
+
+**Recognition:** each month's amount = `round_half_up(allocated * eligibleDays / totalDays)` computed as exact integer arithmetic (`(allocated * days * 2 / totalDays + 1) / 2` in integer division); the **final recognition month** of each PO is set to `allocated - sum(prior months)`, absorbing any residual cent. Assertion: each PO's schedule sums exactly to its allocation, hence total revenue = transaction price.
+
+## 7. Revised test expectations **[REVISED]**
+
+All monetary assertions compare **exact integer cents** (`toBe` on cent integers), never `toBeCloseTo` or float equality. Every expected value below was computed before implementation.
+
+**Test 1 — Annual SaaS, $120,000, 1/1/27–12/31/27, 365 days, daily ratable:**
+Jan 10,191.78 · Feb 9,205.48 · Mar 10,191.78 · Apr 9,863.01 · May 10,191.78 · Jun 9,863.01 · Jul 10,191.78 · Aug 10,191.78 · Sep 9,863.01 · Oct 10,191.78 · Nov 9,863.01 · **Dec 10,191.80** (absorbs the $0.02 residual). Total 120,000.00.
+
+**Test 5 — Penny rounding, TP $100,000, three POs with equal SSP $10,000:**
+floor = 3,333,333 cents each, residual 1 cent, all remainders tie -> lowest sequence wins.
+PO 1 **$33,333.34** · PO 2 $33,333.33 · PO 3 $33,333.33 · total $100,000.00.
+
+**Test 7 — SaaS over time + distinct training point in time.** SSP SaaS $120,000 / Training $20,000; TP $120,000 -> allocation SaaS $102,857.14, Training $17,142.86 (exact: floors 10,285,714 and 1,714,285; residual 1 cent to the larger remainder = Training -> 1,714,286). Training recognized entirely in Jan-2027 ($17,142.86, recognition date 1/15/27). SaaS January = 102,857.14 x 31 / 365 = **$8,735.81**. **January total revenue $25,878.67.** SaaS remaining months: Feb 7,890.41 · Mar 8,735.81 · Apr 8,454.01 · May 8,735.81 · Jun 8,454.01 · Jul 8,735.81 · Aug 8,735.81 · Sep 8,454.01 · Oct 8,735.81 · Nov 8,454.01 · **Dec 8,735.83** (residual). SaaS total 102,857.14; contract total 120,000.00.
+
+**Test 8 — Upfront billing $120,000, invoice and unconditional right both 1/1/27** (revenue per Test 1). AR $120,000.00 from January onward. Net position is a contract liability each month-end:
+Jan 109,808.22 · Feb 100,602.74 · Mar 90,410.96 · Apr 80,547.95 · May 70,356.17 · Jun 60,493.16 · Jul 50,301.38 · Aug 40,109.60 · Sep 30,246.59 · Oct 20,054.81 · Nov 10,191.80 · Dec 0.00. January entries: `Dr AR 120,000.00 / Cr Contract Liability 120,000.00`, then `Dr Contract Liability 10,191.78 / Cr Revenue 10,191.78`.
+
+**Test 9 — Billing in arrears.** Same PO as Test 1; invoices dated the last day of the following month.
+- Variant A (`unconditional_right_date = invoice_date`, the default): at 1/31/27 no unconditional right exists -> **contract asset $10,191.78**, AR $0.00; entry `Dr Contract Asset 10,191.78 / Cr Revenue 10,191.78`. On 2/28/27 the January invoice's right becomes unconditional -> `Dr AR 10,191.78 / Cr Contract Asset 10,191.78`.
+- Variant B (accountant overrides `unconditional_right_date` to 1/31/27): AR $10,191.78 at 1/31/27 and contract asset $0.00. Both variants asserted.
+
+**Test 10 — Contract asset reclassification.** Revenue Jan–Mar per Test 1 with a single invoice on 3/31/27 for $30,000.00 whose right is unconditional the same day. Contract asset: 1/31 $10,191.78 · 2/28 $19,397.26 · 3/31 net position = 29,589.04 − 30,000.00 = **contract liability $410.96**, AR $30,000.00. March entries: `Dr AR 30,000.00 / Cr Contract Asset 19,397.26, Cr Contract Liability 10,602.74`, then `Dr Contract Liability 10,191.78 / Cr Revenue 10,191.78`. (Processing order: right first, then revenue.)
+
+**Test 14 — Irregular billing schedule.** Revenue per Test 1; invoices $50,000.00 on 1/10/27, $25,000.00 on 4/5/27, $45,000.00 on 9/22/27, each unconditional on the invoice date. Sum = $120,000.00 = TP (billing reconciliation check passes). Month-end net position (positive = contract asset, negative = contract liability):
+Jan (39,808.22) · Feb (30,602.74) · Mar (20,410.96) · Apr (35,547.95) · May (25,356.17) · Jun (15,493.16) · Jul (5,301.38) · **Aug 4,890.40 contract asset** · Sep (30,246.59) · Oct (20,054.81) · Nov (10,191.80) · Dec 0.00. AR reaches $120,000.00 by 9/22/27. The August flip from liability to asset is the point of the test.
+
+**Test 15 — Full multi-element example.** Promises: SaaS platform access + implementation (grouped, `bundle_not_distinct`) = PO1, SSP $130,000, over time 1/1/27–12/31/27; distinct training = PO2, SSP $20,000, point in time 2/10/27. TP $135,000. Allocation: PO1 $117,000.00 (86.666667%), PO2 $18,000.00 (13.333333%), exact with no residual. PO1 schedule: Jan 9,936.99 · Feb 8,975.34 · Mar 9,936.99 · Apr 9,616.44 · May 9,936.99 · Jun 9,616.44 · Jul 9,936.99 · Aug 9,936.99 · Sep 9,616.44 · Oct 9,936.99 · Nov 9,616.44 · **Dec 9,936.96** (residual −$0.03). PO2 $18,000.00 in Feb-2027. February total revenue $26,975.34; contract total $135,000.00. Invoices $67,500.00 on 1/1/27 and 7/1/27, unconditional on the invoice dates (sum $135,000.00 = TP). Roll-forward and journal entries must reconcile every month; validation status = passed.
+
+Tests 2, 3, 4, 6, 11, 12, 13 are unchanged except that Test 2's daily figures (351 days at $100.00/day: Jan $1,700.00, Feb $2,800.00, Dec $3,100.00, total $35,100.00) are already pure daily ratable and remain correct.
+
+## 8. Validation changes **[REVISED]**
+
+Added/changed checks: billing total must equal transaction price exactly (blocking); each `consideration_event` must have `unconditional_right_date >= invoice_date` unless the accountant supplies a rationale (warning) and both dates valid; each promise must carry all three distinctness fields; each PO must have a non-empty `ssp_basis`. Removed: checks on `unbilled_right_treatment`. The "contract asset and liability not simultaneously non-zero" check is now structural — the net position makes it impossible — and is retained as an engine assertion.
+
+## 9. Remaining accounting issues before Phase 1
+
+None that block Phase 1. Two items are flagged for your awareness, both with a stated V1 default that can be revisited later:
+
+1. **Contract asset relief order across POs.** When an unconditional right arises, V1 relieves the single net contract asset without attributing the relief to a specific PO, because presentation is contract-level. Per-PO attribution would be required only if you later want PO-level balance disclosure.
+2. **Invoices issued but not yet unconditional** produce no accounting entry in V1 and appear only in an informational list. If you want them presented differently (for example a memo-only receivable schedule), say so and it becomes a Phase 3 display item.
