@@ -32,16 +32,16 @@ describe("calendar utilities", () => {
   });
 
   it("is unaffected by the host timezone", () => {
-    const original = process.env.TZ;
+    const original = process.env["TZ"];
     try {
-      process.env.TZ = "Pacific/Kiritimati";
+      process.env["TZ"] = "Pacific/Kiritimati";
       expect(monthKeyOf("2027-01-01")).toBe("2027-01");
       expect(inclusiveDayCount("2027-01-01", "2027-01-31")).toBe(31);
-      process.env.TZ = "Pacific/Midway";
+      process.env["TZ"] = "Pacific/Midway";
       expect(monthKeyOf("2027-01-01")).toBe("2027-01");
       expect(inclusiveDayCount("2027-01-01", "2027-01-31")).toBe(31);
     } finally {
-      process.env.TZ = original;
+      process.env["TZ"] = original;
     }
   });
 
