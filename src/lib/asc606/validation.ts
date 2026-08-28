@@ -18,7 +18,9 @@ function check(
   severity: CheckResult["severity"] = "blocking",
   detail?: CheckResult["detail"],
 ): CheckResult {
-  return { id, category, severity, message, passed, detail };
+  return detail === undefined
+    ? { id, category, severity, message, passed }
+    : { id, category, severity, message, passed, detail };
 }
 
 export function validatePhase1(input: Phase1ContractInput): ValidationOutcome {
