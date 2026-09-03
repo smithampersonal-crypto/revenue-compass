@@ -6,7 +6,13 @@
  * entry checks arrive with their own phases.
  */
 
-import { isValidIsoDate } from "./dates";
+import {
+  datePeriodExceedsSupportedHorizon,
+  exceedsSupportedHorizon,
+  isValidIsoDate,
+  monthKeyOf,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+} from "./dates";
 import { isValidCents, MAX_CENTS } from "./money";
 import type { CheckResult, Phase1ContractInput, ValidationOutcome } from "./types";
 
