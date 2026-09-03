@@ -11,7 +11,7 @@ export * from "./validation";
 export * from "./rollforward";
 
 import { buildBillingSchedule, buildMonthlyRollforward } from "./rollforward";
-import type { ContractBalanceAnalysis, ContractBalanceInput } from "./types";
+import { ContractBalanceError, type ContractBalanceAnalysis, type ContractBalanceInput } from "./types";
 import { validateContractBalanceInput } from "./validation";
 
 export function analyzeContractBalances(input: ContractBalanceInput): ContractBalanceAnalysis {
