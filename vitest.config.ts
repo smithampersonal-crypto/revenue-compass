@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { defineConfig } from "vitest/config";
 
 // Standalone config: the ASC 606 engine is pure TypeScript with no React,
