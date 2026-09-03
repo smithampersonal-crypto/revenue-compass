@@ -142,6 +142,37 @@ export function overlapDaysInMonth(month: MonthKey, start: IsoDate, end: IsoDate
 }
 
 /**
+ * Maximum supported accounting horizon, in inclusive calendar months (20 years).
+ * A longer span is treated as unsupported input, never calculated.
+ */
+export const MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS = 240;
+
+/** Absolute month ordinal: year * 12 + (month - 1). */
+export function monthIndexOf(month: MonthKey): number {
+  const { year, month: m } = parseMonthKey(month);
+  return year * 12 + (m - 1);
+}
+
+/**
+ * Inclusive month count between two month keys, computed arithmetically —
+ * no month list is ever constructed.
+ */
+export function inclusiveMonthCount(first: MonthKey, last: MonthKey): number {
+  return monthIndexOf(last) - monthIndexOf(first) + 1;
+}
+
+/** True when the inclusive span exceeds the supported accounting horizon. */
+export function exceedsSupportedHorizon(first: MonthKey, last: MonthKey): boolean {
+  return inclusiveMonthCount(first, last) > MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS;
+}
+
+/** Same check for a [start, end] date period, without enumerating months. */
+export function datePeriodExceedsSupportedHorizon(start: IsoDate, end: IsoDate): boolean {
+  if (!isValidIsoDate(start) || !isValidIsoDate(end)) return false;
+  return exceedsSupportedHorizon(monthKeyOf(start), monthKeyOf(end));
+}
+
+/**
  * Accounting horizon helper (spec A2). Revenue recognition is limited to the PO
  * recognition periods; later phases widen the accounting range to also cover
  * unconditional-right months that fall outside the service term.
