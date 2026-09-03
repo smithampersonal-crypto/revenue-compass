@@ -9,6 +9,7 @@ import {
   createConsiderationEventDraft,
   createPoDraft,
   createPromiseDraft,
+  parseUsdToCents,
   type WorkflowDraft,
 } from "../index";
 import { answerAllStep1, scenarioADraft, scenarioBDraft } from "./fixtures";
@@ -312,5 +313,35 @@ describe("Phase 2 regression", () => {
     expect(b.analysis!.revenueSchedule!.byMonth[0]!.totalCents).toBe(2_717_260);
     expect(b.analysis!.totals.revenueCents).toBe(12_600_000);
     expect(b.analysis!.reconciliation.reconciled).toBe(true);
+  });
+});
+
+describe("Phase 4B workflow bridge — engineInput exposure", () => {
+  it("exposes the exact normalized engine input for a finalized workpaper", () => {
+    const draft = horizonDraft();
+    const result = analyzeContractBalanceWorkflow(draft);
+    const revenue = analyzeWorkflow(draft);
+    expect(result.finalized).toBe(true);
+    expect(result.engineInput).not.toBeNull();
+    const input = result.engineInput!;
+    expect(input.transactionPriceCents).toBe(revenue.analysis!.totals.transactionPriceCents);
+    expect(input.revenueSchedule).toEqual(revenue.analysis!.revenueSchedule);
+    expect(input.considerationEvents.map((e) => [e.id, e.amountCents])).toEqual(
+      draft.contractBalances.considerationEvents.map((e) => [
+        e.id,
+        parseUsdToCents(e.amountInput).ok ? (parseUsdToCents(e.amountInput) as { cents: number }).cents : Number.NaN,
+      ]),
+    );
+    expect(input.cashCollections.map((c) => [c.id, c.considerationEventId])).toEqual(
+      draft.contractBalances.cashCollections.map((c) => [c.id, c.considerationEventId ?? ""]),
+    );
+  });
+
+  it("returns a null engine input for a blocked workpaper", () => {
+    const draft = horizonDraft();
+    draft.contractBalances = { considerationEvents: [], cashCollections: [] };
+    const result = analyzeContractBalanceWorkflow(draft);
+    expect(result.finalized).toBe(false);
+    expect(result.engineInput).toBeNull();
   });
 });
