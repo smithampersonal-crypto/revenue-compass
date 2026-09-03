@@ -140,6 +140,20 @@ export interface ValidationOutcome {
   blockingFailures: CheckResult[];
 }
 
+/**
+ * Engine-produced reconciliation metadata. The only authoritative
+ * reconciliation arithmetic in the system; the UI displays these fields
+ * and never recomputes them.
+ */
+export interface Reconciliation {
+  /** transaction price − allocated transaction price; null when blocked. */
+  allocationDifferenceCents: Cents | null;
+  /** allocated transaction price − scheduled revenue; null when blocked. */
+  revenueDifferenceCents: Cents | null;
+  /** true only when both differences are zero; null when blocked. */
+  reconciled: boolean | null;
+}
+
 /** Phase 1 orchestration result. Contract balances and JEs arrive in Phase 3/4. */
 export interface Phase1Analysis {
   validation: ValidationOutcome;
@@ -152,6 +166,7 @@ export interface Phase1Analysis {
     allocatedCents: Cents | null;
     revenueCents: Cents | null;
   };
+  reconciliation: Reconciliation;
 }
 
 /** Derived Step 2 conclusion. Never entered or overridden by the accountant. */
