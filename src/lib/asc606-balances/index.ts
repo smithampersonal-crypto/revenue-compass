@@ -40,7 +40,22 @@ export function analyzeContractBalances(input: ContractBalanceInput): ContractBa
 
   const billingSchedule = buildBillingSchedule(input);
   const monthly = buildMonthlyRollforward(input);
-  const totalRevenueCents = input.revenueSchedule.totalCents;
+
+  // Defense in depth: the authoritative revenue figure is the ending cumulative
+  // revenue actually produced by the rollforward, which must tie to both the
+  // declared schedule total and the transaction price.
+  const endingCumulativeRevenueCents =
+    monthly.length > 0 ? monthly[monthly.length - 1]!.cumulativeRevenueCents : 0;
+  if (
+    BigInt(endingCumulativeRevenueCents) !== BigInt(input.revenueSchedule.totalCents) ||
+    BigInt(endingCumulativeRevenueCents) !== BigInt(input.transactionPriceCents)
+  ) {
+    throw new ContractBalanceError(
+      "revenue integrity invariant violated: ending cumulative revenue does not tie to total revenue and transaction price",
+    );
+  }
+  const totalRevenueCents = endingCumulativeRevenueCents;
+
 
   return {
     validation,
