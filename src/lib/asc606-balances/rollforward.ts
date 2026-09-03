@@ -12,7 +12,15 @@
  *  - All arithmetic is integer cents; aggregation and invariants use BigInt.
  */
 
-import { accountingHorizon, monthEnd, monthKeyOf, monthRange, type MonthKey } from "@/lib/asc606";
+import {
+  accountingHorizon,
+  exceedsSupportedHorizon,
+  monthEnd,
+  monthKeyOf,
+  monthRange,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+  type MonthKey,
+} from "@/lib/asc606";
 import {
   ContractBalanceError,
   type BillingScheduleRow,
@@ -63,6 +71,12 @@ export function contractBalanceMonths(input: ContractBalanceInput): MonthKey[] {
   const cashMonths = input.cashCollections.map((c) => monthKeyOf(c.collectionDate));
   const horizon = accountingHorizon([revenueMonths, eventMonths, cashMonths]);
   if (!horizon) return [];
+  // Defense in depth: refuse an unsupported horizon before enumerating months.
+  if (exceedsSupportedHorizon(horizon.firstMonth, horizon.lastMonth)) {
+    throw new ContractBalanceError(
+      `accounting horizon exceeds the supported ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS}-month range`,
+    );
+  }
   return monthRange(horizon.firstMonth, horizon.lastMonth);
 }
 

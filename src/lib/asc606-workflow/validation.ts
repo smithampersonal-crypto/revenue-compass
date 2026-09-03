@@ -7,7 +7,12 @@
  * distinct) as a warning, but it never rewrites the accountant's answer.
  */
 
-import { isValidIsoDate, MAX_CENTS } from "@/lib/asc606";
+import {
+  datePeriodExceedsSupportedHorizon,
+  isValidIsoDate,
+  MAX_CENTS,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+} from "@/lib/asc606";
 import { parseUsdToCents } from "./money-input";
 import { derivePromiseDistinct, deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "./types";
 
@@ -228,6 +233,13 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           "po.service_dates.sequence",
           "5",
           `Service end date for "${label}" must be on or after the service start date.`,
+        );
+      } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
+        // Arithmetic check only: no month enumeration for an absurd range.
+        add(
+          "accounting_horizon.supported_range",
+          "5",
+          `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates for "${label}".`,
         );
       }
     }
