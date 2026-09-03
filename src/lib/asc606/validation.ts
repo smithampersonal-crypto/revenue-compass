@@ -7,7 +7,7 @@
  */
 
 import { isValidIsoDate } from "./dates";
-import { isValidCents } from "./money";
+import { isValidCents, MAX_CENTS } from "./money";
 import type { CheckResult, Phase1ContractInput, ValidationOutcome } from "./types";
 
 function check(
@@ -72,15 +72,44 @@ export function validatePhase1(input: Phase1ContractInput): ValidationOutcome {
     ),
   );
 
-  const totalSsp = pos.reduce((total, po) => total + (isValidCents(po.sspCents) ? po.sspCents : 0), 0);
+  const ids = pos.map((po) => po.id);
+  const idsNonEmpty = ids.every((id) => typeof id === "string" && id.trim() !== "");
   results.push(
     check(
-      totalSsp > 0,
+      pos.length > 0 && idsNonEmpty && new Set(ids).size === ids.length,
+      "po.id.unique",
+      "performance_obligations",
+      "Each performance obligation must have a non-empty, unique identifier.",
+      "blocking",
+      { duplicates: ids.filter((id, i) => ids.indexOf(id) !== i).join(", ") },
+    ),
+  );
+
+  // Exact BigInt aggregation: individual SSPs can each be valid while their
+  // total exceeds the engine's supported exact integer range.
+  const totalSspBig = pos.reduce(
+    (total, po) => total + (isValidCents(po.sspCents) ? BigInt(po.sspCents) : 0n),
+    0n,
+  );
+  const totalSspSupported = totalSspBig <= BigInt(MAX_CENTS) && totalSspBig >= -BigInt(MAX_CENTS);
+  results.push(
+    check(
+      totalSspBig > 0n,
       "allocation.total_ssp.positive",
       "allocation",
       "Total standalone selling price must be greater than zero before allocation.",
       "blocking",
-      { totalSspCents: totalSsp },
+      { totalSspCents: totalSspSupported ? Number(totalSspBig) : String(totalSspBig) },
+    ),
+  );
+  results.push(
+    check(
+      totalSspSupported,
+      "allocation.total_ssp.supported_range",
+      "allocation",
+      "Total standalone selling price exceeds the amount this engine can calculate exactly.",
+      "blocking",
+      { totalSspCents: String(totalSspBig), maxSupportedCents: MAX_CENTS },
     ),
   );
 

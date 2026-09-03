@@ -69,36 +69,50 @@ export function recognizeOverTime(
   const totalDays = inclusiveDayCount(start, end);
   const months = enumerateMonths(start, end);
 
+  // Cumulative-to-date rounding: each month's revenue is the difference between
+  // the rounded cumulative entitlement through that month and the rounded
+  // cumulative entitlement through the prior month. This keeps the cumulative
+  // curve monotonic (no negative months) and still ties exactly at the end,
+  // because at the final month cumulative days === total days.
+  let cumulativeDays = 0;
+  let priorCumulativeCents = 0;
   const rows: PoScheduleRow[] = months.map((month) => {
     const days = overlapDaysInMonth(month, start, end);
-    const revenueCents = proportionOfCents(allocatedCents, days, totalDays, `revenue for "${po.name}"`);
-    return {
+    cumulativeDays += days;
+    const cumulativeCents = proportionOfCents(
+      allocatedCents,
+      cumulativeDays,
+      totalDays,
+      `cumulative revenue for "${po.name}"`,
+    );
+    const revenueCents = cumulativeCents - priorCumulativeCents;
+    const row: PoScheduleRow = {
       month,
       revenueCents,
       explanation: {
-        template: "ratable_daily_month",
-        inputs: { allocatedCents, eligibleDays: days, totalServiceDays: totalDays, convention },
+        template: "ratable_daily_cumulative_month",
+        inputs: {
+          allocatedCents,
+          eligibleDays: days,
+          cumulativeEligibleDays: cumulativeDays,
+          totalServiceDays: totalDays,
+          cumulativeRevenueCents: cumulativeCents,
+          priorCumulativeRevenueCents: priorCumulativeCents,
+          convention,
+        },
       },
     };
+    priorCumulativeCents = cumulativeCents;
+    return row;
   });
 
-  // The final recognition month absorbs the unavoidable residual cents so the
-  // PO schedule ties exactly to its allocation.
-  const priorTotal = rows.slice(0, -1).reduce((total, row) => total + row.revenueCents, 0);
-  const last = rows[rows.length - 1]!;
-  const finalAmount = allocatedCents - priorTotal;
-  if (finalAmount !== last.revenueCents) {
-    last.revenueCents = finalAmount;
-    last.explanation = {
-      template: "ratable_daily_final_month",
-      inputs: {
-        allocatedCents,
-        eligibleDays: overlapDaysInMonth(last.month, start, end),
-        totalServiceDays: totalDays,
-        priorMonthsCents: priorTotal,
-        convention,
-      },
-    };
+  if (priorCumulativeCents !== allocatedCents) {
+    throw new RecognitionError(
+      `recognition invariant violated for "${po.name}": scheduled ${priorCumulativeCents} != allocated ${allocatedCents}`,
+    );
+  }
+  if (rows.some((row) => row.revenueCents < 0)) {
+    throw new RecognitionError(`recognition produced negative revenue for "${po.name}"`);
   }
 
   return rows;

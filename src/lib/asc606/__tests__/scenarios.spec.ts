@@ -24,8 +24,8 @@ describe("Test 1 — annual SaaS, daily ratable", () => {
 
   it("recognizes revenue on a pure daily basis", () => {
     expect(monthTotals(analysis)).toEqual([
-      1_019_178, 920_548, 1_019_178, 986_301, 1_019_178, 986_301, 1_019_178, 1_019_178, 986_301,
-      1_019_178, 986_301, 1_019_180,
+      1_019_178, 920_548, 1_019_178, 986_301, 1_019_179, 986_301, 1_019_178, 1_019_178, 986_301,
+      1_019_179, 986_301, 1_019_178,
     ]);
   });
 
@@ -163,8 +163,8 @@ describe("Test 7 — SaaS over time plus distinct point-in-time training", () =>
   it("recognizes $8,735.81 of SaaS revenue in January", () => {
     expect(saas[0]!.revenueCents).toBe(873_581);
     expect(saas.map((row) => row.revenueCents)).toEqual([
-      873_581, 789_041, 873_581, 845_401, 873_581, 845_401, 873_581, 873_581, 845_401, 873_581,
-      845_401, 873_583,
+      873_581, 789_041, 873_581, 845_402, 873_581, 845_401, 873_581, 873_581, 845_401, 873_582,
+      845_401, 873_581,
     ]);
   });
 
