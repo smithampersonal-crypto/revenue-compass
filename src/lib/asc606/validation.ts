@@ -159,6 +159,50 @@ export function validatePhase1(input: Phase1ContractInput): ValidationOutcome {
     ),
   );
 
+  // Supported accounting horizon. Checked arithmetically so an absurd
+  // (usually transient, half-typed) date can never drive month enumeration.
+  const horizonOffenders = overTime.filter(
+    (po) =>
+      isValidIsoDate(po.serviceStart) &&
+      isValidIsoDate(po.serviceEnd) &&
+      po.serviceEnd! >= po.serviceStart! &&
+      datePeriodExceedsSupportedHorizon(po.serviceStart!, po.serviceEnd!),
+  );
+  results.push(
+    check(
+      horizonOffenders.length === 0,
+      "po.recognition_period.supported_range",
+      "revenue",
+      `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates.`,
+      "blocking",
+      { invalid: horizonOffenders.map((po) => po.name).join(", ") },
+    ),
+  );
+
+  const recognitionMonths: string[] = [];
+  for (const po of pos) {
+    if (po.recognitionMethod === "over_time_ratable") {
+      if (isValidIsoDate(po.serviceStart)) recognitionMonths.push(monthKeyOf(po.serviceStart!));
+      if (isValidIsoDate(po.serviceEnd)) recognitionMonths.push(monthKeyOf(po.serviceEnd!));
+    } else if (po.recognitionMethod === "point_in_time" && isValidIsoDate(po.recognitionDate)) {
+      recognitionMonths.push(monthKeyOf(po.recognitionDate!));
+    }
+  }
+  const contractHorizonOk =
+    recognitionMonths.length === 0 ||
+    !exceedsSupportedHorizon(
+      recognitionMonths.reduce((a, b) => (a < b ? a : b)),
+      recognitionMonths.reduce((a, b) => (a > b ? a : b)),
+    );
+  results.push(
+    check(
+      contractHorizonOk,
+      "accounting_horizon.supported_range",
+      "revenue",
+      `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates.`,
+    ),
+  );
+
   const pointInTime = pos.filter((po) => po.recognitionMethod === "point_in_time");
   results.push(
     check(
