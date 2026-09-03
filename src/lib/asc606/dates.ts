@@ -105,7 +105,9 @@ export function monthEnd(month: MonthKey): IsoDate {
 
 export function nextMonth(month: MonthKey): MonthKey {
   const { year, month: m } = parseMonthKey(month);
-  return m === 12 ? `${year + 1}-01` : `${year}-${String(m + 1).padStart(2, "0")}`;
+  const y = m === 12 ? year + 1 : year;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${String(y).padStart(4, "0")}-${String(nm).padStart(2, "0")}`;
 }
 
 /** Inclusive list of month keys spanning two dates. */
