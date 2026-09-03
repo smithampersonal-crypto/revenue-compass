@@ -7,7 +7,12 @@
  * distinct) as a warning, but it never rewrites the accountant's answer.
  */
 
-import { isValidIsoDate, MAX_CENTS } from "@/lib/asc606";
+import {
+  datePeriodExceedsSupportedHorizon,
+  isValidIsoDate,
+  MAX_CENTS,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+} from "@/lib/asc606";
 import { parseUsdToCents } from "./money-input";
 import { derivePromiseDistinct, deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "./types";
 
