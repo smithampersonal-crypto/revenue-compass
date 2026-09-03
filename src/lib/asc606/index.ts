@@ -37,6 +37,11 @@ export function analyzePhase1(input: Phase1ContractInput): Phase1Analysis {
         allocatedCents: null,
         revenueCents: null,
       },
+      reconciliation: {
+        allocationDifferenceCents: null,
+        revenueDifferenceCents: null,
+        reconciled: null,
+      },
     };
   }
 
@@ -75,6 +80,13 @@ export function analyzePhase1(input: Phase1ContractInput): Phase1Analysis {
       transactionPriceCents: input.transactionPriceCents,
       allocatedCents,
       revenueCents: revenueSchedule.totalCents,
+    },
+    reconciliation: {
+      allocationDifferenceCents: input.transactionPriceCents - allocatedCents,
+      revenueDifferenceCents: allocatedCents - revenueSchedule.totalCents,
+      reconciled:
+        input.transactionPriceCents === allocatedCents &&
+        allocatedCents === revenueSchedule.totalCents,
     },
   };
 }
