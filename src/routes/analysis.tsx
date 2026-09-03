@@ -89,6 +89,9 @@ function AnalysisPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
+        <Link to="/" className="text-sm text-muted-foreground hover:underline">
+          ← Revenue Compass Home
+        </Link>
         <h1 className="text-2xl font-bold text-foreground">{TITLE}</h1>
         <p className="text-sm text-muted-foreground">
           All accounting judgments are yours. Allocation, revenue recognition and reconciliation
