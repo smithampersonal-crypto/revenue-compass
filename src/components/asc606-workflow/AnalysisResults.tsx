@@ -316,6 +316,17 @@ export function AnalysisResults({
           />
         </Section>
       )}
+
+      {journalAnalysis ? (
+        <JournalEntryOutputs analysis={journalAnalysis} poNames={poName} />
+      ) : (
+        <Section title="Journal Entries">
+          <Notice tone="warning">
+            Journal entries are not available until the Billing &amp; Contract Balances workpaper is
+            finalized.
+          </Notice>
+        </Section>
+      )}
     </div>
   );
 }
