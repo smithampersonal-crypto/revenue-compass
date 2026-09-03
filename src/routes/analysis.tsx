@@ -101,6 +101,17 @@ function AnalysisPage() {
           This workspace holds one in-memory analysis. Nothing is saved: refreshing the page clears
           all entered data.
         </Notice>
+        {loadedSample ? (
+          <Notice>
+            Sample data loaded: {loadedSample.customer}. Edit any field to experiment with the
+            accounting results. Changes are temporary and reset when the page is refreshed.
+          </Notice>
+        ) : null}
+        {unknownSample ? (
+          <Notice>
+            That sample was not recognized, so a blank analysis was opened.
+          </Notice>
+        ) : null}
       </header>
 
       <WorkflowStepper current={step} onSelect={goTo} />
