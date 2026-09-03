@@ -5,11 +5,12 @@ import {
   nextId,
   nextSeq,
   PO_CLASSIFICATION_LABELS,
+  validateWorkflow,
   type PoDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, Notice, Section } from "./fields";
+import { Field, inputClass, IssueList, Notice, Section } from "./fields";
 
 const CLASSIFICATIONS: PoClassification[] = ["single_distinct", "bundle_not_distinct", "series"];
 
@@ -34,6 +35,10 @@ export function Step2PerformanceObligations({
       ),
     });
 
+  // Warnings are produced by the pure workflow validation layer; React only
+  // displays them at the point where the judgment is made.
+  const warnings = validateWorkflow(draft).warningsByStep["2b"];
+
   return (
     <Section
       title="Step 2B — Form Performance Obligations"
@@ -41,6 +46,12 @@ export function Step2PerformanceObligations({
     >
       <div className="space-y-5">
         {pos.length === 0 ? <Notice>No performance obligations have been created yet.</Notice> : null}
+
+        <IssueList
+          tone="warning"
+          title="Classification warnings (non-blocking)"
+          issues={warnings}
+        />
 
         {pos.map((po) => (
           <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
