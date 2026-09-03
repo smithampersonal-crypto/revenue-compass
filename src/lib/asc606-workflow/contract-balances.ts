@@ -16,6 +16,7 @@ import {
   type CashCollectionEvent,
   type ConsiderationEvent,
   type ContractBalanceAnalysis,
+  type ContractBalanceInput,
 } from "@/lib/asc606-balances";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
@@ -40,6 +41,8 @@ export interface ContractBalanceWorkflowResult {
   /** Engine-owned validation, exposed whenever the balance engine ran. */
   engineValidation: BalanceValidationOutcome | null;
   analysis: ContractBalanceAnalysis | null;
+  /** Exact normalized input used for the Phase 3 engine; null unless finalized. */
+  engineInput: ContractBalanceInput | null;
 }
 
 function outcome(issues: ContractBalanceIssue[]): ContractBalanceValidationOutcome {
@@ -111,6 +114,7 @@ export function analyzeContractBalanceWorkflow(
     blockedReason: reason,
     engineValidation,
     analysis: null,
+    engineInput: null,
   });
 
   const revenue = analyzeWorkflow(draft);
@@ -148,12 +152,13 @@ export function analyzeContractBalanceWorkflow(
     },
   );
 
-  const analysis = analyzeBalances({
+  const engineInput: ContractBalanceInput = {
     transactionPriceCents: revenue.analysis.totals.transactionPriceCents,
     revenueSchedule: revenue.analysis.revenueSchedule,
     considerationEvents,
     cashCollections,
-  });
+  };
+  const analysis = analyzeBalances(engineInput);
 
   const engineIssues: ContractBalanceIssue[] = analysis.validation.results
     .filter((r) => !r.passed)
@@ -179,5 +184,6 @@ export function analyzeContractBalanceWorkflow(
     blockedReason: null,
     engineValidation: analysis.validation,
     analysis,
+    engineInput,
   };
 }
