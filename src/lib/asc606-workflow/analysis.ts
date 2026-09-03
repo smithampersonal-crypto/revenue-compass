@@ -12,6 +12,7 @@ import {
   type AllocationRow,
   type Cents,
   type Phase1Analysis,
+  type ValidationOutcome,
 } from "@/lib/asc606";
 import { buildPhase1Input } from "./adapter";
 import { parseUsdToCents } from "./money-input";
@@ -24,20 +25,39 @@ export interface WorkflowAnalysisResult {
   finalized: boolean;
   blockedReason: string | null;
   adapterErrors: string[];
+  /**
+   * Phase 1 engine validation, exposed for diagnosis whenever the engine ran.
+   * Never rewritten or suppressed by this layer.
+   */
+  engineValidation: ValidationOutcome | null;
   /** Engine output; null whenever the workflow is blocked. */
   analysis: Phase1Analysis | null;
 }
 
-export function analyzeWorkflow(draft: WorkflowDraft): WorkflowAnalysisResult {
+export interface AnalyzeWorkflowDeps {
+  /** Injection point used by defense-in-depth tests only. */
+  analyze?: typeof analyzePhase1;
+}
+
+export function analyzeWorkflow(
+  draft: WorkflowDraft,
+  deps: AnalyzeWorkflowDeps = {},
+): WorkflowAnalysisResult {
+  const analyze = deps.analyze ?? analyzePhase1;
   const workflowValidation = validateWorkflow(draft);
   const step1Conclusion = deriveStep1Conclusion(draft.contract);
 
-  const blocked = (reason: string, adapterErrors: string[] = []): WorkflowAnalysisResult => ({
+  const blocked = (
+    reason: string,
+    adapterErrors: string[] = [],
+    engineValidation: ValidationOutcome | null = null,
+  ): WorkflowAnalysisResult => ({
     workflowValidation,
     step1Conclusion,
     finalized: false,
     blockedReason: reason,
     adapterErrors,
+    engineValidation,
     analysis: null,
   });
 
@@ -58,13 +78,29 @@ export function analyzeWorkflow(draft: WorkflowDraft): WorkflowAnalysisResult {
     return blocked("The workflow could not be converted into a complete engine input.", built.errors);
   }
 
+  // Defense in depth: the Phase 1 engine remains authoritative. A blocking
+  // engine validation item can never produce a finalized workflow result.
+  const analysis = analyze(built.input);
+  if (
+    analysis.validation.blockingFailures.length > 0 ||
+    analysis.allocation === null ||
+    analysis.revenueSchedule === null
+  ) {
+    return blocked(
+      "The deterministic ASC 606 engine reported a blocking validation issue, so no finalized analysis is presented.",
+      [],
+      analysis.validation,
+    );
+  }
+
   return {
     workflowValidation,
     step1Conclusion,
     finalized: true,
     blockedReason: null,
     adapterErrors: [],
-    analysis: analyzePhase1(built.input),
+    engineValidation: analysis.validation,
+    analysis,
   };
 }
 
@@ -88,6 +124,20 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
     issues,
   });
 
+  const step1Conclusion = deriveStep1Conclusion(draft.contract);
+  if (step1Conclusion === "not_qualified") {
+    issues.push(
+      "Allocation is not calculated because the contract has not qualified for ASC 606 accounting under Step 1.",
+    );
+    return empty();
+  }
+  if (step1Conclusion === "incomplete") {
+    issues.push(
+      "Allocation is not calculated because the Step 1 contract criteria have not all been answered.",
+    );
+    return empty();
+  }
+
   const price = parseUsdToCents(draft.transactionPriceInput);
   if (!price.ok) issues.push(`Transaction price: ${price.error}`);
   if (draft.performanceObligations.length === 0) {
@@ -109,6 +159,11 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
       recognitionMethod: "point_in_time" as const,
     };
   });
+
+  const sspRangeIssue = validateWorkflow(draft).blocking.find(
+    (i) => i.id === "allocation.total_ssp.supported_range",
+  );
+  if (sspRangeIssue) issues.push(sspRangeIssue.message);
 
   if (issues.length > 0 || !price.ok) return empty();
 
