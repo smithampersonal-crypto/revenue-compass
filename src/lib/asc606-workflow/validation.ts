@@ -229,6 +229,13 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           "5",
           `Service end date for "${label}" must be on or after the service start date.`,
         );
+      } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
+        // Arithmetic check only: no month enumeration for an absurd range.
+        add(
+          "accounting_horizon.supported_range",
+          "5",
+          `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates for "${label}".`,
+        );
       }
     }
     if (po.recognitionMethod === "point_in_time" && !isValidIsoDate(po.recognitionDate)) {
