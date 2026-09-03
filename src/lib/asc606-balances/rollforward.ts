@@ -12,7 +12,15 @@
  *  - All arithmetic is integer cents; aggregation and invariants use BigInt.
  */
 
-import { accountingHorizon, monthEnd, monthKeyOf, monthRange, type MonthKey } from "@/lib/asc606";
+import {
+  accountingHorizon,
+  exceedsSupportedHorizon,
+  monthEnd,
+  monthKeyOf,
+  monthRange,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+  type MonthKey,
+} from "@/lib/asc606";
 import {
   ContractBalanceError,
   type BillingScheduleRow,
