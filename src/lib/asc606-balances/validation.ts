@@ -6,7 +6,13 @@
  * BigInt arithmetic.
  */
 
-import { isValidIsoDate, MAX_CENTS } from "@/lib/asc606";
+import {
+  exceedsSupportedHorizon,
+  isValidIsoDate,
+  monthKeyOf,
+  MAX_CENTS,
+  MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
+} from "@/lib/asc606";
 import type {
   BalanceCheckResult,
   BalanceValidationOutcome,
@@ -31,6 +37,11 @@ export function validateContractBalanceInput(
   // The balance engine never trusts the upstream revenue schedule: an
   // internally inconsistent schedule must block every authoritative output.
   validateRevenueSchedule(input, fail);
+
+  // ---- Accounting horizon -------------------------------------------------
+  // Determined arithmetically from the earliest/latest relevant month; no
+  // month list is built, so an absurd date can never drive enumeration.
+  validateAccountingHorizon(input, fail);
 
   // ---- Consideration events ----------------------------------------------
   const ids = events.map((e) => (e.id ?? "").trim());
@@ -302,6 +313,34 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
       "revenue_schedule.total.equals_transaction_price",
       "revenue_schedule",
       "Total revenue in the revenue schedule must equal the contract transaction price exactly.",
+    );
+  }
+}
+
+/**
+ * Earliest and latest relevant accounting month across the revenue schedule,
+ * unconditional-right dates, invoice dates and cash-collection dates.
+ */
+function validateAccountingHorizon(input: ContractBalanceInput, fail: FailFn): void {
+  const months: string[] = [];
+  for (const row of input.revenueSchedule?.byMonth ?? []) {
+    if (isValidMonthKey(row.month)) months.push(row.month);
+  }
+  for (const event of input.considerationEvents ?? []) {
+    if (isValidIsoDate(event.unconditionalRightDate)) months.push(monthKeyOf(event.unconditionalRightDate));
+    if (isValidIsoDate(event.invoiceDate)) months.push(monthKeyOf(event.invoiceDate));
+  }
+  for (const collection of input.cashCollections ?? []) {
+    if (isValidIsoDate(collection.collectionDate)) months.push(monthKeyOf(collection.collectionDate));
+  }
+  if (months.length === 0) return;
+  const first = months.reduce((a, b) => (a < b ? a : b));
+  const last = months.reduce((a, b) => (a > b ? a : b));
+  if (exceedsSupportedHorizon(first, last)) {
+    fail(
+      "accounting_horizon.supported_range",
+      "accounting_horizon",
+      `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates.`,
     );
   }
 }
