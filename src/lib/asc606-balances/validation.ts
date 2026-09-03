@@ -180,3 +180,128 @@ export function validateContractBalanceInput(
     blockingFailures,
   };
 }
+
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+
+function isValidMonthKey(value: unknown): value is string {
+  if (typeof value !== "string" || !MONTH_KEY_PATTERN.test(value)) return false;
+  const month = Number(value.slice(5, 7));
+  return month >= 1 && month <= 12;
+}
+
+type FailFn = (
+  id: string,
+  category: BalanceCheckResult["category"],
+  message: string,
+  severity?: BalanceCheckResult["severity"],
+) => void;
+
+/**
+ * Independent structural validation of the revenue schedule consumed by the
+ * balance engine. Monthly rows and the declared total must be internally
+ * consistent, and for a complete fixed-consideration contract the total must
+ * equal the transaction price. All arithmetic is exact BigInt.
+ */
+function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): void {
+  const schedule = input.revenueSchedule;
+  if (!schedule || !Array.isArray(schedule.byMonth)) {
+    fail("revenue_schedule.present", "revenue_schedule", "A completed revenue schedule is required.");
+    return;
+  }
+
+  const rows = schedule.byMonth;
+
+  if (rows.some((row) => !isValidMonthKey(row.month))) {
+    fail(
+      "revenue_schedule.month.valid",
+      "revenue_schedule",
+      "Every revenue schedule row must have a valid reporting month.",
+    );
+  }
+  const months = rows.map((row) => row.month);
+  if (new Set(months).size !== months.length) {
+    fail(
+      "revenue_schedule.month.unique",
+      "revenue_schedule",
+      "The revenue schedule contains duplicate reporting months.",
+    );
+  }
+
+  const amountValid = (value: unknown): value is number =>
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= MAX_CENTS;
+
+  const amountsValid = rows.every((row) => amountValid(row.totalCents));
+  if (!amountsValid) {
+    fail(
+      "revenue_schedule.amount.valid",
+      "revenue_schedule",
+      "Every monthly revenue amount must be a nonnegative whole-cent amount within the supported monetary range.",
+    );
+  }
+
+  const totalValid =
+    typeof schedule.totalCents === "number" &&
+    Number.isInteger(schedule.totalCents) &&
+    schedule.totalCents >= 0 &&
+    schedule.totalCents <= MAX_CENTS;
+  if (!totalValid) {
+    fail(
+      "revenue_schedule.total.valid",
+      "revenue_schedule",
+      "Total revenue must be a nonnegative whole-cent amount within the supported monetary range.",
+    );
+  }
+
+  if (!amountsValid || !totalValid) return;
+
+  let sum = 0n;
+  for (const row of rows) sum += BigInt(row.totalCents);
+  if (sum > BigInt(MAX_CENTS)) {
+    fail(
+      "revenue_schedule.total.supported_range",
+      "revenue_schedule",
+      "The aggregate monthly revenue exceeds the supported monetary range.",
+    );
+    return;
+  }
+  if (sum !== BigInt(schedule.totalCents)) {
+    fail(
+      "revenue_schedule.monthly_total.reconciles",
+      "revenue_schedule",
+      "Monthly revenue does not sum to the total revenue reported by the revenue schedule.",
+    );
+  }
+
+  // Cumulative metadata, when present, must tie month by month and end at the total.
+  let running = 0n;
+  let cumulativeBroken = false;
+  for (const row of rows) {
+    running += BigInt(row.totalCents);
+    const cumulative = (row as { cumulativeCents?: unknown }).cumulativeCents;
+    if (cumulative === undefined) continue;
+    if (typeof cumulative !== "number" || !Number.isInteger(cumulative) || BigInt(cumulative) !== running) {
+      cumulativeBroken = true;
+    }
+  }
+  if (cumulativeBroken) {
+    fail(
+      "revenue_schedule.cumulative.reconciles",
+      "revenue_schedule",
+      "Cumulative revenue in the revenue schedule does not tie to the monthly revenue amounts.",
+    );
+  }
+
+  const priceValid =
+    typeof input.transactionPriceCents === "number" &&
+    Number.isInteger(input.transactionPriceCents);
+  if (priceValid && BigInt(schedule.totalCents) !== BigInt(input.transactionPriceCents)) {
+    fail(
+      "revenue_schedule.total.equals_transaction_price",
+      "revenue_schedule",
+      "Total revenue in the revenue schedule must equal the contract transaction price exactly.",
+    );
+  }
+}
