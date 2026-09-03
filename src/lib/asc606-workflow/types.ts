@@ -100,6 +100,29 @@ export interface PoDraft {
   recognitionRationale: string;
 }
 
+/** Phase 3 draft: contract-level billing events and cash receipts. */
+export interface ConsiderationEventDraft {
+  id: string;
+  seq: number;
+  /** Raw accountant-entered USD string; converted by money-input.ts. */
+  amountInput: string;
+  unconditionalRightDate: IsoDate | "";
+  invoiceDate: IsoDate | "";
+}
+
+export interface CashCollectionDraft {
+  id: string;
+  seq: number;
+  considerationEventId: string | null;
+  amountInput: string;
+  collectionDate: IsoDate | "";
+}
+
+export interface ContractBalanceDraft {
+  considerationEvents: ConsiderationEventDraft[];
+  cashCollections: CashCollectionDraft[];
+}
+
 export interface WorkflowDraft {
   contract: ContractDraft;
   promises: PromiseDraft[];
@@ -107,7 +130,10 @@ export interface WorkflowDraft {
   /** Raw accountant-entered USD string for fixed consideration. */
   transactionPriceInput: string;
   transactionPriceNotes: string;
+  /** Phase 3 billing, receivables and contract-balance inputs. */
+  contractBalances: ContractBalanceDraft;
 }
+
 
 export const PO_CLASSIFICATION_LABELS: Record<PoClassification, string> = {
   single_distinct: "Single distinct promise",
@@ -158,6 +184,18 @@ export function createPoDraft(seq: number, id: string): PoDraft {
   };
 }
 
+export function createConsiderationEventDraft(seq: number, id: string): ConsiderationEventDraft {
+  return { id, seq, amountInput: "", unconditionalRightDate: "", invoiceDate: "" };
+}
+
+export function createCashCollectionDraft(seq: number, id: string): CashCollectionDraft {
+  return { id, seq, considerationEventId: null, amountInput: "", collectionDate: "" };
+}
+
+export function createEmptyContractBalances(): ContractBalanceDraft {
+  return { considerationEvents: [], cashCollections: [] };
+}
+
 export function createEmptyDraft(): WorkflowDraft {
   return {
     contract: createEmptyContract(),
@@ -165,8 +203,10 @@ export function createEmptyDraft(): WorkflowDraft {
     performanceObligations: [],
     transactionPriceInput: "",
     transactionPriceNotes: "",
+    contractBalances: createEmptyContractBalances(),
   };
 }
+
 
 export type Step1Conclusion = "qualified" | "not_qualified" | "incomplete";
 

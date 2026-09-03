@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
+import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
 import { IssueList, Notice } from "@/components/asc606-workflow/fields";
+
 import { Step1Contract } from "@/components/asc606-workflow/Step1Contract";
 import { Step2PerformanceObligations } from "@/components/asc606-workflow/Step2PerformanceObligations";
 import { Step2Promises } from "@/components/asc606-workflow/Step2Promises";
@@ -44,9 +46,10 @@ function AnalysisPage() {
 
   const currentIndex = STEPS.findIndex((s) => s.key === step);
   const stepIssues =
-    step === "results"
+    step === "results" || step === "balances"
       ? []
       : (result.workflowValidation.blockingByStep[step as WorkflowStepId] ?? []);
+
 
   const goTo = (next: StepKey) => {
     setShowStepIssues(false);
@@ -91,7 +94,9 @@ function AnalysisPage() {
       {step === "3" ? <Step3TransactionPrice draft={draft} onChange={setDraft} /> : null}
       {step === "4" ? <Step4Allocation draft={draft} onChange={setDraft} /> : null}
       {step === "5" ? <Step5Recognition draft={draft} onChange={setDraft} /> : null}
+      {step === "balances" ? <BillingAndBalances draft={draft} onChange={setDraft} /> : null}
       {step === "results" ? <AnalysisResults draft={draft} result={result} /> : null}
+
 
       {showStepIssues ? (
         <IssueList title="Resolve these items before continuing" issues={stepIssues} />

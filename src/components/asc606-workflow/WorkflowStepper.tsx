@@ -1,4 +1,4 @@
-export type StepKey = "1" | "2a" | "2b" | "3" | "4" | "5" | "results";
+export type StepKey = "1" | "2a" | "2b" | "3" | "4" | "5" | "balances" | "results";
 
 export const STEPS: { key: StepKey; label: string; group: string }[] = [
   { key: "1", label: "1 Contract", group: "1" },
@@ -7,8 +7,10 @@ export const STEPS: { key: StepKey; label: string; group: string }[] = [
   { key: "3", label: "3 Transaction Price", group: "3" },
   { key: "4", label: "4 Allocation", group: "4" },
   { key: "5", label: "5 Recognition", group: "5" },
+  { key: "balances", label: "Billing & Contract Balances", group: "balances" },
   { key: "results", label: "Results", group: "results" },
 ];
+
 
 export function WorkflowStepper({
   current,
