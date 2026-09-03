@@ -70,6 +70,7 @@ describe("Finding 3 — engine blocking validation can never finalize", () => {
   it("Test 5 — finalized is false and the engine validation is exposed", () => {
     const stub = (): Phase1Analysis => ({
       validation: {
+        status: "attention",
         results: [],
         blockingFailures: [
           {
@@ -80,7 +81,6 @@ describe("Finding 3 — engine blocking validation can never finalize", () => {
             passed: false,
           },
         ],
-        passed: false,
       },
       allocation: null,
       revenueSchedule: null,
