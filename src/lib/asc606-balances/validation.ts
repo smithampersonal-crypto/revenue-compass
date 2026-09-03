@@ -27,6 +27,11 @@ export function validateContractBalanceInput(
   const events = input.considerationEvents;
   const cash = input.cashCollections;
 
+  // ---- Revenue schedule integrity ----------------------------------------
+  // The balance engine never trusts the upstream revenue schedule: an
+  // internally inconsistent schedule must block every authoritative output.
+  validateRevenueSchedule(input, fail);
+
   // ---- Consideration events ----------------------------------------------
   const ids = events.map((e) => (e.id ?? "").trim());
   if (ids.some((id) => id === "")) {
