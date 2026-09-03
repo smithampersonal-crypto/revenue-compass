@@ -7,7 +7,7 @@
  * distinct) as a warning, but it never rewrites the accountant's answer.
  */
 
-import { isValidIsoDate } from "@/lib/asc606";
+import { isValidIsoDate, MAX_CENTS } from "@/lib/asc606";
 import { parseUsdToCents } from "./money-input";
 import { derivePromiseDistinct, deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "./types";
 
@@ -26,6 +26,8 @@ export interface WorkflowValidationOutcome {
   warnings: WorkflowIssue[];
   /** Blocking issues for a given step, in step order. */
   blockingByStep: Record<WorkflowStepId, WorkflowIssue[]>;
+  /** Warnings for a given step, so each judgment surfaces where it is made. */
+  warningsByStep: Record<WorkflowStepId, WorkflowIssue[]>;
 }
 
 const isBlank = (value: string | null | undefined) => !value || value.trim() === "";
@@ -84,6 +86,22 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   }
   if (promises.some((p) => isBlank(p.distinctRationale))) {
     add("promise.rationale.present", "2a", "Document a distinctness rationale for every promise.");
+  }
+  const promiseIds = promises.map((p) => (p.id ?? "").trim());
+  if (promiseIds.some((id) => id === "")) {
+    add("promise.id.empty", "2a", "Every promise needs a non-empty identifier.");
+  }
+  const nonEmptyPromiseIds = promiseIds.filter((id) => id !== "");
+  if (new Set(nonEmptyPromiseIds).size !== nonEmptyPromiseIds.length) {
+    add("promise.id.unique", "2a", "Promise identifiers must be unique within the contract.");
+  }
+  const promiseSeqs = promises.map((p) => p.seq);
+  if (promiseSeqs.some((s) => !Number.isInteger(s) || s <= 0)) {
+    add("promise.seq.valid", "2a", "Every promise sequence must be a positive whole number.");
+  }
+  const validSeqs = promiseSeqs.filter((s) => Number.isInteger(s) && s > 0);
+  if (new Set(validSeqs).size !== validSeqs.length) {
+    add("promise.seq.unique", "2a", "Promise sequences must be unique within the contract.");
   }
 
   // ---- Step 2B ------------------------------------------------------------
@@ -176,6 +194,24 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("po.ssp_basis.present", "4", `Document how the SSP for "${po.name || po.id}" was determined.`);
     }
   }
+  // Exact BigInt aggregation against the same supported range the engine enforces.
+  let totalSspBig = 0n;
+  let everySspParsed = pos.length > 0;
+  for (const po of pos) {
+    const ssp = parseUsdToCents(po.sspInput);
+    if (!ssp.ok) {
+      everySspParsed = false;
+      continue;
+    }
+    totalSspBig += BigInt(ssp.cents);
+  }
+  if (everySspParsed && totalSspBig > BigInt(MAX_CENTS)) {
+    add(
+      "allocation.total_ssp.supported_range",
+      "4",
+      "The aggregate standalone selling price exceeds the supported monetary range.",
+    );
+  }
 
   // ---- Step 5 -------------------------------------------------------------
   for (const po of pos) {
@@ -213,9 +249,18 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     "4": [],
     "5": [],
   };
+  const warningsByStep: Record<WorkflowStepId, WorkflowIssue[]> = {
+    "1": [],
+    "2a": [],
+    "2b": [],
+    "3": [],
+    "4": [],
+    "5": [],
+  };
   for (const issue of blocking) blockingByStep[issue.step].push(issue);
+  for (const issue of warnings) warningsByStep[issue.step].push(issue);
 
-  return { issues, blocking, warnings, blockingByStep };
+  return { issues, blocking, warnings, blockingByStep, warningsByStep };
 }
 
 /** Step 1 conclusion is derived, not validated; re-exported for convenience. */
