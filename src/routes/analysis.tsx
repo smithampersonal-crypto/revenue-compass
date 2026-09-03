@@ -1,5 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+
+import {
+  createDemoDraftIfKnown,
+  getDemoScenario,
+  isDemoScenarioId,
+} from "@/lib/demo-scenarios";
 
 import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
 import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
