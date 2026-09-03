@@ -1,11 +1,13 @@
 import { formatCents } from "@/lib/asc606";
 import {
+  analyzeContractBalanceWorkflow,
   derivePromiseDistinct,
   PO_CLASSIFICATION_LABELS,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
+import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
 import { IssueList, judgmentLabel, Notice, Section, td, th } from "./fields";
 
 export function AnalysisResults({
@@ -16,6 +18,7 @@ export function AnalysisResults({
   result: WorkflowAnalysisResult;
 }) {
   const { analysis, step1Conclusion, workflowValidation } = result;
+  const balances = analyzeContractBalanceWorkflow(draft);
   const poName = new Map(draft.performanceObligations.map((po) => [po.id, po.name || po.id]));
 
   return (
@@ -281,6 +284,38 @@ export function AnalysisResults({
           <Notice tone="danger">No reconciliation is presented as valid.</Notice>
         )}
       </Section>
+
+      {balances.finalized && balances.analysis ? (
+        <>
+          <Section
+            title="Billing, receivables and contract balances"
+            description="A separate post-ASC-606 workpaper. It does not affect the five-step revenue analysis above."
+          >
+            <Notice>
+              Contract asset and contract liability are determined from cumulative revenue versus
+              cumulative unconditional rights to consideration; invoicing and cash affect only the
+              receivable presentation.
+            </Notice>
+          </Section>
+          <ContractBalanceOutputs analysis={balances.analysis} />
+        </>
+      ) : (
+        <Section title="Billing, receivables and contract balances">
+          <Notice tone="warning">
+            The billing and contract-balance workpaper is incomplete, so no billing schedule or
+            contract-balance rollforward is presented. The ASC 606 five-step revenue analysis above
+            is unaffected.
+          </Notice>
+          {balances.blockedReason ? (
+            <p className="text-sm text-muted-foreground">{balances.blockedReason}</p>
+          ) : null}
+          <IssueList
+            title="Outstanding billing and contract-balance items"
+            tone="warning"
+            issues={balances.validation.blocking}
+          />
+        </Section>
+      )}
     </div>
   );
 }
