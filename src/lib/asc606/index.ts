@@ -55,6 +55,18 @@ export function analyzePhase1(input: Phase1ContractInput): Phase1Analysis {
 
   const allocatedCents = allocation.reduce((total, row) => total + row.allocatedCents, 0);
 
+  // Defense in depth: a valid analysis may never be returned unreconciled.
+  if (allocatedCents !== input.transactionPriceCents) {
+    throw new AllocationError(
+      `allocation invariant violated: allocated ${allocatedCents} != transaction price ${input.transactionPriceCents}`,
+    );
+  }
+  if (revenueSchedule.totalCents !== allocatedCents) {
+    throw new RecognitionError(
+      `recognition invariant violated: revenue ${revenueSchedule.totalCents} != allocated ${allocatedCents}`,
+    );
+  }
+
   return {
     validation,
     allocation,
