@@ -7,7 +7,10 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
+import { analyzeJournalEntries } from "@/lib/asc606-journals";
+
 import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
+import { JournalEntryOutputs } from "./JournalEntryOutputs";
 import { IssueList, judgmentLabel, Notice, Section, td, th } from "./fields";
 
 export function AnalysisResults({
@@ -20,6 +23,10 @@ export function AnalysisResults({
   const { analysis, step1Conclusion, workflowValidation } = result;
   const balances = analyzeContractBalanceWorkflow(draft);
   const poName = new Map(draft.performanceObligations.map((po) => [po.id, po.name || po.id]));
+  const journalAnalysis =
+    balances.finalized && balances.engineInput
+      ? analyzeJournalEntries(balances.engineInput)
+      : null;
 
   return (
     <div className="space-y-6">
