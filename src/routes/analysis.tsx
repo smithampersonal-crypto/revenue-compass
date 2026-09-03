@@ -30,6 +30,8 @@ const DESCRIPTION =
   "Work through the ASC 606 five-step revenue recognition model for a SaaS contract and review deterministic allocation and revenue schedules.";
 
 export const Route = createFileRoute("/analysis")({
+  validateSearch: (search: Record<string, unknown>): { sample?: string } =>
+    typeof search["sample"] === "string" ? { sample: search["sample"] } : {},
   head: () => ({
     meta: [
       { title: "ASC 606 Five-Step Analysis Workspace" },
