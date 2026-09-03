@@ -7,7 +7,7 @@
  */
 
 import { isValidIsoDate } from "./dates";
-import { isValidCents } from "./money";
+import { isValidCents, MAX_CENTS } from "./money";
 import type { CheckResult, Phase1ContractInput, ValidationOutcome } from "./types";
 
 function check(
