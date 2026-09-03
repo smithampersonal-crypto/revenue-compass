@@ -46,7 +46,13 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisPage() {
-  const [draft, setDraft] = useState<WorkflowDraft>(() => createEmptyDraft());
+  const { sample } = Route.useSearch();
+  // Initial state only: later user edits are never overwritten by a rerender.
+  const [draft, setDraft] = useState<WorkflowDraft>(
+    () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
+  );
+  const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
+  const unknownSample = sample !== undefined && loadedSample === null;
   const [step, setStep] = useState<StepKey>("1");
   const [showStepIssues, setShowStepIssues] = useState(false);
 
