@@ -44,7 +44,7 @@ export type BalanceCheckSeverity = "blocking" | "warning";
 
 export interface BalanceCheckResult {
   id: string;
-  category: "consideration" | "cash" | "reconciliation";
+  category: "consideration" | "cash" | "reconciliation" | "revenue_schedule";
   severity: BalanceCheckSeverity;
   message: string;
   passed: boolean;
