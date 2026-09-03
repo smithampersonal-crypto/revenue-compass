@@ -252,6 +252,47 @@ describe("Phase 3 Acceptance Scenario B — Stellar", () => {
     expect(apr.cashCollectedCents).toBe(6_000_000);
   });
 
+  it("keeps the same three distinct flows at every quarter transition", () => {
+    const flows = (month: string) => {
+      const r = rowFor(rows(), month) as never as {
+        revenueCents: number;
+        unconditionalRightsCents: number;
+        invoicesIssuedCents: number;
+        cashCollectedCents: number;
+        billedArCents: number;
+        unbilledArCents: number;
+      };
+      return r;
+    };
+
+    for (const rightsMonth of ["2027-06", "2027-09"]) {
+      const r = flows(rightsMonth);
+      expect(r.unconditionalRightsCents).toBe(6_000_000);
+      expect(r.invoicesIssuedCents).toBe(0);
+      expect(r.cashCollectedCents).toBe(0);
+    }
+    for (const billingMonth of ["2027-07", "2027-10"]) {
+      const b = flows(billingMonth);
+      expect(b.unconditionalRightsCents).toBe(0);
+      expect(b.invoicesIssuedCents).toBe(6_000_000);
+      expect(b.cashCollectedCents).toBe(6_000_000);
+    }
+
+    const dec = flows("2027-12");
+    expect(dec.unconditionalRightsCents).toBe(6_000_000);
+    expect(dec.invoicesIssuedCents).toBe(0);
+    expect(dec.cashCollectedCents).toBe(0);
+    expect(dec.unbilledArCents).toBe(6_000_000);
+
+    const jan = flows("2028-01");
+    expect(jan.revenueCents).toBe(0);
+    expect(jan.unconditionalRightsCents).toBe(0);
+    expect(jan.invoicesIssuedCents).toBe(6_000_000);
+    expect(jan.cashCollectedCents).toBe(6_000_000);
+    expect(jan.billedArCents).toBe(0);
+    expect(jan.unbilledArCents).toBe(0);
+  });
+
   it("returns an event-level billing schedule with no outstanding balance", () => {
     const schedule = result.analysis!.billingSchedule!;
     expect(schedule).toHaveLength(4);
