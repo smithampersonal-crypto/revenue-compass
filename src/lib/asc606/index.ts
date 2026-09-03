@@ -14,8 +14,8 @@ export * from "./allocation";
 export * from "./recognition";
 export * from "./validation";
 
-import { allocateTransactionPrice } from "./allocation";
-import { generateRevenueSchedule } from "./recognition";
+import { allocateTransactionPrice, AllocationError } from "./allocation";
+import { generateRevenueSchedule, RecognitionError } from "./recognition";
 import type { Phase1Analysis, Phase1ContractInput } from "./types";
 import { validatePhase1 } from "./validation";
 
