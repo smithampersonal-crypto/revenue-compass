@@ -1,5 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+
+import {
+  createDemoDraftIfKnown,
+  getDemoScenario,
+  isDemoScenarioId,
+} from "@/lib/demo-scenarios";
 
 import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
 import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
@@ -24,6 +30,8 @@ const DESCRIPTION =
   "Work through the ASC 606 five-step revenue recognition model for a SaaS contract and review deterministic allocation and revenue schedules.";
 
 export const Route = createFileRoute("/analysis")({
+  validateSearch: (search: Record<string, unknown>): { sample?: string } =>
+    typeof search["sample"] === "string" ? { sample: search["sample"] } : {},
   head: () => ({
     meta: [
       { title: "ASC 606 Five-Step Analysis Workspace" },
@@ -38,7 +46,13 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisPage() {
-  const [draft, setDraft] = useState<WorkflowDraft>(() => createEmptyDraft());
+  const { sample } = Route.useSearch();
+  // Initial state only: later user edits are never overwritten by a rerender.
+  const [draft, setDraft] = useState<WorkflowDraft>(
+    () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
+  );
+  const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
+  const unknownSample = sample !== undefined && loadedSample === null;
   const [step, setStep] = useState<StepKey>("1");
   const [showStepIssues, setShowStepIssues] = useState(false);
 
@@ -75,6 +89,9 @@ function AnalysisPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="space-y-2">
+        <Link to="/" className="text-sm text-muted-foreground hover:underline">
+          ← Revenue Compass Home
+        </Link>
         <h1 className="text-2xl font-bold text-foreground">{TITLE}</h1>
         <p className="text-sm text-muted-foreground">
           All accounting judgments are yours. Allocation, revenue recognition and reconciliation
@@ -84,6 +101,17 @@ function AnalysisPage() {
           This workspace holds one in-memory analysis. Nothing is saved: refreshing the page clears
           all entered data.
         </Notice>
+        {loadedSample ? (
+          <Notice>
+            Sample data loaded: {loadedSample.customer}. Edit any field to experiment with the
+            accounting results. Changes are temporary and reset when the page is refreshed.
+          </Notice>
+        ) : null}
+        {unknownSample ? (
+          <Notice>
+            That sample was not recognized, so a blank analysis was opened.
+          </Notice>
+        ) : null}
       </header>
 
       <WorkflowStepper current={step} onSelect={goTo} />
