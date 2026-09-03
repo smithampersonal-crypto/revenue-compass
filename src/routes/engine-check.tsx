@@ -33,7 +33,7 @@ function EngineCheck() {
   const scenario = ENGINE_CHECK_SCENARIOS.find((s) => s.key === key)!;
   const analysis = useMemo(() => analyzePhase1(scenario.input), [scenario]);
 
-  const { validation, allocation, revenueSchedule, totals } = analysis;
+  const { validation, allocation, revenueSchedule, totals, reconciliation } = analysis;
   const poIds = scenario.input.performanceObligations.map((po) => po.id);
   const poNames = new Map(scenario.input.performanceObligations.map((po) => [po.id, po.name]));
 
@@ -238,25 +238,27 @@ function EngineCheck() {
               </td>
             </tr>
             <tr>
-              <td className={td}>Difference</td>
+              <td className={td}>Allocation Difference</td>
               <td className={td}>
-                {totals.allocatedCents === null || totals.revenueCents === null
+                {reconciliation.allocationDifferenceCents === null
                   ? "Not calculated"
-                  : formatCents(
-                      totals.transactionPriceCents - totals.allocatedCents === 0 &&
-                        totals.allocatedCents - totals.revenueCents === 0
-                        ? 0
-                        : totals.transactionPriceCents - totals.revenueCents,
-                    )}
+                  : formatCents(reconciliation.allocationDifferenceCents)}
+              </td>
+            </tr>
+            <tr>
+              <td className={td}>Revenue Difference</td>
+              <td className={td}>
+                {reconciliation.revenueDifferenceCents === null
+                  ? "Not calculated"
+                  : formatCents(reconciliation.revenueDifferenceCents)}
               </td>
             </tr>
             <tr>
               <td className={td}>Status</td>
               <td className={td}>
-                {totals.allocatedCents === null || totals.revenueCents === null
-                  ? "Not reconciled — engine produced no outputs"
-                  : totals.transactionPriceCents === totals.allocatedCents &&
-                      totals.allocatedCents === totals.revenueCents
+                {reconciliation.reconciled === null
+                  ? "Not available — engine produced no outputs"
+                  : reconciliation.reconciled
                     ? "Reconciled"
                     : "Out of balance"}
               </td>
