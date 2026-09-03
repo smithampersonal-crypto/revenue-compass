@@ -47,6 +47,7 @@ export function allocateTransactionPrice(input: AllocationInput): AllocationRow[
   const pos = [...performanceObligations].sort((a, b) => a.seq - b.seq);
 
   const seenSeq = new Set<number>();
+  const seenId = new Set<string>();
   for (const po of pos) {
     if (!Number.isInteger(po.seq)) {
       throw new AllocationError(`performance obligation "${po.id}" has a non-integer sequence`);
@@ -55,10 +56,22 @@ export function allocateTransactionPrice(input: AllocationInput): AllocationRow[
       throw new AllocationError(`duplicate performance obligation sequence ${po.seq}`);
     }
     seenSeq.add(po.seq);
+    if (typeof po.id !== "string" || po.id.trim() === "") {
+      throw new AllocationError(
+        `performance obligation at sequence ${po.seq} must have a non-empty id`,
+      );
+    }
+    if (seenId.has(po.id)) {
+      throw new AllocationError(`duplicate performance obligation id "${po.id}"`);
+    }
+    seenId.add(po.id);
     try {
       assertNonNegativeCents(po.sspCents, `SSP for "${po.name}"`);
     } catch (error) {
       throw new AllocationError((error as MoneyError).message);
+    }
+    if (po.sspCents <= 0) {
+      throw new AllocationError(`SSP for "${po.name}" must be greater than zero`);
     }
   }
 
