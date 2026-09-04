@@ -14,11 +14,13 @@ import {
   type Phase1Analysis,
   type RevenueSchedule,
   type ValidationOutcome,
+  MAX_CENTS,
 } from "@/lib/asc606";
 import {
   analyzeMaterialRightLifecycle,
   materialRightSspCents,
   type MaterialRightLifecycleAnalysis,
+  type MaterialRightStatus,
   type RevenueSource,
 } from "@/lib/asc606-material-rights";
 import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
@@ -277,4 +279,56 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
     issues.push((error as Error).message);
     return empty();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5A read-only Step 5 presentation values.
+//
+// Pure workflow layer, not React: the amounts come from the engine allocation
+// and are aggregated exactly, so the UI only formats them.
+// ---------------------------------------------------------------------------
+
+export interface MaterialRightStepPreview {
+  poId: string;
+  name: string;
+  status: MaterialRightStatus;
+  /** Original inception allocation carried by the material right. */
+  allocatedCents: Cents | null;
+  /** New consideration arising on exercise. */
+  exerciseConsiderationCents: Cents | null;
+  /** Carried allocation + new consideration. */
+  recognitionBasisCents: Cents | null;
+  /** Amount recognized on expiration. */
+  expirationRevenueCents: Cents | null;
+  /** Allocated consideration with no determinable revenue date yet. */
+  unscheduledCents: Cents | null;
+}
+
+export function materialRightStepPreviews(draft: WorkflowDraft): MaterialRightStepPreview[] {
+  const rights = draft.performanceObligations.filter((po) => po.kind === "material_right");
+  if (rights.length === 0) return [];
+  const preview = previewAllocation(draft);
+  const allocatedById = new Map((preview.rows ?? []).map((row) => [row.poId, row.allocatedCents]));
+
+  return rights.map((po) => {
+    const allocated = allocatedById.get(po.id) ?? null;
+    const consideration = parseUsdToCents(po.exerciseConsiderationInput);
+    const considerationCents =
+      po.materialRightStatus === "exercised" && consideration.ok ? consideration.cents : null;
+    let basis: Cents | null = null;
+    if (allocated !== null && considerationCents !== null) {
+      const sum = BigInt(allocated) + BigInt(considerationCents);
+      basis = sum > BigInt(MAX_CENTS) ? null : Number(sum);
+    }
+    return {
+      poId: po.id,
+      name: po.name || po.id,
+      status: po.materialRightStatus,
+      allocatedCents: allocated,
+      exerciseConsiderationCents: considerationCents,
+      recognitionBasisCents: basis,
+      expirationRevenueCents: po.materialRightStatus === "expired" ? allocated : null,
+      unscheduledCents: po.materialRightStatus === "outstanding" ? allocated : null,
+    };
+  });
 }
