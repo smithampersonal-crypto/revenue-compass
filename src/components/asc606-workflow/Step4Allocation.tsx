@@ -43,26 +43,67 @@ export function Step4Allocation({
     >
       <div className="space-y-4">
         {pos.length === 0 ? <Notice>Create performance obligations in Step 2B first.</Notice> : null}
-        {pos.map((po) => (
-          <div key={po.id} className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
-            <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
-              <input
-                className={inputClass}
-                inputMode="decimal"
-                value={po.sspInput}
-                onChange={(e) => patch(po.id, { sspInput: e.target.value })}
-              />
-            </Field>
-            <Field label="SSP basis / documentation">
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={po.sspBasis}
-                onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
-              />
-            </Field>
-          </div>
-        ))}
+        {pos.map((po) =>
+          po.kind === "material_right" ? (
+            <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
+              <p className="text-sm font-semibold">
+                {po.name || `PO ${po.seq}`} — material right
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Economic benefit of the option (USD)">
+                  <input
+                    className={inputClass}
+                    inputMode="decimal"
+                    value={po.benefitAmountInput}
+                    onChange={(e) => patch(po.id, { benefitAmountInput: e.target.value })}
+                  />
+                </Field>
+                <Field label="Exercise probability at inception (%)">
+                  <input
+                    className={inputClass}
+                    inputMode="decimal"
+                    value={po.exerciseProbabilityInput}
+                    onChange={(e) => patch(po.id, { exerciseProbabilityInput: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="SSP basis / documentation">
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={po.sspBasis}
+                  onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
+                />
+              </Field>
+              <p className="text-sm">
+                <span className="font-semibold">Estimated SSP (engine): </span>
+                {estimatedMaterialRightSsp(po)}
+              </p>
+            </div>
+          ) : (
+            <div
+              key={po.id}
+              className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
+            >
+              <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  value={po.sspInput}
+                  onChange={(e) => patch(po.id, { sspInput: e.target.value })}
+                />
+              </Field>
+              <Field label="SSP basis / documentation">
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={po.sspBasis}
+                  onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
+                />
+              </Field>
+            </div>
+          ),
+        )}
 
         <h3 className="text-sm font-semibold">Engine allocation (read-only)</h3>
         {preview.rows ? (
