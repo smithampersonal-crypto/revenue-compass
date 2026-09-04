@@ -1,7 +1,9 @@
 import { formatCents } from "@/lib/asc606";
+import { formatBasisPoints } from "@/lib/asc606-material-rights";
 import {
   analyzeContractBalanceWorkflow,
   derivePromiseDistinct,
+  MATERIAL_RIGHT_STATUS_LABELS,
   PO_CLASSIFICATION_LABELS,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
@@ -20,9 +22,23 @@ export function AnalysisResults({
   draft: WorkflowDraft;
   result: WorkflowAnalysisResult;
 }) {
-  const { analysis, step1Conclusion, workflowValidation } = result;
+  const { analysis, lifecycle, allocation, revenueSchedule, step1Conclusion, workflowValidation } =
+    result;
   const balances = analyzeContractBalanceWorkflow(draft);
   const poName = new Map(draft.performanceObligations.map((po) => [po.id, po.name || po.id]));
+  // Revenue-schedule columns come from engine-supplied source metadata when the
+  // lifecycle engine ran; otherwise from the performance obligations.
+  const columns =
+    result.revenueSources.length > 0
+      ? result.revenueSources.map((source) => ({ id: source.id, name: source.name }))
+      : draft.performanceObligations.map((po) => ({
+          id: po.id,
+          name: poName.get(po.id) ?? po.id,
+        }));
+  // Journal revenue lines are keyed by revenue-source id, which equals the PO
+  // id for ordinary obligations and the engine's synthetic id for material-right
+  // exercise or expiration segments.
+  const sourceNames = new Map<string, string>([...poName, ...columns.map((c) => [c.id, c.name] as const)]);
   const journalAnalysis =
     balances.finalized && balances.engineInput
       ? analyzeJournalEntries(balances.engineInput)
@@ -137,7 +153,7 @@ export function AnalysisResults({
         </div>
       </Section>
 
-      {analysis?.allocation ? (
+      {allocation ? (
         <Section title="SSP allocation (engine output)">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -149,7 +165,7 @@ export function AnalysisResults({
               </tr>
             </thead>
             <tbody>
-              {analysis.allocation.map((row) => (
+              {allocation.map((row) => (
                 <tr key={row.poId}>
                   <td className={td}>{row.name}</td>
                   <td className={td}>{formatCents(row.sspCents)}</td>
@@ -159,12 +175,25 @@ export function AnalysisResults({
               ))}
               <tr className="font-semibold">
                 <td className={td}>Total</td>
-                <td className={td}>{formatCents(analysis.allocation[0]?.totalSspCents ?? 0)}</td>
+                <td className={td}>{formatCents(allocation[0]?.totalSspCents ?? 0)}</td>
                 <td className={td}>100.0000%</td>
-                <td className={td}>{formatCents(analysis.totals.allocatedCents ?? 0)}</td>
+                <td className={td}>
+                  {formatCents(
+                    analysis?.totals.allocatedCents ??
+                      lifecycle?.totals.originalAllocatedCents ??
+                      0,
+                  )}
+                </td>
               </tr>
             </tbody>
           </table>
+          {lifecycle ? (
+            <Notice>
+              The original transaction price is allocated once at inception across the standard
+              performance obligations and the material rights. This allocation is never re-performed
+              when an option is exercised or expires.
+            </Notice>
+          ) : null}
         </Section>
       ) : (
         <Section title="SSP allocation">
@@ -172,15 +201,55 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {analysis?.revenueSchedule ? (
+      {lifecycle ? (
+        <Section
+          title="Material rights (engine output)"
+          description="Customer options that convey a material right, their inception measurement and their lifecycle outcome."
+        >
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className={th}>Material right</th>
+                <th className={th}>Underlying good or service</th>
+                <th className={th}>Economic benefit</th>
+                <th className={th}>Exercise probability</th>
+                <th className={th}>Estimated SSP</th>
+                <th className={th}>Allocated</th>
+                <th className={th}>Outcome</th>
+                <th className={th}>Unscheduled consideration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lifecycle.materialRights.map((right) => (
+                <tr key={right.poId}>
+                  <td className={td}>{right.name}</td>
+                  <td className={td}>{right.underlyingGoodOrServiceName}</td>
+                  <td className={td}>{formatCents(right.benefitAmountCents)}</td>
+                  <td className={td}>{formatBasisPoints(right.exerciseProbabilityBps)}</td>
+                  <td className={td}>{formatCents(right.estimatedSspCents)}</td>
+                  <td className={td}>{formatCents(right.allocatedCents)}</td>
+                  <td className={td}>
+                    {MATERIAL_RIGHT_STATUS_LABELS[right.status]}
+                    {right.exerciseDate ? ` on ${right.exerciseDate}` : ""}
+                    {right.expirationDate ? ` on ${right.expirationDate}` : ""}
+                  </td>
+                  <td className={td}>{formatCents(right.unscheduledCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+      ) : null}
+
+      {revenueSchedule ? (
         <Section title="Revenue schedule (engine output)">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
                 <th className={th}>Month</th>
-                {draft.performanceObligations.map((po) => (
-                  <th key={po.id} className={th}>
-                    {poName.get(po.id)}
+                {columns.map((column) => (
+                  <th key={column.id} className={th}>
+                    {column.name}
                   </th>
                 ))}
                 <th className={th}>Total monthly revenue</th>
@@ -188,12 +257,12 @@ export function AnalysisResults({
               </tr>
             </thead>
             <tbody>
-              {analysis.revenueSchedule.byMonth.map((row) => (
+              {revenueSchedule.byMonth.map((row) => (
                 <tr key={row.month}>
                   <td className={td}>{row.month}</td>
-                  {draft.performanceObligations.map((po) => (
-                    <td key={po.id} className={td}>
-                      {formatCents(row.perPo[po.id] ?? 0)}
+                  {columns.map((column) => (
+                    <td key={column.id} className={td}>
+                      {formatCents(row.perPo[column.id] ?? 0)}
                     </td>
                   ))}
                   <td className={td}>{formatCents(row.totalCents)}</td>
@@ -202,10 +271,10 @@ export function AnalysisResults({
               ))}
               <tr className="font-semibold">
                 <td className={td}>Total</td>
-                {draft.performanceObligations.map((po) => (
-                  <td key={po.id} className={td} />
+                {columns.map((column) => (
+                  <td key={column.id} className={td} />
                 ))}
-                <td className={td}>{formatCents(analysis.revenueSchedule.totalCents)}</td>
+                <td className={td}>{formatCents(revenueSchedule.totalCents)}</td>
                 <td className={td} />
               </tr>
             </tbody>
@@ -217,15 +286,15 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {analysis ? (
+      {result.engineValidation ? (
         <Section title="Engine validation">
           <p className="text-sm font-semibold">
-            {analysis.validation.status === "passed"
+            {result.engineValidation.status === "passed"
               ? "Engine Validation Passed"
               : "Engine Validation Requires Attention"}
           </p>
           <ul className="mt-2 space-y-1 text-sm">
-            {analysis.validation.results.map((check) => (
+            {result.engineValidation.results.map((check) => (
               <li key={check.id}>
                 {check.passed ? "PASS" : check.severity === "blocking" ? "BLOCKING" : "WARNING"} —{" "}
                 {check.id}: {check.message}
@@ -287,6 +356,67 @@ export function AnalysisResults({
               </tr>
             </tbody>
           </table>
+        ) : lifecycle ? (
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              <tr>
+                <td className={td}>Original transaction price</td>
+                <td className={td}>
+                  {formatCents(lifecycle.totals.originalTransactionPriceCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Consideration on exercised options</td>
+                <td className={td}>{formatCents(lifecycle.totals.exerciseConsiderationCents)}</td>
+              </tr>
+              <tr>
+                <td className={td}>Total lifecycle consideration</td>
+                <td className={td}>{formatCents(lifecycle.totals.lifecycleConsiderationCents)}</td>
+              </tr>
+              <tr>
+                <td className={td}>Scheduled revenue</td>
+                <td className={td}>
+                  {lifecycle.totals.scheduledRevenueCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.totals.scheduledRevenueCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Unscheduled material-right consideration</td>
+                <td className={td}>
+                  {lifecycle.totals.unscheduledMaterialRightCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.totals.unscheduledMaterialRightCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Scheduled plus unscheduled</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.scheduledPlusUnscheduledCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.reconciliation.scheduledPlusUnscheduledCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Difference</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.differenceCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.reconciliation.differenceCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Status</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.reconciled === null
+                    ? "Not available"
+                    : lifecycle.reconciliation.reconciled
+                      ? "Reconciled"
+                      : "Not reconciled"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         ) : (
           <Notice tone="danger">No reconciliation is presented as valid.</Notice>
         )}
@@ -325,7 +455,7 @@ export function AnalysisResults({
       )}
 
       {journalAnalysis ? (
-        <JournalEntryOutputs analysis={journalAnalysis} poNames={poName} />
+        <JournalEntryOutputs analysis={journalAnalysis} poNames={sourceNames} />
       ) : (
         <Section title="Journal Entries">
           <Notice tone="warning">

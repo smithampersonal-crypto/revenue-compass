@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { analyzeJournalEntries } from "@/lib/asc606-journals";
+
 import { analyzeWorkflow } from "../analysis";
 import { analyzeContractBalanceWorkflow } from "../contract-balances";
 import { parsePercentToBps } from "../money-input";
@@ -181,5 +183,49 @@ describe("Case 6 contract balances with an outstanding material right", () => {
     const last = result.analysis!.monthly!.at(-1)!;
     expect(last.contractLiabilityCents).toBe(RIGHT_ALLOCATION);
     expect(last.contractAssetCents).toBe(0);
+  });
+});
+
+describe("Case 6 journal entries with an outstanding material right", () => {
+  const draft = case6Draft();
+  const billed: WorkflowDraft = {
+    ...draft,
+    contractBalances: {
+      considerationEvents: [
+        {
+          id: "ce-1",
+          seq: 1,
+          amountInput: "120,000.00",
+          unconditionalRightDate: "2027-01-01",
+          invoiceDate: "2027-01-01",
+        },
+      ],
+      cashCollections: [
+        {
+          id: "cash-1",
+          seq: 1,
+          considerationEventId: "ce-1",
+          amountInput: "120,000.00",
+          collectionDate: "2027-01-31",
+        },
+      ],
+    },
+  };
+  const balances = analyzeContractBalanceWorkflow(billed);
+  const journals = analyzeJournalEntries(balances.engineInput!);
+
+  it("produces balanced entries that tie to the contract-balance workpaper", () => {
+    expect(journals.reconciliation.allEntriesBalanced).toBe(true);
+    expect(journals.reconciliation.monthlyBalancesTie).toBe(true);
+    expect(journals.reconciliation.revenueByPoTies).toBe(true);
+    expect(journals.reconciliation.reconciled).toBe(true);
+  });
+
+  it("never posts revenue for the option that is still outstanding", () => {
+    const optionRevenue = journals
+      .entries!.flatMap((entry) => entry.lines)
+      .filter((line) => line.account === "revenue" && line.poId === "po-option")
+      .reduce((sum, line) => sum + line.creditCents, 0);
+    expect(optionRevenue).toBe(0);
   });
 });
