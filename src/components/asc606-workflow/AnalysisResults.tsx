@@ -1,7 +1,9 @@
 import { formatCents } from "@/lib/asc606";
+import { formatBasisPoints } from "@/lib/asc606-material-rights";
 import {
   analyzeContractBalanceWorkflow,
   derivePromiseDistinct,
+  MATERIAL_RIGHT_STATUS_LABELS,
   PO_CLASSIFICATION_LABELS,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
@@ -20,9 +22,19 @@ export function AnalysisResults({
   draft: WorkflowDraft;
   result: WorkflowAnalysisResult;
 }) {
-  const { analysis, step1Conclusion, workflowValidation } = result;
+  const { analysis, lifecycle, allocation, revenueSchedule, step1Conclusion, workflowValidation } =
+    result;
   const balances = analyzeContractBalanceWorkflow(draft);
   const poName = new Map(draft.performanceObligations.map((po) => [po.id, po.name || po.id]));
+  // Revenue-schedule columns come from engine-supplied source metadata when the
+  // lifecycle engine ran; otherwise from the performance obligations.
+  const columns =
+    result.revenueSources.length > 0
+      ? result.revenueSources.map((source) => ({ id: source.id, name: source.name }))
+      : draft.performanceObligations.map((po) => ({
+          id: po.id,
+          name: poName.get(po.id) ?? po.id,
+        }));
   const journalAnalysis =
     balances.finalized && balances.engineInput
       ? analyzeJournalEntries(balances.engineInput)
