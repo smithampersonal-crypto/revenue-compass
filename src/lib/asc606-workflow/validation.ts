@@ -165,12 +165,65 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     );
   }
   const poIdSet = new Set(poIds);
-  if (promises.some((p) => p.performanceObligationId === null || !poIdSet.has(p.performanceObligationId))) {
+  const materialRightPoIds = new Set(materialRightPos.map((po) => po.id));
+  /**
+   * A customer option concluded NOT to convey a material right is documented in
+   * the Step 2 workpaper only: it creates no performance obligation, so it is
+   * never required to be assigned and may never enter allocation.
+   */
+  const nonMaterialOptions = optionPromises.filter((p) => p.conveysMaterialRight === false);
+  const assignmentRequired = promises.filter((p) => !nonMaterialOptions.includes(p));
+  if (
+    assignmentRequired.some(
+      (p) => p.performanceObligationId === null || !poIdSet.has(p.performanceObligationId),
+    )
+  ) {
     add("promise.assigned", "2b", "Assign every promise to exactly one performance obligation.");
+  }
+  if (nonMaterialOptions.some((p) => p.performanceObligationId !== null)) {
+    add(
+      "promise.option.no_material_right.unassigned",
+      "2b",
+      "A customer option that does not convey a material right creates no performance obligation, so it must not be assigned to one.",
+    );
   }
   if (pos.some((po) => !promises.some((p) => p.performanceObligationId === po.id))) {
     add("po.has_promise", "2b", "Every performance obligation must contain at least one promise.");
   }
+
+  // ---- Step 2 material-right integrity -------------------------------------
+  for (const promise of optionPromises) {
+    if (promise.conveysMaterialRight !== true) continue;
+    const assignedPo = pos.find((po) => po.id === promise.performanceObligationId);
+    if (assignedPo && !materialRightPoIds.has(assignedPo.id)) {
+      add(
+        "promise.material_right.po_kind",
+        "2b",
+        `"${promise.description || promise.id}" conveys a material right, so it must be assigned to a material-right performance obligation.`,
+      );
+    }
+  }
+  for (const po of materialRightPos) {
+    const assigned = promises.filter((p) => p.performanceObligationId === po.id);
+    const label = po.name || po.id;
+    if (assigned.length !== 1) {
+      add(
+        "po.material_right.single_promise",
+        "2b",
+        `"${label}" is a material right, so it must contain exactly one promise — the qualifying customer option.`,
+      );
+      continue;
+    }
+    const only = assigned[0]!;
+    if (only.kind !== "customer_option" || only.conveysMaterialRight !== true) {
+      add(
+        "po.material_right.qualifying_option",
+        "2b",
+        `"${label}" is a material right, so its only promise must be a customer option concluded to convey a material right.`,
+      );
+    }
+  }
+
 
   for (const po of standardPos) {
     const assigned = promises.filter((p) => p.performanceObligationId === po.id);
@@ -258,7 +311,9 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-  // Exact BigInt aggregation against the same supported range the engine enforces.
+  // Exact BigInt aggregation against the same supported range the engine
+  // enforces. Derived material-right SSPs are included BEFORE the range check,
+  // so a material right can never push the aggregate past the boundary unseen.
   let totalSspBig = 0n;
   let everySspParsed = standardPos.length > 0 || materialRightPos.length > 0;
   for (const po of standardPos) {
@@ -269,14 +324,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
     totalSspBig += BigInt(ssp.cents);
   }
-  if (everySspParsed && totalSspBig > BigInt(MAX_CENTS)) {
-    add(
-      "allocation.total_ssp.supported_range",
-      "4",
-      "The aggregate standalone selling price exceeds the supported monetary range.",
-    );
-  }
-
   for (const po of materialRightPos) {
     const benefit = parseUsdToCents(po.benefitAmountInput);
     const probability = parsePercentToBps(po.exerciseProbabilityInput);
@@ -286,6 +333,38 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       everySspParsed = false;
     }
   }
+  if (everySspParsed && totalSspBig > BigInt(MAX_CENTS)) {
+    add(
+      "allocation.total_ssp.supported_range",
+      "4",
+      "The aggregate standalone selling price exceeds the supported monetary range.",
+    );
+  }
+
+  // Lifecycle consideration: original transaction price plus every exercised
+  // option's new consideration, aggregated exactly and range-checked before the
+  // downstream engines perform any number arithmetic.
+  if (price.ok) {
+    let lifecycleBig = BigInt(price.cents);
+    let everyConsiderationParsed = true;
+    for (const po of materialRightPos) {
+      if (po.materialRightStatus !== "exercised") continue;
+      const consideration = parseUsdToCents(po.exerciseConsiderationInput);
+      if (!consideration.ok) {
+        everyConsiderationParsed = false;
+        continue;
+      }
+      lifecycleBig += BigInt(consideration.cents);
+    }
+    if (everyConsiderationParsed && lifecycleBig > BigInt(MAX_CENTS)) {
+      add(
+        "lifecycle.consideration.supported_range",
+        "5",
+        "The total lifecycle consideration (original transaction price plus consideration arising on exercised options) exceeds the supported monetary range.",
+      );
+    }
+  }
+
 
   // ---- Step 5 -------------------------------------------------------------
   for (const po of materialRightPos) {

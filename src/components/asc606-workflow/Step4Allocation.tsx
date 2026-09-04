@@ -141,9 +141,10 @@ export function Step4Allocation({
         )}
 
         <Notice>
-          Phase 2 supports the relative standalone-selling-price allocation methodology only.
-          Variable-consideration allocation exceptions, discount allocation exceptions, residual SSP
-          methods and material-right option valuation are not supported.
+          The relative standalone-selling-price allocation methodology is supported, including
+          material rights measured as economic benefit × exercise probability. Variable-consideration
+          allocation exceptions, discount allocation exceptions and residual SSP methods are not
+          supported.
         </Notice>
       </div>
     </Section>

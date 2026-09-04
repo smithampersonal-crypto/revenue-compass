@@ -2,9 +2,9 @@ import { formatCents } from "@/lib/asc606";
 import { formatBasisPoints } from "@/lib/asc606-material-rights";
 import {
   analyzeContractBalanceWorkflow,
-  derivePromiseDistinct,
   MATERIAL_RIGHT_STATUS_LABELS,
-  PO_CLASSIFICATION_LABELS,
+  poPresentation,
+  promiseAnalysisRow,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
@@ -83,24 +83,34 @@ export function AnalysisResults({
           <thead>
             <tr>
               <th className={th}>Promise</th>
+              <th className={th}>Promise type</th>
               <th className={th}>Capable of being distinct</th>
               <th className={th}>Distinct within context</th>
               <th className={th}>Derived conclusion</th>
+              <th className={th}>Material right</th>
               <th className={th}>Rationale</th>
             </tr>
           </thead>
           <tbody>
             {draft.promises.map((promise) => {
-              const distinct = derivePromiseDistinct(promise);
+              const row = promiseAnalysisRow(promise);
               return (
-                <tr key={promise.id}>
-                  <td className={td}>{promise.description || promise.id}</td>
-                  <td className={td}>{judgmentLabel(promise.capableOfBeingDistinct)}</td>
-                  <td className={td}>{judgmentLabel(promise.distinctWithinContractContext)}</td>
+                <tr key={row.id}>
+                  <td className={td}>{row.description}</td>
+                  <td className={td}>{row.promiseType}</td>
                   <td className={td}>
-                    {distinct === null ? "Incomplete" : distinct ? "Distinct" : "Not distinct"}
+                    {row.showsDistinctness
+                      ? judgmentLabel(row.capableOfBeingDistinct)
+                      : "Not applicable"}
                   </td>
-                  <td className={td}>{promise.distinctRationale}</td>
+                  <td className={td}>
+                    {row.showsDistinctness
+                      ? judgmentLabel(row.distinctWithinContractContext)
+                      : "Not applicable"}
+                  </td>
+                  <td className={td}>{row.derivedConclusion ?? "Not applicable"}</td>
+                  <td className={td}>{row.materialRightConclusion ?? "Not applicable"}</td>
+                  <td className={td}>{row.rationale}</td>
                 </tr>
               );
             })}
@@ -110,46 +120,52 @@ export function AnalysisResults({
 
       <Section title="Performance obligations">
         <div className="space-y-3">
-          {draft.performanceObligations.map((po) => (
-            <div key={po.id} className="rounded-md border border-border p-3 text-sm">
-              <p className="font-semibold">{po.name || po.id}</p>
-              <p>
-                <span className="font-medium">Assigned promises: </span>
-                {draft.promises
-                  .filter((p) => p.performanceObligationId === po.id)
-                  .map((p) => p.description || p.id)
-                  .join("; ") || "None"}
-              </p>
-              <p>
-                <span className="font-medium">Classification: </span>
-                {po.classification ? PO_CLASSIFICATION_LABELS[po.classification] : "Not selected"}
-              </p>
-              <p>
-                <span className="font-medium">Classification rationale: </span>
-                {po.classificationRationale || "—"}
-              </p>
-              <p>
-                <span className="font-medium">SSP (entered): </span>
-                {po.sspInput || "—"}
-              </p>
-              <p>
-                <span className="font-medium">SSP basis: </span>
-                {po.sspBasis || "—"}
-              </p>
-              <p>
-                <span className="font-medium">Recognition: </span>
-                {po.recognitionMethod === "over_time_ratable"
-                  ? `Over time — daily ratable, ${po.serviceStart} to ${po.serviceEnd}`
-                  : po.recognitionMethod === "point_in_time"
-                    ? `Point in time on ${po.recognitionDate}`
-                    : "Not selected"}
-              </p>
-              <p>
-                <span className="font-medium">Recognition rationale: </span>
-                {po.recognitionRationale || "—"}
-              </p>
-            </div>
-          ))}
+          {draft.performanceObligations.map((po) => {
+            const view = poPresentation(po);
+            return (
+              <div key={po.id} className="rounded-md border border-border p-3 text-sm">
+                <p className="font-semibold">
+                  {view.name}
+                  {view.isMaterialRight ? " — material right" : ""}
+                </p>
+                <p>
+                  <span className="font-medium">Assigned promises: </span>
+                  {draft.promises
+                    .filter((p) => p.performanceObligationId === po.id)
+                    .map((p) => p.description || p.id)
+                    .join("; ") || "None"}
+                </p>
+                <p>
+                  <span className="font-medium">Classification: </span>
+                  {view.classificationLabel}
+                </p>
+                {view.isMaterialRight ? null : (
+                  <p>
+                    <span className="font-medium">Classification rationale: </span>
+                    {po.classificationRationale || "—"}
+                  </p>
+                )}
+                <p>
+                  <span className="font-medium">SSP: </span>
+                  {view.sspLabel}
+                </p>
+                <p>
+                  <span className="font-medium">SSP basis: </span>
+                  {po.sspBasis || "—"}
+                </p>
+                <p>
+                  <span className="font-medium">Recognition: </span>
+                  {view.recognitionLabel}
+                </p>
+                {view.isMaterialRight ? null : (
+                  <p>
+                    <span className="font-medium">Recognition rationale: </span>
+                    {po.recognitionRationale || "—"}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Section>
 
@@ -217,6 +233,12 @@ export function AnalysisResults({
                 <th className={th}>Allocated</th>
                 <th className={th}>Outcome</th>
                 <th className={th}>Unscheduled consideration</th>
+                <th className={th}>Exercise date</th>
+                <th className={th}>New exercise consideration</th>
+                <th className={th}>Carried allocation</th>
+                <th className={th}>Recognition basis</th>
+                <th className={th}>Expiration date</th>
+                <th className={th}>Expiration revenue</th>
               </tr>
             </thead>
             <tbody>
@@ -234,6 +256,26 @@ export function AnalysisResults({
                     {right.expirationDate ? ` on ${right.expirationDate}` : ""}
                   </td>
                   <td className={td}>{formatCents(right.unscheduledCents)}</td>
+                  <td className={td}>{right.exerciseDate ?? "—"}</td>
+                  <td className={td}>
+                    {right.exerciseConsiderationCents === null
+                      ? "—"
+                      : formatCents(right.exerciseConsiderationCents)}
+                  </td>
+                  <td className={td}>
+                    {right.status === "exercised" ? formatCents(right.allocatedCents) : "—"}
+                  </td>
+                  <td className={td}>
+                    {right.exerciseRecognitionBasisCents === null
+                      ? "—"
+                      : formatCents(right.exerciseRecognitionBasisCents)}
+                  </td>
+                  <td className={td}>{right.expirationDate ?? "—"}</td>
+                  <td className={td}>
+                    {right.expirationRevenueCents === null
+                      ? "—"
+                      : formatCents(right.expirationRevenueCents)}
+                  </td>
                 </tr>
               ))}
             </tbody>

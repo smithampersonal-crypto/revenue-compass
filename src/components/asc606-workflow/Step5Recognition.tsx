@@ -1,6 +1,11 @@
-import type { RecognitionMethod } from "@/lib/asc606";
+import { formatCents, type RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
-import { MATERIAL_RIGHT_STATUS_LABELS, type PoDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
+import {
+  materialRightStepPreviews,
+  MATERIAL_RIGHT_STATUS_LABELS,
+  type PoDraft,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
 
@@ -12,6 +17,9 @@ export function Step5Recognition({
   onChange: (draft: WorkflowDraft) => void;
 }) {
   const pos = draft.performanceObligations;
+  // Read-only lifecycle amounts produced by the workflow/engine layer.
+  const previews = new Map(materialRightStepPreviews(draft).map((row) => [row.poId, row]));
+  const money = (cents: number | null) => (cents === null ? "Not yet determinable" : formatCents(cents));
   const patch = (id: string, values: Partial<PoDraft>) =>
     onChange({
       ...draft,
@@ -115,8 +123,25 @@ export function Step5Recognition({
 
                 {po.materialRightStatus === "outstanding" ? (
                   <Notice>
-                    The option is still outstanding, so the consideration allocated to it has no
-                    determinable revenue date and is reported as unscheduled consideration.
+                    <p>
+                      The option is still outstanding, so the consideration allocated to it has no
+                      determinable revenue date and is reported as unscheduled consideration.
+                    </p>
+                    <p className="mt-1">
+                      <span className="font-semibold">
+                        Unscheduled material-right allocation (engine):{" "}
+                      </span>
+                      {money(previews.get(po.id)?.unscheduledCents ?? null)}
+                    </p>
+                  </Notice>
+                ) : null}
+
+                {po.materialRightStatus === "expired" ? (
+                  <Notice>
+                    <span className="font-semibold">
+                      Amount recognized upon expiration (engine):{" "}
+                    </span>
+                    {money(previews.get(po.id)?.expirationRevenueCents ?? null)}
                   </Notice>
                 ) : null}
 
@@ -153,6 +178,24 @@ export function Step5Recognition({
                         />
                       </Field>
                     </div>
+                    <Notice>
+                      <p>
+                        <span className="font-semibold">New consideration: </span>
+                        {money(previews.get(po.id)?.exerciseConsiderationCents ?? null)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">
+                          Carried material-right allocation (engine):{" "}
+                        </span>
+                        {money(previews.get(po.id)?.allocatedCents ?? null)}
+                      </p>
+                      <p>
+                        <span className="font-semibold">
+                          Exercise-segment recognition basis (engine):{" "}
+                        </span>
+                        {money(previews.get(po.id)?.recognitionBasisCents ?? null)}
+                      </p>
+                    </Notice>
                     {recognitionFields(
                       po,
                       `Recognition method for ${po.underlyingGoodOrServiceName || "the good or service obtained on exercise"}`,
@@ -167,8 +210,8 @@ export function Step5Recognition({
         ))}
 
         <Notice>
-          Phase 2 supports daily-ratable over-time recognition and point-in-time recognition only.
-          Other measures of progress are not implemented.
+          Daily-ratable over-time recognition and point-in-time recognition are supported. Other
+          measures of progress are not implemented.
         </Notice>
       </div>
     </Section>

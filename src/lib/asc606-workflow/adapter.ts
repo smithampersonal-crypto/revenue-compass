@@ -85,7 +85,11 @@ export function buildPhase1Input(draft: WorkflowDraft): AdapterResult {
 
   const promises: ContractPromise[] = [];
   for (const promise of draft.promises) {
+    // A customer option that conveys no material right is documented only: it
+    // creates no performance obligation and never enters the engine input.
+    if (promise.kind === "customer_option" && promise.conveysMaterialRight === false) continue;
     const distinct = derivePromiseDistinct(promise);
+
     if (distinct === null) {
       errors.push(`Distinctness judgments for "${promise.description || promise.id}" are incomplete.`);
       continue;
