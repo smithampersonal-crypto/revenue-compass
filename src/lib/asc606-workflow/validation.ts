@@ -13,8 +13,15 @@ import {
   MAX_CENTS,
   MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
 } from "@/lib/asc606";
-import { parseUsdToCents } from "./money-input";
-import { derivePromiseDistinct, deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "./types";
+import { materialRightSspCents } from "@/lib/asc606-material-rights";
+import { parsePercentToBps, parseUsdToCents } from "./money-input";
+import {
+  derivePromiseDistinct,
+  deriveStep1Conclusion,
+  STEP1_CRITERIA,
+  type PoDraft,
+  type WorkflowDraft,
+} from "./types";
 
 export type WorkflowStepId = "1" | "2a" | "2b" | "3" | "4" | "5";
 
@@ -82,15 +89,31 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   if (promises.some((p) => isBlank(p.description))) {
     add("promise.description.present", "2a", "Every promise requires a description.");
   }
-  if (promises.some((p) => derivePromiseDistinct(p) === null)) {
+  const ordinaryPromises = promises.filter((p) => p.kind !== "customer_option");
+  const optionPromises = promises.filter((p) => p.kind === "customer_option");
+  if (ordinaryPromises.some((p) => derivePromiseDistinct(p) === null)) {
     add(
       "promise.judgments.answered",
       "2a",
-      "Answer both distinctness judgments for every promise.",
+      "Answer both distinctness judgments for every promised good or service.",
     );
   }
-  if (promises.some((p) => isBlank(p.distinctRationale))) {
-    add("promise.rationale.present", "2a", "Document a distinctness rationale for every promise.");
+  if (ordinaryPromises.some((p) => isBlank(p.distinctRationale))) {
+    add("promise.rationale.present", "2a", "Document a distinctness rationale for every promised good or service.");
+  }
+  if (optionPromises.some((p) => p.conveysMaterialRight === null)) {
+    add(
+      "promise.material_right.answered",
+      "2a",
+      "Conclude whether each customer option conveys a material right.",
+    );
+  }
+  if (optionPromises.some((p) => isBlank(p.materialRightRationale))) {
+    add(
+      "promise.material_right.rationale",
+      "2a",
+      "Document your material-right conclusion for every customer option.",
+    );
   }
   const promiseIds = promises.map((p) => (p.id ?? "").trim());
   if (promiseIds.some((id) => id === "")) {
@@ -129,10 +152,12 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   if (pos.some((po) => isBlank(po.name))) {
     add("po.name.present", "2b", "Every performance obligation requires a name.");
   }
-  if (pos.some((po) => po.classification === null)) {
+  const standardPos = pos.filter((po) => po.kind !== "material_right");
+  const materialRightPos = pos.filter((po) => po.kind === "material_right");
+  if (standardPos.some((po) => po.classification === null)) {
     add("po.classification.present", "2b", "Select a classification for every performance obligation.");
   }
-  if (pos.some((po) => isBlank(po.classificationRationale))) {
+  if (standardPos.some((po) => isBlank(po.classificationRationale))) {
     add(
       "po.classification.rationale",
       "2b",
@@ -147,7 +172,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     add("po.has_promise", "2b", "Every performance obligation must contain at least one promise.");
   }
 
-  for (const po of pos) {
+  for (const po of standardPos) {
     const assigned = promises.filter((p) => p.performanceObligationId === po.id);
     if (po.classification === "single_distinct") {
       const valid = assigned.length === 1 && derivePromiseDistinct(assigned[0]!) === true;
@@ -186,7 +211,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   }
 
   // ---- Step 4 -------------------------------------------------------------
-  for (const po of pos) {
+  for (const po of standardPos) {
     const ssp = parseUsdToCents(po.sspInput);
     if (!ssp.ok || ssp.cents <= 0) {
       add(
@@ -199,10 +224,44 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("po.ssp_basis.present", "4", `Document how the SSP for "${po.name || po.id}" was determined.`);
     }
   }
+  for (const po of materialRightPos) {
+    const label = po.name || po.id;
+    if (isBlank(po.underlyingGoodOrServiceName)) {
+      add(
+        "material_right.underlying_service.present",
+        "2b",
+        `Name the good or service the customer would obtain on exercise of "${label}".`,
+      );
+    }
+    const benefit = parseUsdToCents(po.benefitAmountInput);
+    if (!benefit.ok || benefit.cents <= 0) {
+      add(
+        "material_right.benefit.positive",
+        "4",
+        `Enter the economic benefit of the option "${label}" as a USD amount greater than zero.`,
+      );
+    }
+    const probability = parsePercentToBps(po.exerciseProbabilityInput);
+    if (!probability.ok) {
+      add(
+        "material_right.probability.range",
+        "4",
+        `Exercise probability for "${label}": ${probability.error}`,
+      );
+    }
+    if (isBlank(po.sspBasis)) {
+      add(
+        "material_right.ssp_basis.present",
+        "4",
+        `Document how the estimated standalone selling price of "${label}" was determined.`,
+      );
+    }
+  }
+
   // Exact BigInt aggregation against the same supported range the engine enforces.
   let totalSspBig = 0n;
-  let everySspParsed = pos.length > 0;
-  for (const po of pos) {
+  let everySspParsed = standardPos.length > 0 || materialRightPos.length > 0;
+  for (const po of standardPos) {
     const ssp = parseUsdToCents(po.sspInput);
     if (!ssp.ok) {
       everySspParsed = false;
@@ -218,8 +277,43 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     );
   }
 
+  for (const po of materialRightPos) {
+    const benefit = parseUsdToCents(po.benefitAmountInput);
+    const probability = parsePercentToBps(po.exerciseProbabilityInput);
+    if (benefit.ok && probability.ok) {
+      totalSspBig += BigInt(materialRightSspCents(benefit.cents, probability.bps));
+    } else {
+      everySspParsed = false;
+    }
+  }
+
   // ---- Step 5 -------------------------------------------------------------
-  for (const po of pos) {
+  for (const po of materialRightPos) {
+    const label = po.name || po.id;
+    if (po.materialRightStatus === "expired" && !isValidIsoDate(po.expirationDate)) {
+      add(
+        "material_right.expiration_date.present",
+        "5",
+        `"${label}" expired unexercised, so an expiration date is required.`,
+      );
+    }
+    if (po.materialRightStatus === "exercised") {
+      if (!isValidIsoDate(po.exerciseDate)) {
+        add("material_right.exercise_date.present", "5", `Enter the exercise date for "${label}".`);
+      }
+      const consideration = parseUsdToCents(po.exerciseConsiderationInput);
+      if (!consideration.ok) {
+        add(
+          "material_right.exercise_consideration.valid",
+          "5",
+          `New consideration arising on exercise of "${label}": ${consideration.error}`,
+        );
+      }
+      validateRecognitionDates(po, `the good or service obtained on exercise of "${label}"`, add);
+    }
+  }
+
+  for (const po of standardPos) {
     const label = po.name || po.id;
     if (po.recognitionMethod === null) {
       add("po.recognition_method.present", "5", `Select a recognition method for "${label}".`);
@@ -273,6 +367,44 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   for (const issue of warnings) warningsByStep[issue.step].push(issue);
 
   return { issues, blocking, warnings, blockingByStep, warningsByStep };
+}
+
+type AddIssue = (
+  id: string,
+  step: WorkflowStepId,
+  message: string,
+  severity?: WorkflowIssue["severity"],
+) => void;
+
+/** Shared recognition-date completeness checks (standard POs and exercises). */
+function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): void {
+  if (po.recognitionMethod === null) {
+    add("po.recognition_method.present", "5", `Select a recognition method for ${label}.`);
+    return;
+  }
+  if (po.recognitionMethod === "over_time_ratable") {
+    if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
+      add("po.service_dates.present", "5", `Enter service start and end dates for ${label}.`);
+    } else if (po.serviceEnd < po.serviceStart) {
+      add(
+        "po.service_dates.sequence",
+        "5",
+        `Service end date for ${label} must be on or after the service start date.`,
+      );
+    } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
+      add(
+        "accounting_horizon.supported_range",
+        "5",
+        `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the entered dates for ${label}.`,
+      );
+    }
+  }
+  if (po.recognitionMethod === "point_in_time" && !isValidIsoDate(po.recognitionDate)) {
+    add("po.recognition_date.present", "5", `Enter a recognition date for ${label}.`);
+  }
+  if (isBlank(po.recognitionRationale)) {
+    add("po.recognition_rationale.present", "5", `Document the recognition rationale for ${label}.`);
+  }
 }
 
 /** Step 1 conclusion is derived, not validated; re-exported for convenience. */
