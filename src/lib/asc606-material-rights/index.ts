@@ -17,6 +17,11 @@ import {
   buildLifecycleUnits,
 } from "./lifecycle";
 import {
+  bigIntToCents,
+  MAX_CENTS,
+  type CheckResult,
+} from "@/lib/asc606";
+import {
   MaterialRightError,
   type MaterialRightContractInput,
   type MaterialRightLifecycleAnalysis,
@@ -28,17 +33,47 @@ export function analyzeMaterialRightLifecycle(
 ): MaterialRightLifecycleAnalysis {
   const validation = validateMaterialRightContract(input);
 
-  const exerciseConsiderationBlocked = input.materialRights.reduce(
-    (total, mr) =>
-      mr.status === "exercised" && mr.exercise && Number.isInteger(mr.exercise.newConsiderationCents)
-        ? total + mr.exercise.newConsiderationCents
-        : total,
-    0,
+  // Exact aggregation of the original price plus every exercised option's new
+  // consideration. Individually valid amounts whose sum would exceed the
+  // supported range are reported as a blocking validation failure, never a
+  // silently overflowed number.
+  let lifecycleBig = BigInt(
+    Number.isSafeInteger(input.transactionPriceCents) ? input.transactionPriceCents : 0,
   );
+  let exerciseBig = 0n;
+  for (const mr of input.materialRights) {
+    if (mr.status === "exercised" && mr.exercise && Number.isSafeInteger(mr.exercise.newConsiderationCents)) {
+      exerciseBig += BigInt(mr.exercise.newConsiderationCents);
+      lifecycleBig += BigInt(mr.exercise.newConsiderationCents);
+    }
+  }
+  const aggregateOutOfRange = lifecycleBig > BigInt(MAX_CENTS) || exerciseBig > BigInt(MAX_CENTS);
+  const rangeCheck: CheckResult = {
+    id: "lifecycle.consideration.supported_range",
+    severity: "blocking",
+    passed: !aggregateOutOfRange,
+    message: aggregateOutOfRange
+      ? "The total lifecycle consideration exceeds the supported monetary range."
+      : "Total lifecycle consideration is within the supported monetary range.",
+  };
+  const validationWithRange = {
+    ...validation,
+    status: aggregateOutOfRange ? ("attention" as const) : validation.status,
+    results: [...validation.results, rangeCheck],
+    blockingFailures: aggregateOutOfRange
+      ? [...validation.blockingFailures, rangeCheck]
+      : validation.blockingFailures,
+  };
+  const exerciseConsiderationBlocked = aggregateOutOfRange
+    ? 0
+    : bigIntToCents(exerciseBig, "aggregate exercise consideration");
+  const lifecycleConsiderationBlocked = aggregateOutOfRange
+    ? input.transactionPriceCents
+    : bigIntToCents(lifecycleBig, "lifecycle consideration");
 
-  if (validation.blockingFailures.length > 0) {
+  if (validationWithRange.blockingFailures.length > 0) {
     return {
-      validation,
+      validation: validationWithRange,
       allocation: null,
       revenueSchedule: null,
       revenueSources: [],
@@ -47,7 +82,7 @@ export function analyzeMaterialRightLifecycle(
         originalTransactionPriceCents: input.transactionPriceCents,
         originalAllocatedCents: null,
         exerciseConsiderationCents: exerciseConsiderationBlocked,
-        lifecycleConsiderationCents: input.transactionPriceCents + exerciseConsiderationBlocked,
+        lifecycleConsiderationCents: lifecycleConsiderationBlocked,
         scheduledRevenueCents: null,
         unscheduledMaterialRightCents: null,
       },
@@ -70,9 +105,14 @@ export function analyzeMaterialRightLifecycle(
     );
   }
 
-  const lifecycleConsiderationCents =
-    input.transactionPriceCents + units.exerciseConsiderationCents;
-  const scheduledPlusUnscheduledCents = revenueSchedule.totalCents + units.unscheduledCents;
+  const lifecycleConsiderationCents = bigIntToCents(
+    BigInt(input.transactionPriceCents) + BigInt(units.exerciseConsiderationCents),
+    "lifecycle consideration",
+  );
+  const scheduledPlusUnscheduledCents = bigIntToCents(
+    BigInt(revenueSchedule.totalCents) + BigInt(units.unscheduledCents),
+    "scheduled plus unscheduled consideration",
+  );
 
   // Defense in depth: no lifecycle result may be returned unreconciled.
   if (BigInt(scheduledPlusUnscheduledCents) !== BigInt(lifecycleConsiderationCents)) {
@@ -82,7 +122,7 @@ export function analyzeMaterialRightLifecycle(
   }
 
   return {
-    validation,
+    validation: validationWithRange,
     allocation,
     revenueSchedule,
     revenueSources: units.revenueSources,
