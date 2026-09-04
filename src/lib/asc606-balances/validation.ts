@@ -308,11 +308,21 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
   const priceValid =
     typeof input.transactionPriceCents === "number" &&
     Number.isInteger(input.transactionPriceCents);
-  if (priceValid && BigInt(schedule.totalCents) !== BigInt(input.transactionPriceCents)) {
+  const unscheduled = input.unscheduledRevenueCents ?? 0;
+  if (!Number.isInteger(unscheduled) || unscheduled < 0) {
+    fail(
+      "revenue_schedule.unscheduled.valid",
+      "revenue_schedule",
+      "Unscheduled material-right consideration must be a nonnegative whole-cent amount.",
+      );
+  } else if (
+    priceValid &&
+    BigInt(schedule.totalCents) + BigInt(unscheduled) !== BigInt(input.transactionPriceCents)
+  ) {
     fail(
       "revenue_schedule.total.equals_transaction_price",
       "revenue_schedule",
-      "Total revenue in the revenue schedule must equal the contract transaction price exactly.",
+      "Scheduled revenue plus unscheduled material-right consideration must equal the contract transaction price exactly.",
     );
   }
 }
