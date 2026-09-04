@@ -1,7 +1,24 @@
 import { formatCents } from "@/lib/asc606";
-import { previewAllocation, type PoDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
+import { formatBasisPoints, materialRightSspCents } from "@/lib/asc606-material-rights";
+import {
+  parsePercentToBps,
+  parseUsdToCents,
+  previewAllocation,
+  type PoDraft,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import { Field, inputClass, IssueList, Notice, Section, td, th } from "./fields";
+
+/** Display-only helper: the estimated SSP is calculated by the engine. */
+function estimatedMaterialRightSsp(po: PoDraft): string {
+  const benefit = parseUsdToCents(po.benefitAmountInput);
+  const probability = parsePercentToBps(po.exerciseProbabilityInput);
+  if (!benefit.ok || !probability.ok) return "Not yet measurable";
+  return `${formatCents(benefit.cents)} × ${formatBasisPoints(probability.bps)} = ${formatCents(
+    materialRightSspCents(benefit.cents, probability.bps),
+  )}`;
+}
 
 export function Step4Allocation({
   draft,
