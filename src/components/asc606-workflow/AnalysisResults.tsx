@@ -352,6 +352,67 @@ export function AnalysisResults({
               </tr>
             </tbody>
           </table>
+        ) : lifecycle ? (
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              <tr>
+                <td className={td}>Original transaction price</td>
+                <td className={td}>
+                  {formatCents(lifecycle.totals.originalTransactionPriceCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Consideration on exercised options</td>
+                <td className={td}>{formatCents(lifecycle.totals.exerciseConsiderationCents)}</td>
+              </tr>
+              <tr>
+                <td className={td}>Total lifecycle consideration</td>
+                <td className={td}>{formatCents(lifecycle.totals.lifecycleConsiderationCents)}</td>
+              </tr>
+              <tr>
+                <td className={td}>Scheduled revenue</td>
+                <td className={td}>
+                  {lifecycle.totals.scheduledRevenueCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.totals.scheduledRevenueCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Unscheduled material-right consideration</td>
+                <td className={td}>
+                  {lifecycle.totals.unscheduledMaterialRightCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.totals.unscheduledMaterialRightCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Scheduled plus unscheduled</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.scheduledPlusUnscheduledCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.reconciliation.scheduledPlusUnscheduledCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Difference</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.differenceCents === null
+                    ? "Not available"
+                    : formatCents(lifecycle.reconciliation.differenceCents)}
+                </td>
+              </tr>
+              <tr>
+                <td className={td}>Status</td>
+                <td className={td}>
+                  {lifecycle.reconciliation.reconciled === null
+                    ? "Not available"
+                    : lifecycle.reconciliation.reconciled
+                      ? "Reconciled"
+                      : "Not reconciled"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         ) : (
           <Notice tone="danger">No reconciliation is presented as valid.</Notice>
         )}
