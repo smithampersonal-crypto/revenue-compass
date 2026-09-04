@@ -148,7 +148,7 @@ describe("Case 6 — outstanding", () => {
     expect(journals.reconciliation.reconciled).toBe(true);
     const optionRevenue = journals
       .entries!.flatMap((entry) => entry.lines)
-      .filter((line) => line.account === "revenue" && line.poId.startsWith("po-option"))
+      .filter((line) => line.account === "revenue" && (line.poId ?? "").startsWith("po-option"))
       .reduce((sum, line) => sum + line.creditCents, 0);
     expect(optionRevenue).toBe(0);
   });

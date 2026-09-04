@@ -40,7 +40,7 @@ function optionDraft(): WorkflowDraft {
   };
 }
 
-const ids = (draft: WorkflowDraft) => validateWorkflow(draft).blocking.map((f) => f.id);
+const ids = (draft: WorkflowDraft) => validateWorkflow(draft).blocking.map((f: { id: string }) => f.id);
 
 describe("Step 2 material-right integrity", () => {
   it("accepts exactly one qualifying customer option on a material right", () => {
