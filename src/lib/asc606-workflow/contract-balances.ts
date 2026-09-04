@@ -118,7 +118,7 @@ export function analyzeContractBalanceWorkflow(
   });
 
   const revenue = analyzeWorkflow(draft);
-  if (!revenue.finalized || !revenue.analysis?.revenueSchedule) {
+  if (!revenue.finalized || !revenue.revenueSchedule || revenue.lifecycleConsiderationCents === null) {
     return blocked(
       "The ASC 606 Steps 1-5 revenue analysis is not finalized, so no authoritative billing and contract-balance workpaper is produced.",
     );
@@ -153,10 +153,13 @@ export function analyzeContractBalanceWorkflow(
   );
 
   const engineInput: ContractBalanceInput = {
-    transactionPriceCents: revenue.analysis.totals.transactionPriceCents,
-    revenueSchedule: revenue.analysis.revenueSchedule,
+    // With material rights this is the lifecycle consideration: the original
+    // transaction price plus consideration arising on exercised options.
+    transactionPriceCents: revenue.lifecycleConsiderationCents,
+    revenueSchedule: revenue.revenueSchedule,
     considerationEvents,
     cashCollections,
+    unscheduledRevenueCents: revenue.unscheduledRevenueCents,
   };
   const analysis = analyzeBalances(engineInput);
 

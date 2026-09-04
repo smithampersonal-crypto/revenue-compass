@@ -12,11 +12,23 @@ import {
   type AllocationRow,
   type Cents,
   type Phase1Analysis,
+  type RevenueSchedule,
   type ValidationOutcome,
 } from "@/lib/asc606";
-import { buildPhase1Input } from "./adapter";
-import { parseUsdToCents } from "./money-input";
-import { deriveStep1Conclusion, type Step1Conclusion, type WorkflowDraft } from "./types";
+import {
+  analyzeMaterialRightLifecycle,
+  materialRightSspCents,
+  type MaterialRightLifecycleAnalysis,
+  type RevenueSource,
+} from "@/lib/asc606-material-rights";
+import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
+import { parsePercentToBps, parseUsdToCents } from "./money-input";
+import {
+  deriveStep1Conclusion,
+  draftHasMaterialRights,
+  type Step1Conclusion,
+  type WorkflowDraft,
+} from "./types";
 import { validateWorkflow, type WorkflowValidationOutcome } from "./validation";
 
 export interface WorkflowAnalysisResult {
@@ -30,13 +42,27 @@ export interface WorkflowAnalysisResult {
    * Never rewritten or suppressed by this layer.
    */
   engineValidation: ValidationOutcome | null;
-  /** Engine output; null whenever the workflow is blocked. */
+  /** Standard Phase 1 engine output; null when blocked or when the contract
+   * contains material rights (the lifecycle engine is authoritative then). */
   analysis: Phase1Analysis | null;
+  /** Phase 5A lifecycle output; null unless the contract has material rights. */
+  lifecycle: MaterialRightLifecycleAnalysis | null;
+  /** Authoritative allocation from whichever engine ran. */
+  allocation: AllocationRow[] | null;
+  /** Authoritative revenue schedule from whichever engine ran. */
+  revenueSchedule: RevenueSchedule | null;
+  /** Column metadata for the revenue schedule. */
+  revenueSources: RevenueSource[];
+  /** Allocated consideration with no determinable revenue date yet. */
+  unscheduledRevenueCents: Cents;
+  /** Original price plus consideration arising on exercised options. */
+  lifecycleConsiderationCents: Cents | null;
 }
 
 export interface AnalyzeWorkflowDeps {
   /** Injection point used by defense-in-depth tests only. */
   analyze?: typeof analyzePhase1;
+  analyzeLifecycle?: typeof analyzeMaterialRightLifecycle;
 }
 
 export function analyzeWorkflow(
@@ -59,6 +85,12 @@ export function analyzeWorkflow(
     adapterErrors,
     engineValidation,
     analysis: null,
+    lifecycle: null,
+    allocation: null,
+    revenueSchedule: null,
+    revenueSources: [],
+    unscheduledRevenueCents: 0,
+    lifecycleConsiderationCents: null,
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -71,6 +103,44 @@ export function analyzeWorkflow(
   }
   if (workflowValidation.blocking.length > 0) {
     return blocked("The workflow has unresolved blocking items.");
+  }
+
+  if (draftHasMaterialRights(draft)) {
+    const builtLifecycle = buildMaterialRightContractInput(draft);
+    if (!builtLifecycle.ok) {
+      return blocked(
+        "The workflow could not be converted into a complete engine input.",
+        builtLifecycle.errors,
+      );
+    }
+    const lifecycle = (deps.analyzeLifecycle ?? analyzeMaterialRightLifecycle)(builtLifecycle.input);
+    if (
+      lifecycle.validation.blockingFailures.length > 0 ||
+      lifecycle.allocation === null ||
+      lifecycle.revenueSchedule === null ||
+      lifecycle.reconciliation.reconciled !== true
+    ) {
+      return blocked(
+        "The deterministic ASC 606 engine reported a blocking validation issue, so no finalized analysis is presented.",
+        [],
+        lifecycle.validation,
+      );
+    }
+    return {
+      workflowValidation,
+      step1Conclusion,
+      finalized: true,
+      blockedReason: null,
+      adapterErrors: [],
+      engineValidation: lifecycle.validation,
+      analysis: null,
+      lifecycle,
+      allocation: lifecycle.allocation,
+      revenueSchedule: lifecycle.revenueSchedule,
+      revenueSources: lifecycle.revenueSources,
+      unscheduledRevenueCents: lifecycle.totals.unscheduledMaterialRightCents ?? 0,
+      lifecycleConsiderationCents: lifecycle.totals.lifecycleConsiderationCents,
+    };
   }
 
   const built = buildPhase1Input(draft);
@@ -101,6 +171,17 @@ export function analyzeWorkflow(
     adapterErrors: [],
     engineValidation: analysis.validation,
     analysis,
+    lifecycle: null,
+    allocation: analysis.allocation,
+    revenueSchedule: analysis.revenueSchedule,
+    revenueSources: built.input.performanceObligations.map((po) => ({
+      id: po.id,
+      name: po.name,
+      sourceType: "original_po" as const,
+      originalPoId: po.id,
+    })),
+    unscheduledRevenueCents: 0,
+    lifecycleConsiderationCents: analysis.totals.transactionPriceCents,
   };
 }
 
@@ -145,18 +226,32 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   }
 
   const pos = draft.performanceObligations.map((po) => {
+    const label = po.name || po.id;
+    if (po.kind === "material_right") {
+      // The estimated SSP of a material right is benefit x probability,
+      // calculated by the material-right engine — never by this layer.
+      const benefit = parseUsdToCents(po.benefitAmountInput);
+      const probability = parsePercentToBps(po.exerciseProbabilityInput);
+      if (!benefit.ok || benefit.cents <= 0 || !probability.ok) {
+        issues.push(`The estimated standalone selling price for "${label}" is not yet measurable.`);
+      }
+      return {
+        id: po.id,
+        seq: po.seq,
+        name: label,
+        sspCents:
+          benefit.ok && probability.ok ? materialRightSspCents(benefit.cents, probability.bps) : 0,
+      };
+    }
     const ssp = parseUsdToCents(po.sspInput);
     if (!ssp.ok || ssp.cents <= 0) {
-      issues.push(`Standalone selling price for "${po.name || po.id}" is missing or invalid.`);
+      issues.push(`Standalone selling price for "${label}" is missing or invalid.`);
     }
     return {
       id: po.id,
       seq: po.seq,
-      name: po.name || po.id,
+      name: label,
       sspCents: ssp.ok ? ssp.cents : 0,
-      // Placeholder only for the allocation call signature; allocation never
-      // reads recognition data.
-      recognitionMethod: "point_in_time" as const,
     };
   });
 

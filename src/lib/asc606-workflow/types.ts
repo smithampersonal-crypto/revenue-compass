@@ -9,6 +9,7 @@
  */
 
 import type { IsoDate, PoClassification, RecognitionMethod } from "@/lib/asc606";
+import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 
 /** A yes / no / unanswered accounting judgment. */
 export type Judgment = boolean | null;
@@ -73,10 +74,22 @@ export interface ContractDraft {
   criteria: Record<Step1CriterionId, CriterionAnswer>;
 }
 
+/**
+ * Phase 5A: a promise is either an ordinary promised good or service or a
+ * customer option. Existing drafts default to "good_or_service".
+ */
+export type PromiseKind = "good_or_service" | "customer_option";
+
+export type PerformanceObligationKind = "standard" | "material_right";
+
 export interface PromiseDraft {
   id: string;
   seq: number;
+  kind: PromiseKind;
   description: string;
+  /** Customer options only: accountant judgment that a material right exists. */
+  conveysMaterialRight: Judgment;
+  materialRightRationale: string;
   capableOfBeingDistinct: Judgment;
   distinctWithinContractContext: Judgment;
   distinctRationale: string;
@@ -87,6 +100,7 @@ export interface PromiseDraft {
 export interface PoDraft {
   id: string;
   seq: number;
+  kind: PerformanceObligationKind;
   name: string;
   classification: PoClassification | null;
   classificationRationale: string;
@@ -98,6 +112,19 @@ export interface PoDraft {
   serviceEnd: IsoDate | "";
   recognitionDate: IsoDate | "";
   recognitionRationale: string;
+
+  // ---- Material-right fields (kind === "material_right" only) -------------
+  /** The good or service the customer would obtain on exercise. */
+  underlyingGoodOrServiceName: string;
+  /** Accountant judgment: economic benefit of the option, USD string. */
+  benefitAmountInput: string;
+  /** Accountant judgment: inception exercise probability, percentage string. */
+  exerciseProbabilityInput: string;
+  materialRightStatus: MaterialRightStatus;
+  exerciseDate: IsoDate | "";
+  /** New consideration arising on exercise, USD string. */
+  exerciseConsiderationInput: string;
+  expirationDate: IsoDate | "";
 }
 
 /** Phase 3 draft: contract-level billing events and cash receipts. */
@@ -159,7 +186,10 @@ export function createPromiseDraft(seq: number, id: string): PromiseDraft {
   return {
     id,
     seq,
+    kind: "good_or_service",
     description: "",
+    conveysMaterialRight: null,
+    materialRightRationale: "",
     capableOfBeingDistinct: null,
     distinctWithinContractContext: null,
     distinctRationale: "",
@@ -171,6 +201,7 @@ export function createPoDraft(seq: number, id: string): PoDraft {
   return {
     id,
     seq,
+    kind: "standard",
     name: "",
     classification: null,
     classificationRationale: "",
@@ -181,7 +212,30 @@ export function createPoDraft(seq: number, id: string): PoDraft {
     serviceEnd: "",
     recognitionDate: "",
     recognitionRationale: "",
+    underlyingGoodOrServiceName: "",
+    benefitAmountInput: "",
+    exerciseProbabilityInput: "",
+    materialRightStatus: "outstanding",
+    exerciseDate: "",
+    exerciseConsiderationInput: "",
+    expirationDate: "",
   };
+}
+
+/** A material-right performance obligation draft, created by the accountant. */
+export function createMaterialRightPoDraft(seq: number, id: string): PoDraft {
+  return { ...createPoDraft(seq, id), kind: "material_right" };
+}
+
+export const MATERIAL_RIGHT_STATUS_LABELS: Record<MaterialRightStatus, string> = {
+  outstanding: "Outstanding (option not yet exercised or expired)",
+  exercised: "Exercised by the customer",
+  expired: "Expired unexercised",
+};
+
+/** True when the contract contains at least one material-right obligation. */
+export function draftHasMaterialRights(draft: WorkflowDraft): boolean {
+  return draft.performanceObligations.some((po) => po.kind === "material_right");
 }
 
 export function createConsiderationEventDraft(seq: number, id: string): ConsiderationEventDraft {

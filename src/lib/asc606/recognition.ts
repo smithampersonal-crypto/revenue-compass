@@ -18,7 +18,7 @@ import type {
   Cents,
   MonthKey,
   OverTimeConvention,
-  PerformanceObligationInput,
+  RecognizableUnit,
   RevenueSchedule,
   RevenueScheduleRowByMonth,
   RevenueScheduleRowByPo,
@@ -46,7 +46,7 @@ export interface PoScheduleRow {
  * can be added later without rewriting this implementation.
  */
 export function recognizeOverTime(
-  po: PerformanceObligationInput,
+  po: RecognizableUnit,
   allocatedCents: Cents,
   convention: OverTimeConvention = po.overTimeConvention ?? "daily_ratable",
 ): PoScheduleRow[] {
@@ -120,7 +120,7 @@ export function recognizeOverTime(
 
 /** Point-in-time recognition: 100% in the month containing the recognition date. */
 export function recognizePointInTime(
-  po: PerformanceObligationInput,
+  po: RecognizableUnit,
   allocatedCents: Cents,
 ): PoScheduleRow[] {
   assertNonNegativeCents(allocatedCents, `allocation for "${po.name}"`);
@@ -144,7 +144,7 @@ export function recognizePointInTime(
 
 /** Dispatches a single PO to the correct recognition pattern. */
 export function recognizePerformanceObligation(
-  po: PerformanceObligationInput,
+  po: RecognizableUnit,
   allocatedCents: Cents,
 ): PoScheduleRow[] {
   switch (po.recognitionMethod) {
@@ -160,7 +160,7 @@ export function recognizePerformanceObligation(
 }
 
 export interface ScheduleInput {
-  po: PerformanceObligationInput;
+  po: RecognizableUnit;
   allocatedCents: Cents;
 }
 

@@ -7,7 +7,7 @@
  */
 
 import { assertNonNegativeCents, bigIntToCents, MoneyError } from "./money";
-import type { AllocationRow, Cents, PerformanceObligationInput } from "./types";
+import type { AllocatablePerformanceObligation, AllocationRow, Cents } from "./types";
 
 export class AllocationError extends Error {
   constructor(message: string) {
@@ -18,7 +18,7 @@ export class AllocationError extends Error {
 
 export interface AllocationInput {
   transactionPriceCents: Cents;
-  performanceObligations: readonly PerformanceObligationInput[];
+  performanceObligations: readonly AllocatablePerformanceObligation[];
 }
 
 /**

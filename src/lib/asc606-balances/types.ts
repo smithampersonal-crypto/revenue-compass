@@ -38,6 +38,12 @@ export interface ContractBalanceInput {
   revenueSchedule: RevenueSchedule;
   considerationEvents: ConsiderationEvent[];
   cashCollections: CashCollectionEvent[];
+  /**
+   * Phase 5A: allocated consideration that has no determinable revenue date
+   * yet (an outstanding material right). Defaults to 0. Scheduled revenue plus
+   * this amount must equal the transaction price.
+   */
+  unscheduledRevenueCents?: Cents;
 }
 
 export type BalanceCheckSeverity = "blocking" | "warning";
@@ -98,6 +104,8 @@ export interface ContractBalanceReconciliation {
   differenceCents: Cents | null;
   /** Total revenue from the approved ASC 606 revenue schedule; null when blocked. */
   totalRevenueCents: Cents | null;
+  /** Allocated consideration not yet scheduled (outstanding material rights). */
+  unscheduledRevenueCents: Cents;
   /** true only when price, consideration and revenue agree; null when blocked. */
   reconciled: boolean | null;
 }

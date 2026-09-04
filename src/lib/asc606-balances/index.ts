@@ -33,6 +33,7 @@ export function analyzeContractBalances(input: ContractBalanceInput): ContractBa
         totalConsiderationEventsCents,
         differenceCents: null,
         totalRevenueCents: null,
+        unscheduledRevenueCents: input.unscheduledRevenueCents ?? 0,
         reconciled: null,
       },
     };
@@ -46,9 +47,11 @@ export function analyzeContractBalances(input: ContractBalanceInput): ContractBa
   // declared schedule total and the transaction price.
   const endingCumulativeRevenueCents =
     monthly.length > 0 ? monthly[monthly.length - 1]!.cumulativeRevenueCents : 0;
+  const unscheduledRevenueCents = input.unscheduledRevenueCents ?? 0;
   if (
     BigInt(endingCumulativeRevenueCents) !== BigInt(input.revenueSchedule.totalCents) ||
-    BigInt(endingCumulativeRevenueCents) !== BigInt(input.transactionPriceCents)
+    BigInt(endingCumulativeRevenueCents) + BigInt(unscheduledRevenueCents) !==
+      BigInt(input.transactionPriceCents)
   ) {
     throw new ContractBalanceError(
       "revenue integrity invariant violated: ending cumulative revenue does not tie to total revenue and transaction price",
@@ -66,9 +69,10 @@ export function analyzeContractBalances(input: ContractBalanceInput): ContractBa
       totalConsiderationEventsCents,
       differenceCents: input.transactionPriceCents - totalConsiderationEventsCents,
       totalRevenueCents,
+      unscheduledRevenueCents,
       reconciled:
         input.transactionPriceCents === totalConsiderationEventsCents &&
-        totalConsiderationEventsCents === totalRevenueCents,
+        totalConsiderationEventsCents === totalRevenueCents + unscheduledRevenueCents,
     },
   };
 }

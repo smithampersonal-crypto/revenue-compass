@@ -85,7 +85,8 @@ export function analyzeJournalEntries(input: ContractBalanceInput): JournalAnaly
   }
   if (
     totalRevenue !== BigInt(input.revenueSchedule.totalCents) ||
-    totalRevenue !== BigInt(input.transactionPriceCents)
+    totalRevenue + BigInt(input.unscheduledRevenueCents ?? 0) !==
+      BigInt(input.transactionPriceCents)
   ) {
     throw new JournalEntryError(
       "total journal revenue does not tie to the revenue schedule and transaction price",

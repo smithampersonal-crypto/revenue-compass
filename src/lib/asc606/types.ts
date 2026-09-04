@@ -44,18 +44,29 @@ export interface ContractPromise {
   performanceObligationId: string | null;
 }
 
-/** Performance obligation resulting from the accountant's Step 2 grouping. */
-export interface PerformanceObligationInput {
+/**
+ * The minimum a unit of account must expose to participate in relative
+ * standalone-selling-price allocation. Allocation never reads recognition
+ * data, so a caller (for example the material-right engine) must never
+ * fabricate a recognition method or dates in order to allocate.
+ */
+export interface AllocatablePerformanceObligation {
   id: string;
   /** Deterministic ordering key; also the allocation residual tie-breaker. */
   seq: number;
   name: string;
-  /** Standalone selling price, integer cents. SSP lives at the PO level only. */
+  /** Standalone selling price, integer cents. */
   sspCents: Cents;
-  /** Accountant's documentation of how SSP was determined. */
-  sspBasis?: string;
-  classification?: PoClassification;
-  classificationRationale?: string;
+}
+
+/**
+ * The minimum a unit of account must expose to be scheduled by Step 5.
+ * Recognition never reads SSP or classification.
+ */
+export interface RecognizableUnit {
+  id: string;
+  seq: number;
+  name: string;
   recognitionMethod: RecognitionMethod;
   /** Over time only. Inclusive. */
   serviceStart?: IsoDate;
@@ -66,6 +77,17 @@ export interface PerformanceObligationInput {
   /** Over-time convention; defaults to "daily_ratable". */
   overTimeConvention?: OverTimeConvention;
 }
+
+/** Performance obligation resulting from the accountant's Step 2 grouping. */
+export interface PerformanceObligationInput
+  extends AllocatablePerformanceObligation,
+    RecognizableUnit {
+  /** Accountant's documentation of how SSP was determined. */
+  sspBasis?: string;
+  classification?: PoClassification;
+  classificationRationale?: string;
+}
+
 
 /** Phase 1 engine input: the contract facts needed for Steps 4 and 5. */
 export interface Phase1ContractInput {
