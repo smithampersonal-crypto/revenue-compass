@@ -311,7 +311,9 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-  // Exact BigInt aggregation against the same supported range the engine enforces.
+  // Exact BigInt aggregation against the same supported range the engine
+  // enforces. Derived material-right SSPs are included BEFORE the range check,
+  // so a material right can never push the aggregate past the boundary unseen.
   let totalSspBig = 0n;
   let everySspParsed = standardPos.length > 0 || materialRightPos.length > 0;
   for (const po of standardPos) {
@@ -322,14 +324,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
     totalSspBig += BigInt(ssp.cents);
   }
-  if (everySspParsed && totalSspBig > BigInt(MAX_CENTS)) {
-    add(
-      "allocation.total_ssp.supported_range",
-      "4",
-      "The aggregate standalone selling price exceeds the supported monetary range.",
-    );
-  }
-
   for (const po of materialRightPos) {
     const benefit = parseUsdToCents(po.benefitAmountInput);
     const probability = parsePercentToBps(po.exerciseProbabilityInput);
@@ -339,6 +333,38 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       everySspParsed = false;
     }
   }
+  if (everySspParsed && totalSspBig > BigInt(MAX_CENTS)) {
+    add(
+      "allocation.total_ssp.supported_range",
+      "4",
+      "The aggregate standalone selling price exceeds the supported monetary range.",
+    );
+  }
+
+  // Lifecycle consideration: original transaction price plus every exercised
+  // option's new consideration, aggregated exactly and range-checked before the
+  // downstream engines perform any number arithmetic.
+  if (price.ok) {
+    let lifecycleBig = BigInt(price.cents);
+    let everyConsiderationParsed = true;
+    for (const po of materialRightPos) {
+      if (po.materialRightStatus !== "exercised") continue;
+      const consideration = parseUsdToCents(po.exerciseConsiderationInput);
+      if (!consideration.ok) {
+        everyConsiderationParsed = false;
+        continue;
+      }
+      lifecycleBig += BigInt(consideration.cents);
+    }
+    if (everyConsiderationParsed && lifecycleBig > BigInt(MAX_CENTS)) {
+      add(
+        "lifecycle.consideration.supported_range",
+        "5",
+        "The total lifecycle consideration (original transaction price plus consideration arising on exercised options) exceeds the supported monetary range.",
+      );
+    }
+  }
+
 
   // ---- Step 5 -------------------------------------------------------------
   for (const po of materialRightPos) {
