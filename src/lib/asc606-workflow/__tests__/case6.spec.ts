@@ -142,7 +142,7 @@ describe("Case 6 — outstanding", () => {
     const december = monthly.find((m) => m.month === "2027-12")!;
     expect(january.contractLiabilityCents).toBe(13_345_678); // $133,456.78
     expect(december.contractLiabilityCents).toBe(RIGHT_ALLOCATION);
-    expect(december.billedReceivableCents + december.unbilledReceivableCents).toBe(0);
+    expect(december.totalArCents).toBe(0);
 
     const journals = analyzeJournalEntries(balances.engineInput!);
     expect(journals.reconciliation.reconciled).toBe(true);
@@ -264,7 +264,7 @@ describe("Case 6 — exercised 12/15/2027", () => {
     expect(jan28.contractLiabilityCents).toBe(12_801_583); // $128,015.83
     const dec28 = monthly.find((m) => m.month === "2028-12")!;
     expect(dec28.contractLiabilityCents).toBe(0);
-    expect(dec28.billedReceivableCents + dec28.unbilledReceivableCents).toBe(0);
+    expect(dec28.totalArCents).toBe(0);
 
     const journals = analyzeJournalEntries(balances.engineInput!);
     expect(journals.reconciliation.reconciled).toBe(true);
