@@ -17,6 +17,7 @@
 
 import {
   allocateTransactionPrice,
+  bigIntToCents,
   generateRevenueSchedule,
   type AllocatablePerformanceObligation,
   type AllocationRow,
@@ -40,6 +41,19 @@ export function exerciseSourceId(materialRightId: string): string {
 
 export function expirationSourceId(materialRightId: string): string {
   return `${materialRightId}::expiration`;
+}
+
+/**
+ * Revenue arising when a material right expires unexercised is attributed to
+ * the underlying good or service the customer would have obtained, while the
+ * revenue-source metadata retains the link back to the material-right PO.
+ * Derived deterministically from the accountant's data — never hard-coded.
+ */
+export function expirationSourceName(
+  mr: Pick<MaterialRightInput, "name" | "underlyingGoodOrServiceName">,
+): string {
+  const underlying = mr.underlyingGoodOrServiceName.trim() || mr.name;
+  return `${underlying} — material-right expiration`;
 }
 
 export function buildAllocatables(
@@ -97,7 +111,7 @@ function materialRightUnit(
     const unit: RecognizableUnit = {
       id: expirationSourceId(mr.id),
       seq: mr.seq,
-      name: `${mr.name} — expiration`,
+      name: expirationSourceName(mr),
       recognitionMethod: "point_in_time",
       recognitionDate: mr.expirationDate,
     };
@@ -123,8 +137,8 @@ export function buildLifecycleUnits(
   const scheduleInputs: ScheduleInput[] = [];
   const revenueSources: RevenueSource[] = [];
   const outcomes: MaterialRightOutcome[] = [];
-  let unscheduledCents = 0;
-  let exerciseConsiderationCents = 0;
+  let unscheduledBig = 0n;
+  let exerciseConsiderationBig = 0n;
 
   for (const po of input.standardPerformanceObligations) {
     scheduleInputs.push({ po, allocatedCents: allocatedById.get(po.id) ?? 0 });
@@ -144,8 +158,8 @@ export function buildLifecycleUnits(
       revenueSources.push(built.source);
     }
     const isExercise = mr.status === "exercised" && mr.exercise;
-    if (isExercise) exerciseConsiderationCents += mr.exercise!.newConsiderationCents;
-    if (!built) unscheduledCents += allocatedCents;
+    if (isExercise) exerciseConsiderationBig += BigInt(mr.exercise!.newConsiderationCents);
+    if (!built) unscheduledBig += BigInt(allocatedCents);
 
     outcomes.push({
       poId: mr.id,
@@ -169,7 +183,17 @@ export function buildLifecycleUnits(
     });
   }
 
-  return { scheduleInputs, revenueSources, outcomes, unscheduledCents, exerciseConsiderationCents };
+  return {
+    scheduleInputs,
+    revenueSources,
+    outcomes,
+    // Exact aggregation, range-proven before returning to the Cents domain.
+    unscheduledCents: bigIntToCents(unscheduledBig, "unscheduled material-right consideration"),
+    exerciseConsiderationCents: bigIntToCents(
+      exerciseConsiderationBig,
+      "aggregate exercise consideration",
+    ),
+  };
 }
 
 export function buildLifecycleSchedule(scheduleInputs: ScheduleInput[]): RevenueSchedule {
