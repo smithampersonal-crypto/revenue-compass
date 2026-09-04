@@ -1,5 +1,6 @@
 import type { RecognitionMethod } from "@/lib/asc606";
-import type { PoDraft, WorkflowDraft } from "@/lib/asc606-workflow";
+import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
+import { MATERIAL_RIGHT_STATUS_LABELS, type PoDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
 
@@ -17,6 +18,67 @@ export function Step5Recognition({
       performanceObligations: pos.map((po) => (po.id === id ? { ...po, ...values } : po)),
     });
 
+  const recognitionFields = (po: PoDraft, label: string) => (
+    <>
+      <Field label={label}>
+        <select
+          className={inputClass}
+          value={po.recognitionMethod ?? ""}
+          onChange={(e) =>
+            patch(po.id, {
+              recognitionMethod: (e.target.value || null) as RecognitionMethod | null,
+            })
+          }
+        >
+          <option value="">Select a method…</option>
+          <option value="over_time_ratable">Over time — daily ratable</option>
+          <option value="point_in_time">Point in time</option>
+        </select>
+      </Field>
+
+      {po.recognitionMethod === "over_time_ratable" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Service start date (inclusive)">
+            <input
+              type="date"
+              className={inputClass}
+              value={po.serviceStart}
+              onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
+            />
+          </Field>
+          <Field label="Service end date (inclusive)">
+            <input
+              type="date"
+              className={inputClass}
+              value={po.serviceEnd}
+              onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
+            />
+          </Field>
+        </div>
+      ) : null}
+
+      {po.recognitionMethod === "point_in_time" ? (
+        <Field label="Recognition date">
+          <input
+            type="date"
+            className={inputClass}
+            value={po.recognitionDate}
+            onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
+          />
+        </Field>
+      ) : null}
+
+      <Field label="Recognition rationale">
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={po.recognitionRationale}
+          onChange={(e) => patch(po.id, { recognitionRationale: e.target.value })}
+        />
+      </Field>
+    </>
+  );
+
   return (
     <Section
       title="Step 5 — Determine Revenue Recognition"
@@ -26,63 +88,81 @@ export function Step5Recognition({
         {pos.length === 0 ? <Notice>Create performance obligations in Step 2B first.</Notice> : null}
         {pos.map((po) => (
           <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
-            <p className="text-sm font-semibold">{po.name || `Performance obligation ${po.seq}`}</p>
-            <Field label="Recognition method">
-              <select
-                className={inputClass}
-                value={po.recognitionMethod ?? ""}
-                onChange={(e) =>
-                  patch(po.id, {
-                    recognitionMethod: (e.target.value || null) as RecognitionMethod | null,
-                  })
-                }
-              >
-                <option value="">Select a method…</option>
-                <option value="over_time_ratable">Over time — daily ratable</option>
-                <option value="point_in_time">Point in time</option>
-              </select>
-            </Field>
+            <p className="text-sm font-semibold">
+              {po.name || `Performance obligation ${po.seq}`}
+              {po.kind === "material_right" ? " — material right" : ""}
+            </p>
 
-            {po.recognitionMethod === "over_time_ratable" ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Service start date (inclusive)">
-                  <input
-                    type="date"
+            {po.kind === "material_right" ? (
+              <>
+                <Field label="Option outcome (accountant judgment)">
+                  <select
                     className={inputClass}
-                    value={po.serviceStart}
-                    onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
-                  />
+                    value={po.materialRightStatus}
+                    onChange={(e) =>
+                      patch(po.id, {
+                        materialRightStatus: e.target.value as MaterialRightStatus,
+                      })
+                    }
+                  >
+                    {(["outstanding", "exercised", "expired"] as const).map((status) => (
+                      <option key={status} value={status}>
+                        {MATERIAL_RIGHT_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
-                <Field label="Service end date (inclusive)">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={po.serviceEnd}
-                    onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
-                  />
-                </Field>
-              </div>
-            ) : null}
 
-            {po.recognitionMethod === "point_in_time" ? (
-              <Field label="Recognition date">
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={po.recognitionDate}
-                  onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
-                />
-              </Field>
-            ) : null}
+                {po.materialRightStatus === "outstanding" ? (
+                  <Notice>
+                    The option is still outstanding, so the consideration allocated to it has no
+                    determinable revenue date and is reported as unscheduled consideration.
+                  </Notice>
+                ) : null}
 
-            <Field label="Recognition rationale">
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={po.recognitionRationale}
-                onChange={(e) => patch(po.id, { recognitionRationale: e.target.value })}
-              />
-            </Field>
+                {po.materialRightStatus === "expired" ? (
+                  <Field label="Expiration date">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={po.expirationDate}
+                      onChange={(e) => patch(po.id, { expirationDate: e.target.value })}
+                    />
+                  </Field>
+                ) : null}
+
+                {po.materialRightStatus === "exercised" ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Exercise date">
+                        <input
+                          type="date"
+                          className={inputClass}
+                          value={po.exerciseDate}
+                          onChange={(e) => patch(po.id, { exerciseDate: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="New consideration on exercise (USD)">
+                        <input
+                          className={inputClass}
+                          inputMode="decimal"
+                          value={po.exerciseConsiderationInput}
+                          onChange={(e) =>
+                            patch(po.id, { exerciseConsiderationInput: e.target.value })
+                          }
+                        />
+                      </Field>
+                    </div>
+                    {recognitionFields(
+                      po,
+                      `Recognition method for ${po.underlyingGoodOrServiceName || "the good or service obtained on exercise"}`,
+                    )}
+                  </>
+                ) : null}
+              </>
+            ) : (
+              recognitionFields(po, "Recognition method")
+            )}
           </div>
         ))}
 
