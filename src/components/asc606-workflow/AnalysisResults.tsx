@@ -35,6 +35,10 @@ export function AnalysisResults({
           id: po.id,
           name: poName.get(po.id) ?? po.id,
         }));
+  // Journal revenue lines are keyed by revenue-source id, which equals the PO
+  // id for ordinary obligations and the engine's synthetic id for material-right
+  // exercise or expiration segments.
+  const sourceNames = new Map<string, string>([...poName, ...columns.map((c) => [c.id, c.name] as const)]);
   const journalAnalysis =
     balances.finalized && balances.engineInput
       ? analyzeJournalEntries(balances.engineInput)
@@ -451,7 +455,7 @@ export function AnalysisResults({
       )}
 
       {journalAnalysis ? (
-        <JournalEntryOutputs analysis={journalAnalysis} poNames={poName} />
+        <JournalEntryOutputs analysis={journalAnalysis} poNames={sourceNames} />
       ) : (
         <Section title="Journal Entries">
           <Notice tone="warning">
