@@ -45,3 +45,37 @@ export function centsToInputString(cents: number): string {
   const abs = Math.abs(cents);
   return `${negative ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
+
+export type PercentInputResult =
+  | { ok: true; bps: number }
+  | { ok: false; error: string };
+
+/**
+ * Exact conversion of an accountant-entered percentage into integer basis
+ * points ("80" / "80.00%" -> 8000). String/integer logic only: probabilities
+ * never travel through floating point.
+ */
+export function parsePercentToBps(raw: string): PercentInputResult {
+  if (typeof raw !== "string") return { ok: false, error: "Enter a percentage." };
+  let value = raw.trim();
+  if (value === "") return { ok: false, error: "Enter a percentage." };
+  if (value.endsWith("%")) value = value.slice(0, -1).trim();
+  if (value.startsWith("-")) return { ok: false, error: "A probability cannot be negative." };
+  if (/\.\d{3,}$/.test(value)) {
+    return { ok: false, error: "Enter no more than two decimal places." };
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(value)) {
+    return { ok: false, error: "Enter a valid percentage, for example 80.00." };
+  }
+  const [wholeRaw, fractionRaw = ""] = value.split(".");
+  const bps = Number(BigInt(wholeRaw!) * 100n + BigInt((fractionRaw + "00").slice(0, 2)));
+  if (bps <= 0) return { ok: false, error: "Probability must be greater than 0%." };
+  if (bps > 10_000) return { ok: false, error: "Probability cannot exceed 100%." };
+  return { ok: true, bps };
+}
+
+/** Formats basis points back into an editable input string (8000 -> "80.00"). */
+export function bpsToInputString(bps: number): string {
+  const abs = Math.abs(bps);
+  return `${bps < 0 ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
