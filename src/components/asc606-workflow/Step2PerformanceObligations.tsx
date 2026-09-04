@@ -1,11 +1,13 @@
 import type { PoClassification } from "@/lib/asc606";
 import {
+  createMaterialRightPoDraft,
   createPoDraft,
   derivePromiseDistinct,
   nextId,
   nextSeq,
   PO_CLASSIFICATION_LABELS,
   validateWorkflow,
+  type PerformanceObligationKind,
   type PoDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
@@ -22,7 +24,8 @@ export function Step2PerformanceObligations({
   onChange: (draft: WorkflowDraft) => void;
 }) {
   const pos = draft.performanceObligations;
-  const setPos = (performanceObligations: PoDraft[]) => onChange({ ...draft, performanceObligations });
+  const setPos = (performanceObligations: PoDraft[]) =>
+    onChange({ ...draft, performanceObligations });
   const patch = (id: string, values: Partial<PoDraft>) =>
     setPos(pos.map((po) => (po.id === id ? { ...po, ...values } : po)));
 
@@ -42,10 +45,12 @@ export function Step2PerformanceObligations({
   return (
     <Section
       title="Step 2B — Form Performance Obligations"
-      description="Group promises into performance obligations. Each promise belongs to exactly one performance obligation."
+      description="Group promises into performance obligations. Each promise belongs to exactly one performance obligation. A customer option that conveys a material right is created here as a material-right performance obligation."
     >
       <div className="space-y-5">
-        {pos.length === 0 ? <Notice>No performance obligations have been created yet.</Notice> : null}
+        {pos.length === 0 ? (
+          <Notice>No performance obligations have been created yet.</Notice>
+        ) : null}
 
         <IssueList
           tone="warning"
@@ -66,6 +71,18 @@ export function Step2PerformanceObligations({
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Obligation type">
+                <select
+                  className={inputClass}
+                  value={po.kind}
+                  onChange={(e) =>
+                    patch(po.id, { kind: e.target.value as PerformanceObligationKind })
+                  }
+                >
+                  <option value="standard">Standard performance obligation</option>
+                  <option value="material_right">Material right (customer option)</option>
+                </select>
+              </Field>
               <Field label="Name">
                 <input
                   className={inputClass}
@@ -73,33 +90,53 @@ export function Step2PerformanceObligations({
                   onChange={(e) => patch(po.id, { name: e.target.value })}
                 />
               </Field>
-              <Field label="Classification">
-                <select
-                  className={inputClass}
-                  value={po.classification ?? ""}
-                  onChange={(e) =>
-                    patch(po.id, {
-                      classification: (e.target.value || null) as PoClassification | null,
-                    })
-                  }
+              {po.kind === "material_right" ? (
+                <Field
+                  label="Underlying good or service obtained on exercise"
+                  hint="Named here so the lifecycle schedule can label the exercise segment."
                 >
-                  <option value="">Select a classification…</option>
-                  {CLASSIFICATIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {PO_CLASSIFICATION_LABELS[c]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                  <input
+                    className={inputClass}
+                    value={po.underlyingGoodOrServiceName}
+                    onChange={(e) => patch(po.id, { underlyingGoodOrServiceName: e.target.value })}
+                  />
+                </Field>
+              ) : (
+                <Field label="Classification">
+                  <select
+                    className={inputClass}
+                    value={po.classification ?? ""}
+                    onChange={(e) =>
+                      patch(po.id, {
+                        classification: (e.target.value || null) as PoClassification | null,
+                      })
+                    }
+                  >
+                    <option value="">Select a classification…</option>
+                    {CLASSIFICATIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {PO_CLASSIFICATION_LABELS[c]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
             </div>
-            <Field label="Classification rationale">
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={po.classificationRationale}
-                onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
-              />
-            </Field>
+            {po.kind === "material_right" ? (
+              <Notice>
+                A material right is measured from your economic-benefit and exercise-probability
+                judgments in Step 4; it is not classified as a distinct promise or a bundle.
+              </Notice>
+            ) : (
+              <Field label="Classification rationale">
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={po.classificationRationale}
+                  onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
+                />
+              </Field>
+            )}
           </div>
         ))}
 
@@ -109,6 +146,15 @@ export function Step2PerformanceObligations({
           onClick={() => setPos([...pos, createPoDraft(nextSeq(pos), nextId("po", pos))])}
         >
           Add performance obligation
+        </button>
+        <button
+          type="button"
+          className="ml-2 rounded-md border border-border px-3 py-1 text-sm hover:bg-accent"
+          onClick={() =>
+            setPos([...pos, createMaterialRightPoDraft(nextSeq(pos), nextId("po", pos))])
+          }
+        >
+          Add material right
         </button>
 
         <div className="space-y-3">
@@ -121,10 +167,23 @@ export function Step2PerformanceObligations({
               return (
                 <div key={promise.id} className="grid gap-2 sm:grid-cols-2 sm:items-center">
                   <div className="text-sm">
-                    <span className="font-medium">{promise.description || `Promise ${promise.seq}`}</span>
+                    <span className="font-medium">
+                      {promise.description || `Promise ${promise.seq}`}
+                    </span>
                     <span className="text-muted-foreground">
                       {" "}
-                      — {distinct === null ? "Incomplete" : distinct ? "Distinct" : "Not distinct"}
+                      —{" "}
+                      {promise.kind === "customer_option"
+                        ? promise.conveysMaterialRight === null
+                          ? "Customer option — material-right conclusion incomplete"
+                          : promise.conveysMaterialRight
+                            ? "Customer option — conveys a material right"
+                            : "Customer option — no material right"
+                        : distinct === null
+                          ? "Incomplete"
+                          : distinct
+                            ? "Distinct"
+                            : "Not distinct"}
                     </span>
                   </div>
                   <select
