@@ -50,8 +50,10 @@ export function analyzeMaterialRightLifecycle(
   const aggregateOutOfRange = lifecycleBig > BigInt(MAX_CENTS) || exerciseBig > BigInt(MAX_CENTS);
   const rangeCheck: CheckResult = {
     id: "lifecycle.consideration.supported_range",
+    category: "contract",
     severity: "blocking",
     passed: !aggregateOutOfRange,
+
     message: aggregateOutOfRange
       ? "The total lifecycle consideration exceeds the supported monetary range."
       : "Total lifecycle consideration is within the supported monetary range.",
