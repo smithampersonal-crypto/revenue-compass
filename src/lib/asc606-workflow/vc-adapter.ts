@@ -13,11 +13,19 @@ import type {
   UsageMeterInput,
   UsagePeriodInput,
   VcAssessmentInput,
+  VcAllocationPreviewInput,
   VcContractInput,
   VcOutcomeInput,
+  VcPreviewComponent,
 } from "@/lib/asc606-variable-consideration";
+import { materialRightSspCents } from "@/lib/asc606-material-rights";
 import { buildMaterialRightContractInput } from "./adapter";
-import { parseInclusivePercentToBps, parseUsageQuantity, parseUsdToCents } from "./money-input";
+import {
+  parseInclusivePercentToBps,
+  parsePercentToBps,
+  parseUsageQuantity,
+  parseUsdToCents,
+} from "./money-input";
 import type { VcAssessmentDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 export type VcAdapterResult =
@@ -261,6 +269,115 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
       materialRights: base.input.materialRights,
       estimatedComponents,
       usageComponents,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Allocation-only input (Step 4).
+//
+// Step 4 allocation depends on Step 3 consideration and Step 4 standalone
+// selling prices only. Recognition method, service dates, usage actuals,
+// billing and journals belong to later steps and are never required here.
+// ---------------------------------------------------------------------------
+
+export type VcAllocationAdapterResult =
+  | { ok: true; input: VcAllocationPreviewInput }
+  | { ok: false; errors: string[] };
+
+export function buildVariableConsiderationAllocationInput(
+  draft: WorkflowDraft,
+): VcAllocationAdapterResult {
+  const errors: string[] = [];
+
+  const price = parseUsdToCents(draft.transactionPriceInput);
+  if (!price.ok) errors.push(`Fixed consideration: ${price.error}`);
+
+  const allocatables: { id: string; seq: number; name: string; sspCents: number }[] = [];
+  for (const po of draft.performanceObligations) {
+    const label = po.name || po.id;
+    if (po.kind === "material_right") {
+      const benefit = parseUsdToCents(po.benefitAmountInput);
+      const probability = parsePercentToBps(po.exerciseProbabilityInput);
+      if (!benefit.ok || benefit.cents <= 0 || !probability.ok) {
+        errors.push(`The estimated standalone selling price for "${label}" is not yet measurable.`);
+        continue;
+      }
+      allocatables.push({
+        id: po.id,
+        seq: po.seq,
+        name: label,
+        sspCents: materialRightSspCents(benefit.cents, probability.bps),
+      });
+      continue;
+    }
+    const ssp = parseUsdToCents(po.sspInput);
+    if (!ssp.ok || ssp.cents <= 0) {
+      errors.push(`Standalone selling price for "${label}" is missing or invalid.`);
+      continue;
+    }
+    allocatables.push({ id: po.id, seq: po.seq, name: label, sspCents: ssp.cents });
+  }
+  if (allocatables.length === 0) {
+    errors.push("At least one performance obligation is required.");
+  }
+
+  const components: VcPreviewComponent[] = [];
+  for (const component of draft.variableConsiderationComponents) {
+    // Usage as incurred is not forecast into the inception transaction price.
+    if (component.treatment !== "estimated") continue;
+    const label = component.description || component.id;
+    if (component.description.trim() === "") {
+      errors.push(`Variable-consideration component "${component.id}" requires a description.`);
+    }
+    if (component.allocationRationale.trim() === "") {
+      errors.push(`An allocation rationale for "${label}" is required.`);
+    }
+    if (component.estimationMethod === null) {
+      errors.push(`An estimation method for "${label}" is required.`);
+      continue;
+    }
+    if (component.allocationTreatment === "specific_series_period") {
+      errors.push(`"${label}" cannot use the series-period allocation exception.`);
+      continue;
+    }
+    const included = parseUsdToCents(component.inception.includedInput);
+    if (!included.ok) {
+      errors.push(`Amount included after the constraint for "${label}": ${included.error}`);
+      continue;
+    }
+    if (component.allocationTreatment === "specific_po") {
+      if (component.targetPoId === null) {
+        errors.push(`"${label}" must name the performance obligation it relates specifically to.`);
+        continue;
+      }
+      if (
+        component.relatesSpecifically !== true ||
+        component.consistentWithAllocationObjective !== true
+      ) {
+        errors.push(
+          `The allocation exception for "${label}" requires both judgments to be Yes: the amount relates specifically to that performance obligation and allocating it there is consistent with the allocation objective.`,
+        );
+        continue;
+      }
+    }
+    components.push({
+      componentId: component.id,
+      description: component.description,
+      allocationTreatment: component.allocationTreatment,
+      targetPoId: component.targetPoId,
+      includedCents: component.effect === "decrease" ? -included.cents : included.cents,
+    });
+  }
+
+  if (errors.length > 0 || !price.ok) return { ok: false, errors };
+
+  return {
+    ok: true,
+    input: {
+      fixedConsiderationCents: price.cents,
+      allocatables,
+      components,
     },
   };
 }
