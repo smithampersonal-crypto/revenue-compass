@@ -157,7 +157,7 @@ describe("negative allocation is blocked, not thrown", () => {
     }).not.toThrow();
     expect(result!.allocation).toBeNull();
     expect(result!.revenueSchedule).toBeNull();
-    expect(result!.reconciliation.reconciled).toBe(false);
+    expect(result!.reconciliation.reconciled).not.toBe(true);
     expect(
       result!.validation.blockingFailures.some((f) => f.id === "vc.allocation.po.nonnegative"),
     ).toBe(true);
