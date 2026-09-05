@@ -247,21 +247,46 @@ describe("the running general pool must never go negative", () => {
     };
   }
 
+  /** A specific increase keeps total consideration positive while the pool is not. */
+  const specificIncrease: EstimatedComponentInput = {
+    id: "vc-uplift",
+    seq: 2,
+    description: "Service-specific uplift",
+    effect: "increase",
+    estimationMethod: "most_likely_amount",
+    allocationTreatment: "specific_po",
+    targetPoId: "po-platform",
+    relatesSpecificallyToPo: true,
+    consistentWithAllocationObjective: true,
+    allocationRationale: "The uplift relates specifically to the platform service.",
+    inception: {
+      id: "vc-uplift-inception",
+      seq: 1,
+      effectiveDate: "2027-01-01",
+      outcomes: [{ id: "u1", seq: 1, amountCents: D(20_000), isMostLikely: true }],
+      includedCents: D(20_000),
+      constraintRationale: "A reversal is not probable.",
+    },
+    remeasurements: [],
+  };
+
   it("blocks when a remeasurement drives the general pool below zero", () => {
-    const result = analyzeVariableConsideration(
-      contract(
-        generalDecrease([
-          {
-            id: "vc-penalty-rm",
-            seq: 2,
-            effectiveDate: "2027-06-01",
-            outcomes: [{ id: "p2", seq: 1, amountCents: D(40_000), isMostLikely: true }],
-            includedCents: D(40_000),
-            constraintRationale: "A reversal is not probable.",
-          },
-        ]),
-      ),
+    const base = contract(
+      generalDecrease([
+        {
+          id: "vc-penalty-rm",
+          seq: 2,
+          effectiveDate: "2027-06-01",
+          outcomes: [{ id: "p2", seq: 1, amountCents: D(40_000), isMostLikely: true }],
+          includedCents: D(40_000),
+          constraintRationale: "A reversal is not probable.",
+        },
+      ]),
     );
+    const result = analyzeVariableConsideration({
+      ...base,
+      estimatedComponents: [...base.estimatedComponents, specificIncrease],
+    });
     expect(result.allocation).toBeNull();
     expect(result.revenueSchedule).toBeNull();
     expect(
