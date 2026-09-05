@@ -238,10 +238,13 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
     );
   }
 
+  // Phase 5B: a monthly amount may be signed, because a post-satisfaction
+  // variable-consideration remeasurement can reverse revenue. The schedule
+  // TOTAL still has to be nonnegative.
   const amountValid = (value: unknown): value is number =>
     typeof value === "number" &&
     Number.isInteger(value) &&
-    value >= 0 &&
+    value >= -MAX_CENTS &&
     value <= MAX_CENTS;
 
   const amountsValid = rows.every((row) => amountValid(row.totalCents));
@@ -249,7 +252,7 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
     fail(
       "revenue_schedule.amount.valid",
       "revenue_schedule",
-      "Every monthly revenue amount must be a nonnegative whole-cent amount within the supported monetary range.",
+      "Every monthly revenue amount must be a whole-cent amount within the supported monetary range.",
     );
   }
 
@@ -270,7 +273,7 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
 
   let sum = 0n;
   for (const row of rows) sum += BigInt(row.totalCents);
-  if (sum > BigInt(MAX_CENTS)) {
+  if (sum > BigInt(MAX_CENTS) || sum < -BigInt(MAX_CENTS)) {
     fail(
       "revenue_schedule.total.supported_range",
       "revenue_schedule",
