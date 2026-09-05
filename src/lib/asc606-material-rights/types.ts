@@ -71,7 +71,9 @@ export interface MaterialRightContractInput {
 export type RevenueSourceType =
   | "original_po"
   | "material_right_exercise"
-  | "material_right_expiration";
+  | "material_right_expiration"
+  // Phase 5B: usage-as-incurred consideration related to a series PO.
+  | "usage";
 
 /** Deterministic display metadata for every column of the lifecycle schedule. */
 export interface RevenueSource {
@@ -80,6 +82,8 @@ export interface RevenueSource {
   sourceType: RevenueSourceType;
   originalPoId?: string;
   materialRightPoId?: string;
+  /** Phase 5B usage sources only. */
+  usageComponentId?: string;
 }
 
 export interface MaterialRightOutcome {
