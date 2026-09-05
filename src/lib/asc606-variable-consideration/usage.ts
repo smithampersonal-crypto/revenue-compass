@@ -50,7 +50,9 @@ export function meterPeriodAmountCents(meter: UsageMeterInput, quantity: number)
 /** Calculates every complete usage period of one component, in month order. */
 export function usageComponentPeriods(component: UsageComponentInput): UsagePeriodResult[] {
   const metersById = new Map(component.meters.map((meter) => [meter.id, meter]));
-  const periods = [...component.periods].sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0));
+  const periods = [...component.periods].sort((a, b) =>
+    a.month < b.month ? -1 : a.month > b.month ? 1 : 0,
+  );
 
   return periods.map((period) => {
     const meterResults: UsageMeterPeriodResult[] = [];
