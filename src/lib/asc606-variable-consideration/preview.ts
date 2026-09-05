@@ -16,7 +16,7 @@ import {
   type Cents,
 } from "@/lib/asc606";
 import { buildInceptionAllocation, type SpecificAllocationInput } from "./allocation";
-import { signedAmount, unconstrainedMagnitudeCents } from "./estimation";
+import { signedAmount } from "./estimation";
 import {
   validateInceptionComponent,
   type InceptionComponentCheck,
@@ -55,7 +55,37 @@ export interface VcAllocationPreview {
   issues: VcCheckResult[];
 }
 
+/**
+ * Defensive wrapper: an allocation-only preview never throws at the accountant.
+ * Any structurally impossible input is reported as a blocking review issue.
+ */
 export function previewVcAllocation(input: VcAllocationPreviewInput): VcAllocationPreview {
+  try {
+    return buildPreview(input);
+  } catch (error) {
+    return {
+      initialTransactionPriceCents: null,
+      generalPoolCents: null,
+      base: null,
+      specific: [],
+      finalAllocations: null,
+      issues: [
+        {
+          id: "vc.allocation.preview",
+          category: "allocation",
+          severity: "blocking",
+          message:
+            error instanceof VariableConsiderationError
+              ? error.message
+              : (error as Error).message,
+          passed: false,
+        },
+      ],
+    };
+  }
+}
+
+function buildPreview(input: VcAllocationPreviewInput): VcAllocationPreview {
   const issues: VcCheckResult[] = [];
   const fail = (id: string, message: string) =>
     issues.push({ id, category: "allocation", severity: "blocking", message, passed: false });
