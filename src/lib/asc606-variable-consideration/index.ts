@@ -16,6 +16,7 @@ export * from "./estimation";
 export * from "./allocation";
 export * from "./usage";
 export * from "./recognition";
+export * from "./preview";
 export * from "./validation";
 
 import {
@@ -288,9 +289,25 @@ export function analyzeVariableConsideration(
   );
 
   // Each successive allocation state, in chronological order, must stay
-  // nonnegative — not only the final one.
+  // nonnegative — not only the final one. The general allocation pool itself is
+  // maintained chronologically as well: large specific allocations can keep
+  // every performance obligation positive while the pool is invalid.
+  const treatmentByComponentId = new Map(
+    components.map((component) => [component.componentId, component.allocationTreatment]),
+  );
+  let runningGeneralPool = generalPool;
   let intermediate = inceptionFinal;
   for (const { event } of pending) {
+    if (treatmentByComponentId.get(event.componentId) === "general") {
+      runningGeneralPool += BigInt(event.transactionPriceChangeCents);
+      if (runningGeneralPool < 0n) {
+        allocationFail(
+          "vc.allocation.general_pool.nonnegative",
+          `The consideration allocated on a relative standalone-selling-price basis becomes negative on ${event.effectiveDate}. Review the variable-consideration amounts and their allocation treatment.`,
+        );
+        return blockedWithExtra();
+      }
+    }
     intermediate = applyAllocationChanges(intermediate, event.allocationByPo);
     for (const row of intermediate) {
       if (row.amountCents < 0) {

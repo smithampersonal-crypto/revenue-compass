@@ -17,7 +17,9 @@ describe("Case 7 — AtlasData / TitanEnergy completion bonus", () => {
   });
 
   it("allocates the fixed consideration on a relative SSP basis", () => {
-    const base = Object.fromEntries(analysis.allocation!.base.map((r) => [r.poId, r.allocatedCents]));
+    const base = Object.fromEntries(
+      analysis.allocation!.base.map((r) => [r.poId, r.allocatedCents]),
+    );
     expect(base["po-implementation"]).toBe(D(55_200));
     expect(base["po-saas"]).toBe(D(404_800));
   });
@@ -371,7 +373,11 @@ describe("remeasurement recognition", () => {
     const analysis = analyzeVariableConsideration(
       contract({
         standardPerformanceObligations: [
-          { ...CLOUDAI_PLATFORM, recognitionMethod: "point_in_time", recognitionDate: "2027-01-15" },
+          {
+            ...CLOUDAI_PLATFORM,
+            recognitionMethod: "point_in_time",
+            recognitionDate: "2027-01-15",
+          },
         ],
         estimatedComponents: [
           estimated({
@@ -432,7 +438,14 @@ describe("usage validation", () => {
             consistentWithAllocationObjective: true,
             allocationRationale: "Fictional demonstration data.",
             meters: [
-              { id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 1_000, unit: "requests" },
+              {
+                id: "m1",
+                seq: 1,
+                name: "Requests",
+                rateAmountCents: 100,
+                rateQuantity: 1_000,
+                unit: "requests",
+              },
             ],
             periods: fullYear(5_000),
             ...overrides,
@@ -452,7 +465,9 @@ describe("usage validation", () => {
     expect(zero.usagePeriods[0]!.totalCents).toBe(0);
 
     const blank = usageContract({
-      periods: fullYear(0).map((p, i) => (i === 0 ? { ...p, quantitiesByMeterId: { m1: null } } : p)),
+      periods: fullYear(0).map((p, i) =>
+        i === 0 ? { ...p, quantitiesByMeterId: { m1: null } } : p,
+      ),
     });
     expect(blockingIds(blank)).toContain("vc.usage.quantity.required");
   });
@@ -460,7 +475,9 @@ describe("usage validation", () => {
   it("rejects a usage target that is not a series", () => {
     const analysis = analyzeVariableConsideration(
       contract({
-        standardPerformanceObligations: [{ ...CLOUDAI_PLATFORM, classification: "single_distinct" }],
+        standardPerformanceObligations: [
+          { ...CLOUDAI_PLATFORM, classification: "single_distinct" },
+        ],
         usageComponents: [
           {
             id: "vc-usage",
@@ -472,7 +489,14 @@ describe("usage validation", () => {
             consistentWithAllocationObjective: true,
             allocationRationale: "Fictional demonstration data.",
             meters: [
-              { id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 1_000, unit: "requests" },
+              {
+                id: "m1",
+                seq: 1,
+                name: "Requests",
+                rateAmountCents: 100,
+                rateQuantity: 1_000,
+                unit: "requests",
+              },
             ],
             periods: [{ month: "2027-01", quantitiesByMeterId: { m1: 1_000 } }],
           },
@@ -484,7 +508,16 @@ describe("usage validation", () => {
 
   it("rejects an invalid rate denominator", () => {
     const analysis = usageContract({
-      meters: [{ id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 0, unit: "requests" }],
+      meters: [
+        {
+          id: "m1",
+          seq: 1,
+          name: "Requests",
+          rateAmountCents: 100,
+          rateQuantity: 0,
+          unit: "requests",
+        },
+      ],
     });
     expect(blockingIds(analysis)).toContain("vc.usage.meter.rate_quantity");
   });
@@ -493,14 +526,28 @@ describe("usage validation", () => {
     // 1 request at $1.00 / 1,000 requests = 0.1 cents -> 0 cents.
     expect(
       meterPeriodAmountCents(
-        { id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 1_000, unit: "requests" },
+        {
+          id: "m1",
+          seq: 1,
+          name: "Requests",
+          rateAmountCents: 100,
+          rateQuantity: 1_000,
+          unit: "requests",
+        },
         1,
       ),
     ).toBe(0);
     // 5 requests -> 0.5 cents -> 1 cent (half-up).
     expect(
       meterPeriodAmountCents(
-        { id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 1_000, unit: "requests" },
+        {
+          id: "m1",
+          seq: 1,
+          name: "Requests",
+          rateAmountCents: 100,
+          rateQuantity: 1_000,
+          unit: "requests",
+        },
         5,
       ),
     ).toBe(1);

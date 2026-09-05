@@ -25,10 +25,15 @@ import {
 } from "@/lib/asc606-material-rights";
 import {
   analyzeVariableConsideration,
+  previewVcAllocation,
   type VariableConsiderationAnalysis,
+  type VcAllocationPreview,
 } from "@/lib/asc606-variable-consideration";
 import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
-import { buildVariableConsiderationInput } from "./vc-adapter";
+import {
+  buildVariableConsiderationAllocationInput,
+  buildVariableConsiderationInput,
+} from "./vc-adapter";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   deriveStep1Conclusion,
@@ -256,6 +261,8 @@ export interface AllocationPreview {
   rows: AllocationRow[] | null;
   totalSspCents: Cents | null;
   totalAllocatedCents: Cents | null;
+  /** Phase 5B layered inception allocation; null for a fixed-only contract. */
+  variable: VcAllocationPreview | null;
   issues: string[];
 }
 
@@ -265,10 +272,12 @@ export interface AllocationPreview {
  */
 export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   const issues: string[] = [];
+  let variable: VcAllocationPreview | null = null;
   const empty = (): AllocationPreview => ({
     rows: null,
     totalSspCents: null,
     totalAllocatedCents: null,
+    variable,
     issues,
   });
 
@@ -287,21 +296,26 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   }
 
   // A contract with variable consideration is allocated by the Phase 5B
-  // engine. This layer never re-derives it: it shows the engine's own layer.
+  // engine through its allocation-only path: Step 4 never depends on Step 5
+  // recognition information, and this layer never re-derives the allocation.
   if (draftHasVariableConsideration(draft)) {
-    const layers = analyzeWorkflow(draft).variableConsideration?.allocation ?? null;
-    if (layers === null) {
-      issues.push(
-        "Allocation is not calculated yet because the variable-consideration inputs in Step 3 are incomplete.",
-      );
+    const built = buildVariableConsiderationAllocationInput(draft);
+    if (!built.ok) {
+      issues.push(...built.errors);
+      return empty();
+    }
+    variable = previewVcAllocation(built.input);
+    if (variable.base === null) {
+      issues.push(...variable.issues.map((issue) => issue.message));
       return empty();
     }
     let total = 0n;
-    for (const row of layers.base) total += BigInt(row.allocatedCents);
+    for (const row of variable.base) total += BigInt(row.allocatedCents);
     return {
-      rows: layers.base,
-      totalSspCents: layers.base[0]?.totalSspCents ?? null,
+      rows: variable.base,
+      totalSspCents: variable.base[0]?.totalSspCents ?? null,
       totalAllocatedCents: Number(total),
+      variable,
       issues,
     };
   }
@@ -358,6 +372,7 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
       rows,
       totalSspCents: rows[0]?.totalSspCents ?? null,
       totalAllocatedCents: price.cents,
+      variable: null,
       issues,
     };
   } catch (error) {

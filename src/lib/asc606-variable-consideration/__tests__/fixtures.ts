@@ -4,11 +4,7 @@
  */
 
 import type { PerformanceObligationInput } from "@/lib/asc606";
-import type {
-  EstimatedComponentInput,
-  UsageComponentInput,
-  VcContractInput,
-} from "../types";
+import type { EstimatedComponentInput, UsageComponentInput, VcContractInput } from "../types";
 
 export const D = (whole: number, cents = 0) => whole * 100 + cents;
 
@@ -54,7 +50,13 @@ export const CASE7_BONUS: EstimatedComponentInput = {
     seq: 1,
     effectiveDate: "2027-01-01",
     outcomes: [
-      { id: "o1", seq: 1, amountCents: D(30_000), isMostLikely: true, description: "Completed timely" },
+      {
+        id: "o1",
+        seq: 1,
+        amountCents: D(30_000),
+        isMostLikely: true,
+        description: "Completed timely",
+      },
       { id: "o2", seq: 2, amountCents: 0, description: "Not completed timely" },
     ],
     includedCents: D(30_000),
@@ -105,8 +107,22 @@ export const CLOUDAI_USAGE: UsageComponentInput = {
   allocationRationale:
     "Each month's usage fee relates specifically to the distinct daily service provided in that month and pricing is consistent throughout the term.",
   meters: [
-    { id: "meter-input", seq: 1, name: "Input tokens", rateAmountCents: D(4), rateQuantity: 1_000_000, unit: "tokens" },
-    { id: "meter-output", seq: 2, name: "Output tokens", rateAmountCents: D(20), rateQuantity: 1_000_000, unit: "tokens" },
+    {
+      id: "meter-input",
+      seq: 1,
+      name: "Input tokens",
+      rateAmountCents: D(4),
+      rateQuantity: 1_000_000,
+      unit: "tokens",
+    },
+    {
+      id: "meter-output",
+      seq: 2,
+      name: "Output tokens",
+      rateAmountCents: D(20),
+      rateQuantity: 1_000_000,
+      unit: "tokens",
+    },
   ],
   periods: Array.from({ length: 12 }, (_, index) => ({
     month: `2027-${String(index + 1).padStart(2, "0")}`,
