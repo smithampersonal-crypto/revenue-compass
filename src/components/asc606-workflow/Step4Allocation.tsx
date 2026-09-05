@@ -140,11 +140,20 @@ export function Step4Allocation({
           />
         )}
 
+        {draft.hasVariableConsideration ? (
+          <Notice>
+            This contract contains variable consideration. The table above is the engine's
+            relative standalone-selling-price allocation. Amounts allocated specifically to a single
+            performance obligation or to a service period, and every later change in estimate, are
+            shown in full on the results screen.
+          </Notice>
+        ) : null}
+
         <Notice>
           The relative standalone-selling-price allocation methodology is supported, including
-          material rights measured as economic benefit × exercise probability. Variable-consideration
-          allocation exceptions, discount allocation exceptions and residual SSP methods are not
-          supported.
+          material rights measured as economic benefit × exercise probability and the
+          variable-consideration allocation exceptions. Discount allocation exceptions and residual
+          SSP methods are not supported.
         </Notice>
       </div>
     </Section>
