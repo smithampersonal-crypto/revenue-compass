@@ -14,6 +14,7 @@ import { analyzeJournalEntries } from "@/lib/asc606-journals";
 import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
 import { JournalEntryOutputs } from "./JournalEntryOutputs";
 import { IssueList, judgmentLabel, Notice, Section, td, th } from "./fields";
+import { VariableConsiderationOutputs } from "./VariableConsiderationOutputs";
 
 export function AnalysisResults({
   draft,
@@ -216,6 +217,10 @@ export function AnalysisResults({
           <Notice tone="danger">No finalized SSP allocation is presented.</Notice>
         </Section>
       )}
+
+      {result.variableConsideration ? (
+        <VariableConsiderationOutputs vc={result.variableConsideration} />
+      ) : null}
 
       {lifecycle ? (
         <Section

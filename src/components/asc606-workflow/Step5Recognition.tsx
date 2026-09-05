@@ -8,6 +8,7 @@ import {
 } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
+import { Step5VariableConsideration } from "./Step5VariableConsideration";
 
 export function Step5Recognition({
   draft,
@@ -208,6 +209,8 @@ export function Step5Recognition({
             )}
           </div>
         ))}
+
+        <Step5VariableConsideration draft={draft} onChange={onChange} />
 
         <Notice>
           Daily-ratable over-time recognition and point-in-time recognition are supported. Other

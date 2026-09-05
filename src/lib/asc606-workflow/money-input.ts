@@ -79,3 +79,47 @@ export function bpsToInputString(bps: number): string {
   const abs = Math.abs(bps);
   return `${bps < 0 ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
+
+/**
+ * Phase 5B: expected-value probabilities may legitimately be 0% or 100%, so
+ * this parser accepts the inclusive 0–100 range. The material-right parser
+ * above is unchanged and still requires a probability greater than 0%.
+ */
+export function parseInclusivePercentToBps(raw: string): PercentInputResult {
+  if (typeof raw !== "string") return { ok: false, error: "Enter a percentage." };
+  let value = raw.trim();
+  if (value === "") return { ok: false, error: "Enter a percentage." };
+  if (value.endsWith("%")) value = value.slice(0, -1).trim();
+  if (value.startsWith("-")) return { ok: false, error: "A probability cannot be negative." };
+  if (/\.\d{3,}$/.test(value)) {
+    return { ok: false, error: "Enter no more than two decimal places." };
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(value)) {
+    return { ok: false, error: "Enter a valid percentage, for example 60.00." };
+  }
+  const [wholeRaw, fractionRaw = ""] = value.split(".");
+  const bps = Number(BigInt(wholeRaw!) * 100n + BigInt((fractionRaw + "00").slice(0, 2)));
+  if (bps > 10_000) return { ok: false, error: "Probability cannot exceed 100%." };
+  return { ok: true, bps };
+}
+
+export type QuantityInputResult =
+  | { ok: true; value: number }
+  | { ok: false; error: string };
+
+/**
+ * Phase 5B usage quantities and rate denominators: whole numbers only, parsed
+ * with integer logic. "0" is a real measured zero; blank is handled by the
+ * caller and is never treated as zero.
+ */
+export function parseUsageQuantity(raw: string): QuantityInputResult {
+  if (typeof raw !== "string") return { ok: false, error: "Enter a whole quantity." };
+  const value = raw.trim().replace(/,/g, "");
+  if (value === "") return { ok: false, error: "Enter a whole quantity." };
+  if (!/^\d+$/.test(value)) return { ok: false, error: "Enter a whole quantity, for example 8000000." };
+  const big = BigInt(value);
+  if (big > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return { ok: false, error: "Quantity exceeds the quantity this engine can calculate exactly." };
+  }
+  return { ok: true, value: Number(big) };
+}

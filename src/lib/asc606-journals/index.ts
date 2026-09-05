@@ -62,7 +62,12 @@ export function analyzeJournalEntries(input: ContractBalanceInput): JournalAnaly
       if (entry.eventType !== "revenue_recognition" || entry.month !== row.month) continue;
       for (const line of entry.lines) {
         if (line.account !== "revenue") continue;
-        posted.set(line.poId!, (posted.get(line.poId!) ?? 0n) + BigInt(line.creditCents));
+        // Phase 5B: revenue may be reversed, so the invariant compares the
+        // net credit (credits less debits) with the signed schedule amount.
+        posted.set(
+          line.poId!,
+          (posted.get(line.poId!) ?? 0n) + BigInt(line.creditCents) - BigInt(line.debitCents),
+        );
       }
     }
     for (const [poId, amount] of Object.entries(row.perPo)) {
@@ -80,7 +85,9 @@ export function analyzeJournalEntries(input: ContractBalanceInput): JournalAnaly
   let totalRevenue = 0n;
   for (const entry of entries) {
     for (const line of entry.lines) {
-      if (line.account === "revenue") totalRevenue += BigInt(line.creditCents);
+      if (line.account === "revenue") {
+        totalRevenue += BigInt(line.creditCents) - BigInt(line.debitCents);
+      }
     }
   }
   if (
