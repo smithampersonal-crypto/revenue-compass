@@ -105,7 +105,11 @@ export function Step4Allocation({
           ),
         )}
 
-        <h3 className="text-sm font-semibold">Engine allocation (read-only)</h3>
+        <h3 className="text-sm font-semibold">
+          {preview.variable
+            ? "Engine allocation — general (relative SSP) layer (read-only)"
+            : "Engine allocation (read-only)"}
+        </h3>
         {preview.rows ? (
           <table className="w-full border-collapse text-sm">
             <thead>
