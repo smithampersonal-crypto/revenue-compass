@@ -337,52 +337,37 @@ export function buildVariableConsiderationAllocationInput(
     errors.push("At least one performance obligation is required.");
   }
 
+  if (draft.hasVariableConsideration && draft.variableConsiderationComponents.length === 0) {
+    errors.push(
+      "This contract is marked as containing variable consideration, so at least one variable-consideration component is required.",
+    );
+  }
+
   const components: VcPreviewComponent[] = [];
   for (const component of draft.variableConsiderationComponents) {
     // Usage as incurred is not forecast into the inception transaction price.
     if (component.treatment !== "estimated") continue;
     const label = component.description || component.id;
-    if (component.description.trim() === "") {
-      errors.push(`Variable-consideration component "${component.id}" requires a description.`);
-    }
-    if (component.allocationRationale.trim() === "") {
-      errors.push(`An allocation rationale for "${label}" is required.`);
-    }
     if (component.estimationMethod === null) {
       errors.push(`An estimation method for "${label}" is required.`);
       continue;
     }
-    if (component.allocationTreatment === "specific_series_period") {
-      errors.push(`"${label}" cannot use the series-period allocation exception.`);
-      continue;
-    }
-    const included = parseUsdToCents(component.inception.includedInput);
-    if (!included.ok) {
-      errors.push(`Amount included after the constraint for "${label}": ${included.error}`);
-      continue;
-    }
-    if (component.allocationTreatment === "specific_po") {
-      if (component.targetPoId === null) {
-        errors.push(`"${label}" must name the performance obligation it relates specifically to.`);
-        continue;
-      }
-      if (
-        component.relatesSpecifically !== true ||
-        component.consistentWithAllocationObjective !== true
-      ) {
-        errors.push(
-          `The allocation exception for "${label}" requires both judgments to be Yes: the amount relates specifically to that performance obligation and allocating it there is consistent with the allocation objective.`,
-        );
-        continue;
-      }
-    }
-    components.push({
+    const inception = buildAssessment(component, component.inception, "inception estimate", errors);
+    if (inception === null) continue;
+    const built: VcPreviewComponent = {
       componentId: component.id,
+      id: component.id,
       description: component.description,
+      effect: component.effect,
+      estimationMethod: component.estimationMethod,
       allocationTreatment: component.allocationTreatment,
+      allocationRationale: component.allocationRationale,
       targetPoId: component.targetPoId,
-      includedCents: component.effect === "decrease" ? -included.cents : included.cents,
-    });
+      relatesSpecificallyToPo: component.relatesSpecifically,
+      consistentWithAllocationObjective: component.consistentWithAllocationObjective,
+      inception,
+    };
+    components.push(built);
   }
 
   if (errors.length > 0 || !price.ok) return { ok: false, errors };
