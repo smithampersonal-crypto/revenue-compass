@@ -375,4 +375,25 @@ function validateUsageComponent(
       }
     }
   }
+
+  // Every month of the target service period must be reported, explicitly as
+  // zero where there was no usage. A missing month is missing information.
+  if (
+    target &&
+    target.recognitionMethod === "over_time_ratable" &&
+    target.serviceStart &&
+    target.serviceEnd &&
+    !datePeriodExceedsSupportedHorizon(target.serviceStart, target.serviceEnd)
+  ) {
+    const supplied = new Set(months);
+    for (const month of enumerateMonths(target.serviceStart, target.serviceEnd)) {
+      if (!supplied.has(month)) {
+        fail(
+          "vc.usage.period.complete",
+          "usage",
+          `"${label}": report the usage for ${month}. Every month of the service period of "${target.name}" must be reported, entering zero where there was no usage.`,
+        );
+      }
+    }
+  }
 }
