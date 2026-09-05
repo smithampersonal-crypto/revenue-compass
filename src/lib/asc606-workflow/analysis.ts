@@ -267,10 +267,12 @@ export interface AllocationPreview {
  */
 export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   const issues: string[] = [];
+  let variable: VcAllocationPreview | null = null;
   const empty = (): AllocationPreview => ({
     rows: null,
     totalSspCents: null,
     totalAllocatedCents: null,
+    variable,
     issues,
   });
 
