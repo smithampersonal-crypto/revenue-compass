@@ -241,7 +241,7 @@ export function validateAssessment(
         "component",
         `"${label}": enter at least one possible outcome for ${stamp}.`,
       );
-      continue;
+      return;
     }
     if (assessment.outcomes.some((o) => !validMagnitude(o.amountCents))) {
       fail(
@@ -249,10 +249,10 @@ export function validateAssessment(
         "component",
         `"${label}": every outcome amount for ${stamp} must be a supported nonnegative whole-cent amount.`,
       );
-      continue;
+      return;
     }
 
-    if (component.estimationMethod === "most_likely_amount") {
+    if (estimationMethod === "most_likely_amount") {
       const selected = assessment.outcomes.filter((o) => o.isMostLikely === true);
       if (selected.length !== 1) {
         fail(
@@ -260,7 +260,7 @@ export function validateAssessment(
           "component",
           `"${label}": select exactly one most-likely outcome for ${stamp}.`,
         );
-        continue;
+        return;
       }
     } else {
       if (
@@ -273,7 +273,7 @@ export function validateAssessment(
           "component",
           `"${label}": every outcome for ${stamp} needs a probability between 0% and 100%.`,
         );
-        continue;
+        return;
       }
       if (totalProbabilityBps(assessment.outcomes) !== BPS_SCALE) {
         fail(
@@ -281,7 +281,7 @@ export function validateAssessment(
           "component",
           `"${label}": outcome probabilities for ${stamp} must total exactly 100.00%.`,
         );
-        continue;
+        return;
       }
     }
 
@@ -291,11 +291,11 @@ export function validateAssessment(
         "component",
         `"${label}": the amount included after the constraint for ${stamp} must be a supported nonnegative whole-cent amount.`,
       );
-      continue;
+      return;
     }
     const unconstrained = unconstrainedMagnitudeCents(
       assessment,
-      component.estimationMethod,
+      estimationMethod,
       label,
     );
     if (assessment.includedCents > unconstrained) {
@@ -309,40 +309,6 @@ export function validateAssessment(
     void constraintConclusion(unconstrained, assessment.includedCents);
   }
 
-  // ---- Remeasurement ordering and locking --------------------------------
-  const dated = assessments.filter((a) => isValidIsoDate(a.effectiveDate));
-  for (let i = 1; i < dated.length; i += 1) {
-    if (!(dated[i]!.effectiveDate > dated[i - 1]!.effectiveDate)) {
-      fail(
-        "vc.remeasurement.dates_increasing",
-        "component",
-        `"${label}": remeasurement effective dates must be strictly later than the prior assessment.`,
-      );
-      break;
-    }
-  }
-
-  if (component.resolution) {
-    const resolution = component.resolution;
-    if (!isValidIsoDate(resolution.date)) {
-      fail("vc.resolution.date", "component", `"${label}": the resolution needs a valid date.`);
-    }
-    if (!validMagnitude(resolution.actualCents)) {
-      fail(
-        "vc.resolution.amount",
-        "component",
-        `"${label}": the actual resolved amount must be a supported nonnegative whole-cent amount.`,
-      );
-    }
-    const last = dated[dated.length - 1];
-    if (last && isValidIsoDate(resolution.date) && !(resolution.date >= last.effectiveDate)) {
-      fail(
-        "vc.resolution.after_remeasurements",
-        "component",
-        `"${label}": no remeasurement may follow the resolution date.`,
-      );
-    }
-  }
 }
 
 function validateUsageComponent(
