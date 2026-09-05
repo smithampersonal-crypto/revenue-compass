@@ -148,11 +148,12 @@ export interface ConsiderationEventDraft {
   amountInput: string;
   unconditionalRightDate: IsoDate | "";
   invoiceDate: IsoDate | "";
-  amountSource: ConsiderationAmountSource;
+  /** Defaults to "manual" for every pre-Phase-5B draft. */
+  amountSource?: ConsiderationAmountSource;
   /** Variable-consideration component the amount is derived from. */
-  sourceComponentId: string | null;
+  sourceComponentId?: string | null;
   /** Usage accounting month, when the source is a usage period. */
-  sourceMonth: string;
+  sourceMonth?: string;
 }
 
 export interface CashCollectionDraft {
