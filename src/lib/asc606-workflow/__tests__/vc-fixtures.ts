@@ -119,7 +119,8 @@ export function case7ResolvedDraft(): WorkflowDraft {
       hasResolution: true,
       resolutionDate: "2027-03-20",
       resolutionAmountInput: "30,000.00",
-      resolutionRationale: "Go-live accepted by the customer on 3/20/2027; the bonus was earned in full.",
+      resolutionRationale:
+        "Go-live accepted by the customer on 3/20/2027; the bonus was earned in full.",
     })),
   };
 }
@@ -131,7 +132,8 @@ export function cloudAiDraft(): WorkflowDraft {
     ...createPoDraft(1, "po-platform"),
     name: "AI platform subscription",
     classification: "series" as const,
-    classificationRationale: "A series of distinct daily services with the same pattern of transfer.",
+    classificationRationale:
+      "A series of distinct daily services with the same pattern of transfer.",
     sspInput: "120,000.00",
     sspBasis: "Observable standalone annual platform pricing.",
     recognitionMethod: "over_time_ratable" as const,

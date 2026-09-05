@@ -39,11 +39,12 @@ export function AnalysisResults({
   // Journal revenue lines are keyed by revenue-source id, which equals the PO
   // id for ordinary obligations and the engine's synthetic id for material-right
   // exercise or expiration segments.
-  const sourceNames = new Map<string, string>([...poName, ...columns.map((c) => [c.id, c.name] as const)]);
+  const sourceNames = new Map<string, string>([
+    ...poName,
+    ...columns.map((c) => [c.id, c.name] as const),
+  ]);
   const journalAnalysis =
-    balances.finalized && balances.engineInput
-      ? analyzeJournalEntries(balances.engineInput)
-      : null;
+    balances.finalized && balances.engineInput ? analyzeJournalEntries(balances.engineInput) : null;
 
   return (
     <div className="space-y-6">
@@ -65,15 +66,8 @@ export function AnalysisResults({
         </p>
       </Section>
 
-      <IssueList
-        title="Workflow items requiring attention"
-        issues={workflowValidation.blocking}
-      />
-      <IssueList
-        title="Workflow warnings"
-        tone="warning"
-        issues={workflowValidation.warnings}
-      />
+      <IssueList title="Workflow items requiring attention" issues={workflowValidation.blocking} />
+      <IssueList title="Workflow warnings" tone="warning" issues={workflowValidation.warnings} />
       <IssueList
         title="Engine input could not be assembled"
         issues={result.adapterErrors.map((message, index) => ({ id: String(index), message }))}

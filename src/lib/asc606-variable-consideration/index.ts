@@ -178,7 +178,13 @@ export function analyzeVariableConsideration(
   // accompanied by an authoritative allocation or revenue schedule.
   const extraFailures: VcCheckResult[] = [];
   const allocationFail = (id: string, message: string) => {
-    extraFailures.push({ id, category: "allocation", severity: "blocking", message, passed: false });
+    extraFailures.push({
+      id,
+      category: "allocation",
+      severity: "blocking",
+      message,
+      passed: false,
+    });
   };
   const blockedWithExtra = (): VariableConsiderationAnalysis => {
     const results = [...validation.results, ...extraFailures];
@@ -241,7 +247,6 @@ export function analyzeVariableConsideration(
     return blockedWithExtra();
   }
 
-
   let initialTransactionPrice = 0n;
   for (const row of inceptionFinal) initialTransactionPrice += BigInt(row.amountCents);
 
@@ -300,7 +305,6 @@ export function analyzeVariableConsideration(
 
   const allChangeAllocations = pending.flatMap((p) => p.event.allocationByPo);
   const currentFinal = applyAllocationChanges(inceptionFinal, allChangeAllocations);
-
 
   let currentEstimated = 0n;
   for (const row of currentFinal) currentEstimated += BigInt(row.amountCents);
@@ -372,7 +376,9 @@ export function analyzeVariableConsideration(
         revenueCents: period.totalCents,
       });
     }
-    const target = input.standardPerformanceObligations.find((po) => po.id === component.targetPoId);
+    const target = input.standardPerformanceObligations.find(
+      (po) => po.id === component.targetPoId,
+    );
     usageSources.push({
       id: usageSourceId(component.id),
       name: component.description || `${target?.name ?? component.targetPoId} — usage`,

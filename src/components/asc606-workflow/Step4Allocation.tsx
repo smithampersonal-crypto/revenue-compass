@@ -42,13 +42,13 @@ export function Step4Allocation({
       description="Enter the standalone selling price and its basis for each performance obligation. Allocation is produced by the deterministic engine and is never editable."
     >
       <div className="space-y-4">
-        {pos.length === 0 ? <Notice>Create performance obligations in Step 2B first.</Notice> : null}
+        {pos.length === 0 ? (
+          <Notice>Create performance obligations in Step 2B first.</Notice>
+        ) : null}
         {pos.map((po) =>
           po.kind === "material_right" ? (
             <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
-              <p className="text-sm font-semibold">
-                {po.name || `PO ${po.seq}`} — material right
-              </p>
+              <p className="text-sm font-semibold">{po.name || `PO ${po.seq}`} — material right</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Economic benefit of the option (USD)">
                   <input
@@ -142,8 +142,8 @@ export function Step4Allocation({
 
         {draft.hasVariableConsideration ? (
           <Notice>
-            This contract contains variable consideration. The table above is the engine's
-            relative standalone-selling-price allocation. Amounts allocated specifically to a single
+            This contract contains variable consideration. The table above is the engine's relative
+            standalone-selling-price allocation. Amounts allocated specifically to a single
             performance obligation or to a service period, and every later change in estimate, are
             shown in full on the results screen.
           </Notice>

@@ -7,7 +7,13 @@ import { describe, expect, it } from "vitest";
 
 import { analyzeWorkflow, previewAllocation } from "../analysis";
 import { validateWorkflow } from "../validation";
-import { createMaterialRightPoDraft, createPromiseDraft, createVcComponentDraft, type VcComponentDraft, type WorkflowDraft } from "../types";
+import {
+  createMaterialRightPoDraft,
+  createPromiseDraft,
+  createVcComponentDraft,
+  type VcComponentDraft,
+  type WorkflowDraft,
+} from "../types";
 import { scenarioADraft } from "./fixtures";
 import { case7Draft, cloudAiDraft, payAsYouGoDraft } from "./vc-fixtures";
 
@@ -19,12 +25,17 @@ describe("zero fixed consideration", () => {
     expect(result.variableConsideration!.totals.fixedConsiderationCents).toBe(0);
     expect(result.variableConsideration!.totals.usageConsiderationCents).toBe(7_200);
     expect(result.revenueSchedule!.totalCents).toBe(7_200);
-    expect(result.revenueSchedule!.byMonth.find((r) => r.month === "2027-01")!.totalCents).toBe(7_200);
+    expect(result.revenueSchedule!.byMonth.find((r) => r.month === "2027-01")!.totalCents).toBe(
+      7_200,
+    );
     expect(result.variableConsideration!.reconciliation.reconciled).toBe(true);
   });
 
   it("still requires a positive transaction price on an ordinary fixed contract", () => {
-    const issues = validateWorkflow({ ...scenarioADraft(), transactionPriceInput: "0.00" }).blocking;
+    const issues = validateWorkflow({
+      ...scenarioADraft(),
+      transactionPriceInput: "0.00",
+    }).blocking;
     expect(issues.some((i) => i.id === "contract.transaction_price.valid")).toBe(true);
   });
 
@@ -108,8 +119,22 @@ function combinedDraft(): WorkflowDraft {
       includedInput: "12,000.00",
       constraintRationale: "A significant revenue reversal is not probable.",
       outcomes: [
-        { id: "o1", seq: 1, description: "Bonus earned", amountInput: "12,000.00", probabilityInput: "", isMostLikely: true },
-        { id: "o2", seq: 2, description: "Bonus not earned", amountInput: "0.00", probabilityInput: "", isMostLikely: false },
+        {
+          id: "o1",
+          seq: 1,
+          description: "Bonus earned",
+          amountInput: "12,000.00",
+          probabilityInput: "",
+          isMostLikely: true,
+        },
+        {
+          id: "o2",
+          seq: 2,
+          description: "Bonus not earned",
+          amountInput: "0.00",
+          probabilityInput: "",
+          isMostLikely: false,
+        },
       ],
     },
   };

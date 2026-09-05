@@ -46,7 +46,9 @@ function increase(
   };
 }
 
-function baseComponent(remeasurements: EstimatedComponentInput["remeasurements"]): EstimatedComponentInput {
+function baseComponent(
+  remeasurements: EstimatedComponentInput["remeasurements"],
+): EstimatedComponentInput {
   return {
     id: "vc-bonus",
     seq: 1,
@@ -166,7 +168,11 @@ describe("negative allocation is blocked, not thrown", () => {
   it("blocks when a later remeasurement drives an allocation negative", () => {
     const later: EstimatedComponentInput = {
       ...decrease,
-      inception: { ...decrease.inception, includedCents: D(10), outcomes: [{ id: "p1", seq: 1, amountCents: D(10), isMostLikely: true }] },
+      inception: {
+        ...decrease.inception,
+        includedCents: D(10),
+        outcomes: [{ id: "p1", seq: 1, amountCents: D(10), isMostLikely: true }],
+      },
       remeasurements: [
         {
           id: "vc-penalty-rm",
@@ -198,12 +204,14 @@ describe("usage must cover the whole service period", () => {
     const component = input.usageComponents[0]!;
     const result = analyzeVariableConsideration({
       ...input,
-      usageComponents: [{ ...component, periods: component.periods.filter((p) => p.month !== "2027-08") }],
+      usageComponents: [
+        { ...component, periods: component.periods.filter((p) => p.month !== "2027-08") },
+      ],
     });
     expect(result.revenueSchedule).toBeNull();
-    expect(result.validation.blockingFailures.some((f) => f.id === "vc.usage.period.complete")).toBe(
-      true,
-    );
+    expect(
+      result.validation.blockingFailures.some((f) => f.id === "vc.usage.period.complete"),
+    ).toBe(true);
   });
 
   it("accepts explicit zero usage months", () => {

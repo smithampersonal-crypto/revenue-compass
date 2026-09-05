@@ -100,7 +100,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     );
   }
   if (ordinaryPromises.some((p) => isBlank(p.distinctRationale))) {
-    add("promise.rationale.present", "2a", "Document a distinctness rationale for every promised good or service.");
+    add(
+      "promise.rationale.present",
+      "2a",
+      "Document a distinctness rationale for every promised good or service.",
+    );
   }
   if (optionPromises.some((p) => p.conveysMaterialRight === null)) {
     add(
@@ -156,7 +160,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   const standardPos = pos.filter((po) => po.kind !== "material_right");
   const materialRightPos = pos.filter((po) => po.kind === "material_right");
   if (standardPos.some((po) => po.classification === null)) {
-    add("po.classification.present", "2b", "Select a classification for every performance obligation.");
+    add(
+      "po.classification.present",
+      "2b",
+      "Select a classification for every performance obligation.",
+    );
   }
   if (standardPos.some((po) => isBlank(po.classificationRationale))) {
     add(
@@ -225,7 +233,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
   for (const po of standardPos) {
     const assigned = promises.filter((p) => p.performanceObligationId === po.id);
     if (po.classification === "single_distinct") {
@@ -285,7 +292,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       );
     }
     if (isBlank(po.sspBasis)) {
-      add("po.ssp_basis.present", "4", `Document how the SSP for "${po.name || po.id}" was determined.`);
+      add(
+        "po.ssp_basis.present",
+        "4",
+        `Document how the SSP for "${po.name || po.id}" was determined.`,
+      );
     }
   }
   for (const po of materialRightPos) {
@@ -376,7 +387,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
   // ---- Step 5 -------------------------------------------------------------
   for (const po of materialRightPos) {
     const label = po.name || po.id;
@@ -431,7 +441,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("po.recognition_date.present", "5", `Enter a recognition date for "${label}".`);
     }
     if (isBlank(po.recognitionRationale)) {
-      add("po.recognition_rationale.present", "5", `Document the recognition rationale for "${label}".`);
+      add(
+        "po.recognition_rationale.present",
+        "5",
+        `Document the recognition rationale for "${label}".`,
+      );
     }
   }
 
@@ -493,7 +507,11 @@ function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): vo
     add("po.recognition_date.present", "5", `Enter a recognition date for ${label}.`);
   }
   if (isBlank(po.recognitionRationale)) {
-    add("po.recognition_rationale.present", "5", `Document the recognition rationale for ${label}.`);
+    add(
+      "po.recognition_rationale.present",
+      "5",
+      `Document the recognition rationale for ${label}.`,
+    );
   }
 }
 

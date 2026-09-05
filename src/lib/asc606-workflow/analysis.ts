@@ -173,7 +173,9 @@ export function analyzeWorkflow(
         builtLifecycle.errors,
       );
     }
-    const lifecycle = (deps.analyzeLifecycle ?? analyzeMaterialRightLifecycle)(builtLifecycle.input);
+    const lifecycle = (deps.analyzeLifecycle ?? analyzeMaterialRightLifecycle)(
+      builtLifecycle.input,
+    );
     if (
       lifecycle.validation.blockingFailures.length > 0 ||
       lifecycle.allocation === null ||
@@ -206,7 +208,10 @@ export function analyzeWorkflow(
 
   const built = buildPhase1Input(draft);
   if (!built.ok) {
-    return blocked("The workflow could not be converted into a complete engine input.", built.errors);
+    return blocked(
+      "The workflow could not be converted into a complete engine input.",
+      built.errors,
+    );
   }
 
   // Defense in depth: the Phase 1 engine remains authoritative. A blocking
