@@ -96,7 +96,7 @@ export function VariableConsiderationOutputs({
             </thead>
             <tbody>
               {vc.usagePeriods.map((period) => (
-                <tr key={period.revenueSourceId}>
+                <tr key={`${period.revenueSourceId}:${period.month}`}>
                   <td className={td}>{period.month}</td>
                   <td className={td}>{period.targetPoId}</td>
                   <td className={td}>{formatCents(period.totalCents)}</td>
