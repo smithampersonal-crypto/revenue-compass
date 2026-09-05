@@ -345,6 +345,7 @@ export function AnalysisResults({
         </Section>
       ) : null}
 
+      {result.variableConsideration ? null : (
       <Section title="Reconciliation">
         {analysis ? (
           <table className="w-full border-collapse text-sm">
@@ -462,6 +463,7 @@ export function AnalysisResults({
           <Notice tone="danger">No reconciliation is presented as valid.</Notice>
         )}
       </Section>
+      )}
 
       {balances.finalized && balances.analysis ? (
         <>
