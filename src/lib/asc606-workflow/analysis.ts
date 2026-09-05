@@ -298,7 +298,7 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   // A contract with variable consideration is allocated by the Phase 5B
   // engine through its allocation-only path: Step 4 never depends on Step 5
   // recognition information, and this layer never re-derives the allocation.
-  if (draftHasVariableConsideration(draft)) {
+  if (draft.hasVariableConsideration) {
     const built = buildVariableConsiderationAllocationInput(draft);
     if (!built.ok) {
       issues.push(...built.errors);
