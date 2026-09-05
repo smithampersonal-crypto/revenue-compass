@@ -376,7 +376,14 @@ export function Step3TransactionPrice({
                       }
                     >
                       <option value="">Select a performance obligation…</option>
-                      {draft.performanceObligations.map((po) => (
+                      {draft.performanceObligations
+                        .filter((po) =>
+                          component.treatment === "usage_as_incurred" ||
+                          component.allocationTreatment === "specific_series_period"
+                            ? po.kind !== "material_right" && po.classification === "series"
+                            : true,
+                        )
+                        .map((po) => (
                         <option key={po.id} value={po.id}>
                           {po.name || `Performance obligation ${po.seq}`}
                         </option>
