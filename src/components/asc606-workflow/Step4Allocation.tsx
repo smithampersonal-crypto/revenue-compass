@@ -144,6 +144,72 @@ export function Step4Allocation({
           />
         )}
 
+        {preview.variable && preview.variable.finalAllocations ? (
+          <>
+            <h3 className="text-sm font-semibold">
+              Variable consideration allocated to a specific performance obligation (read-only)
+            </h3>
+            {preview.variable.specific.length === 0 ? (
+              <Notice>
+                No variable consideration is allocated under the allocation exception. Every
+                included amount is in the general pool above.
+              </Notice>
+            ) : (
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className={th}>Variable consideration</th>
+                    <th className={th}>Performance obligation</th>
+                    <th className={th}>Amount allocated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.variable.specific.map((row) => (
+                    <tr key={row.componentId}>
+                      <td className={td}>{row.description}</td>
+                      <td className={td}>{row.poName}</td>
+                      <td className={td}>{formatCents(row.amountCents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <h3 className="text-sm font-semibold">
+              Final allocation at inception (read-only)
+            </h3>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className={th}>Performance obligation</th>
+                  <th className={th}>Allocated transaction price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.variable.finalAllocations.map((row) => (
+                  <tr key={row.poId}>
+                    <td className={td}>{row.name}</td>
+                    <td className={td}>{formatCents(row.amountCents)}</td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td className={td}>Initial transaction price</td>
+                  <td className={td}>
+                    {preview.variable.initialTransactionPriceCents === null
+                      ? "Not yet measurable"
+                      : formatCents(preview.variable.initialTransactionPriceCents)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <Notice>
+              Usage-based consideration is recognized as the usage occurs and is never forecast, so
+              it is not included in this inception allocation. Later changes in estimate are shown
+              in full on the results screen.
+            </Notice>
+          </>
+        ) : null}
+
         {draft.hasVariableConsideration ? (
           <Notice>
             This contract contains variable consideration. The table above is the engine's relative
