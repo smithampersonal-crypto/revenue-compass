@@ -18,6 +18,7 @@ import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   derivePromiseDistinct,
   deriveStep1Conclusion,
+  draftHasVariableConsideration,
   STEP1_CRITERIA,
   type PoDraft,
   type WorkflowDraft,
