@@ -215,11 +215,31 @@ export function analyzeVariableConsideration(
   };
   const allocatables = buildAllocatables(mrShell);
 
+  if (generalPool < 0n) {
+    allocationFail(
+      "vc.allocation.general_pool.nonnegative",
+      "The consideration allocated on a relative standalone-selling-price basis cannot be negative. Review the variable-consideration amounts and their allocation treatment.",
+    );
+    return blockedWithExtra();
+  }
+
   const { base, inceptionFinal } = buildInceptionAllocation({
     generalPoolCents: bigIntToCents(generalPool, "general allocation pool"),
     allocatables,
     specific,
   });
+
+  const negativeInception = inceptionFinal.filter((row) => row.amountCents < 0);
+  if (negativeInception.length > 0) {
+    for (const row of negativeInception) {
+      allocationFail(
+        "vc.allocation.po.nonnegative",
+        `The amount allocated to "${row.name}" at inception is negative. A performance obligation cannot carry a negative allocation; review the variable consideration allocated specifically to it.`,
+      );
+    }
+    return blockedWithExtra();
+  }
+
 
   let initialTransactionPrice = 0n;
   for (const row of inceptionFinal) initialTransactionPrice += BigInt(row.amountCents);
