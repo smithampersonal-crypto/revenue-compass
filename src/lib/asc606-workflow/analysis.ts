@@ -256,6 +256,8 @@ export interface AllocationPreview {
   rows: AllocationRow[] | null;
   totalSspCents: Cents | null;
   totalAllocatedCents: Cents | null;
+  /** Phase 5B layered inception allocation; null for a fixed-only contract. */
+  variable: VcAllocationPreview | null;
   issues: string[];
 }
 
