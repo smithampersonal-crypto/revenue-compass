@@ -166,6 +166,7 @@ describe("supported monetary range at the allocation boundary", () => {
         components: [
           {
             componentId: "vc-1",
+            id: "vc-1",
             description: "Bonus",
             effect: "increase",
             estimationMethod: "most_likely_amount",
