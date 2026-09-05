@@ -16,16 +16,14 @@ import {
   type Cents,
 } from "@/lib/asc606";
 import { buildInceptionAllocation, type SpecificAllocationInput } from "./allocation";
-import { VariableConsiderationError, type VcCheckResult } from "./types";
+import { signedAmount } from "./estimation";
+import { validateInceptionComponent, type InceptionComponentCheck } from "./validation";
+import { VariableConsiderationError, type VcCheckResult, type VcEffect } from "./types";
 
 /** One estimated component as it stands at inception. */
-export interface VcPreviewComponent {
+export interface VcPreviewComponent extends InceptionComponentCheck {
   componentId: string;
-  description: string;
-  allocationTreatment: "general" | "specific_po";
-  targetPoId: string | null;
-  /** Signed amount included after the constraint at inception. */
-  includedCents: Cents;
+  effect: VcEffect;
 }
 
 export interface VcAllocationPreviewInput {
@@ -54,7 +52,35 @@ export interface VcAllocationPreview {
   issues: VcCheckResult[];
 }
 
+/**
+ * Defensive wrapper: an allocation-only preview never throws at the accountant.
+ * Any structurally impossible input is reported as a blocking review issue.
+ */
 export function previewVcAllocation(input: VcAllocationPreviewInput): VcAllocationPreview {
+  try {
+    return buildPreview(input);
+  } catch (error) {
+    return {
+      initialTransactionPriceCents: null,
+      generalPoolCents: null,
+      base: null,
+      specific: [],
+      finalAllocations: null,
+      issues: [
+        {
+          id: "vc.allocation.preview",
+          category: "allocation",
+          severity: "blocking",
+          message:
+            error instanceof VariableConsiderationError ? error.message : (error as Error).message,
+          passed: false,
+        },
+      ],
+    };
+  }
+}
+
+function buildPreview(input: VcAllocationPreviewInput): VcAllocationPreview {
   const issues: VcCheckResult[] = [];
   const fail = (id: string, message: string) =>
     issues.push({ id, category: "allocation", severity: "blocking", message, passed: false });
@@ -73,11 +99,22 @@ export function previewVcAllocation(input: VcAllocationPreviewInput): VcAllocati
     issues,
   });
 
+  const poIds = new Set(input.allocatables.map((po) => po.id));
+  for (const component of input.components) {
+    validateInceptionComponent(
+      { ...component, id: component.componentId },
+      poIds,
+      (id, _c, message) => fail(id, message),
+    );
+  }
+  if (issues.length > 0) return empty(null, []);
+
   let generalPool = BigInt(input.fixedConsiderationCents);
   const specificInputs: SpecificAllocationInput[] = [];
   for (const component of input.components) {
+    const includedCents = signedAmount(component.inception.includedCents, component.effect);
     if (component.allocationTreatment === "general") {
-      generalPool += BigInt(component.includedCents);
+      generalPool += BigInt(includedCents);
       continue;
     }
     if (!component.targetPoId || !poNames.has(component.targetPoId)) {
@@ -91,7 +128,7 @@ export function previewVcAllocation(input: VcAllocationPreviewInput): VcAllocati
       componentId: component.componentId,
       description: component.description,
       poId: component.targetPoId,
-      amountCents: component.includedCents,
+      amountCents: includedCents,
     });
   }
 

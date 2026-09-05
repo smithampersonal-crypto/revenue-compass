@@ -25,6 +25,9 @@ import {
 } from "./estimation";
 import type {
   EstimatedComponentInput,
+  EstimationMethod,
+  VcAllocationTreatment,
+  VcAssessmentInput,
   UsageComponentInput,
   VcCheckResult,
   VcContractInput,
@@ -116,7 +119,7 @@ export function validateVariableConsideration(input: VcContractInput): VcValidat
   };
 }
 
-type FailFn = (
+export type FailFn = (
   id: string,
   category: VcCheckResult["category"],
   message: string,
@@ -169,93 +172,7 @@ function validateEstimatedComponent(
   // ---- Assessments --------------------------------------------------------
   const assessments = orderedAssessments(component);
   for (const assessment of assessments) {
-    const stamp = assessment.effectiveDate || assessment.id;
-    if (!isValidIsoDate(assessment.effectiveDate)) {
-      fail(
-        "vc.assessment.date",
-        "component",
-        `"${label}": assessment ${assessment.id} needs a valid effective date.`,
-      );
-    }
-    if (assessment.constraintRationale.trim() === "") {
-      fail(
-        "vc.assessment.constraint_rationale",
-        "component",
-        `"${label}": document the constraint conclusion for the assessment dated ${stamp}.`,
-      );
-    }
-    if (assessment.outcomes.length === 0) {
-      fail(
-        "vc.assessment.outcomes",
-        "component",
-        `"${label}": enter at least one possible outcome for ${stamp}.`,
-      );
-      continue;
-    }
-    if (assessment.outcomes.some((o) => !validMagnitude(o.amountCents))) {
-      fail(
-        "vc.assessment.outcome.amount",
-        "component",
-        `"${label}": every outcome amount for ${stamp} must be a supported nonnegative whole-cent amount.`,
-      );
-      continue;
-    }
-
-    if (component.estimationMethod === "most_likely_amount") {
-      const selected = assessment.outcomes.filter((o) => o.isMostLikely === true);
-      if (selected.length !== 1) {
-        fail(
-          "vc.assessment.most_likely.single",
-          "component",
-          `"${label}": select exactly one most-likely outcome for ${stamp}.`,
-        );
-        continue;
-      }
-    } else {
-      if (
-        assessment.outcomes.some(
-          (o) => !Number.isInteger(o.probabilityBps ?? -1) || (o.probabilityBps ?? -1) < 0,
-        )
-      ) {
-        fail(
-          "vc.assessment.probability.valid",
-          "component",
-          `"${label}": every outcome for ${stamp} needs a probability between 0% and 100%.`,
-        );
-        continue;
-      }
-      if (totalProbabilityBps(assessment.outcomes) !== BPS_SCALE) {
-        fail(
-          "vc.assessment.probability.total",
-          "component",
-          `"${label}": outcome probabilities for ${stamp} must total exactly 100.00%.`,
-        );
-        continue;
-      }
-    }
-
-    if (!validMagnitude(assessment.includedCents)) {
-      fail(
-        "vc.assessment.included.valid",
-        "component",
-        `"${label}": the amount included after the constraint for ${stamp} must be a supported nonnegative whole-cent amount.`,
-      );
-      continue;
-    }
-    const unconstrained = unconstrainedMagnitudeCents(
-      assessment,
-      component.estimationMethod,
-      label,
-    );
-    if (assessment.includedCents > unconstrained) {
-      fail(
-        "vc.assessment.constraint.magnitude",
-        "component",
-        `"${label}": the amount included after the constraint for ${stamp} cannot exceed the unconstrained estimate.`,
-      );
-    }
-    // The constraint can only reduce an estimate; it can never flip its sign.
-    void constraintConclusion(unconstrained, assessment.includedCents);
+    validateAssessment(label, component.estimationMethod, assessment, fail);
   }
 
   // ---- Remeasurement ordering and locking --------------------------------
@@ -292,6 +209,170 @@ function validateEstimatedComponent(
       );
     }
   }
+}
+
+/**
+ * Measurement and constraint validation of ONE dated assessment. Shared by the
+ * full analysis and by the Step 4 allocation-only path so the two can never
+ * disagree about whether an inception estimate is valid.
+ */
+export function validateAssessment(
+  label: string,
+  estimationMethod: EstimationMethod,
+  assessment: VcAssessmentInput,
+  fail: FailFn,
+): void {
+  const stamp = assessment.effectiveDate || assessment.id;
+  {
+    if (!isValidIsoDate(assessment.effectiveDate)) {
+      fail(
+        "vc.assessment.date",
+        "component",
+        `"${label}": assessment ${assessment.id} needs a valid effective date.`,
+      );
+    }
+    if (assessment.constraintRationale.trim() === "") {
+      fail(
+        "vc.assessment.constraint_rationale",
+        "component",
+        `"${label}": document the constraint conclusion for the assessment dated ${stamp}.`,
+      );
+    }
+    if (assessment.outcomes.length === 0) {
+      fail(
+        "vc.assessment.outcomes",
+        "component",
+        `"${label}": enter at least one possible outcome for ${stamp}.`,
+      );
+      return;
+    }
+    if (assessment.outcomes.some((o) => !validMagnitude(o.amountCents))) {
+      fail(
+        "vc.assessment.outcome.amount",
+        "component",
+        `"${label}": every outcome amount for ${stamp} must be a supported nonnegative whole-cent amount.`,
+      );
+      return;
+    }
+
+    if (estimationMethod === "most_likely_amount") {
+      const selected = assessment.outcomes.filter((o) => o.isMostLikely === true);
+      if (selected.length !== 1) {
+        fail(
+          "vc.assessment.most_likely.single",
+          "component",
+          `"${label}": select exactly one most-likely outcome for ${stamp}.`,
+        );
+        return;
+      }
+    } else {
+      if (
+        assessment.outcomes.some(
+          (o) => !Number.isInteger(o.probabilityBps ?? -1) || (o.probabilityBps ?? -1) < 0,
+        )
+      ) {
+        fail(
+          "vc.assessment.probability.valid",
+          "component",
+          `"${label}": every outcome for ${stamp} needs a probability between 0% and 100%.`,
+        );
+        return;
+      }
+      if (totalProbabilityBps(assessment.outcomes) !== BPS_SCALE) {
+        fail(
+          "vc.assessment.probability.total",
+          "component",
+          `"${label}": outcome probabilities for ${stamp} must total exactly 100.00%.`,
+        );
+        return;
+      }
+    }
+
+    if (!validMagnitude(assessment.includedCents)) {
+      fail(
+        "vc.assessment.included.valid",
+        "component",
+        `"${label}": the amount included after the constraint for ${stamp} must be a supported nonnegative whole-cent amount.`,
+      );
+      return;
+    }
+    const unconstrained = unconstrainedMagnitudeCents(assessment, estimationMethod, label);
+    if (assessment.includedCents > unconstrained) {
+      fail(
+        "vc.assessment.constraint.magnitude",
+        "component",
+        `"${label}": the amount included after the constraint for ${stamp} cannot exceed the unconstrained estimate.`,
+      );
+    }
+    // The constraint can only reduce an estimate; it can never flip its sign.
+    void constraintConclusion(unconstrained, assessment.includedCents);
+  }
+}
+
+/** One estimated component as it stands at inception (Step 3 / Step 4 only). */
+export interface InceptionComponentCheck {
+  id: string;
+  description: string;
+  estimationMethod: EstimationMethod;
+  allocationTreatment: VcAllocationTreatment;
+  targetPoId?: string | null;
+  relatesSpecificallyToPo?: boolean | null;
+  consistentWithAllocationObjective?: boolean | null;
+  allocationRationale: string;
+  inception: VcAssessmentInput;
+}
+
+/**
+ * Inception-only validation of an estimated component: the same component and
+ * assessment rules the full analysis applies, without any Step 5 information.
+ */
+export function validateInceptionComponent(
+  component: InceptionComponentCheck,
+  allPoIds: ReadonlySet<string>,
+  fail: FailFn,
+): void {
+  const label = component.description.trim() || component.id;
+  if (component.description.trim() === "") {
+    fail(
+      "vc.component.description",
+      "component",
+      `Component "${component.id}" needs a description.`,
+    );
+  }
+  if (component.allocationRationale.trim() === "") {
+    fail(
+      "vc.component.allocation_rationale",
+      "component",
+      `Document why the allocation treatment chosen for "${label}" is appropriate.`,
+    );
+  }
+  if (component.allocationTreatment === "specific_series_period") {
+    fail(
+      "vc.component.allocation_treatment",
+      "allocation",
+      `"${label}" cannot use the series-period allocation exception.`,
+    );
+  }
+  if (component.allocationTreatment === "specific_po") {
+    if (!component.targetPoId || !allPoIds.has(component.targetPoId)) {
+      fail(
+        "vc.component.target_po",
+        "allocation",
+        `"${label}" is allocated to a specific performance obligation, so a valid target performance obligation is required.`,
+      );
+    }
+    if (
+      component.relatesSpecificallyToPo !== true ||
+      component.consistentWithAllocationObjective !== true
+    ) {
+      fail(
+        "vc.component.allocation_exception",
+        "allocation",
+        `The allocation exception for "${label}" requires both judgments to be Yes: the amount relates specifically to that performance obligation and allocating it there is consistent with the allocation objective.`,
+      );
+    }
+  }
+  validateAssessment(label, component.estimationMethod, component.inception, fail);
 }
 
 function validateUsageComponent(
