@@ -119,7 +119,8 @@ export function case7ResolvedDraft(): WorkflowDraft {
       hasResolution: true,
       resolutionDate: "2027-03-20",
       resolutionAmountInput: "30,000.00",
-      resolutionRationale: "Go-live accepted by the customer on 3/20/2027; the bonus was earned in full.",
+      resolutionRationale:
+        "Go-live accepted by the customer on 3/20/2027; the bonus was earned in full.",
     })),
   };
 }
@@ -131,7 +132,8 @@ export function cloudAiDraft(): WorkflowDraft {
     ...createPoDraft(1, "po-platform"),
     name: "AI platform subscription",
     classification: "series" as const,
-    classificationRationale: "A series of distinct daily services with the same pattern of transfer.",
+    classificationRationale:
+      "A series of distinct daily services with the same pattern of transfer.",
     sspInput: "120,000.00",
     sspBasis: "Observable standalone annual platform pricing.",
     recognitionMethod: "over_time_ratable" as const,
@@ -174,13 +176,19 @@ export function cloudAiDraft(): WorkflowDraft {
     allocationRationale:
       "Each month's usage fee relates specifically to the distinct service period in which the usage occurs.",
     meters: [inputMeter, outputMeter],
-    usagePeriods: [
-      {
-        id: "usage-2027-01",
-        month: "2027-01",
-        quantities: { "meter-input": "8000000", "meter-output": "2000000" },
-      },
-    ],
+    // Every month of the service period is reported; months with no usage are
+    // entered explicitly as zero.
+    usagePeriods: Array.from({ length: 12 }, (_, index) => {
+      const month = `2027-${String(index + 1).padStart(2, "0")}`;
+      return {
+        id: `usage-${month}`,
+        month,
+        quantities:
+          index === 0
+            ? { "meter-input": "8000000", "meter-output": "2000000" }
+            : { "meter-input": "0", "meter-output": "0" },
+      };
+    }),
   };
 
   return {
@@ -191,5 +199,18 @@ export function cloudAiDraft(): WorkflowDraft {
     performanceObligations: [platform],
     hasVariableConsideration: true,
     variableConsiderationComponents: [usage],
+  };
+}
+
+/**
+ * Pay-as-you-go CloudAI variant: no fixed consideration at all, with every
+ * month of the service period reported and only January carrying usage.
+ */
+export function payAsYouGoDraft(): WorkflowDraft {
+  const draft = cloudAiDraft();
+  return {
+    ...draft,
+    contract: { ...draft.contract, contractNumber: "CASE-CLOUDAI-PAYG" },
+    transactionPriceInput: "0.00",
   };
 }

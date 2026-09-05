@@ -47,7 +47,7 @@ import {
 } from "./estimation";
 import {
   buildDynamicRevenueSchedule,
-  cumulativeEntitlementCents,
+  cumulativeEntitlementAtDateCents,
   type DynamicChange,
   type DynamicUnitInput,
   type UsageScheduleRow,
@@ -60,6 +60,7 @@ import {
   type VariableConsiderationAnalysis,
   type VcAssessmentResult,
   type VcChangeEvent,
+  type VcCheckResult,
   type VcComponentResult,
   type VcContractInput,
 } from "./types";
@@ -172,6 +173,32 @@ export function analyzeVariableConsideration(
 
   const componentInputById = new Map(input.estimatedComponents.map((c) => [c.id, c]));
 
+  // Invalid allocation states discovered while building the allocation are
+  // reported like any other blocking validation item: never thrown, and never
+  // accompanied by an authoritative allocation or revenue schedule.
+  const extraFailures: VcCheckResult[] = [];
+  const allocationFail = (id: string, message: string) => {
+    extraFailures.push({
+      id,
+      category: "allocation",
+      severity: "blocking",
+      message,
+      passed: false,
+    });
+  };
+  const blockedWithExtra = (): VariableConsiderationAnalysis => {
+    const results = [...validation.results, ...extraFailures];
+    return blockedAnalysis(
+      input,
+      {
+        status: "attention",
+        results,
+        blockingFailures: results.filter((r) => r.severity === "blocking" && !r.passed),
+      },
+      components,
+    );
+  };
+
   // ---- Inception allocation ------------------------------------------------
   let generalPool = BigInt(input.fixedConsiderationCents);
   const specific: SpecificAllocationInput[] = [];
@@ -195,11 +222,30 @@ export function analyzeVariableConsideration(
   };
   const allocatables = buildAllocatables(mrShell);
 
+  if (generalPool < 0n) {
+    allocationFail(
+      "vc.allocation.general_pool.nonnegative",
+      "The consideration allocated on a relative standalone-selling-price basis cannot be negative. Review the variable-consideration amounts and their allocation treatment.",
+    );
+    return blockedWithExtra();
+  }
+
   const { base, inceptionFinal } = buildInceptionAllocation({
     generalPoolCents: bigIntToCents(generalPool, "general allocation pool"),
     allocatables,
     specific,
   });
+
+  const negativeInception = inceptionFinal.filter((row) => row.amountCents < 0);
+  if (negativeInception.length > 0) {
+    for (const row of negativeInception) {
+      allocationFail(
+        "vc.allocation.po.nonnegative",
+        `The amount allocated to "${row.name}" at inception is negative. A performance obligation cannot carry a negative allocation; review the variable consideration allocated specifically to it.`,
+      );
+    }
+    return blockedWithExtra();
+  }
 
   let initialTransactionPrice = 0n;
   for (const row of inceptionFinal) initialTransactionPrice += BigInt(row.amountCents);
@@ -241,13 +287,24 @@ export function analyzeVariableConsideration(
           : 0) || (a.event.id < b.event.id ? -1 : 1),
   );
 
+  // Each successive allocation state, in chronological order, must stay
+  // nonnegative — not only the final one.
+  let intermediate = inceptionFinal;
+  for (const { event } of pending) {
+    intermediate = applyAllocationChanges(intermediate, event.allocationByPo);
+    for (const row of intermediate) {
+      if (row.amountCents < 0) {
+        allocationFail(
+          "vc.allocation.po.nonnegative",
+          `The amount allocated to "${row.name}" becomes negative on ${event.effectiveDate}. A performance obligation cannot carry a negative allocation; review the change in variable consideration allocated specifically to it.`,
+        );
+      }
+    }
+    if (extraFailures.length > 0) return blockedWithExtra();
+  }
+
   const allChangeAllocations = pending.flatMap((p) => p.event.allocationByPo);
   const currentFinal = applyAllocationChanges(inceptionFinal, allChangeAllocations);
-  if (currentFinal.some((row) => row.amountCents < 0)) {
-    throw new VariableConsiderationError(
-      "allocation invariant violated: a performance obligation may not carry a negative allocation",
-    );
-  }
 
   let currentEstimated = 0n;
   for (const row of currentFinal) currentEstimated += BigInt(row.amountCents);
@@ -319,7 +376,9 @@ export function analyzeVariableConsideration(
         revenueCents: period.totalCents,
       });
     }
-    const target = input.standardPerformanceObligations.find((po) => po.id === component.targetPoId);
+    const target = input.standardPerformanceObligations.find(
+      (po) => po.id === component.targetPoId,
+    );
     usageSources.push({
       id: usageSourceId(component.id),
       name: component.description || `${target?.name ?? component.targetPoId} — usage`,
@@ -333,6 +392,11 @@ export function analyzeVariableConsideration(
 
   // ---- Change-event revenue effects ---------------------------------------
   const unitByIdForEvents = new Map(dynamicUnits.map((u) => [u.unit.id, u]));
+  // Catch-up is measured at the exact effective date of the change, against the
+  // allocation state produced by every strictly earlier change only.
+  const runningAllocation = new Map<string, bigint>(
+    dynamicUnits.map((u) => [u.unit.id, BigInt(u.inceptionAllocatedCents)]),
+  );
   const changeEvents: VcChangeEvent[] = pending.map(({ event }) => {
     let catchUp = 0n;
     let allocatedTotal = 0n;
@@ -342,20 +406,18 @@ export function analyzeVariableConsideration(
       if (!unitId) continue; // outstanding material right: no revenue date yet
       const dynamic = unitByIdForEvents.get(unitId);
       if (!dynamic) continue;
-      let allocationWith = BigInt(dynamic.inceptionAllocatedCents);
-      for (const change of dynamic.changes) {
-        if (monthKeyOf(change.date) <= event.month) allocationWith += BigInt(change.amountCents);
-      }
-      const allocationWithout = allocationWith - BigInt(row.amountCents);
-      const withCents = cumulativeEntitlementCents(
+      const allocationWithout = runningAllocation.get(unitId) ?? 0n;
+      const allocationWith = allocationWithout + BigInt(row.amountCents);
+      runningAllocation.set(unitId, allocationWith);
+      const withCents = cumulativeEntitlementAtDateCents(
         dynamic.unit,
         bigIntToCents(allocationWith, "allocation"),
-        event.month,
+        event.effectiveDate,
       );
-      const withoutCents = cumulativeEntitlementCents(
+      const withoutCents = cumulativeEntitlementAtDateCents(
         dynamic.unit,
         bigIntToCents(allocationWithout, "allocation"),
-        event.month,
+        event.effectiveDate,
       );
       catchUp += BigInt(withCents - withoutCents);
     }

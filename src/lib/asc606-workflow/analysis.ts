@@ -173,7 +173,9 @@ export function analyzeWorkflow(
         builtLifecycle.errors,
       );
     }
-    const lifecycle = (deps.analyzeLifecycle ?? analyzeMaterialRightLifecycle)(builtLifecycle.input);
+    const lifecycle = (deps.analyzeLifecycle ?? analyzeMaterialRightLifecycle)(
+      builtLifecycle.input,
+    );
     if (
       lifecycle.validation.blockingFailures.length > 0 ||
       lifecycle.allocation === null ||
@@ -206,7 +208,10 @@ export function analyzeWorkflow(
 
   const built = buildPhase1Input(draft);
   if (!built.ok) {
-    return blocked("The workflow could not be converted into a complete engine input.", built.errors);
+    return blocked(
+      "The workflow could not be converted into a complete engine input.",
+      built.errors,
+    );
   }
 
   // Defense in depth: the Phase 1 engine remains authoritative. A blocking
@@ -279,6 +284,26 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
       "Allocation is not calculated because the Step 1 contract criteria have not all been answered.",
     );
     return empty();
+  }
+
+  // A contract with variable consideration is allocated by the Phase 5B
+  // engine. This layer never re-derives it: it shows the engine's own layer.
+  if (draftHasVariableConsideration(draft)) {
+    const layers = analyzeWorkflow(draft).variableConsideration?.allocation ?? null;
+    if (layers === null) {
+      issues.push(
+        "Allocation is not calculated yet because the variable-consideration inputs in Step 3 are incomplete.",
+      );
+      return empty();
+    }
+    let total = 0n;
+    for (const row of layers.base) total += BigInt(row.allocatedCents);
+    return {
+      rows: layers.base,
+      totalSspCents: layers.base[0]?.totalSspCents ?? null,
+      totalAllocatedCents: Number(total),
+      issues,
+    };
   }
 
   const price = parseUsdToCents(draft.transactionPriceInput);

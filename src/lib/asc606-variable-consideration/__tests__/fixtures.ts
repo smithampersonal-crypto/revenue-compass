@@ -108,12 +108,13 @@ export const CLOUDAI_USAGE: UsageComponentInput = {
     { id: "meter-input", seq: 1, name: "Input tokens", rateAmountCents: D(4), rateQuantity: 1_000_000, unit: "tokens" },
     { id: "meter-output", seq: 2, name: "Output tokens", rateAmountCents: D(20), rateQuantity: 1_000_000, unit: "tokens" },
   ],
-  periods: [
-    {
-      month: "2027-01",
-      quantitiesByMeterId: { "meter-input": 8_000_000, "meter-output": 2_000_000 },
-    },
-  ],
+  periods: Array.from({ length: 12 }, (_, index) => ({
+    month: `2027-${String(index + 1).padStart(2, "0")}`,
+    quantitiesByMeterId:
+      index === 0
+        ? { "meter-input": 8_000_000, "meter-output": 2_000_000 }
+        : { "meter-input": 0, "meter-output": 0 },
+  })),
 };
 
 export function cloudAiInput(): VcContractInput {

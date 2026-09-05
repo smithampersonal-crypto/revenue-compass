@@ -7,6 +7,8 @@
  */
 
 import {
+  datePeriodExceedsSupportedHorizon,
+  enumerateMonths,
   isValidIsoDate,
   monthKeyOf,
   MAX_CENTS,
@@ -47,10 +49,7 @@ export function validateVariableConsideration(input: VcContractInput): VcValidat
   const poById = new Map<string, PerformanceObligationInput>(
     input.standardPerformanceObligations.map((po) => [po.id, po]),
   );
-  const allPoIds = new Set<string>([
-    ...poById.keys(),
-    ...input.materialRights.map((mr) => mr.id),
-  ]);
+  const allPoIds = new Set<string>([...poById.keys(), ...input.materialRights.map((mr) => mr.id)]);
 
   if (!validMagnitude(input.fixedConsiderationCents)) {
     fail(
@@ -63,7 +62,11 @@ export function validateVariableConsideration(input: VcContractInput): VcValidat
   // ---- Estimated components ----------------------------------------------
   const componentIds = input.estimatedComponents.map((c) => c.id);
   if (new Set(componentIds).size !== componentIds.length) {
-    fail("vc.component.id.unique", "component", "Variable-consideration component identifiers must be unique.");
+    fail(
+      "vc.component.id.unique",
+      "component",
+      "Variable-consideration component identifiers must be unique.",
+    );
   }
 
   for (const component of input.estimatedComponents) {
@@ -81,7 +84,8 @@ export function validateVariableConsideration(input: VcContractInput): VcValidat
 
   // ---- Aggregate monetary range ------------------------------------------
   let lifecycle = 0n;
-  if (validMagnitude(input.fixedConsiderationCents)) lifecycle += BigInt(input.fixedConsiderationCents);
+  if (validMagnitude(input.fixedConsiderationCents))
+    lifecycle += BigInt(input.fixedConsiderationCents);
   for (const component of input.estimatedComponents) {
     const assessments = orderedAssessments(component);
     const last = assessments[assessments.length - 1];
@@ -127,7 +131,11 @@ function validateEstimatedComponent(
   const label = component.description.trim() || component.id;
 
   if (component.description.trim() === "") {
-    fail("vc.component.description", "component", `Component "${component.id}" needs a description.`);
+    fail(
+      "vc.component.description",
+      "component",
+      `Component "${component.id}" needs a description.`,
+    );
   }
   if (component.allocationRationale.trim() === "") {
     fail(
@@ -146,7 +154,10 @@ function validateEstimatedComponent(
         `"${label}" is allocated to a specific performance obligation, so a valid target performance obligation is required.`,
       );
     }
-    if (component.relatesSpecificallyToPo !== true || component.consistentWithAllocationObjective !== true) {
+    if (
+      component.relatesSpecificallyToPo !== true ||
+      component.consistentWithAllocationObjective !== true
+    ) {
       fail(
         "vc.component.allocation_exception",
         "allocation",
@@ -160,7 +171,11 @@ function validateEstimatedComponent(
   for (const assessment of assessments) {
     const stamp = assessment.effectiveDate || assessment.id;
     if (!isValidIsoDate(assessment.effectiveDate)) {
-      fail("vc.assessment.date", "component", `"${label}": assessment ${assessment.id} needs a valid effective date.`);
+      fail(
+        "vc.assessment.date",
+        "component",
+        `"${label}": assessment ${assessment.id} needs a valid effective date.`,
+      );
     }
     if (assessment.constraintRationale.trim() === "") {
       fail(
@@ -170,7 +185,11 @@ function validateEstimatedComponent(
       );
     }
     if (assessment.outcomes.length === 0) {
-      fail("vc.assessment.outcomes", "component", `"${label}": enter at least one possible outcome for ${stamp}.`);
+      fail(
+        "vc.assessment.outcomes",
+        "component",
+        `"${label}": enter at least one possible outcome for ${stamp}.`,
+      );
       continue;
     }
     if (assessment.outcomes.some((o) => !validMagnitude(o.amountCents))) {
@@ -193,7 +212,11 @@ function validateEstimatedComponent(
         continue;
       }
     } else {
-      if (assessment.outcomes.some((o) => !Number.isInteger(o.probabilityBps ?? -1) || (o.probabilityBps ?? -1) < 0)) {
+      if (
+        assessment.outcomes.some(
+          (o) => !Number.isInteger(o.probabilityBps ?? -1) || (o.probabilityBps ?? -1) < 0,
+        )
+      ) {
         fail(
           "vc.assessment.probability.valid",
           "component",
@@ -219,7 +242,11 @@ function validateEstimatedComponent(
       );
       continue;
     }
-    const unconstrained = unconstrainedMagnitudeCents(assessment, component.estimationMethod, label);
+    const unconstrained = unconstrainedMagnitudeCents(
+      assessment,
+      component.estimationMethod,
+      label,
+    );
     if (assessment.includedCents > unconstrained) {
       fail(
         "vc.assessment.constraint.magnitude",
@@ -282,7 +309,11 @@ function validateUsageComponent(
 
   const target = poById.get(component.targetPoId);
   if (!target) {
-    fail("vc.usage.target.exists", "usage", `"${label}" must target an existing performance obligation.`);
+    fail(
+      "vc.usage.target.exists",
+      "usage",
+      `"${label}" must target an existing performance obligation.`,
+    );
   } else if (target.classification !== "series") {
     fail(
       "vc.usage.target.series",
@@ -290,7 +321,10 @@ function validateUsageComponent(
       `Usage-as-incurred consideration is supported only when the target performance obligation is classified as a series. "${target.name}" is not.`,
     );
   }
-  if (component.relatesSpecificallyToPeriod !== true || component.consistentWithAllocationObjective !== true) {
+  if (
+    component.relatesSpecificallyToPeriod !== true ||
+    component.consistentWithAllocationObjective !== true
+  ) {
     fail(
       "vc.usage.allocation_exception",
       "usage",
@@ -313,7 +347,11 @@ function validateUsageComponent(
     if (meter.name.trim() === "") {
       fail("vc.usage.meter.name", "usage", `"${label}": every meter needs a name.`);
     }
-    if (!Number.isInteger(meter.rateAmountCents) || meter.rateAmountCents <= 0 || meter.rateAmountCents > MAX_CENTS) {
+    if (
+      !Number.isInteger(meter.rateAmountCents) ||
+      meter.rateAmountCents <= 0 ||
+      meter.rateAmountCents > MAX_CENTS
+    ) {
       fail(
         "vc.usage.meter.rate_amount",
         "usage",
@@ -342,10 +380,19 @@ function validateUsageComponent(
   }
   for (const period of component.periods) {
     if (!MONTH_PATTERN.test(period.month)) {
-      fail("vc.usage.period.month", "usage", `"${label}": "${period.month}" is not a valid accounting month.`);
+      fail(
+        "vc.usage.period.month",
+        "usage",
+        `"${label}": "${period.month}" is not a valid accounting month.`,
+      );
       continue;
     }
-    if (target && target.recognitionMethod === "over_time_ratable" && target.serviceStart && target.serviceEnd) {
+    if (
+      target &&
+      target.recognitionMethod === "over_time_ratable" &&
+      target.serviceStart &&
+      target.serviceEnd
+    ) {
       const first = monthKeyOf(target.serviceStart);
       const last = monthKeyOf(target.serviceEnd);
       if (period.month < first || period.month > last) {
@@ -371,6 +418,27 @@ function validateUsageComponent(
           "vc.usage.quantity.valid",
           "usage",
           `"${label}": the ${meter.name || meter.id} usage for ${period.month} must be a whole number of units, zero or more.`,
+        );
+      }
+    }
+  }
+
+  // Every month of the target service period must be reported, explicitly as
+  // zero where there was no usage. A missing month is missing information.
+  if (
+    target &&
+    target.recognitionMethod === "over_time_ratable" &&
+    target.serviceStart &&
+    target.serviceEnd &&
+    !datePeriodExceedsSupportedHorizon(target.serviceStart, target.serviceEnd)
+  ) {
+    const supplied = new Set(months);
+    for (const month of enumerateMonths(target.serviceStart, target.serviceEnd)) {
+      if (!supplied.has(month)) {
+        fail(
+          "vc.usage.period.complete",
+          "usage",
+          `"${label}": report the usage for ${month}. Every month of the service period of "${target.name}" must be reported, entering zero where there was no usage.`,
         );
       }
     }

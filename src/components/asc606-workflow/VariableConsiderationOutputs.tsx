@@ -7,11 +7,7 @@ import { Notice, Section, td, th } from "./fields";
  * Read-only Phase 5B presentation. Every amount is engine output; this
  * component performs no accounting arithmetic.
  */
-export function VariableConsiderationOutputs({
-  vc,
-}: {
-  vc: VariableConsiderationAnalysis;
-}) {
+export function VariableConsiderationOutputs({ vc }: { vc: VariableConsiderationAnalysis }) {
   const layers = vc.allocation;
 
   return (
@@ -96,7 +92,7 @@ export function VariableConsiderationOutputs({
             </thead>
             <tbody>
               {vc.usagePeriods.map((period) => (
-                <tr key={period.revenueSourceId}>
+                <tr key={`${period.revenueSourceId}:${period.month}`}>
                   <td className={td}>{period.month}</td>
                   <td className={td}>{period.targetPoId}</td>
                   <td className={td}>{formatCents(period.totalCents)}</td>
@@ -126,9 +122,7 @@ export function VariableConsiderationOutputs({
                 <tr key={row.poId}>
                   <td className={td}>{row.name}</td>
                   <td className={td}>
-                    {formatCents(
-                      layers.base.find((b) => b.poId === row.poId)?.allocatedCents ?? 0,
-                    )}
+                    {formatCents(layers.base.find((b) => b.poId === row.poId)?.allocatedCents ?? 0)}
                   </td>
                   <td className={td}>
                     {formatCents(

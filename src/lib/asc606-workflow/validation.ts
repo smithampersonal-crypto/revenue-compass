@@ -18,6 +18,7 @@ import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   derivePromiseDistinct,
   deriveStep1Conclusion,
+  draftHasVariableConsideration,
   STEP1_CRITERIA,
   type PoDraft,
   type WorkflowDraft,
@@ -99,7 +100,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     );
   }
   if (ordinaryPromises.some((p) => isBlank(p.distinctRationale))) {
-    add("promise.rationale.present", "2a", "Document a distinctness rationale for every promised good or service.");
+    add(
+      "promise.rationale.present",
+      "2a",
+      "Document a distinctness rationale for every promised good or service.",
+    );
   }
   if (optionPromises.some((p) => p.conveysMaterialRight === null)) {
     add(
@@ -155,7 +160,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   const standardPos = pos.filter((po) => po.kind !== "material_right");
   const materialRightPos = pos.filter((po) => po.kind === "material_right");
   if (standardPos.some((po) => po.classification === null)) {
-    add("po.classification.present", "2b", "Select a classification for every performance obligation.");
+    add(
+      "po.classification.present",
+      "2b",
+      "Select a classification for every performance obligation.",
+    );
   }
   if (standardPos.some((po) => isBlank(po.classificationRationale))) {
     add(
@@ -224,7 +233,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
   for (const po of standardPos) {
     const assigned = promises.filter((p) => p.performanceObligationId === po.id);
     if (po.classification === "single_distinct") {
@@ -257,10 +265,20 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
 
   // ---- Step 3 -------------------------------------------------------------
   const price = parseUsdToCents(draft.transactionPriceInput);
+  const variableContract = draftHasVariableConsideration(draft);
   if (!price.ok) {
     add("contract.transaction_price.valid", "3", `Transaction price: ${price.error}`);
-  } else if (price.cents <= 0) {
+  } else if (price.cents < 0) {
+    add("contract.transaction_price.valid", "3", "Fixed consideration cannot be negative.");
+  } else if (price.cents === 0 && !variableContract) {
     add("contract.transaction_price.valid", "3", "Transaction price must be greater than zero.");
+  }
+  if (draft.hasVariableConsideration && draft.variableConsiderationComponents.length === 0) {
+    add(
+      "contract.variable_consideration.components_present",
+      "3",
+      "This contract is marked as containing variable consideration, so at least one variable-consideration component must be described.",
+    );
   }
 
   // ---- Step 4 -------------------------------------------------------------
@@ -274,7 +292,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       );
     }
     if (isBlank(po.sspBasis)) {
-      add("po.ssp_basis.present", "4", `Document how the SSP for "${po.name || po.id}" was determined.`);
+      add(
+        "po.ssp_basis.present",
+        "4",
+        `Document how the SSP for "${po.name || po.id}" was determined.`,
+      );
     }
   }
   for (const po of materialRightPos) {
@@ -365,7 +387,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
   // ---- Step 5 -------------------------------------------------------------
   for (const po of materialRightPos) {
     const label = po.name || po.id;
@@ -420,7 +441,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("po.recognition_date.present", "5", `Enter a recognition date for "${label}".`);
     }
     if (isBlank(po.recognitionRationale)) {
-      add("po.recognition_rationale.present", "5", `Document the recognition rationale for "${label}".`);
+      add(
+        "po.recognition_rationale.present",
+        "5",
+        `Document the recognition rationale for "${label}".`,
+      );
     }
   }
 
@@ -482,7 +507,11 @@ function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): vo
     add("po.recognition_date.present", "5", `Enter a recognition date for ${label}.`);
   }
   if (isBlank(po.recognitionRationale)) {
-    add("po.recognition_rationale.present", "5", `Document the recognition rationale for ${label}.`);
+    add(
+      "po.recognition_rationale.present",
+      "5",
+      `Document the recognition rationale for ${label}.`,
+    );
   }
 }
 

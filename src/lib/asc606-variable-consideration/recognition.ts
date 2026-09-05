@@ -76,6 +76,46 @@ export function progressThroughMonth(
   return { numerator: days, denominator: totalDays };
 }
 
+/**
+ * Cumulative progress of a unit through an exact date (not month-end).
+ *
+ * Used only for the event-level catch-up decomposition; the monthly revenue
+ * schedule keeps the approved cumulative month-end convention.
+ */
+export function progressThroughDate(
+  unit: RecognizableUnit,
+  date: IsoDate,
+): { numerator: number; denominator: number } {
+  if (unit.recognitionMethod === "point_in_time") {
+    if (!unit.recognitionDate) {
+      throw new VariableConsiderationError(`"${unit.name}" needs a recognition date`);
+    }
+    return { numerator: unit.recognitionDate <= date ? 1 : 0, denominator: 1 };
+  }
+  if (!unit.serviceStart || !unit.serviceEnd) {
+    throw new VariableConsiderationError(`"${unit.name}" needs service dates`);
+  }
+  const totalDays = inclusiveDayCount(unit.serviceStart, unit.serviceEnd);
+  if (date < unit.serviceStart) return { numerator: 0, denominator: totalDays };
+  const through = date > unit.serviceEnd ? unit.serviceEnd : date;
+  return { numerator: inclusiveDayCount(unit.serviceStart, through), denominator: totalDays };
+}
+
+/** Cumulative entitlement of a unit at an exact date, given a signed allocation. */
+export function cumulativeEntitlementAtDateCents(
+  unit: RecognizableUnit,
+  allocatedCents: Cents,
+  date: IsoDate,
+): Cents {
+  const { numerator, denominator } = progressThroughDate(unit, date);
+  return signedProportionOfCents(
+    allocatedCents,
+    numerator,
+    denominator,
+    `cumulative revenue for "${unit.name}"`,
+  );
+}
+
 /** Cumulative entitlement of a unit at `month`, given a signed allocation. */
 export function cumulativeEntitlementCents(
   unit: RecognizableUnit,

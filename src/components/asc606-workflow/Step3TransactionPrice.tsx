@@ -41,7 +41,10 @@ export function Step3TransactionPrice({
 
   const addComponent = (treatment: "estimated" | "usage_as_incurred") => {
     const seq = components.length + 1;
-    setComponents([...components, createVcComponentDraft(seq, `vc-${seq}-${Date.now()}`, treatment)]);
+    setComponents([
+      ...components,
+      createVcComponentDraft(seq, `vc-${seq}-${Date.now()}`, treatment),
+    ]);
   };
 
   const patchAssessment = (
@@ -81,7 +84,9 @@ export function Step3TransactionPrice({
           type="date"
           className={inputClass}
           value={assessment.effectiveDate}
-          onChange={(e) => patchAssessment(component, assessment.id, { effectiveDate: e.target.value })}
+          onChange={(e) =>
+            patchAssessment(component, assessment.id, { effectiveDate: e.target.value })
+          }
         />
       </Field>
 
@@ -376,11 +381,18 @@ export function Step3TransactionPrice({
                       }
                     >
                       <option value="">Select a performance obligation…</option>
-                      {draft.performanceObligations.map((po) => (
-                        <option key={po.id} value={po.id}>
-                          {po.name || `Performance obligation ${po.seq}`}
-                        </option>
-                      ))}
+                      {draft.performanceObligations
+                        .filter((po) =>
+                          component.treatment === "usage_as_incurred" ||
+                          component.allocationTreatment === "specific_series_period"
+                            ? po.kind !== "material_right" && po.classification === "series"
+                            : true,
+                        )
+                        .map((po) => (
+                          <option key={po.id} value={po.id}>
+                            {po.name || `Performance obligation ${po.seq}`}
+                          </option>
+                        ))}
                     </select>
                   </Field>
                   <JudgmentControl
@@ -391,7 +403,9 @@ export function Step3TransactionPrice({
                         : "Does each usage fee relate specifically to the distinct service period in which it is incurred?"
                     }
                     value={component.relatesSpecifically}
-                    onChange={(value) => patchComponent(component.id, { relatesSpecifically: value })}
+                    onChange={(value) =>
+                      patchComponent(component.id, { relatesSpecifically: value })
+                    }
                   />
                   <JudgmentControl
                     name={`${component.id}-objective`}
@@ -419,16 +433,12 @@ export function Step3TransactionPrice({
                 <>
                   {assessmentEditor(component, component.inception, "Inception estimate")}
                   {component.remeasurements.map((assessment) =>
-                    assessmentEditor(
-                      component,
-                      assessment,
-                      `Remeasurement ${assessment.seq}`,
-                      () =>
-                        patchComponent(component.id, {
-                          remeasurements: component.remeasurements.filter(
-                            (a) => a.id !== assessment.id,
-                          ),
-                        }),
+                    assessmentEditor(component, assessment, `Remeasurement ${assessment.seq}`, () =>
+                      patchComponent(component.id, {
+                        remeasurements: component.remeasurements.filter(
+                          (a) => a.id !== assessment.id,
+                        ),
+                      }),
                     ),
                   )}
                   <button
