@@ -360,9 +360,9 @@ describe("remeasurement recognition", () => {
     const event = analysis.changeEvents[0]!;
     expect(event.transactionPriceChangeCents).toBe(D(12_000));
     expect(event.month).toBe("2027-07");
-    // 212 of 365 days elapsed through 2027-07-31.
-    expect(event.catchUpCents).toBe(696_987);
-    expect(event.futureImpactCents).toBe(D(12_000) - 696_987);
+    // 181 of 365 days elapsed through the 7/1/2027 effective date.
+    expect(event.catchUpCents).toBe(598_356);
+    expect(event.futureImpactCents).toBe(D(12_000) - 598_356);
     expect(analysis.revenueSchedule!.totalCents).toBe(D(144_000));
     expect(analysis.reconciliation.reconciled).toBe(true);
   });
