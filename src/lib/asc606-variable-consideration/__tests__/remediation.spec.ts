@@ -290,7 +290,9 @@ describe("the running general pool must never go negative", () => {
     expect(result.allocation).toBeNull();
     expect(result.revenueSchedule).toBeNull();
     expect(
-      result.validation.blockingFailures.some((f) => f.id === "vc.allocation.general_pool.nonnegative"),
+      result.validation.blockingFailures.some(
+        (f) => f.id === "vc.allocation.general_pool.nonnegative",
+      ),
     ).toBe(true);
   });
 
@@ -307,7 +309,9 @@ describe("the running general pool must never go negative", () => {
     );
     expect(result.allocation).toBeNull();
     expect(
-      result.validation.blockingFailures.some((f) => f.id === "vc.allocation.general_pool.nonnegative"),
+      result.validation.blockingFailures.some(
+        (f) => f.id === "vc.allocation.general_pool.nonnegative",
+      ),
     ).toBe(true);
   });
 });

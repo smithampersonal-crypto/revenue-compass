@@ -175,9 +175,7 @@ export function Step4Allocation({
               </table>
             )}
 
-            <h3 className="text-sm font-semibold">
-              Final allocation at inception (read-only)
-            </h3>
+            <h3 className="text-sm font-semibold">Final allocation at inception (read-only)</h3>
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>

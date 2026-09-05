@@ -29,8 +29,7 @@ import {
 import type { VcAssessmentDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 export type VcAdapterResult =
-  | { ok: true; input: VcContractInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: VcContractInput } | { ok: false; errors: string[] };
 
 function buildAssessment(
   component: VcComponentDraft,
@@ -40,11 +39,15 @@ function buildAssessment(
 ): VcAssessmentInput | null {
   let failed = false;
   if (!assessment.effectiveDate) {
-    errors.push(`An effective date for the ${label} of "${component.description || component.id}" is required.`);
+    errors.push(
+      `An effective date for the ${label} of "${component.description || component.id}" is required.`,
+    );
     failed = true;
   }
   if (assessment.constraintRationale.trim() === "") {
-    errors.push(`A constraint rationale for the ${label} of "${component.description || component.id}" is required.`);
+    errors.push(
+      `A constraint rationale for the ${label} of "${component.description || component.id}" is required.`,
+    );
     failed = true;
   }
 
@@ -65,7 +68,9 @@ function buildAssessment(
     if (component.estimationMethod === "expected_value") {
       const probability = parseInclusivePercentToBps(outcome.probabilityInput);
       if (!probability.ok) {
-        errors.push(`Probability for outcome "${outcome.description || outcome.id}": ${probability.error}`);
+        errors.push(
+          `Probability for outcome "${outcome.description || outcome.id}": ${probability.error}`,
+        );
         failed = true;
         continue;
       }
@@ -126,7 +131,12 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
         errors.push(`"${label}" cannot use the series-period allocation exception.`);
         continue;
       }
-      const inception = buildAssessment(component, component.inception, "inception estimate", errors);
+      const inception = buildAssessment(
+        component,
+        component.inception,
+        "inception estimate",
+        errors,
+      );
       const remeasurements: VcAssessmentInput[] = [];
       for (const assessment of component.remeasurements) {
         const built = buildAssessment(component, assessment, "remeasurement", errors);
@@ -147,11 +157,16 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
       };
       if (component.allocationTreatment === "specific_po") {
         if (component.targetPoId === null) {
-          errors.push(`"${label}" must name the performance obligation it relates specifically to.`);
+          errors.push(
+            `"${label}" must name the performance obligation it relates specifically to.`,
+          );
           continue;
         }
         built.targetPoId = component.targetPoId;
-        if (component.relatesSpecifically === null || component.consistentWithAllocationObjective === null) {
+        if (
+          component.relatesSpecifically === null ||
+          component.consistentWithAllocationObjective === null
+        ) {
           errors.push(`The allocation-exception judgments for "${label}" are incomplete.`);
           continue;
         }
@@ -194,7 +209,8 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
     for (const meter of component.meters) {
       const rate = parseUsdToCents(meter.rateAmountInput);
       const quantity = parseUsageQuantity(meter.rateQuantityInput);
-      if (meter.name.trim() === "") errors.push(`Meter "${meter.id}" of "${label}" requires a name.`);
+      if (meter.name.trim() === "")
+        errors.push(`Meter "${meter.id}" of "${label}" requires a name.`);
       if (!rate.ok) {
         errors.push(`Rate amount for meter "${meter.name || meter.id}": ${rate.error}`);
         meterFailed = true;
@@ -282,8 +298,7 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
 // ---------------------------------------------------------------------------
 
 export type VcAllocationAdapterResult =
-  | { ok: true; input: VcAllocationPreviewInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: VcAllocationPreviewInput } | { ok: false; errors: string[] };
 
 export function buildVariableConsiderationAllocationInput(
   draft: WorkflowDraft,
