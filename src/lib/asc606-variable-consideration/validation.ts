@@ -296,11 +296,7 @@ export function validateAssessment(
       );
       return;
     }
-    const unconstrained = unconstrainedMagnitudeCents(
-      assessment,
-      estimationMethod,
-      label,
-    );
+    const unconstrained = unconstrainedMagnitudeCents(assessment, estimationMethod, label);
     if (assessment.includedCents > unconstrained) {
       fail(
         "vc.assessment.constraint.magnitude",
@@ -311,7 +307,6 @@ export function validateAssessment(
     // The constraint can only reduce an estimate; it can never flip its sign.
     void constraintConclusion(unconstrained, assessment.includedCents);
   }
-
 }
 
 /** One estimated component as it stands at inception (Step 3 / Step 4 only). */

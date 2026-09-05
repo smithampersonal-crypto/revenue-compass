@@ -17,10 +17,7 @@ import {
 } from "@/lib/asc606";
 import { buildInceptionAllocation, type SpecificAllocationInput } from "./allocation";
 import { signedAmount } from "./estimation";
-import {
-  validateInceptionComponent,
-  type InceptionComponentCheck,
-} from "./validation";
+import { validateInceptionComponent, type InceptionComponentCheck } from "./validation";
 import { VariableConsiderationError, type VcCheckResult, type VcEffect } from "./types";
 
 /** One estimated component as it stands at inception. */
@@ -75,9 +72,7 @@ export function previewVcAllocation(input: VcAllocationPreviewInput): VcAllocati
           category: "allocation",
           severity: "blocking",
           message:
-            error instanceof VariableConsiderationError
-              ? error.message
-              : (error as Error).message,
+            error instanceof VariableConsiderationError ? error.message : (error as Error).message,
           passed: false,
         },
       ],
@@ -106,8 +101,10 @@ function buildPreview(input: VcAllocationPreviewInput): VcAllocationPreview {
 
   const poIds = new Set(input.allocatables.map((po) => po.id));
   for (const component of input.components) {
-    validateInceptionComponent({ ...component, id: component.componentId }, poIds, (id, _c, message) =>
-      fail(id, message),
+    validateInceptionComponent(
+      { ...component, id: component.componentId },
+      poIds,
+      (id, _c, message) => fail(id, message),
     );
   }
   if (issues.length > 0) return empty(null, []);

@@ -85,9 +85,7 @@ describe("inception validity agrees between the full analysis and the Step 4 pre
       estimationMethod: "expected_value",
       inception: {
         ...c.inception,
-        outcomes: [
-          { ...c.inception.outcomes[0]!, probabilityInput: "95", isMostLikely: false },
-        ],
+        outcomes: [{ ...c.inception.outcomes[0]!, probabilityInput: "95", isMostLikely: false }],
       },
     }));
     expect(analyzeWorkflow(draft).finalized).toBe(false);

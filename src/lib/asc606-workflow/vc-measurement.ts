@@ -51,11 +51,7 @@ export function previewVcMeasurement(component: VcComponentDraft): VcMeasurement
   if (errors.length > 0) return empty(errors);
 
   try {
-    const unconstrained = unconstrainedMagnitudeCents(
-      inception,
-      component.estimationMethod,
-      label,
-    );
+    const unconstrained = unconstrainedMagnitudeCents(inception, component.estimationMethod, label);
     return {
       unconstrainedCents: unconstrained,
       includedCents: inception.includedCents,
