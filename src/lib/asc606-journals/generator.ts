@@ -88,7 +88,11 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
 
   const ops: PendingOp[] = [];
   for (const row of input.revenueSchedule.byMonth) {
-    if (row.totalCents === 0) continue;
+    // Phase 5B: a month whose signed source amounts offset to zero still
+    // requires a revenue reclassification entry.
+    const hasRevenueActivity =
+      row.totalCents !== 0 || Object.values(row.perPo ?? {}).some((amount) => amount !== 0);
+    if (!hasRevenueActivity) continue;
     ops.push({
       date: monthEnd(row.month),
       eventType: "revenue_recognition",
@@ -141,27 +145,56 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
     if (op.eventType === "revenue_recognition") {
       const row = revenueByMonth.get(monthKeyOf(op.date))!;
       const revenue = BigInt(row.totalCents);
-      const liabilityUsed = revenue < contractLiability ? revenue : contractLiability;
-      const assetIncrease = revenue - liabilityUsed;
       const lines: JournalLine[] = [];
-      if (liabilityUsed > 0n) {
-        lines.push({
-          account: "contract_liability",
-          debitCents: Number(liabilityUsed),
-          creditCents: 0,
-        });
+
+      if (revenue > 0n) {
+        // Net positive month: consume contract liability first, then create
+        // contract asset (approved Phase 4A behavior).
+        const liabilityUsed = revenue < contractLiability ? revenue : contractLiability;
+        const assetIncrease = revenue - liabilityUsed;
+        if (liabilityUsed > 0n) {
+          lines.push({
+            account: "contract_liability",
+            debitCents: Number(liabilityUsed),
+            creditCents: 0,
+          });
+        }
+        if (assetIncrease > 0n) {
+          lines.push({ account: "contract_asset", debitCents: Number(assetIncrease), creditCents: 0 });
+        }
+        contractLiability -= liabilityUsed;
+        contractAsset += assetIncrease;
+      } else if (revenue < 0n) {
+        // Net negative month (post-satisfaction reversal): reduce contract
+        // asset first, then increase contract liability.
+        const magnitude = -revenue;
+        const assetReduced = magnitude < contractAsset ? magnitude : contractAsset;
+        const liabilityIncrease = magnitude - assetReduced;
+        if (assetReduced > 0n) {
+          lines.push({ account: "contract_asset", debitCents: 0, creditCents: Number(assetReduced) });
+        }
+        if (liabilityIncrease > 0n) {
+          lines.push({
+            account: "contract_liability",
+            debitCents: 0,
+            creditCents: Number(liabilityIncrease),
+          });
+        }
+        contractAsset -= assetReduced;
+        contractLiability += liabilityIncrease;
       }
-      if (assetIncrease > 0n) {
-        lines.push({ account: "contract_asset", debitCents: Number(assetIncrease), creditCents: 0 });
-      }
+
       for (const [poId, amount] of Object.entries(row.perPo).sort(
         (a, b) => poRank(a[0]) - poRank(b[0]) || (a[0] < b[0] ? -1 : 1),
       )) {
         if (amount === 0) continue;
-        lines.push({ account: "revenue", debitCents: 0, creditCents: amount, poId });
+        // A negative source amount reverses previously recognized revenue.
+        lines.push(
+          amount > 0
+            ? { account: "revenue", debitCents: 0, creditCents: amount, poId }
+            : { account: "revenue", debitCents: -amount, creditCents: 0, poId },
+        );
       }
-      contractLiability -= liabilityUsed;
-      contractAsset += assetIncrease;
       entries.push(finalize(op, `Revenue recognized for ${row.month}`, lines));
       continue;
     }

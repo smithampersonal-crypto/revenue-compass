@@ -191,10 +191,10 @@ describe("PO revenue split validation", () => {
     );
   });
 
-  it("blocks negative per-PO revenue", () => {
+  it("blocks a per-PO amount that is not a whole cent", () => {
     expectBlocked(
       corrupt((row) => {
-        row.perPo["po-extra"] = -100;
+        row.perPo["po-extra"] = 1.5;
       }),
       "revenue_split.amount.valid",
     );
