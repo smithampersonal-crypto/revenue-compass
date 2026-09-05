@@ -157,7 +157,15 @@ export function analyzeVariableConsideration(
   input: VcContractInput,
 ): VariableConsiderationAnalysis {
   const validation = validateVariableConsideration(input);
-  const components = input.estimatedComponents.map(measureComponent);
+  // Measurement can only run on structurally valid components; a blocked
+  // analysis still shows whatever history could be measured.
+  const components = input.estimatedComponents.flatMap((component) => {
+    try {
+      return [measureComponent(component)];
+    } catch {
+      return [];
+    }
+  });
   if (validation.blockingFailures.length > 0) {
     return blockedAnalysis(input, validation, components);
   }
