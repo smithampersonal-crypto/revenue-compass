@@ -172,6 +172,26 @@ export function analyzeVariableConsideration(
 
   const componentInputById = new Map(input.estimatedComponents.map((c) => [c.id, c]));
 
+  // Invalid allocation states discovered while building the allocation are
+  // reported like any other blocking validation item: never thrown, and never
+  // accompanied by an authoritative allocation or revenue schedule.
+  const extraFailures: VcCheckResult[] = [];
+  const allocationFail = (id: string, message: string) => {
+    extraFailures.push({ id, category: "allocation", severity: "blocking", message, passed: false });
+  };
+  const blockedWithExtra = (): VariableConsiderationAnalysis => {
+    const results = [...validation.results, ...extraFailures];
+    return blockedAnalysis(
+      input,
+      {
+        status: "attention",
+        results,
+        blockingFailures: results.filter((r) => r.severity === "blocking" && !r.passed),
+      },
+      components,
+    );
+  };
+
   // ---- Inception allocation ------------------------------------------------
   let generalPool = BigInt(input.fixedConsiderationCents);
   const specific: SpecificAllocationInput[] = [];
