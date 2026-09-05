@@ -170,7 +170,7 @@ export function AnalysisResults({
         </div>
       </Section>
 
-      {allocation ? (
+      {result.variableConsideration ? null : allocation ? (
         <Section title="SSP allocation (engine output)">
           <table className="w-full border-collapse text-sm">
             <thead>
