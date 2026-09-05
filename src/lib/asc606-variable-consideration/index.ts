@@ -281,13 +281,25 @@ export function analyzeVariableConsideration(
           : 0) || (a.event.id < b.event.id ? -1 : 1),
   );
 
+  // Each successive allocation state, in chronological order, must stay
+  // nonnegative — not only the final one.
+  let intermediate = inceptionFinal;
+  for (const { event } of pending) {
+    intermediate = applyAllocationChanges(intermediate, event.allocationByPo);
+    for (const row of intermediate) {
+      if (row.amountCents < 0) {
+        allocationFail(
+          "vc.allocation.po.nonnegative",
+          `The amount allocated to "${row.name}" becomes negative on ${event.effectiveDate}. A performance obligation cannot carry a negative allocation; review the change in variable consideration allocated specifically to it.`,
+        );
+      }
+    }
+    if (extraFailures.length > 0) return blockedWithExtra();
+  }
+
   const allChangeAllocations = pending.flatMap((p) => p.event.allocationByPo);
   const currentFinal = applyAllocationChanges(inceptionFinal, allChangeAllocations);
-  if (currentFinal.some((row) => row.amountCents < 0)) {
-    throw new VariableConsiderationError(
-      "allocation invariant violated: a performance obligation may not carry a negative allocation",
-    );
-  }
+
 
   let currentEstimated = 0n;
   for (const row of currentFinal) currentEstimated += BigInt(row.amountCents);
