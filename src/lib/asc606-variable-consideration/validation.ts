@@ -169,6 +169,57 @@ function validateEstimatedComponent(
   // ---- Assessments --------------------------------------------------------
   const assessments = orderedAssessments(component);
   for (const assessment of assessments) {
+    validateAssessment(label, component.estimationMethod, assessment, fail);
+  }
+
+  // ---- Remeasurement ordering and locking --------------------------------
+  const dated = assessments.filter((a) => isValidIsoDate(a.effectiveDate));
+  for (let i = 1; i < dated.length; i += 1) {
+    if (!(dated[i]!.effectiveDate > dated[i - 1]!.effectiveDate)) {
+      fail(
+        "vc.remeasurement.dates_increasing",
+        "component",
+        `"${label}": remeasurement effective dates must be strictly later than the prior assessment.`,
+      );
+      break;
+    }
+  }
+
+  if (component.resolution) {
+    const resolution = component.resolution;
+    if (!isValidIsoDate(resolution.date)) {
+      fail("vc.resolution.date", "component", `"${label}": the resolution needs a valid date.`);
+    }
+    if (!validMagnitude(resolution.actualCents)) {
+      fail(
+        "vc.resolution.amount",
+        "component",
+        `"${label}": the actual resolved amount must be a supported nonnegative whole-cent amount.`,
+      );
+    }
+    const last = dated[dated.length - 1];
+    if (last && isValidIsoDate(resolution.date) && !(resolution.date >= last.effectiveDate)) {
+      fail(
+        "vc.resolution.after_remeasurements",
+        "component",
+        `"${label}": no remeasurement may follow the resolution date.`,
+      );
+    }
+  }
+}
+
+/**
+ * Measurement and constraint validation of ONE dated assessment. Shared by the
+ * full analysis and by the Step 4 allocation-only path so the two can never
+ * disagree about whether an inception estimate is valid.
+ */
+export function validateAssessment(
+  label: string,
+  estimationMethod: EstimationMethod,
+  assessment: VcAssessmentInput,
+  fail: FailFn,
+): void {
+  {
     const stamp = assessment.effectiveDate || assessment.id;
     if (!isValidIsoDate(assessment.effectiveDate)) {
       fail(
