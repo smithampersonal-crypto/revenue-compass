@@ -10,6 +10,12 @@
 
 import type { IsoDate, PoClassification, RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
+import type {
+  EstimationMethod,
+  VcAllocationTreatment,
+  VcEffect,
+  VcTreatment,
+} from "@/lib/asc606-variable-consideration";
 
 /** A yes / no / unanswered accounting judgment. */
 export type Judgment = boolean | null;
@@ -128,6 +134,13 @@ export interface PoDraft {
 }
 
 /** Phase 3 draft: contract-level billing events and cash receipts. */
+/**
+ * Phase 5B: where a billing event amount comes from. A source-linked amount is
+ * derived deterministically by the engine and is read-only; the accountant
+ * still owns the unconditional-right and invoice dates.
+ */
+export type ConsiderationAmountSource = "manual" | "estimated_component" | "usage_period";
+
 export interface ConsiderationEventDraft {
   id: string;
   seq: number;
@@ -135,6 +148,11 @@ export interface ConsiderationEventDraft {
   amountInput: string;
   unconditionalRightDate: IsoDate | "";
   invoiceDate: IsoDate | "";
+  amountSource: ConsiderationAmountSource;
+  /** Variable-consideration component the amount is derived from. */
+  sourceComponentId: string | null;
+  /** Usage accounting month, when the source is a usage period. */
+  sourceMonth: string;
 }
 
 export interface CashCollectionDraft {
@@ -157,8 +175,148 @@ export interface WorkflowDraft {
   /** Raw accountant-entered USD string for fixed consideration. */
   transactionPriceInput: string;
   transactionPriceNotes: string;
+  /** Phase 5B: does the contract contain variable consideration? */
+  hasVariableConsideration: boolean;
+  variableConsiderationComponents: VcComponentDraft[];
   /** Phase 3 billing, receivables and contract-balance inputs. */
   contractBalances: ContractBalanceDraft;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5B variable-consideration drafts
+// ---------------------------------------------------------------------------
+
+export interface VcOutcomeDraft {
+  id: string;
+  seq: number;
+  description: string;
+  /** USD magnitude; the component effect supplies the sign. */
+  amountInput: string;
+  /** Expected value only, percentage string. */
+  probabilityInput: string;
+  /** Most likely amount only. */
+  isMostLikely: boolean;
+}
+
+export interface VcAssessmentDraft {
+  id: string;
+  seq: number;
+  effectiveDate: IsoDate | "";
+  outcomes: VcOutcomeDraft[];
+  /** USD magnitude included after the constraint. */
+  includedInput: string;
+  constraintRationale: string;
+  evidence: string;
+}
+
+export interface VcMeterDraft {
+  id: string;
+  seq: number;
+  name: string;
+  /** Rate numerator in USD, for example "4.00". */
+  rateAmountInput: string;
+  /** Rate denominator quantity, for example "1000000". */
+  rateQuantityInput: string;
+  unit: string;
+}
+
+export interface VcUsagePeriodDraft {
+  id: string;
+  month: string;
+  /** Meter id -> quantity string. "" means blank (missing), never zero. */
+  quantities: Record<string, string>;
+}
+
+export interface VcComponentDraft {
+  id: string;
+  seq: number;
+  treatment: VcTreatment;
+  description: string;
+  effect: VcEffect;
+  estimationMethod: EstimationMethod | null;
+  allocationTreatment: VcAllocationTreatment;
+  targetPoId: string | null;
+  /** Allocation-exception judgments. */
+  relatesSpecifically: Judgment;
+  consistentWithAllocationObjective: Judgment;
+  allocationRationale: string;
+  inception: VcAssessmentDraft;
+  remeasurements: VcAssessmentDraft[];
+  hasResolution: boolean;
+  resolutionDate: IsoDate | "";
+  resolutionAmountInput: string;
+  resolutionRationale: string;
+  meters: VcMeterDraft[];
+  usagePeriods: VcUsagePeriodDraft[];
+}
+
+export const VC_EFFECT_LABELS: Record<VcEffect, string> = {
+  increase: "Increase in consideration",
+  decrease: "Decrease in consideration",
+};
+
+export const VC_ESTIMATION_METHOD_LABELS: Record<EstimationMethod, string> = {
+  most_likely_amount: "Most likely amount",
+  expected_value: "Expected value",
+};
+
+export const VC_ALLOCATION_TREATMENT_LABELS: Record<VcAllocationTreatment, string> = {
+  general: "General — allocate across performance obligations on a relative SSP basis",
+  specific_po: "Specific performance obligation (allocation exception)",
+  specific_series_period: "Specific distinct service periods of a series (allocation exception)",
+};
+
+export function createVcAssessmentDraft(seq: number, id: string): VcAssessmentDraft {
+  return {
+    id,
+    seq,
+    effectiveDate: "",
+    outcomes: [createVcOutcomeDraft(1, `${id}-o1`)],
+    includedInput: "",
+    constraintRationale: "",
+    evidence: "",
+  };
+}
+
+export function createVcOutcomeDraft(seq: number, id: string): VcOutcomeDraft {
+  return { id, seq, description: "", amountInput: "", probabilityInput: "", isMostLikely: false };
+}
+
+export function createVcMeterDraft(seq: number, id: string): VcMeterDraft {
+  return { id, seq, name: "", rateAmountInput: "", rateQuantityInput: "", unit: "" };
+}
+
+export function createVcComponentDraft(
+  seq: number,
+  id: string,
+  treatment: VcTreatment = "estimated",
+): VcComponentDraft {
+  return {
+    id,
+    seq,
+    treatment,
+    description: "",
+    effect: "increase",
+    estimationMethod: treatment === "estimated" ? null : null,
+    allocationTreatment: treatment === "estimated" ? "general" : "specific_series_period",
+    targetPoId: null,
+    relatesSpecifically: null,
+    consistentWithAllocationObjective: null,
+    allocationRationale: "",
+    inception: createVcAssessmentDraft(1, `${id}-a1`),
+    remeasurements: [],
+    hasResolution: false,
+    resolutionDate: "",
+    resolutionAmountInput: "",
+    resolutionRationale: "",
+    meters: [],
+    usagePeriods: [],
+  };
+}
+
+/** True when the contract has at least one variable-consideration component. */
+export function draftHasVariableConsideration(draft: WorkflowDraft): boolean {
+  return draft.hasVariableConsideration && draft.variableConsiderationComponents.length > 0;
 }
 
 
@@ -239,7 +397,16 @@ export function draftHasMaterialRights(draft: WorkflowDraft): boolean {
 }
 
 export function createConsiderationEventDraft(seq: number, id: string): ConsiderationEventDraft {
-  return { id, seq, amountInput: "", unconditionalRightDate: "", invoiceDate: "" };
+  return {
+    id,
+    seq,
+    amountInput: "",
+    unconditionalRightDate: "",
+    invoiceDate: "",
+    amountSource: "manual",
+    sourceComponentId: null,
+    sourceMonth: "",
+  };
 }
 
 export function createCashCollectionDraft(seq: number, id: string): CashCollectionDraft {
@@ -257,6 +424,8 @@ export function createEmptyDraft(): WorkflowDraft {
     performanceObligations: [],
     transactionPriceInput: "",
     transactionPriceNotes: "",
+    hasVariableConsideration: false,
+    variableConsiderationComponents: [],
     contractBalances: createEmptyContractBalances(),
   };
 }
