@@ -411,6 +411,13 @@ describe("remeasurement recognition", () => {
 });
 
 describe("usage validation", () => {
+  /** January carries the usage; every other month is reported as zero. */
+  const fullYear = (januaryQuantity: number) =>
+    Array.from({ length: 12 }, (_, index) => ({
+      month: `2027-${String(index + 1).padStart(2, "0")}`,
+      quantitiesByMeterId: { m1: index === 0 ? januaryQuantity : 0 },
+    }));
+
   const usageContract = (overrides: Record<string, unknown>) =>
     analyzeVariableConsideration(
       contract({
@@ -427,7 +434,7 @@ describe("usage validation", () => {
             meters: [
               { id: "m1", seq: 1, name: "Requests", rateAmountCents: 100, rateQuantity: 1_000, unit: "requests" },
             ],
-            periods: [{ month: "2027-01", quantitiesByMeterId: { m1: 5_000 } }],
+            periods: fullYear(5_000),
             ...overrides,
           },
         ],
@@ -440,11 +447,13 @@ describe("usage validation", () => {
   });
 
   it("treats explicit zero usage as valid and blank usage as blocking", () => {
-    const zero = usageContract({ periods: [{ month: "2027-01", quantitiesByMeterId: { m1: 0 } }] });
+    const zero = usageContract({ periods: fullYear(0) });
     expect(zero.validation.blockingFailures).toEqual([]);
     expect(zero.usagePeriods[0]!.totalCents).toBe(0);
 
-    const blank = usageContract({ periods: [{ month: "2027-01", quantitiesByMeterId: { m1: null } }] });
+    const blank = usageContract({
+      periods: fullYear(0).map((p, i) => (i === 0 ? { ...p, quantitiesByMeterId: { m1: null } } : p)),
+    });
     expect(blockingIds(blank)).toContain("vc.usage.quantity.required");
   });
 
