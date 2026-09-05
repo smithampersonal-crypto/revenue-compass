@@ -24,6 +24,11 @@ export function BillingAndBalances({
   onChange: (draft: WorkflowDraft) => void;
 }) {
   const { considerationEvents, cashCollections } = draft.contractBalances;
+  // Phase 5B: a billing amount may be taken directly from the deterministic
+  // variable-consideration engine instead of being re-entered.
+  const vcComponents = draft.hasVariableConsideration
+    ? draft.variableConsiderationComponents
+    : [];
   const result = analyzeContractBalanceWorkflow(draft);
 
   const setEvents = (events: ConsiderationEventDraft[]) =>
@@ -93,14 +98,65 @@ export function BillingAndBalances({
                 </button>
               </div>
               <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Amount (USD)">
-                  <input
-                    className={inputClass}
-                    value={event.amountInput}
-                    onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
-                    placeholder="60,000.00"
-                  />
-                </Field>
+                {vcComponents.length > 0 ? (
+                  <Field label="Amount source">
+                    <select
+                      className={inputClass}
+                      value={event.amountSource ?? "manual"}
+                      onChange={(e) =>
+                        updateEvent(event.id, {
+                          amountSource: e.target.value as ConsiderationAmountSource,
+                        })
+                      }
+                    >
+                      <option value="manual">Entered amount</option>
+                      <option value="estimated_component">
+                        Variable-consideration component (engine amount)
+                      </option>
+                      <option value="usage_period">Usage month (engine amount)</option>
+                    </select>
+                  </Field>
+                ) : null}
+
+                {(event.amountSource ?? "manual") === "manual" ? (
+                  <Field label="Amount (USD)">
+                    <input
+                      className={inputClass}
+                      value={event.amountInput}
+                      onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
+                      placeholder="60,000.00"
+                    />
+                  </Field>
+                ) : (
+                  <>
+                    <Field label="Variable-consideration component">
+                      <select
+                        className={inputClass}
+                        value={event.sourceComponentId ?? ""}
+                        onChange={(e) =>
+                          updateEvent(event.id, { sourceComponentId: e.target.value || null })
+                        }
+                      >
+                        <option value="">Select a component…</option>
+                        {vcComponents.map((component) => (
+                          <option key={component.id} value={component.id}>
+                            {component.description || component.id}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {event.amountSource === "usage_period" ? (
+                      <Field label="Usage month">
+                        <input
+                          type="month"
+                          className={inputClass}
+                          value={event.sourceMonth ?? ""}
+                          onChange={(e) => updateEvent(event.id, { sourceMonth: e.target.value })}
+                        />
+                      </Field>
+                    ) : null}
+                  </>
+                )}
                 <Field label="Unconditional right date">
                   <input
                     type="date"
