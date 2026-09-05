@@ -392,3 +392,26 @@ export function materialRightStepPreviews(draft: WorkflowDraft): MaterialRightSt
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5B read-only Step 5 presentation values.
+//
+// Pure workflow layer: every amount comes from the variable-consideration
+// engine, so React only formats what it is given.
+// ---------------------------------------------------------------------------
+
+export interface VariableConsiderationPreview {
+  analysis: VariableConsiderationAnalysis | null;
+  errors: string[];
+}
+
+export function variableConsiderationPreview(draft: WorkflowDraft): VariableConsiderationPreview {
+  if (!draftHasVariableConsideration(draft)) return { analysis: null, errors: [] };
+  const built = buildVariableConsiderationInput(draft);
+  if (!built.ok) return { analysis: null, errors: built.errors };
+  try {
+    return { analysis: analyzeVariableConsideration(built.input), errors: [] };
+  } catch (error) {
+    return { analysis: null, errors: [(error as Error).message] };
+  }
+}
