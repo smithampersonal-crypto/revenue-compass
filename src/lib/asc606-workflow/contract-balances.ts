@@ -66,9 +66,21 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
   }
   for (const event of considerationEvents) {
     const label = event.id || `sequence ${event.seq}`;
-    const amount = parseUsdToCents(event.amountInput);
-    if (!amount.ok) add("billing.event.amount", `Billing event ${label}: ${amount.error}`);
-    else if (amount.cents <= 0) add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
+    const source = event.amountSource ?? "manual";
+    if (source === "manual") {
+      const amount = parseUsdToCents(event.amountInput);
+      if (!amount.ok) add("billing.event.amount", `Billing event ${label}: ${amount.error}`);
+      else if (amount.cents <= 0) add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
+    } else {
+      // Phase 5B: a source-linked amount is derived by the engine, so only the
+      // link itself is validated here.
+      if (!event.sourceComponentId) {
+        add("billing.event.source", `Billing event ${label}: select the variable-consideration component it bills.`);
+      }
+      if (source === "usage_period" && !/^\d{4}-\d{2}$/.test(event.sourceMonth ?? "")) {
+        add("billing.event.source_month", `Billing event ${label}: select the usage month it bills.`);
+      }
+    }
     if (!isValidIsoDate(event.unconditionalRightDate)) {
       add("billing.event.right_date", `Billing event ${label}: enter the date the right to consideration becomes unconditional.`);
     }
@@ -91,6 +103,60 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
   }
 
   return outcome(issues);
+}
+
+/**
+ * Phase 5B: a source-linked billing amount is taken directly from the
+ * deterministic variable-consideration engine, never re-entered or
+ * recalculated by this layer or by React.
+ */
+export function resolveConsiderationEventAmount(
+  event: WorkflowDraft["contractBalances"]["considerationEvents"][number],
+  revenue: ReturnType<typeof analyzeWorkflow>,
+  issues: ContractBalanceIssue[],
+): number {
+  const label = event.id || `sequence ${event.seq}`;
+  const source = event.amountSource ?? "manual";
+  if (source === "manual") {
+    const amount = parseUsdToCents(event.amountInput);
+    return amount.ok ? amount.cents : Number.NaN;
+  }
+
+  const vc = revenue.variableConsideration;
+  if (vc === null) {
+    issues.push({
+      id: "billing.event.source",
+      severity: "blocking",
+      message: `Billing event ${label}: the contract has no variable-consideration component to bill.`,
+    });
+    return Number.NaN;
+  }
+
+  if (source === "estimated_component") {
+    const component = vc.components.find((c) => c.componentId === event.sourceComponentId);
+    if (!component) {
+      issues.push({
+        id: "billing.event.source",
+        severity: "blocking",
+        message: `Billing event ${label}: the linked variable-consideration component no longer exists.`,
+      });
+      return Number.NaN;
+    }
+    return component.currentIncludedCents;
+  }
+
+  const period = vc.usagePeriods.find(
+    (p) => p.componentId === event.sourceComponentId && p.month === event.sourceMonth,
+  );
+  if (!period) {
+    issues.push({
+      id: "billing.event.source_month",
+      severity: "blocking",
+      message: `Billing event ${label}: no usage has been recorded for the linked month.`,
+    });
+    return Number.NaN;
+  }
+  return period.totalCents;
 }
 
 export interface ContractBalanceDeps {
@@ -127,18 +193,25 @@ export function analyzeContractBalanceWorkflow(
     return blocked("The billing and contract-balance inputs are incomplete.");
   }
 
+  const sourceIssues: ContractBalanceIssue[] = [];
   const considerationEvents: ConsiderationEvent[] = draft.contractBalances.considerationEvents.map(
     (event) => {
-      const amount = parseUsdToCents(event.amountInput);
+      const amountCents = resolveConsiderationEventAmount(event, revenue, sourceIssues);
       return {
         id: event.id,
         seq: event.seq,
-        amountCents: amount.ok ? amount.cents : Number.NaN,
+        amountCents,
         unconditionalRightDate: event.unconditionalRightDate,
         invoiceDate: event.invoiceDate,
       };
     },
   );
+  if (sourceIssues.length > 0) {
+    return blocked(
+      "A billing event is linked to a variable-consideration amount that is not determinable.",
+      outcome([...draftValidation.issues, ...sourceIssues]),
+    );
+  }
   const cashCollections: CashCollectionEvent[] = draft.contractBalances.cashCollections.map(
     (collection) => {
       const amount = parseUsdToCents(collection.amountInput);
