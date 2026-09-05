@@ -384,10 +384,10 @@ export function Step3TransactionPrice({
                             : true,
                         )
                         .map((po) => (
-                        <option key={po.id} value={po.id}>
-                          {po.name || `Performance obligation ${po.seq}`}
-                        </option>
-                      ))}
+                          <option key={po.id} value={po.id}>
+                            {po.name || `Performance obligation ${po.seq}`}
+                          </option>
+                        ))}
                     </select>
                   </Field>
                   <JudgmentControl
