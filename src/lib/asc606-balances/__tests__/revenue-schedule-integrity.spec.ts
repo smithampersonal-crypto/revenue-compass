@@ -110,17 +110,32 @@ describe("revenue-schedule integrity validation", () => {
     expect(blockingIds(input({ ...base, byMonth }))).toContain("revenue_schedule.month.valid");
   });
 
-  it("Test 6 — blocks a negative monthly revenue amount", () => {
+  it("Test 6 — blocks a monthly revenue amount outside the supported range", () => {
     const base = saasRevenueSchedule(PRICE);
     const byMonth = base.byMonth.map((row, index) =>
-      index === 0
-        ? { ...row, totalCents: -100 }
-        : index === 1
-          ? { ...row, totalCents: row.totalCents + base.byMonth[0]!.totalCents + 100 }
-          : row,
+      index === 0 ? { ...row, totalCents: 1.5 } : row,
     );
     expectFullyBlocked(input({ ...base, byMonth }));
     expect(blockingIds(input({ ...base, byMonth }))).toContain("revenue_schedule.amount.valid");
+  });
+
+  it("Test 6a — Phase 5B: accepts a signed monthly amount that still reconciles", () => {
+    // A post-satisfaction variable-consideration reversal produces a negative
+    // month; the schedule still has to sum and tie exactly.
+    const base = saasRevenueSchedule(PRICE);
+    let running = 0;
+    const byMonth = base.byMonth.map((row, index) => {
+      const totalCents =
+        index === 0
+          ? row.totalCents - 100
+          : index === 1
+            ? row.totalCents + 100
+            : row.totalCents;
+      running += totalCents;
+      return { ...row, totalCents, cumulativeCents: running };
+    });
+    const result = validateContractBalanceInput(input({ ...base, byMonth }));
+    expect(result.blockingFailures).toEqual([]);
   });
 
   it("Test 6b — blocks broken cumulative revenue metadata", () => {
