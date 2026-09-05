@@ -219,8 +219,8 @@ export function validateAssessment(
   assessment: VcAssessmentInput,
   fail: FailFn,
 ): void {
+  const stamp = assessment.effectiveDate || assessment.id;
   {
-    const stamp = assessment.effectiveDate || assessment.id;
     if (!isValidIsoDate(assessment.effectiveDate)) {
       fail(
         "vc.assessment.date",
