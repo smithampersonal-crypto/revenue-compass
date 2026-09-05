@@ -31,13 +31,13 @@ describe("Case 7 Step 4 allocation without Step 5", () => {
     expect(preview.variable).not.toBeNull();
     expect(preview.variable!.generalPoolCents).toBe(46_000_000);
     const base = Object.fromEntries(preview.variable!.base!.map((r) => [r.name, r.allocatedCents]));
-    expect(base["Implementation"]).toBe(5_520_000);
+    expect(base["Implementation services"]).toBe(5_520_000);
     expect(base["SaaS subscription"]).toBe(40_480_000);
     expect(preview.variable!.specific[0]!.amountCents).toBe(3_000_000);
     const final = Object.fromEntries(
       preview.variable!.finalAllocations!.map((r) => [r.name, r.amountCents]),
     );
-    expect(final["Implementation"]).toBe(8_520_000);
+    expect(final["Implementation services"]).toBe(8_520_000);
     expect(final["SaaS subscription"]).toBe(40_480_000);
     expect(preview.variable!.initialTransactionPriceCents).toBe(49_000_000);
   });
