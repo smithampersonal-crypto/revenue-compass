@@ -25,10 +25,15 @@ import {
 } from "@/lib/asc606-material-rights";
 import {
   analyzeVariableConsideration,
+  previewVcAllocation,
   type VariableConsiderationAnalysis,
+  type VcAllocationPreview,
 } from "@/lib/asc606-variable-consideration";
 import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
-import { buildVariableConsiderationInput } from "./vc-adapter";
+import {
+  buildVariableConsiderationAllocationInput,
+  buildVariableConsiderationInput,
+} from "./vc-adapter";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   deriveStep1Conclusion,
@@ -367,6 +372,7 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
       rows,
       totalSspCents: rows[0]?.totalSspCents ?? null,
       totalAllocatedCents: price.cents,
+      variable: null,
       issues,
     };
   } catch (error) {
