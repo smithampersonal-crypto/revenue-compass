@@ -199,3 +199,16 @@ export function cloudAiDraft(): WorkflowDraft {
     variableConsiderationComponents: [usage],
   };
 }
+
+/**
+ * Pay-as-you-go CloudAI variant: no fixed consideration at all, with every
+ * month of the service period reported and only January carrying usage.
+ */
+export function payAsYouGoDraft(): WorkflowDraft {
+  const draft = cloudAiDraft();
+  return {
+    ...draft,
+    contract: { ...draft.contract, contractNumber: "CASE-CLOUDAI-PAYG" },
+    transactionPriceInput: "0.00",
+  };
+}
