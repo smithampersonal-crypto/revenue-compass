@@ -110,10 +110,15 @@ describe("fixed-only contracts are unaffected", () => {
     }
   });
 
-  it("ignores an enabled flag with no components", () => {
+  it("blocks an enabled flag with no components instead of falling back to fixed-only", () => {
     const result = analyzeWorkflow({ ...scenarioADraft(), hasVariableConsideration: true });
     expect(result.variableConsideration).toBeNull();
-    expect(result.finalized).toBe(true);
+    expect(result.finalized).toBe(false);
+    expect(
+      result.workflowValidation.blocking.some(
+        (i) => i.id === "contract.variable_consideration.components_present",
+      ),
+    ).toBe(true);
   });
 });
 
