@@ -385,6 +385,11 @@ export function analyzeVariableConsideration(
 
   // ---- Change-event revenue effects ---------------------------------------
   const unitByIdForEvents = new Map(dynamicUnits.map((u) => [u.unit.id, u]));
+  // Catch-up is measured at the exact effective date of the change, against the
+  // allocation state produced by every strictly earlier change only.
+  const runningAllocation = new Map<string, bigint>(
+    dynamicUnits.map((u) => [u.unit.id, BigInt(u.inceptionAllocatedCents)]),
+  );
   const changeEvents: VcChangeEvent[] = pending.map(({ event }) => {
     let catchUp = 0n;
     let allocatedTotal = 0n;
@@ -394,20 +399,18 @@ export function analyzeVariableConsideration(
       if (!unitId) continue; // outstanding material right: no revenue date yet
       const dynamic = unitByIdForEvents.get(unitId);
       if (!dynamic) continue;
-      let allocationWith = BigInt(dynamic.inceptionAllocatedCents);
-      for (const change of dynamic.changes) {
-        if (monthKeyOf(change.date) <= event.month) allocationWith += BigInt(change.amountCents);
-      }
-      const allocationWithout = allocationWith - BigInt(row.amountCents);
-      const withCents = cumulativeEntitlementCents(
+      const allocationWithout = runningAllocation.get(unitId) ?? 0n;
+      const allocationWith = allocationWithout + BigInt(row.amountCents);
+      runningAllocation.set(unitId, allocationWith);
+      const withCents = cumulativeEntitlementAtDateCents(
         dynamic.unit,
         bigIntToCents(allocationWith, "allocation"),
-        event.month,
+        event.effectiveDate,
       );
-      const withoutCents = cumulativeEntitlementCents(
+      const withoutCents = cumulativeEntitlementAtDateCents(
         dynamic.unit,
         bigIntToCents(allocationWithout, "allocation"),
-        event.month,
+        event.effectiveDate,
       );
       catchUp += BigInt(withCents - withoutCents);
     }
