@@ -242,8 +242,8 @@ describe("the running general pool must never go negative", () => {
         includedCents: D(1_000),
         constraintRationale: "A reversal is not probable.",
       },
+      ...(resolution ? { resolution } : {}),
       remeasurements,
-      resolution,
     };
   }
 
