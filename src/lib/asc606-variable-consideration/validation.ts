@@ -7,6 +7,8 @@
  */
 
 import {
+  datePeriodExceedsSupportedHorizon,
+  enumerateMonths,
   isValidIsoDate,
   monthKeyOf,
   MAX_CENTS,
