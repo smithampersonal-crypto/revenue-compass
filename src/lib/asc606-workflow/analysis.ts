@@ -23,11 +23,17 @@ import {
   type MaterialRightStatus,
   type RevenueSource,
 } from "@/lib/asc606-material-rights";
+import {
+  analyzeVariableConsideration,
+  type VariableConsiderationAnalysis,
+} from "@/lib/asc606-variable-consideration";
 import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
+import { buildVariableConsiderationInput } from "./vc-adapter";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   deriveStep1Conclusion,
   draftHasMaterialRights,
+  draftHasVariableConsideration,
   type Step1Conclusion,
   type WorkflowDraft,
 } from "./types";
@@ -59,6 +65,8 @@ export interface WorkflowAnalysisResult {
   unscheduledRevenueCents: Cents;
   /** Original price plus consideration arising on exercised options. */
   lifecycleConsiderationCents: Cents | null;
+  /** Phase 5B output; null unless the contract has variable consideration. */
+  variableConsideration: VariableConsiderationAnalysis | null;
 }
 
 export interface AnalyzeWorkflowDeps {
@@ -93,6 +101,7 @@ export function analyzeWorkflow(
     revenueSources: [],
     unscheduledRevenueCents: 0,
     lifecycleConsiderationCents: null,
+    variableConsideration: null,
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -105,6 +114,55 @@ export function analyzeWorkflow(
   }
   if (workflowValidation.blocking.length > 0) {
     return blocked("The workflow has unresolved blocking items.");
+  }
+
+  if (draftHasVariableConsideration(draft)) {
+    const builtVc = buildVariableConsiderationInput(draft);
+    if (!builtVc.ok) {
+      return blocked(
+        "The workflow could not be converted into a complete engine input.",
+        builtVc.errors,
+      );
+    }
+    const vc = analyzeVariableConsideration(builtVc.input);
+    if (
+      vc.validation.blockingFailures.length > 0 ||
+      vc.allocation === null ||
+      vc.revenueSchedule === null ||
+      vc.reconciliation.reconciled !== true
+    ) {
+      return blocked(
+        "The deterministic ASC 606 engine reported a blocking validation issue, so no finalized analysis is presented.",
+        [],
+        {
+          status: "attention",
+          results: [],
+          blockingFailures: vc.validation.blockingFailures.map((f) => ({
+            id: f.id,
+            category: "contract" as const,
+            severity: "blocking" as const,
+            message: f.message,
+            passed: false,
+          })),
+        },
+      );
+    }
+    return {
+      workflowValidation,
+      step1Conclusion,
+      finalized: true,
+      blockedReason: null,
+      adapterErrors: [],
+      engineValidation: null,
+      analysis: null,
+      lifecycle: null,
+      allocation: vc.allocation.base,
+      revenueSchedule: vc.revenueSchedule,
+      revenueSources: vc.revenueSources,
+      unscheduledRevenueCents: vc.totals.unscheduledConsiderationCents ?? 0,
+      lifecycleConsiderationCents: vc.totals.lifecycleConsiderationCents,
+      variableConsideration: vc,
+    };
   }
 
   if (draftHasMaterialRights(draft)) {
@@ -142,6 +200,7 @@ export function analyzeWorkflow(
       revenueSources: lifecycle.revenueSources,
       unscheduledRevenueCents: lifecycle.totals.unscheduledMaterialRightCents ?? 0,
       lifecycleConsiderationCents: lifecycle.totals.lifecycleConsiderationCents,
+      variableConsideration: null,
     };
   }
 
@@ -184,6 +243,7 @@ export function analyzeWorkflow(
     })),
     unscheduledRevenueCents: 0,
     lifecycleConsiderationCents: analysis.totals.transactionPriceCents,
+    variableConsideration: null,
   };
 }
 
