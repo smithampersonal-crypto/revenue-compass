@@ -208,7 +208,7 @@ export function Step4Allocation({
           </>
         ) : null}
 
-        {draft.hasVariableConsideration ? (
+        {draft.hasVariableConsideration && !preview.variable?.finalAllocations ? (
           <Notice>
             This contract contains variable consideration. The table above is the engine's relative
             standalone-selling-price allocation. Amounts allocated specifically to a single

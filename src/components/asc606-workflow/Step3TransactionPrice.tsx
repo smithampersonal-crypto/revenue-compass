@@ -5,6 +5,7 @@ import {
   createVcMeterDraft,
   createVcOutcomeDraft,
   parseUsdToCents,
+  previewVcMeasurement,
   VC_ALLOCATION_TREATMENT_LABELS,
   VC_EFFECT_LABELS,
   VC_ESTIMATION_METHOD_LABELS,
@@ -432,6 +433,9 @@ export function Step3TransactionPrice({
               {component.treatment === "estimated" ? (
                 <>
                   {assessmentEditor(component, component.inception, "Inception estimate")}
+                  {component.treatment === "estimated" ? (
+                    <MeasurementReadout component={component} />
+                  ) : null}
                   {component.remeasurements.map((assessment) =>
                     assessmentEditor(component, assessment, `Remeasurement ${assessment.seq}`, () =>
                       patchComponent(component.id, {
@@ -566,5 +570,41 @@ export function Step3TransactionPrice({
         and contract modifications are not implemented.
       </Notice>
     </Section>
+  );
+}
+
+const CONSTRAINT_LABELS: Record<string, string> = {
+  fully_included: "Fully included — the constraint does not reduce the estimate",
+  partially_included: "Partially included — the constraint reduces the estimate",
+  excluded: "Excluded — the constraint removes the estimate entirely",
+};
+
+/** Read-only: every figure here is calculated by the engine, never by React. */
+function MeasurementReadout({ component }: { component: VcComponentDraft }) {
+  const measurement = previewVcMeasurement(component);
+  if (measurement.unconstrainedCents === null) {
+    return (
+      <Notice>
+        {measurement.issues.length > 0
+          ? `The estimate at inception is not yet measurable: ${measurement.issues.join(" ")}`
+          : "The estimate at inception is not yet measurable."}
+      </Notice>
+    );
+  }
+  return (
+    <div className="rounded-md border border-border p-3 text-sm">
+      <p>
+        <span className="font-semibold">Engine estimate before the constraint: </span>
+        {formatCents(measurement.unconstrainedCents)}
+      </p>
+      <p>
+        <span className="font-semibold">Included after your constraint conclusion: </span>
+        {formatCents(measurement.includedCents ?? 0)}
+      </p>
+      <p>
+        <span className="font-semibold">Derived constraint conclusion: </span>
+        {CONSTRAINT_LABELS[measurement.conclusion ?? ""] ?? measurement.conclusion}
+      </p>
+    </div>
   );
 }
