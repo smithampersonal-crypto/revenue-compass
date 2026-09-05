@@ -220,3 +220,128 @@ describe("usage must cover the whole service period", () => {
     expect(result.totals.usageConsiderationCents).toBe(7_200);
   });
 });
+
+describe("the running general pool must never go negative", () => {
+  function generalDecrease(
+    remeasurements: EstimatedComponentInput["remeasurements"],
+    resolution?: EstimatedComponentInput["resolution"],
+  ): EstimatedComponentInput {
+    return {
+      id: "vc-penalty",
+      seq: 1,
+      description: "Contract-wide penalty",
+      effect: "decrease",
+      estimationMethod: "most_likely_amount",
+      allocationTreatment: "general",
+      allocationRationale: "The penalty relates to the contract as a whole.",
+      inception: {
+        id: "vc-penalty-inception",
+        seq: 1,
+        effectiveDate: "2027-01-01",
+        outcomes: [{ id: "p1", seq: 1, amountCents: D(1_000), isMostLikely: true }],
+        includedCents: D(1_000),
+        constraintRationale: "A reversal is not probable.",
+      },
+      remeasurements,
+      resolution,
+    };
+  }
+
+  it("blocks when a remeasurement drives the general pool below zero", () => {
+    const result = analyzeVariableConsideration(
+      contract(
+        generalDecrease([
+          {
+            id: "vc-penalty-rm",
+            seq: 2,
+            effectiveDate: "2027-06-01",
+            outcomes: [{ id: "p2", seq: 1, amountCents: D(40_000), isMostLikely: true }],
+            includedCents: D(40_000),
+            constraintRationale: "A reversal is not probable.",
+          },
+        ]),
+      ),
+    );
+    expect(result.allocation).toBeNull();
+    expect(result.revenueSchedule).toBeNull();
+    expect(
+      result.validation.blockingFailures.some((f) => f.id === "vc.allocation.general_pool.nonnegative"),
+    ).toBe(true);
+  });
+
+  it("blocks when the resolved amount drives the general pool below zero", () => {
+    const result = analyzeVariableConsideration(
+      contract(
+        generalDecrease([], {
+          id: "vc-penalty-resolution",
+          date: "2027-09-30",
+          actualCents: D(50_000),
+          rationale: "The final penalty assessed exceeded the estimate.",
+        }),
+      ),
+    );
+    expect(result.allocation).toBeNull();
+    expect(
+      result.validation.blockingFailures.some((f) => f.id === "vc.allocation.general_pool.nonnegative"),
+    ).toBe(true);
+  });
+});
+
+describe("a resolution that drives one allocation negative is blocked", () => {
+  it("reports a blocking validation result at resolution, not an exception", () => {
+    const pos: PerformanceObligationInput[] = [
+      { ...ANNUAL_SERIES, id: "po-a", name: "Service A", sspCents: D(50) },
+      {
+        id: "po-b",
+        seq: 2,
+        name: "Service B",
+        sspCents: D(50),
+        sspBasis: "Observable.",
+        classification: "single_distinct",
+        recognitionMethod: "point_in_time",
+        recognitionDate: "2027-01-15",
+      },
+    ];
+    const component: EstimatedComponentInput = {
+      id: "vc-penalty",
+      seq: 1,
+      description: "Service level penalty",
+      effect: "decrease",
+      estimationMethod: "most_likely_amount",
+      allocationTreatment: "specific_po",
+      targetPoId: "po-b",
+      relatesSpecificallyToPo: true,
+      consistentWithAllocationObjective: true,
+      allocationRationale: "The penalty relates specifically to Service B.",
+      inception: {
+        id: "vc-penalty-inception",
+        seq: 1,
+        effectiveDate: "2027-01-01",
+        outcomes: [{ id: "p1", seq: 1, amountCents: D(10), isMostLikely: true }],
+        includedCents: D(10),
+        constraintRationale: "A reversal is not probable.",
+      },
+      remeasurements: [],
+      resolution: {
+        id: "vc-penalty-resolution",
+        date: "2027-08-31",
+        actualCents: D(95),
+        rationale: "The final penalty assessed exceeded the estimate.",
+      },
+    };
+    let result: ReturnType<typeof analyzeVariableConsideration>;
+    expect(() => {
+      result = analyzeVariableConsideration({
+        fixedConsiderationCents: D(100),
+        standardPerformanceObligations: pos,
+        materialRights: [],
+        estimatedComponents: [component],
+        usageComponents: [],
+      });
+    }).not.toThrow();
+    expect(result!.allocation).toBeNull();
+    expect(
+      result!.validation.blockingFailures.some((f) => f.id === "vc.allocation.po.nonnegative"),
+    ).toBe(true);
+  });
+});
