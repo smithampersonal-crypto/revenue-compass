@@ -25,6 +25,9 @@ import {
 } from "./estimation";
 import type {
   EstimatedComponentInput,
+  EstimationMethod,
+  VcAllocationTreatment,
+  VcAssessmentInput,
   UsageComponentInput,
   VcCheckResult,
   VcContractInput,
@@ -116,7 +119,7 @@ export function validateVariableConsideration(input: VcContractInput): VcValidat
   };
 }
 
-type FailFn = (
+export type FailFn = (
   id: string,
   category: VcCheckResult["category"],
   message: string,
@@ -309,6 +312,72 @@ export function validateAssessment(
     void constraintConclusion(unconstrained, assessment.includedCents);
   }
 
+}
+
+/** One estimated component as it stands at inception (Step 3 / Step 4 only). */
+export interface InceptionComponentCheck {
+  id: string;
+  description: string;
+  estimationMethod: EstimationMethod;
+  allocationTreatment: VcAllocationTreatment;
+  targetPoId?: string | null;
+  relatesSpecificallyToPo?: boolean | null;
+  consistentWithAllocationObjective?: boolean | null;
+  allocationRationale: string;
+  inception: VcAssessmentInput;
+}
+
+/**
+ * Inception-only validation of an estimated component: the same component and
+ * assessment rules the full analysis applies, without any Step 5 information.
+ */
+export function validateInceptionComponent(
+  component: InceptionComponentCheck,
+  allPoIds: ReadonlySet<string>,
+  fail: FailFn,
+): void {
+  const label = component.description.trim() || component.id;
+  if (component.description.trim() === "") {
+    fail(
+      "vc.component.description",
+      "component",
+      `Component "${component.id}" needs a description.`,
+    );
+  }
+  if (component.allocationRationale.trim() === "") {
+    fail(
+      "vc.component.allocation_rationale",
+      "component",
+      `Document why the allocation treatment chosen for "${label}" is appropriate.`,
+    );
+  }
+  if (component.allocationTreatment === "specific_series_period") {
+    fail(
+      "vc.component.allocation_treatment",
+      "allocation",
+      `"${label}" cannot use the series-period allocation exception.`,
+    );
+  }
+  if (component.allocationTreatment === "specific_po") {
+    if (!component.targetPoId || !allPoIds.has(component.targetPoId)) {
+      fail(
+        "vc.component.target_po",
+        "allocation",
+        `"${label}" is allocated to a specific performance obligation, so a valid target performance obligation is required.`,
+      );
+    }
+    if (
+      component.relatesSpecificallyToPo !== true ||
+      component.consistentWithAllocationObjective !== true
+    ) {
+      fail(
+        "vc.component.allocation_exception",
+        "allocation",
+        `The allocation exception for "${label}" requires both judgments to be Yes: the amount relates specifically to that performance obligation and allocating it there is consistent with the allocation objective.`,
+      );
+    }
+  }
+  validateAssessment(label, component.estimationMethod, component.inception, fail);
 }
 
 function validateUsageComponent(
