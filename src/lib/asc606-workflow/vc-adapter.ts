@@ -31,6 +31,13 @@ import type { VcAssessmentDraft, VcComponentDraft, WorkflowDraft } from "./types
 export type VcAdapterResult =
   { ok: true; input: VcContractInput } | { ok: false; errors: string[] };
 
+export function buildInceptionAssessment(
+  component: VcComponentDraft,
+  errors: string[],
+): VcAssessmentInput | null {
+  return buildAssessment(component, component.inception, "inception estimate", errors);
+}
+
 function buildAssessment(
   component: VcComponentDraft,
   assessment: VcAssessmentDraft,
