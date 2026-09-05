@@ -46,10 +46,12 @@ export function validateJournalInput(
   for (const row of rows) {
     for (const [poId, amount] of Object.entries(row.perPo ?? {})) {
       if (typeof poId !== "string" || poId.trim() === "") poIdsValid = false;
+      // Phase 5B: source amounts may be signed (variable-consideration
+      // true-ups reverse revenue).
       if (
         typeof amount !== "number" ||
         !Number.isInteger(amount) ||
-        amount < 0 ||
+        amount < -MAX_CENTS ||
         amount > MAX_CENTS
       ) {
         amountsValid = false;
@@ -67,7 +69,7 @@ export function validateJournalInput(
     fail(
       "revenue_split.amount.valid",
       "revenue_split",
-      "Every performance-obligation revenue amount must be a nonnegative whole-cent amount within the supported monetary range.",
+      "Every performance-obligation revenue amount must be a whole-cent amount within the supported monetary range.",
     );
   }
   if (poIdsValid && amountsValid) {
