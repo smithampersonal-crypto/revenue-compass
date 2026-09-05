@@ -174,13 +174,19 @@ export function cloudAiDraft(): WorkflowDraft {
     allocationRationale:
       "Each month's usage fee relates specifically to the distinct service period in which the usage occurs.",
     meters: [inputMeter, outputMeter],
-    usagePeriods: [
-      {
-        id: "usage-2027-01",
-        month: "2027-01",
-        quantities: { "meter-input": "8000000", "meter-output": "2000000" },
-      },
-    ],
+    // Every month of the service period is reported; months with no usage are
+    // entered explicitly as zero.
+    usagePeriods: Array.from({ length: 12 }, (_, index) => {
+      const month = `2027-${String(index + 1).padStart(2, "0")}`;
+      return {
+        id: `usage-${month}`,
+        month,
+        quantities:
+          index === 0
+            ? { "meter-input": "8000000", "meter-output": "2000000" }
+            : { "meter-input": "0", "meter-output": "0" },
+      };
+    }),
   };
 
   return {
