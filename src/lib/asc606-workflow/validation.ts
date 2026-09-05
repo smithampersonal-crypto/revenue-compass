@@ -257,10 +257,20 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
 
   // ---- Step 3 -------------------------------------------------------------
   const price = parseUsdToCents(draft.transactionPriceInput);
+  const variableContract = draftHasVariableConsideration(draft);
   if (!price.ok) {
     add("contract.transaction_price.valid", "3", `Transaction price: ${price.error}`);
-  } else if (price.cents <= 0) {
+  } else if (price.cents < 0) {
+    add("contract.transaction_price.valid", "3", "Fixed consideration cannot be negative.");
+  } else if (price.cents === 0 && !variableContract) {
     add("contract.transaction_price.valid", "3", "Transaction price must be greater than zero.");
+  }
+  if (draft.hasVariableConsideration && draft.variableConsiderationComponents.length === 0) {
+    add(
+      "contract.variable_consideration.components_present",
+      "3",
+      "This contract is marked as containing variable consideration, so at least one variable-consideration component must be described.",
+    );
   }
 
   // ---- Step 4 -------------------------------------------------------------
