@@ -281,6 +281,26 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
     return empty();
   }
 
+  // A contract with variable consideration is allocated by the Phase 5B
+  // engine. This layer never re-derives it: it shows the engine's own layer.
+  if (draftHasVariableConsideration(draft)) {
+    const layers = analyzeWorkflow(draft).variableConsideration?.allocation ?? null;
+    if (layers === null) {
+      issues.push(
+        "Allocation is not calculated yet because the variable-consideration inputs in Step 3 are incomplete.",
+      );
+      return empty();
+    }
+    let total = 0n;
+    for (const row of layers.base) total += BigInt(row.allocatedCents);
+    return {
+      rows: layers.base,
+      totalSspCents: layers.base[0]?.totalSspCents ?? null,
+      totalAllocatedCents: Number(total),
+      issues,
+    };
+  }
+
   const price = parseUsdToCents(draft.transactionPriceInput);
   if (!price.ok) issues.push(`Transaction price: ${price.error}`);
   if (draft.performanceObligations.length === 0) {
