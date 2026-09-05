@@ -5,6 +5,7 @@ import {
   nextId,
   nextSeq,
   type CashCollectionDraft,
+  type ConsiderationAmountSource,
   type ConsiderationEventDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
