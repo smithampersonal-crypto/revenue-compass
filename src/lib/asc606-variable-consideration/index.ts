@@ -47,7 +47,7 @@ import {
 } from "./estimation";
 import {
   buildDynamicRevenueSchedule,
-  cumulativeEntitlementCents,
+  cumulativeEntitlementAtDateCents,
   type DynamicChange,
   type DynamicUnitInput,
   type UsageScheduleRow,
@@ -60,6 +60,7 @@ import {
   type VariableConsiderationAnalysis,
   type VcAssessmentResult,
   type VcChangeEvent,
+  type VcCheckResult,
   type VcComponentResult,
   type VcContractInput,
 } from "./types";
