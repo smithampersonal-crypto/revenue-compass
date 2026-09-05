@@ -134,8 +134,9 @@ describe("revenue-schedule integrity validation", () => {
       running += totalCents;
       return { ...row, totalCents, cumulativeCents: running };
     });
-    const result = validateContractBalanceInput(input({ ...base, byMonth }));
-    expect(result.blockingFailures).toEqual([]);
+    const analysis = analyzeContractBalances(input({ ...base, byMonth }));
+    expect(analysis.validation.blockingFailures).toEqual([]);
+    expect(analysis.reconciliation.reconciled).toBe(true);
   });
 
   it("Test 6b — blocks broken cumulative revenue metadata", () => {
