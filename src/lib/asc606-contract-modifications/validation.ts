@@ -91,6 +91,13 @@ export function validateContractModification(input: ContractModificationInput): 
     );
   } else {
     pass("modification.approval", "contract", "The modification is approved and enforceable.");
+    if (isBlank(mod.approvalRationale)) {
+      fail(
+        "modification.approval.rationale",
+        "contract",
+        "Document the basis for concluding that the modification is approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+      );
+    }
   }
 
   if (!isValidIsoDate(mod.modificationDate)) {
@@ -104,13 +111,6 @@ export function validateContractModification(input: ContractModificationInput): 
       "modification.description",
       "contract",
       "Describe the change in scope, price, or both made by the modification.",
-    );
-  }
-  if (mod.priceReflectsAddedGoodsSsp === null) {
-    fail(
-      "modification.price_reflects_ssp",
-      "contract",
-      "State whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
     );
   }
   if (
