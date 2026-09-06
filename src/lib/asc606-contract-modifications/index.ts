@@ -510,6 +510,26 @@ function analyzeSeparateContract(
     groupId: ORIGINAL_GROUP_ID,
   }));
 
+  // Audit segmentation only: the original schedule above is untouched. We
+  // separately measure how much of it was transferred before the modification
+  // date so the lifecycle audit can split history from future performance.
+  const separateCutoff = historicalCutoffDate(mod.modificationDate);
+  const separateHistorical: HistoricalPoRevenue[] = originalPos.map((po) => {
+    const segment = historicalRevenue(po, allocatedById.get(po.id) ?? 0, separateCutoff);
+    return {
+      poId: po.id,
+      name: po.name,
+      revenueCents: segment.totalCents,
+      progressDays: segment.progressDays,
+      totalDays: segment.totalDays,
+    };
+  });
+  const separateHistoricalCents = separateHistorical.reduce(
+    (total, row) => total + row.revenueCents,
+    0,
+  );
+
+
   const added = activeModifiedPos(mod).filter((po) => po.status === "added");
   const newAllocation = allocateTransactionPrice({
     transactionPriceCents: considerationChangeCents,
