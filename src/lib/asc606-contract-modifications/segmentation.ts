@@ -51,11 +51,7 @@ export const ORIGINAL_SEGMENT_ID = "segment::original";
 export const ORIGINAL_CONTRACT_ID = "contract::original";
 
 export type ModificationSegmentKind =
-  | "historical"
-  | "separate"
-  | "prospective"
-  | "catch_up"
-  | "mixed";
+  "historical" | "separate" | "prospective" | "catch_up" | "mixed";
 
 export const HISTORICAL_SEGMENT_ID = "segment::historical";
 

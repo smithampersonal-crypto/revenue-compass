@@ -310,7 +310,6 @@ export function draftHasContractModification(draft: WorkflowDraft): boolean {
   return draft.hasContractModifications === true && draft.contractModifications.length > 0;
 }
 
-
 // ---------------------------------------------------------------------------
 // Phase 5B variable-consideration drafts
 // ---------------------------------------------------------------------------

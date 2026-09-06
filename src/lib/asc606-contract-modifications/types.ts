@@ -29,15 +29,11 @@ import type { RevenueSource } from "@/lib/asc606-material-rights";
 
 /** Derived ASC 606 modification treatment. Never entered by the accountant. */
 export type ModificationTreatment =
-  | "separate_contract"
-  | "prospective"
-  | "cumulative_catch_up"
-  | "mixed";
+  "separate_contract" | "prospective" | "cumulative_catch_up" | "mixed";
 
 /** Accountant-selected allocation policy, required only for a mixed modification. */
 export type MixedAllocationPolicy =
-  | "updated_total_transaction_price"
-  | "updated_remaining_transaction_price";
+  "updated_total_transaction_price" | "updated_remaining_transaction_price";
 
 export const MODIFICATION_TREATMENT_LABELS: Record<ModificationTreatment, string> = {
   separate_contract: "Separate contract — ASC 606-10-25-12",
@@ -181,9 +177,7 @@ export interface ModificationClassification {
 }
 
 export type ModificationAllocationBasis =
-  | "added_goods_remaining_ssp"
-  | "remaining_ssp"
-  | "total_modified_ssp";
+  "added_goods_remaining_ssp" | "remaining_ssp" | "total_modified_ssp";
 
 export interface ModificationAllocationLayer {
   basis: ModificationAllocationBasis;

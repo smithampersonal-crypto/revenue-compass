@@ -58,8 +58,7 @@ export function sspBasisFor(
   po: ModifiedPerformanceObligationInput,
   basis: ModificationAllocationBasis,
 ): string | null {
-  const value =
-    basis === "total_modified_ssp" ? po.totalModifiedSspBasis : po.remainingSspBasis;
+  const value = basis === "total_modified_ssp" ? po.totalModifiedSspBasis : po.remainingSspBasis;
   return value && value.trim() !== "" ? value : null;
 }
 

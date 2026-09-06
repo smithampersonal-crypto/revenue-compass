@@ -24,13 +24,17 @@ describe("separate-contract test", () => {
     const test = separateContractTest(event(case9SeparateContract()));
     expect(test.passed).toBe(true);
     expect(test.failures).toEqual([]);
-    expect(classifyModification(event(case9SeparateContract())).treatment).toBe("separate_contract");
+    expect(classifyModification(event(case9SeparateContract())).treatment).toBe(
+      "separate_contract",
+    );
   });
 
   it("fails a price-only modification with no added obligation", () => {
     const input = case9((i) => {
       i.contractModifications[0]!.postModificationPerformanceObligations =
-        i.contractModifications[0]!.postModificationPerformanceObligations.filter((po) => po.status !== "added");
+        i.contractModifications[0]!.postModificationPerformanceObligations.filter(
+          (po) => po.status !== "added",
+        );
     });
     const test = separateContractTest(event(input));
     expect(test.passed).toBe(false);
@@ -74,7 +78,8 @@ describe("separate-contract test", () => {
 
   it("fails when a continuing obligation is reconfigured", () => {
     const input = case9((i) => {
-      i.contractModifications[0]!.postModificationPerformanceObligations[0]!.scopeEffect = "reconfigured";
+      i.contractModifications[0]!.postModificationPerformanceObligations[0]!.scopeEffect =
+        "reconfigured";
     });
     const test = separateContractTest(event(input));
     expect(test.passed).toBe(false);
@@ -83,8 +88,7 @@ describe("separate-contract test", () => {
 
   it("fails when an added good or service is not distinct", () => {
     const input = case9((i) => {
-      i.contractModifications[0]!.postModificationPerformanceObligations[1]!.addedGoodsAreDistinct =
-        false;
+      i.contractModifications[0]!.postModificationPerformanceObligations[1]!.addedGoodsAreDistinct = false;
     });
     expect(separateContractTest(event(input)).passed).toBe(false);
   });

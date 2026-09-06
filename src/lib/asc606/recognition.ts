@@ -12,7 +12,13 @@
  * contract-level schedule sums exactly to the transaction price.
  */
 
-import { enumerateMonths, inclusiveDayCount, isValidIsoDate, monthKeyOf, overlapDaysInMonth } from "./dates";
+import {
+  enumerateMonths,
+  inclusiveDayCount,
+  isValidIsoDate,
+  monthKeyOf,
+  overlapDaysInMonth,
+} from "./dates";
 import { assertNonNegativeCents, proportionOfCents } from "./money";
 import type {
   Cents,
@@ -119,10 +125,7 @@ export function recognizeOverTime(
 }
 
 /** Point-in-time recognition: 100% in the month containing the recognition date. */
-export function recognizePointInTime(
-  po: RecognizableUnit,
-  allocatedCents: Cents,
-): PoScheduleRow[] {
+export function recognizePointInTime(po: RecognizableUnit, allocatedCents: Cents): PoScheduleRow[] {
   assertNonNegativeCents(allocatedCents, `allocation for "${po.name}"`);
   if (!isValidIsoDate(po.recognitionDate)) {
     throw new RecognitionError(
@@ -178,7 +181,12 @@ export function generateRevenueSchedule(inputs: readonly ScheduleInput[]): Reven
       );
     }
     for (const row of rows) {
-      byPo.push({ poId: po.id, month: row.month, revenueCents: row.revenueCents, explanation: row.explanation });
+      byPo.push({
+        poId: po.id,
+        month: row.month,
+        revenueCents: row.revenueCents,
+        explanation: row.explanation,
+      });
     }
   }
 

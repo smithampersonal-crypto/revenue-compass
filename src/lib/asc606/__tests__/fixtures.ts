@@ -4,7 +4,8 @@ import type { ContractPromise, PerformanceObligationInput } from "../types";
 export const DOLLARS = (whole: number, cents = 0) => whole * 100 + cents;
 
 export function overTimePo(
-  overrides: Partial<PerformanceObligationInput> & Pick<PerformanceObligationInput, "id" | "seq" | "sspCents">,
+  overrides: Partial<PerformanceObligationInput> &
+    Pick<PerformanceObligationInput, "id" | "seq" | "sspCents">,
 ): PerformanceObligationInput {
   return {
     name: overrides.name ?? `PO ${overrides.seq}`,
@@ -16,7 +17,8 @@ export function overTimePo(
 }
 
 export function pointInTimePo(
-  overrides: Partial<PerformanceObligationInput> & Pick<PerformanceObligationInput, "id" | "seq" | "sspCents">,
+  overrides: Partial<PerformanceObligationInput> &
+    Pick<PerformanceObligationInput, "id" | "seq" | "sspCents">,
 ): PerformanceObligationInput {
   return {
     name: overrides.name ?? `PO ${overrides.seq}`,

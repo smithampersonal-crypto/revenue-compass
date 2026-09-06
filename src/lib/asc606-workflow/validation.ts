@@ -622,7 +622,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
   const blocking = issues.filter((i) => i.severity === "blocking");
   const warnings = issues.filter((i) => i.severity === "warning");
   const blockingByStep: Record<WorkflowStepId, WorkflowIssue[]> = {

@@ -233,7 +233,12 @@ export function analyzeContractModification(
     });
   }
 
-  const segmentKind = classification.treatment === "mixed" ? "mixed" : classification.treatment === "cumulative_catch_up" ? "catch_up" : "prospective";
+  const segmentKind =
+    classification.treatment === "mixed"
+      ? "mixed"
+      : classification.treatment === "cumulative_catch_up"
+        ? "catch_up"
+        : "prospective";
   const postSegmentId = modificationSegmentId(mod.id, segmentKind);
 
   const allocationRows = allocateModificationPool(poolCents, active, basis);
@@ -402,7 +407,12 @@ export function analyzeContractModification(
       id: postSegmentId,
       label: `Modified contract from ${mod.modificationDate}`,
       groupId: ORIGINAL_GROUP_ID,
-      kind: classification.treatment === "mixed" ? "mixed" : classification.treatment === "cumulative_catch_up" ? "catch_up" : "prospective",
+      kind:
+        classification.treatment === "mixed"
+          ? "mixed"
+          : classification.treatment === "cumulative_catch_up"
+            ? "catch_up"
+            : "prospective",
       startDate: mod.modificationDate,
       endDate: null,
       considerationCents: catchUpCents + futureRevenueCents,

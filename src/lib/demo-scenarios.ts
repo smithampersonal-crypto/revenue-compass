@@ -408,7 +408,6 @@ function meridian(): WorkflowDraft {
         ],
       },
     ],
-
   };
 }
 

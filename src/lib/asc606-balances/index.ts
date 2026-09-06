@@ -12,7 +12,11 @@ export * from "./rollforward";
 export * from "./groups";
 
 import { buildBillingSchedule, buildMonthlyRollforward } from "./rollforward";
-import { ContractBalanceError, type ContractBalanceAnalysis, type ContractBalanceInput } from "./types";
+import {
+  ContractBalanceError,
+  type ContractBalanceAnalysis,
+  type ContractBalanceInput,
+} from "./types";
 import { validateContractBalanceInput } from "./validation";
 
 export function analyzeContractBalances(input: ContractBalanceInput): ContractBalanceAnalysis {
@@ -59,7 +63,6 @@ export function analyzeContractBalances(input: ContractBalanceInput): ContractBa
     );
   }
   const totalRevenueCents = endingCumulativeRevenueCents;
-
 
   return {
     validation,

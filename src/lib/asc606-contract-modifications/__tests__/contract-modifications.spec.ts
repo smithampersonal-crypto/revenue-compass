@@ -125,7 +125,9 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
   });
 
   it("Policy B allocates the updated remaining transaction price", () => {
-    const analysis = analyzeContractModification(case12Mixed("updated_remaining_transaction_price"));
+    const analysis = analyzeContractModification(
+      case12Mixed("updated_remaining_transaction_price"),
+    );
     expect(analysis.totals.remainingTransactionPriceCents).toBe(19_000_000);
     expect(analysis.allocationLayers![0]!.rows.map((r) => r.allocatedCents)).toEqual([
       9_500_000, 6_333_333, 3_166_667,
@@ -142,7 +144,8 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
 describe("modification controls", () => {
   it("blocks a point-in-time obligation transferring on the effective date", () => {
     const input = case12Mixed("updated_total_transaction_price");
-    input.contractModifications[0]!.postModificationPerformanceObligations[1]!.recognitionDate = "2028-07-02";
+    input.contractModifications[0]!.postModificationPerformanceObligations[1]!.recognitionDate =
+      "2028-07-02";
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain(
       "modification.po.same_day",

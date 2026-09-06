@@ -168,7 +168,11 @@ export function buildLifecycleUnits(
       underlyingGoodOrServiceName: mr.underlyingGoodOrServiceName,
       benefitAmountCents: mr.benefitAmountCents,
       exerciseProbabilityBps: mr.exerciseProbabilityBps,
-      estimatedSspCents: materialRightSspCents(mr.benefitAmountCents, mr.exerciseProbabilityBps, mr.name),
+      estimatedSspCents: materialRightSspCents(
+        mr.benefitAmountCents,
+        mr.exerciseProbabilityBps,
+        mr.name,
+      ),
       allocatedCents,
       status: mr.status,
       unscheduledCents: built ? 0 : allocatedCents,
@@ -200,9 +204,7 @@ export function buildLifecycleSchedule(scheduleInputs: ScheduleInput[]): Revenue
   return generateRevenueSchedule(scheduleInputs);
 }
 
-export function allocateOriginalConsideration(
-  input: MaterialRightContractInput,
-): AllocationRow[] {
+export function allocateOriginalConsideration(input: MaterialRightContractInput): AllocationRow[] {
   return allocateTransactionPrice({
     transactionPriceCents: input.transactionPriceCents,
     performanceObligations: buildAllocatables(input),

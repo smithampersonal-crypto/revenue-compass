@@ -19,7 +19,9 @@ const monthTotals = (analysis: ReturnType<typeof analyzePhase1>) =>
 describe("Test 1 — annual SaaS, daily ratable", () => {
   const analysis = analyzePhase1({
     transactionPriceCents: 12_000_000,
-    performanceObligations: [overTimePo({ id: "po1", seq: 1, sspCents: 12_000_000, name: "SaaS Platform Access" })],
+    performanceObligations: [
+      overTimePo({ id: "po1", seq: 1, sspCents: 12_000_000, name: "SaaS Platform Access" }),
+    ],
   });
 
   it("recognizes revenue on a pure daily basis", () => {
@@ -41,7 +43,13 @@ describe("Test 2 — mid-month commencement", () => {
   const analysis = analyzePhase1({
     transactionPriceCents: 3_510_000,
     performanceObligations: [
-      overTimePo({ id: "po1", seq: 1, sspCents: 3_510_000, serviceStart: "2027-01-15", serviceEnd: "2027-12-31" }),
+      overTimePo({
+        id: "po1",
+        seq: 1,
+        sspCents: 3_510_000,
+        serviceStart: "2027-01-15",
+        serviceEnd: "2027-12-31",
+      }),
     ],
   });
 
@@ -58,7 +66,13 @@ describe("Test 3 — leap year", () => {
   const analysis = analyzePhase1({
     transactionPriceCents: 36_600_000,
     performanceObligations: [
-      overTimePo({ id: "po1", seq: 1, sspCents: 36_600_000, serviceStart: "2028-01-01", serviceEnd: "2028-12-31" }),
+      overTimePo({
+        id: "po1",
+        seq: 1,
+        sspCents: 36_600_000,
+        serviceStart: "2028-01-01",
+        serviceEnd: "2028-12-31",
+      }),
     ],
   });
 
@@ -124,7 +138,13 @@ describe("Test 6 — multiple promises grouped into one performance obligation",
         name: "SaaS platform access and implementation",
         classification: "bundle_not_distinct",
       }),
-      pointInTimePo({ id: "po2", seq: 2, sspCents: 2_000_000, name: "Training", recognitionDate: "2027-02-10" }),
+      pointInTimePo({
+        id: "po2",
+        seq: 2,
+        sspCents: 2_000_000,
+        name: "Training",
+        recognitionDate: "2027-02-10",
+      }),
     ],
   });
 
@@ -147,7 +167,13 @@ describe("Test 7 — SaaS over time plus distinct point-in-time training", () =>
     transactionPriceCents: 12_000_000,
     performanceObligations: [
       overTimePo({ id: "saas", seq: 1, sspCents: 12_000_000, name: "SaaS Platform Access" }),
-      pointInTimePo({ id: "training", seq: 2, sspCents: 2_000_000, name: "Training", recognitionDate: "2027-01-15" }),
+      pointInTimePo({
+        id: "training",
+        seq: 2,
+        sspCents: 2_000_000,
+        name: "Training",
+        recognitionDate: "2027-01-15",
+      }),
     ],
   });
 
@@ -179,13 +205,21 @@ describe("Test 11 — invalid recognition dates", () => {
   const analysis = analyzePhase1({
     transactionPriceCents: 12_000_000,
     performanceObligations: [
-      overTimePo({ id: "po1", seq: 1, sspCents: 12_000_000, serviceStart: "2027-12-31", serviceEnd: "2027-01-01" }),
+      overTimePo({
+        id: "po1",
+        seq: 1,
+        sspCents: 12_000_000,
+        serviceStart: "2027-12-31",
+        serviceEnd: "2027-01-01",
+      }),
     ],
   });
 
   it("fails validation and produces no schedule", () => {
     expect(analysis.validation.status).toBe("attention");
-    expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain("po.service_dates.sequence");
+    expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain(
+      "po.service_dates.sequence",
+    );
     expect(analysis.revenueSchedule).toBeNull();
     expect(analysis.allocation).toBeNull();
   });
@@ -194,7 +228,13 @@ describe("Test 11 — invalid recognition dates", () => {
     const missingDate = analyzePhase1({
       transactionPriceCents: 5_000_000,
       performanceObligations: [
-        { id: "po1", seq: 1, name: "Training", sspCents: 5_000_000, recognitionMethod: "point_in_time" },
+        {
+          id: "po1",
+          seq: 1,
+          name: "Training",
+          sspCents: 5_000_000,
+          recognitionMethod: "point_in_time",
+        },
       ],
     });
     expect(missingDate.validation.blockingFailures.map((f) => f.id)).toContain(

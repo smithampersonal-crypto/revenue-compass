@@ -9,18 +9,10 @@
 import type { Cents, IsoDate, MonthKey } from "@/lib/asc606";
 
 export type JournalAccount =
-  | "cash"
-  | "billed_ar"
-  | "unbilled_ar"
-  | "contract_asset"
-  | "contract_liability"
-  | "revenue";
+  "cash" | "billed_ar" | "unbilled_ar" | "contract_asset" | "contract_liability" | "revenue";
 
 export type JournalEventType =
-  | "revenue_recognition"
-  | "unconditional_right"
-  | "invoice_reclassification"
-  | "cash_collection";
+  "revenue_recognition" | "unconditional_right" | "invoice_reclassification" | "cash_collection";
 
 export interface JournalLine {
   account: JournalAccount;

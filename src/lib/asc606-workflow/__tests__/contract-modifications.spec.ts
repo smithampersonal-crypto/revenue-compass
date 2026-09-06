@@ -82,7 +82,6 @@ function case9Draft(): WorkflowDraft {
         ],
       },
     ],
-
   };
 }
 

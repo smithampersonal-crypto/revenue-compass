@@ -16,11 +16,7 @@ import {
   buildLifecycleSchedule,
   buildLifecycleUnits,
 } from "./lifecycle";
-import {
-  bigIntToCents,
-  MAX_CENTS,
-  type CheckResult,
-} from "@/lib/asc606";
+import { bigIntToCents, MAX_CENTS, type CheckResult } from "@/lib/asc606";
 import {
   MaterialRightError,
   type MaterialRightContractInput,
@@ -42,7 +38,11 @@ export function analyzeMaterialRightLifecycle(
   );
   let exerciseBig = 0n;
   for (const mr of input.materialRights) {
-    if (mr.status === "exercised" && mr.exercise && Number.isSafeInteger(mr.exercise.newConsiderationCents)) {
+    if (
+      mr.status === "exercised" &&
+      mr.exercise &&
+      Number.isSafeInteger(mr.exercise.newConsiderationCents)
+    ) {
       exerciseBig += BigInt(mr.exercise.newConsiderationCents);
       lifecycleBig += BigInt(mr.exercise.newConsiderationCents);
     }

@@ -75,10 +75,7 @@ export function ContractModifications({
     onChange({
       ...draft,
       hasContractModifications: true,
-      contractModifications: [
-        ...modifications,
-        createModificationDraft(modifications.length + 1),
-      ],
+      contractModifications: [...modifications, createModificationDraft(modifications.length + 1)],
     });
 
   return (
@@ -124,9 +121,7 @@ export function ContractModifications({
           {modifications.map((mod) => (
             <div key={mod.id} className="space-y-6 rounded-md border border-border p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-foreground">
-                  Modification {mod.seq}
-                </h3>
+                <h3 className="text-base font-semibold text-foreground">Modification {mod.seq}</h3>
                 <button
                   type="button"
                   className="rounded-md border border-destructive/40 px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
@@ -230,9 +225,7 @@ export function ContractModifications({
                     onChange={(e) =>
                       setMod(mod.id, {
                         mixedAllocationPolicy:
-                          e.target.value === ""
-                            ? null
-                            : (e.target.value as MixedAllocationPolicy),
+                          e.target.value === "" ? null : (e.target.value as MixedAllocationPolicy),
                       })
                     }
                   >
@@ -337,9 +330,7 @@ export function ContractModifications({
                               onChange={(e) =>
                                 setPo(mod.id, po.id, {
                                   scopeEffect:
-                                    e.target.value === ""
-                                      ? null
-                                      : (e.target.value as ScopeEffect),
+                                    e.target.value === "" ? null : (e.target.value as ScopeEffect),
                                 })
                               }
                             >
@@ -506,8 +497,9 @@ export function ContractModifications({
                       className="rounded-md border border-destructive/40 px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
                       onClick={() =>
                         setMod(mod.id, {
-                          modifiedPerformanceObligations:
-                            mod.modifiedPerformanceObligations.filter((row) => row.id !== po.id),
+                          modifiedPerformanceObligations: mod.modifiedPerformanceObligations.filter(
+                            (row) => row.id !== po.id,
+                          ),
                         })
                       }
                     >
