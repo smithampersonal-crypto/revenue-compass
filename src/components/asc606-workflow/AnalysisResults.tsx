@@ -534,7 +534,7 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {balances.grouped ? null : journalAnalysis ? (
+      {balances.grouped && balances.finalized ? null : journalAnalysis ? (
         <JournalEntryOutputs analysis={journalAnalysis} poNames={sourceNames} />
       ) : (
         <Section title="Journal Entries">
