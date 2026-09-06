@@ -95,6 +95,8 @@ function repricedDraft(
   };
 }
 
+export function debugRepriced(){return repricedDraft("90,000.00","decrease","30,000.00");}
+
 function julyRevenue(draft: WorkflowDraft) {
   const balances = analyzeContractBalanceWorkflow(draft);
   expect(balances.finalized).toBe(true);
