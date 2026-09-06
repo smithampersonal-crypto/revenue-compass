@@ -6,6 +6,8 @@
 
 import { describe, expect, it } from "vitest";
 
+import { analyzeGroupedJournalEntries } from "@/lib/asc606-journals";
+
 import { analyzeContractBalanceWorkflow } from "../contract-balances";
 import { analyzeWorkflow } from "../analysis";
 import {
@@ -140,5 +142,18 @@ describe("Phase 5C workflow integration", () => {
     expect(balances.grouped?.reconciled).toBe(true);
     expect(balances.grouped?.combinedTransactionPriceCents).toBe(33_000_000);
     expect(balances.grouped?.combinedRevenueCents).toBe(33_000_000);
+
+    const journals = analyzeGroupedJournalEntries(balances.groupInputs);
+    expect(journals.reconciled).toBe(true);
+    expect(journals.groups).toHaveLength(2);
+    const debits = (journals.entries ?? []).flatMap((entry) => entry.lines).reduce(
+      (sum, line) => sum + line.debitCents,
+      0,
+    );
+    const credits = (journals.entries ?? []).flatMap((entry) => entry.lines).reduce(
+      (sum, line) => sum + line.creditCents,
+      0,
+    );
+    expect(debits).toBe(credits);
   });
 });
