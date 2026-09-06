@@ -170,3 +170,62 @@ describe("Original contract allocation is never contaminated by a modification",
     expect(result.lifecycleConsiderationCents).toBe(33_000_000);
   });
 });
+
+/**
+ * Remediation item 11: billing events must be explicitly assigned to a
+ * contract once a modification produced more than one contract.
+ */
+describe("billing group assignment control", () => {
+  function billedDraft(originalGroup: string | null, addedGroup: string | null): WorkflowDraft {
+    const draft = case9Draft();
+    draft.contractBalances = {
+      ...draft.contractBalances,
+      considerationEvents: [
+        {
+          ...createConsiderationEventDraft(1, "ce-original"),
+          amountInput: "240,000.00",
+          unconditionalRightDate: "2027-01-01",
+          invoiceDate: "2027-01-01",
+          ...(originalGroup === null ? {} : { contractGroupId: originalGroup }),
+        },
+        {
+          ...createConsiderationEventDraft(2, "ce-added"),
+          amountInput: "90,000.00",
+          unconditionalRightDate: "2027-07-01",
+          invoiceDate: "2027-07-01",
+          ...(addedGroup === null ? {} : { contractGroupId: addedGroup }),
+        },
+      ],
+      cashCollections: [],
+    };
+    return draft;
+  }
+
+  it("blocks an unassigned billing event instead of posting it to the original contract", () => {
+    const balances = analyzeContractBalanceWorkflow(billedDraft(null, null));
+    expect(balances.finalized).toBe(false);
+    expect(balances.analysis).toBeNull();
+    expect(balances.grouped).toBeNull();
+    expect(
+      balances.validation.issues.some((issue) => issue.id.startsWith("billing.group.missing.")),
+    ).toBe(true);
+  });
+
+  it("blocks a billing event linked to a contract that does not exist", () => {
+    const balances = analyzeContractBalanceWorkflow(
+      billedDraft(ORIGINAL_GROUP_ID, "contract-that-was-deleted"),
+    );
+    expect(balances.finalized).toBe(false);
+    expect(
+      balances.validation.issues.some((issue) => issue.id.startsWith("billing.group.stale.")),
+    ).toBe(true);
+  });
+
+  it("accepts fully assigned billing events", () => {
+    const balances = analyzeContractBalanceWorkflow(
+      billedDraft(ORIGINAL_GROUP_ID, NEW_CONTRACT_GROUP_ID),
+    );
+    expect(balances.groupInputs).toHaveLength(2);
+    expect(balances.grouped?.combinedTransactionPriceCents).toBe(33_000_000);
+  });
+});
