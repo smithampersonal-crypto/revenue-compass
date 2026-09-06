@@ -75,9 +75,13 @@ export type RevenueSourceType =
   // Phase 5B: usage-as-incurred consideration related to a series PO.
   | "usage"
   // Phase 5C: contract-modification segments.
+  | "original_historical"
+  | "separate_contract_po"
+  | "prospective_modified_po"
   | "modification_catch_up"
-  | "modification_post"
-  | "separate_contract_po";
+  | "mixed_prospective_po"
+  | "mixed_catch_up"
+  | "modification_post";
 
 /** Deterministic display metadata for every column of the lifecycle schedule. */
 export interface RevenueSource {
@@ -92,7 +96,12 @@ export interface RevenueSource {
   modificationPoId?: string;
   /** Phase 5C: the modification event this source belongs to. */
   modificationId?: string;
+  /** Phase 5C: the accounting segment this source belongs to. */
+  segmentId?: string;
+  /** Phase 5C: the contract presentation group this source belongs to. */
+  groupId?: string;
 }
+
 
 export interface MaterialRightOutcome {
   poId: string;

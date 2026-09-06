@@ -9,7 +9,11 @@
  */
 
 import type { IsoDate, PoClassification, RecognitionMethod } from "@/lib/asc606";
-import type { MixedAllocationPolicy } from "@/lib/asc606-contract-modifications";
+import type {
+  ConsiderationEffect,
+  MixedAllocationPolicy,
+  ScopeEffect,
+} from "@/lib/asc606-contract-modifications";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import type {
   EstimationMethod,
@@ -183,8 +187,8 @@ export interface WorkflowDraft {
   hasVariableConsideration: boolean;
   variableConsiderationComponents: VcComponentDraft[];
   /** Phase 5C: has the contract been modified after inception? */
-  hasContractModification: boolean;
-  modification: ModificationDraft;
+  hasContractModifications: boolean;
+  contractModifications: ModificationDraft[];
   /** Phase 3 billing, receivables and contract-balance inputs. */
   contractBalances: ContractBalanceDraft;
 }
@@ -193,9 +197,6 @@ export interface WorkflowDraft {
 // Phase 5C contract-modification drafts
 // ---------------------------------------------------------------------------
 
-/** Direction of the change in fixed consideration. */
-export type ModificationConsiderationDirection = "increase" | "decrease";
-
 export interface ModifiedPoDraft {
   id: string;
   seq: number;
@@ -203,14 +204,20 @@ export interface ModifiedPoDraft {
   status: "continuing" | "added";
   /** Original performance obligation this one continues; null when added. */
   sourcePoId: string | null;
-  /** Accountant judgment: are the remaining goods or services distinct? */
-  remainingGoodsDistinct: Judgment;
-  distinctRationale: string;
+  /** Continuing obligations: how the modification changes the obligation. */
+  scopeEffect: ScopeEffect | null;
+  /** Added obligations: ASC 606-10-25-12(a). */
+  addedGoodsAreDistinct: Judgment;
+  addedGoodsDistinctnessRationale: string;
+  /** ASC 606-10-25-13 routing judgment. */
+  remainingGoodsDistinctFromTransferred: Judgment;
+  remainingDistinctnessRationale: string;
   /** SSP of the goods or services remaining at the modification date, USD. */
   remainingSspInput: string;
+  remainingSspBasis: string;
   /** SSP of the obligation as modified, USD. */
   totalModifiedSspInput: string;
-  sspBasis: string;
+  totalModifiedSspBasis: string;
   recognitionMethod: RecognitionMethod | null;
   serviceStart: IsoDate | "";
   serviceEnd: IsoDate | "";
@@ -220,20 +227,35 @@ export interface ModifiedPoDraft {
 
 export interface ModificationDraft {
   id: string;
-  effectiveDate: IsoDate | "";
-  description: string;
+  seq: number;
+  modificationDate: IsoDate | "";
+  /** ASC 606-10-25-10 gating judgment. */
+  approvedAndEnforceable: Judgment;
+  approvalRationale: string;
+  scopeChangeDescription: string;
+  considerationEffect: ConsiderationEffect;
   /** Magnitude of the change in fixed consideration, USD. */
-  considerationChangeInput: string;
-  considerationChangeDirection: ModificationConsiderationDirection;
-  /** ASC 606-10-25-12 criterion (a). */
-  addsDistinctGoodsOrServices: Judgment;
-  /** ASC 606-10-25-12 criterion (b). */
-  priceReflectsStandaloneSellingPrices: Judgment;
-  separateContractRationale: string;
+  considerationMagnitudeInput: string;
+  /** ASC 606-10-25-12(b). */
+  priceReflectsAddedGoodsSsp: Judgment;
+  priceReflectsSspRationale: string;
   /** Required only when the derived treatment is mixed. */
   mixedAllocationPolicy: MixedAllocationPolicy | null;
+  mixedAllocationPolicyRationale: string;
   removedPoIds: string[];
   modifiedPerformanceObligations: ModifiedPoDraft[];
+}
+
+/** Deterministic identity: no timestamp, random value or array index. */
+export function nextModifiedPoId(modification: ModificationDraft): string {
+  const used = new Set(modification.modifiedPerformanceObligations.map((po) => po.id));
+  let seq = modification.modifiedPerformanceObligations.length + 1;
+  let candidate = `${modification.id}-po-${seq}`;
+  while (used.has(candidate)) {
+    seq += 1;
+    candidate = `${modification.id}-po-${seq}`;
+  }
+  return candidate;
 }
 
 export function createModifiedPoDraft(
@@ -247,11 +269,15 @@ export function createModifiedPoDraft(
     name: "",
     status,
     sourcePoId: null,
-    remainingGoodsDistinct: null,
-    distinctRationale: "",
+    scopeEffect: null,
+    addedGoodsAreDistinct: null,
+    addedGoodsDistinctnessRationale: "",
+    remainingGoodsDistinctFromTransferred: null,
+    remainingDistinctnessRationale: "",
     remainingSspInput: "",
+    remainingSspBasis: "",
     totalModifiedSspInput: "",
-    sspBasis: "",
+    totalModifiedSspBasis: "",
     recognitionMethod: null,
     serviceStart: "",
     serviceEnd: "",
@@ -260,17 +286,20 @@ export function createModifiedPoDraft(
   };
 }
 
-export function createModificationDraft(): ModificationDraft {
+export function createModificationDraft(seq = 1): ModificationDraft {
   return {
-    id: "mod-1",
-    effectiveDate: "",
-    description: "",
-    considerationChangeInput: "",
-    considerationChangeDirection: "increase",
-    addsDistinctGoodsOrServices: null,
-    priceReflectsStandaloneSellingPrices: null,
-    separateContractRationale: "",
+    id: `mod-${seq}`,
+    seq,
+    modificationDate: "",
+    approvedAndEnforceable: null,
+    approvalRationale: "",
+    scopeChangeDescription: "",
+    considerationEffect: "increase",
+    considerationMagnitudeInput: "",
+    priceReflectsAddedGoodsSsp: null,
+    priceReflectsSspRationale: "",
     mixedAllocationPolicy: null,
+    mixedAllocationPolicyRationale: "",
     removedPoIds: [],
     modifiedPerformanceObligations: [],
   };
@@ -278,8 +307,9 @@ export function createModificationDraft(): ModificationDraft {
 
 /** True when the accountant has recorded a contract modification. */
 export function draftHasContractModification(draft: WorkflowDraft): boolean {
-  return draft.hasContractModification === true;
+  return draft.hasContractModifications === true && draft.contractModifications.length > 0;
 }
+
 
 // ---------------------------------------------------------------------------
 // Phase 5B variable-consideration drafts
@@ -524,8 +554,8 @@ export function createEmptyDraft(): WorkflowDraft {
     transactionPriceNotes: "",
     hasVariableConsideration: false,
     variableConsiderationComponents: [],
-    hasContractModification: false,
-    modification: createModificationDraft(),
+    hasContractModifications: false,
+    contractModifications: [],
     contractBalances: createEmptyContractBalances(),
   };
 }

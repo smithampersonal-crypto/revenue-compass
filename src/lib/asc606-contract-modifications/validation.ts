@@ -16,7 +16,13 @@ import {
 
 import { activeModifiedPos, deriveModificationTreatment } from "./classification";
 import { historicalCutoffDate } from "./segmentation";
-import type { ContractModificationInput } from "./types";
+import {
+  RESERVED_ID_NAMESPACE,
+  signedConsiderationChangeCents,
+  type ContractModificationInput,
+  type ModificationAllocationBasis,
+  type ModifiedPerformanceObligationInput,
+} from "./types";
 
 function outcome(results: CheckResult[]): ValidationOutcome {
   const blockingFailures = results.filter((r) => !r.passed && r.severity === "blocking");
@@ -47,28 +53,81 @@ export function validateContractModification(input: ContractModificationInput): 
     if (!result.passed) results.push({ ...result, id: `original.${result.id}` });
   }
 
-  const mod = input.modification;
+  if (!input.hasContractModifications) {
+    fail(
+      "modification.enabled",
+      "contract",
+      "No contract modification has been recorded, so no modification analysis is produced.",
+    );
+    return outcome(results);
+  }
+  if (input.contractModifications.length === 0) {
+    fail("modification.event.exists", "contract", "Enter the contract modification.");
+    return outcome(results);
+  }
+  if (input.contractModifications.length > 1) {
+    fail(
+      "modification.event.single",
+      "contract",
+      "This version calculates a single contract modification. Remove the additional modifications to continue.",
+    );
+    return outcome(results);
+  }
+
+  const mod = input.contractModifications[0]!;
   const originalIds = new Set(input.originalPerformanceObligations.map((po) => po.id));
 
-  if (!isValidIsoDate(mod.effectiveDate)) {
+  if (mod.approvedAndEnforceable === null) {
+    fail(
+      "modification.approval.answered",
+      "contract",
+      "State whether the modification has been approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+    );
+  } else if (mod.approvedAndEnforceable === false) {
+    fail(
+      "modification.approval.not_enforceable",
+      "contract",
+      "An unapproved or unenforceable modification is not accounted for under ASC 606-10-25-10, so no modification analysis is produced.",
+    );
+  } else {
+    pass("modification.approval", "contract", "The modification is approved and enforceable.");
+  }
+
+  if (!isValidIsoDate(mod.modificationDate)) {
     fail("modification.effective_date", "contract", "Enter a valid modification effective date.");
     return outcome(results);
   }
   pass("modification.effective_date", "contract", "The modification has a valid effective date.");
 
-  if (!mod.description || mod.description.trim() === "") {
-    fail("modification.description", "contract", "Describe the contract modification.");
+  if (!mod.scopeChangeDescription || mod.scopeChangeDescription.trim() === "") {
+    fail(
+      "modification.description",
+      "contract",
+      "Describe the change in scope, price, or both made by the modification.",
+    );
   }
-  if (!isValidCents(mod.considerationChangeCents)) {
+  if (mod.priceReflectsAddedGoodsSsp === null) {
+    fail(
+      "modification.price_reflects_ssp",
+      "contract",
+      "State whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+    );
+  }
+  if (
+    !isValidCents(mod.considerationMagnitudeCents) ||
+    mod.considerationMagnitudeCents < 0 ||
+    (mod.considerationEffect === "none" && mod.considerationMagnitudeCents !== 0)
+  ) {
     fail(
       "modification.consideration_change",
       "contract",
-      "The change in consideration must be a whole number of cents inside the supported range.",
+      "The change in consideration must be a whole, non-negative number of cents inside the supported range, and zero when there is no price change.",
     );
     return outcome(results);
   }
+  const considerationChangeCents = signedConsiderationChangeCents(mod);
   const lifecycle =
-    BigInt(input.originalTransactionPriceCents) + BigInt(mod.considerationChangeCents);
+    BigInt(input.originalTransactionPriceCents) + BigInt(considerationChangeCents);
   if (lifecycle > BigInt(MAX_CENTS) || lifecycle < 0n) {
     fail(
       "modification.lifecycle_range",
@@ -77,7 +136,7 @@ export function validateContractModification(input: ContractModificationInput): 
     );
   }
 
-  const active = activeModifiedPos(input);
+  const active = activeModifiedPos(mod);
   if (active.length === 0) {
     fail(
       "modification.performance_obligations.exists",
@@ -85,6 +144,14 @@ export function validateContractModification(input: ContractModificationInput): 
       "Enter the performance obligations that exist after the modification.",
     );
     return outcome(results);
+  }
+
+  if (mod.id.includes(RESERVED_ID_NAMESPACE)) {
+    fail(
+      "modification.id_reserved",
+      "contract",
+      `The modification identifier must not contain the reserved sequence "${RESERVED_ID_NAMESPACE}".`,
+    );
   }
 
   const seen = new Set<string>();
@@ -97,7 +164,21 @@ export function validateContractModification(input: ContractModificationInput): 
         `Post-modification performance obligation "${label}" needs a unique identifier.`,
       );
     }
+    if (po.id.includes(RESERVED_ID_NAMESPACE)) {
+      fail(
+        "modification.po.id_reserved",
+        "performance_obligations",
+        `The identifier of "${label}" must not contain the reserved sequence "${RESERVED_ID_NAMESPACE}".`,
+      );
+    }
     seen.add(po.id);
+    if (!po.name || po.name.trim() === "") {
+      fail(
+        "modification.po.name",
+        "performance_obligations",
+        `Name post-modification performance obligation ${po.id}.`,
+      );
+    }
     if (po.status === "continuing") {
       if (!po.sourcePoId || !originalIds.has(po.sourcePoId)) {
         fail(
@@ -106,26 +187,28 @@ export function validateContractModification(input: ContractModificationInput): 
           `Continuing obligation "${label}" must reference an original performance obligation.`,
         );
       }
-    } else if (po.sourcePoId) {
-      fail(
-        "modification.po.added_source",
-        "performance_obligations",
-        `Added obligation "${label}" must not reference an original performance obligation.`,
-      );
-    }
-    if (!isValidCents(po.remainingSspCents) || po.remainingSspCents < 0) {
-      fail(
-        "modification.po.remaining_ssp",
-        "performance_obligations",
-        `Enter the standalone selling price of the remaining goods or services for "${label}".`,
-      );
-    }
-    if (!isValidCents(po.totalModifiedSspCents) || po.totalModifiedSspCents <= 0) {
-      fail(
-        "modification.po.total_ssp",
-        "performance_obligations",
-        `Enter the modified standalone selling price of "${label}".`,
-      );
+      if (po.scopeEffect === null || po.scopeEffect === undefined) {
+        fail(
+          "modification.po.scope_effect",
+          "performance_obligations",
+          `State how the modification changes the scope of the continuing obligation "${label}".`,
+        );
+      }
+    } else {
+      if (po.sourcePoId) {
+        fail(
+          "modification.po.added_source",
+          "performance_obligations",
+          `Added obligation "${label}" must not reference an original performance obligation.`,
+        );
+      }
+      if (po.addedGoodsAreDistinct === null || po.addedGoodsAreDistinct === undefined) {
+        fail(
+          "modification.po.added_distinct",
+          "performance_obligations",
+          `State whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
+        );
+      }
     }
     if (po.recognitionMethod === "over_time_ratable") {
       if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
@@ -146,7 +229,7 @@ export function validateContractModification(input: ContractModificationInput): 
           "revenue",
           `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the dates entered for "${label}".`,
         );
-      } else if (po.serviceEnd! < mod.effectiveDate) {
+      } else if (po.serviceEnd! < mod.modificationDate) {
         fail(
           "modification.po.service_after",
           "revenue",
@@ -160,13 +243,13 @@ export function validateContractModification(input: ContractModificationInput): 
           "revenue",
           `Enter a recognition date for "${label}".`,
         );
-      } else if (po.recognitionDate === mod.effectiveDate) {
+      } else if (po.recognitionDate === mod.modificationDate) {
         fail(
           "modification.po.same_day",
           "revenue",
           `"${label}" transfers on the modification effective date. The ordering of the transfer and the modification is ambiguous, so it is not supported.`,
         );
-      } else if (po.recognitionDate! < mod.effectiveDate) {
+      } else if (po.recognitionDate! < mod.modificationDate) {
         fail(
           "modification.po.recognition_before",
           "revenue",
@@ -215,8 +298,8 @@ export function validateContractModification(input: ContractModificationInput): 
 
   if (results.some((r) => !r.passed && r.severity === "blocking")) return outcome(results);
 
-  const treatment = deriveModificationTreatment(input);
-  const cutoff = historicalCutoffDate(mod.effectiveDate);
+  const treatment = deriveModificationTreatment(mod);
+  const cutoff = historicalCutoffDate(mod.modificationDate);
 
   if (treatment === "mixed" && !mod.mixedAllocationPolicy) {
     fail(
@@ -226,16 +309,53 @@ export function validateContractModification(input: ContractModificationInput): 
     );
   }
 
-  if (treatment === "separate_contract") {
-    const added = active.filter((po) => po.status === "added");
-    if (added.length === 0) {
+  // ---- Branch-specific standalone selling prices ---------------------------
+  const requireRemaining = (po: ModifiedPerformanceObligationInput, context: string) => {
+    const label = po.name || po.id;
+    if (
+      po.remainingSspCents === null ||
+      !isValidCents(po.remainingSspCents) ||
+      po.remainingSspCents < 0
+    ) {
       fail(
-        "modification.separate.added",
-        "performance_obligations",
-        "A separate contract must add at least one new performance obligation.",
+        "modification.ssp.remaining",
+        "allocation",
+        `${context} Enter the standalone selling price of the goods or services remaining to be transferred for "${label}".`,
       );
     }
-    if (mod.considerationChangeCents <= 0) {
+    if (!po.remainingSspBasis || po.remainingSspBasis.trim() === "") {
+      fail(
+        "modification.ssp.remaining_basis",
+        "allocation",
+        `Document how the remaining standalone selling price of "${label}" was determined.`,
+      );
+    }
+  };
+  const requireTotal = (po: ModifiedPerformanceObligationInput, context: string) => {
+    const label = po.name || po.id;
+    if (
+      po.totalModifiedSspCents === null ||
+      !isValidCents(po.totalModifiedSspCents) ||
+      po.totalModifiedSspCents <= 0
+    ) {
+      fail(
+        "modification.ssp.total",
+        "allocation",
+        `${context} Enter the standalone selling price of the whole modified obligation "${label}".`,
+      );
+    }
+    if (!po.totalModifiedSspBasis || po.totalModifiedSspBasis.trim() === "") {
+      fail(
+        "modification.ssp.total_basis",
+        "allocation",
+        `Document how the modified standalone selling price of "${label}" was determined.`,
+      );
+    }
+  };
+
+  if (treatment === "separate_contract") {
+    const added = active.filter((po) => po.status === "added");
+    if (considerationChangeCents <= 0) {
       fail(
         "modification.separate.consideration",
         "contract",
@@ -243,7 +363,11 @@ export function validateContractModification(input: ContractModificationInput): 
       );
     }
     for (const po of added) {
-      if (po.remainingSspCents <= 0) {
+      requireRemaining(
+        po,
+        "The modification is a separate contract, so only the added goods and services are allocated.",
+      );
+      if ((po.remainingSspCents ?? 0) <= 0) {
         fail(
           "modification.separate.ssp",
           "allocation",
@@ -252,11 +376,22 @@ export function validateContractModification(input: ContractModificationInput): 
       }
     }
   } else {
-    // Historical revenue is immutable, so the pool available for the remaining
-    // performance must never be negative.
+    const usesTotalBasis =
+      treatment === "cumulative_catch_up" ||
+      (treatment === "mixed" && mod.mixedAllocationPolicy === "updated_total_transaction_price");
+    const basis: ModificationAllocationBasis = usesTotalBasis
+      ? "total_modified_ssp"
+      : "remaining_ssp";
+    const context = usesTotalBasis
+      ? "The derived treatment allocates the updated TOTAL transaction price."
+      : "The derived treatment allocates the updated REMAINING transaction price.";
+
     for (const po of active) {
       const label = po.name || po.id;
-      const isCatchUp = treatment === "cumulative_catch_up" || !po.remainingGoodsDistinct;
+      if (usesTotalBasis) requireTotal(po, context);
+      else requireRemaining(po, context);
+
+      const isCatchUp = treatment === "cumulative_catch_up" || !po.remainingGoodsDistinctFromTransferred;
       if (isCatchUp) {
         if (po.recognitionMethod !== "over_time_ratable") {
           fail(
@@ -273,7 +408,7 @@ export function validateContractModification(input: ContractModificationInput): 
         }
       } else if (
         po.recognitionMethod === "over_time_ratable" &&
-        po.serviceStart! < mod.effectiveDate
+        po.serviceStart! < mod.modificationDate
       ) {
         fail(
           "modification.prospective.start",
@@ -282,23 +417,23 @@ export function validateContractModification(input: ContractModificationInput): 
         );
       }
     }
-    const basisTotal = active.reduce(
-      (total, po) =>
-        total +
-        BigInt(
-          treatment === "cumulative_catch_up" ||
-            (treatment === "mixed" && mod.mixedAllocationPolicy === "total_transaction_price")
-            ? po.totalModifiedSspCents
-            : po.remainingSspCents,
-        ),
-      0n,
-    );
-    if (basisTotal <= 0n) {
-      fail(
-        "modification.allocation.ssp_total",
-        "allocation",
-        "The standalone selling prices used to allocate the modified consideration must total more than zero.",
+
+    if (!results.some((r) => !r.passed && r.id.startsWith("modification.ssp."))) {
+      const basisTotal = active.reduce(
+        (total, po) =>
+          total +
+          BigInt(
+            (basis === "total_modified_ssp" ? po.totalModifiedSspCents : po.remainingSspCents) ?? 0,
+          ),
+        0n,
       );
+      if (basisTotal <= 0n) {
+        fail(
+          "modification.allocation.ssp_total",
+          "allocation",
+          "The standalone selling prices used to allocate the modified consideration must total more than zero.",
+        );
+      }
     }
   }
 

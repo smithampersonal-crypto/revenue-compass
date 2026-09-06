@@ -4,6 +4,10 @@
  * Pure TypeScript: no React, DOM, network, database or AI dependency and no
  * mutable global accounting state. A blocking validation failure yields no
  * authoritative allocation, revenue schedule or reconciliation.
+ *
+ * Every identifier produced here comes from the deterministic identity helpers
+ * in `segmentation.ts`. No timestamp, random value or array index ever enters
+ * an accounting identity.
  */
 
 export * from "./types";
@@ -17,25 +21,41 @@ import {
   allocateTransactionPrice,
   generateRevenueSchedule,
   monthKeyOf,
-  proportionOfCents,
   type AllocationRow,
   type Cents,
   type PerformanceObligationInput,
 } from "@/lib/asc606";
-import type { RevenueSource } from "@/lib/asc606-material-rights";
+import type { RevenueSource, RevenueSourceType } from "@/lib/asc606-material-rights";
 
 import { activeModifiedPos, classifyModification } from "./classification";
-import { allocateModificationPool, modificationPoolCents } from "./allocation";
-import { historicalCutoffDate, historicalRevenue, type SourceRow } from "./segmentation";
+import {
+  allocateModificationPool,
+  modificationPoolCents,
+  sspBasisFor,
+  sspForBasis,
+} from "./allocation";
+import {
+  HISTORICAL_SEGMENT_ID,
+  ORIGINAL_SEGMENT_ID,
+  historicalCutoffDate,
+  historicalRevenue,
+  modificationSegmentId,
+  modificationSourceId,
+  type ModificationSourceKind,
+  type SourceRow,
+} from "./segmentation";
 import {
   composeSchedule,
+  computeCatchUp,
   continueFromRevisedCumulative,
-  progressThroughCutoff,
   prospectiveRecognition,
 } from "./recognition";
 import {
   ContractModificationError,
   MIXED_POLICY_LABELS,
+  signedConsiderationChangeCents,
+  soleModificationEvent,
+  type AccountingSegment,
   type ContractModificationAnalysis,
   type ContractModificationInput,
   type ContractPresentationGroup,
@@ -43,21 +63,23 @@ import {
   type ModificationAllocationBasis,
   type ModificationAllocationLayer,
   type ModificationCatchUpEvent,
+  type ModificationEventInput,
   type ModifiedPerformanceObligationInput,
-  type AccountingSegment,
 } from "./types";
 import { validateContractModification } from "./validation";
 
 export const ORIGINAL_GROUP_ID = "group::original";
 export const NEW_CONTRACT_GROUP_ID = "group::separate";
 
-export function catchUpSourceId(modificationId: string, poId: string): string {
-  return `${modificationId}::catch_up::${poId}`;
-}
-
-export function futureSourceId(modificationId: string, poId: string): string {
-  return `${modificationId}::post_modification::${poId}`;
-}
+const SOURCE_TYPE_BY_KIND: Record<ModificationSourceKind, RevenueSourceType> = {
+  original_historical: "original_historical",
+  separate_contract_po: "separate_contract_po",
+  prospective_modified_po: "prospective_modified_po",
+  modification_catch_up: "modification_catch_up",
+  mixed_prospective_po: "mixed_prospective_po",
+  mixed_catch_up: "mixed_catch_up",
+  modification_continuation: "modification_post",
+};
 
 const ALLOCATION_BASIS_LABELS: Record<ModificationAllocationBasis, string> = {
   added_goods_remaining_ssp: "Standalone selling prices of the added goods and services",
@@ -71,12 +93,28 @@ function sumRows(rows: readonly SourceRow[]): Cents {
   return Number(total);
 }
 
+function sspEvidenceFor(
+  pos: readonly ModifiedPerformanceObligationInput[],
+  basis: ModificationAllocationBasis,
+): ModificationAllocationLayer["sspEvidence"] {
+  return pos.map((po) => ({
+    poId: po.id,
+    name: po.name,
+    sspCents: sspForBasis(po, basis),
+    basis: sspBasisFor(po, basis),
+  }));
+}
+
 function blockedResult(
   input: ContractModificationInput,
   validation: ContractModificationAnalysis["validation"],
 ): ContractModificationAnalysis {
+  const event = soleModificationEvent(input);
+  const change = event ? signedConsiderationChangeCents(event) : 0;
   return {
     validation,
+    event: null,
+    historicalCutoffDate: null,
     classification: null,
     allocationLayers: null,
     historical: [],
@@ -87,9 +125,8 @@ function blockedResult(
     segments: [],
     totals: {
       originalTransactionPriceCents: input.originalTransactionPriceCents,
-      considerationChangeCents: input.modification.considerationChangeCents,
-      lifecycleConsiderationCents:
-        input.originalTransactionPriceCents + input.modification.considerationChangeCents,
+      considerationChangeCents: change,
+      lifecycleConsiderationCents: input.originalTransactionPriceCents + change,
       historicalRevenueCents: 0,
       unrecognizedOriginalConsiderationCents: 0,
       remainingTransactionPriceCents: null,
@@ -112,10 +149,13 @@ export function analyzeContractModification(
   const validation = validateContractModification(input);
   if (validation.blockingFailures.length > 0) return blockedResult(input, validation);
 
-  const classification = classifyModification(input);
-  const mod = input.modification;
+  const mod = soleModificationEvent(input);
+  if (!mod) return blockedResult(input, validation);
+
+  const classification = classifyModification(mod);
+  const considerationChangeCents = signedConsiderationChangeCents(mod);
   const lifecycleConsiderationCents =
-    input.originalTransactionPriceCents + mod.considerationChangeCents;
+    input.originalTransactionPriceCents + considerationChangeCents;
 
   const originalAllocation = allocateTransactionPrice({
     transactionPriceCents: input.originalTransactionPriceCents,
@@ -126,11 +166,11 @@ export function analyzeContractModification(
   );
 
   if (classification.treatment === "separate_contract") {
-    return analyzeSeparateContract(input, validation, classification, originalAllocation);
+    return analyzeSeparateContract(input, mod, validation, classification, originalAllocation);
   }
 
   // ---- One combined contract: preserve history, then re-allocate ----------
-  const cutoff = historicalCutoffDate(mod.effectiveDate);
+  const cutoff = historicalCutoffDate(mod.modificationDate);
   const historical: HistoricalPoRevenue[] = [];
   const historicalRows: SourceRow[] = [];
   const historyByPo = new Map<string, Cents>();
@@ -147,53 +187,54 @@ export function analyzeContractModification(
       totalDays: segment.totalDays,
     });
     if (segment.rows.length > 0) {
-      historicalRows.push(...segment.rows);
+      const sourceId = modificationSourceId(mod.id, "original_historical", po.id);
+      historicalRows.push(...segment.rows.map((row) => ({ ...row, sourceId })));
       historicalSources.push({
-        id: po.id,
+        id: sourceId,
         name: `${po.name} — original contract through ${cutoff}`,
-        sourceType: "original_po",
+        sourceType: SOURCE_TYPE_BY_KIND.original_historical,
         originalPoId: po.id,
+        modificationId: mod.id,
+        segmentId: HISTORICAL_SEGMENT_ID,
+        groupId: ORIGINAL_GROUP_ID,
       });
     }
   }
   const historicalRevenueCents = sumRows(historicalRows);
 
-  const active = activeModifiedPos(input);
+  const active = activeModifiedPos(mod);
   const usesTotalBasis =
     classification.treatment === "cumulative_catch_up" ||
     (classification.treatment === "mixed" &&
-      mod.mixedAllocationPolicy === "total_transaction_price");
+      mod.mixedAllocationPolicy === "updated_total_transaction_price");
   const basis: ModificationAllocationBasis = usesTotalBasis
     ? "total_modified_ssp"
     : "remaining_ssp";
-  const poolCents = modificationPoolCents(input, usesTotalBasis, historicalRevenueCents);
+  const poolCents = modificationPoolCents(
+    input.originalTransactionPriceCents,
+    considerationChangeCents,
+    usesTotalBasis,
+    historicalRevenueCents,
+  );
 
   if (poolCents < 0) {
+    const failure = {
+      id: "modification.pool.negative",
+      category: "allocation" as const,
+      severity: "blocking" as const,
+      passed: false,
+      message:
+        "The consideration remaining after the modification is negative, so no authoritative allocation is produced.",
+    };
     return blockedResult(input, {
       status: "attention",
-      results: [
-        ...validation.results,
-        {
-          id: "modification.pool.negative",
-          category: "allocation",
-          severity: "blocking",
-          passed: false,
-          message:
-            "The consideration remaining after the modification is negative, so no authoritative allocation is produced.",
-        },
-      ],
-      blockingFailures: [
-        {
-          id: "modification.pool.negative",
-          category: "allocation",
-          severity: "blocking",
-          passed: false,
-          message:
-            "The consideration remaining after the modification is negative, so no authoritative allocation is produced.",
-        },
-      ],
+      results: [...validation.results, failure],
+      blockingFailures: [failure],
     });
   }
+
+  const segmentKind = classification.treatment === "mixed" ? "mixed" : classification.treatment === "cumulative_catch_up" ? "catch_up" : "prospective";
+  const postSegmentId = modificationSegmentId(mod.id, segmentKind);
 
   const allocationRows = allocateModificationPool(poolCents, active, basis);
   const allocatedById = new Map(allocationRows.map((row) => [row.poId, row.allocatedCents]));
@@ -203,81 +244,104 @@ export function analyzeContractModification(
   const catchUpRows: SourceRow[] = [];
   const postSources: RevenueSource[] = [];
 
+  const pushFuture = (
+    rows: SourceRow[],
+    po: ModifiedPerformanceObligationInput,
+    kind: ModificationSourceKind,
+    sourceId: string,
+  ) => {
+    if (rows.length === 0) return;
+    futureRows.push(...rows);
+    postSources.push({
+      id: sourceId,
+      name: `${po.name} — after modification`,
+      sourceType: SOURCE_TYPE_BY_KIND[kind],
+      ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
+      modificationPoId: po.id,
+      modificationId: mod.id,
+      segmentId: postSegmentId,
+      groupId: ORIGINAL_GROUP_ID,
+    });
+  };
+
   for (const po of active) {
     const allocated = allocatedById.get(po.id) ?? 0;
     const history = po.sourcePoId ? (historyByPo.get(po.sourcePoId) ?? 0) : 0;
     const isCatchUpPo =
-      classification.treatment === "cumulative_catch_up" || !po.remainingGoodsDistinct;
+      classification.treatment === "cumulative_catch_up" ||
+      !po.remainingGoodsDistinctFromTransferred;
 
     if (isCatchUpPo) {
       const entitlement =
         classification.treatment === "mixed" &&
-        mod.mixedAllocationPolicy === "remaining_transaction_price"
+        mod.mixedAllocationPolicy === "updated_remaining_transaction_price"
           ? history + allocated
           : allocated;
-      const { progressDays, totalDays } = progressThroughCutoff(po, cutoff);
-      const revisedCumulative = proportionOfCents(
-        entitlement,
-        progressDays,
-        totalDays,
-        `revised cumulative revenue for "${po.name}"`,
-      );
-      const amountCents = revisedCumulative - history;
-      const sourceId = catchUpSourceId(mod.id, po.id);
-      if (amountCents !== 0) {
+      const catchUpKind: ModificationSourceKind =
+        classification.treatment === "mixed" ? "mixed_catch_up" : "modification_catch_up";
+      const catchUpId = modificationSourceId(mod.id, catchUpKind, po.id);
+      const measured = computeCatchUp(po, entitlement, history, cutoff);
+
+      if (measured.amountCents !== 0) {
         catchUpRows.push({
-          sourceId,
-          month: monthKeyOf(mod.effectiveDate),
-          amountCents,
+          sourceId: catchUpId,
+          month: monthKeyOf(mod.modificationDate),
+          amountCents: measured.amountCents,
           explanation: {
             template: "modification_cumulative_catch_up",
             inputs: {
               entitlementBasisCents: entitlement,
-              progressDays,
-              totalServiceDays: totalDays,
-              revisedCumulativeCents: revisedCumulative,
+              progressDays: measured.progressDays,
+              totalServiceDays: measured.totalDays,
+              revisedCumulativeCents: measured.revisedCumulativeCents,
               previouslyRecognizedCents: history,
-              effectiveDate: mod.effectiveDate,
+              effectiveDate: mod.modificationDate,
             },
           },
         });
         postSources.push({
-          id: sourceId,
+          id: catchUpId,
           name: `${po.name} — modification catch-up`,
-          sourceType: "modification_catch_up",
+          sourceType: SOURCE_TYPE_BY_KIND[catchUpKind],
           ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
           modificationPoId: po.id,
           modificationId: mod.id,
+          segmentId: postSegmentId,
+          groupId: ORIGINAL_GROUP_ID,
         });
       }
       catchUpEvents.push({
-        id: sourceId,
+        id: catchUpId,
         poId: po.id,
+        poName: po.name,
         sourcePoId: po.sourcePoId ?? po.id,
-        sourceId,
-        effectiveDate: mod.effectiveDate,
-        month: monthKeyOf(mod.effectiveDate),
+        sourceId: catchUpId,
+        effectiveDate: mod.modificationDate,
+        month: monthKeyOf(mod.modificationDate),
         entitlementBasisCents: entitlement,
-        revisedCumulativeCents: revisedCumulative,
+        progressDays: measured.progressDays,
+        totalDays: measured.totalDays,
+        revisedCumulativeCents: measured.revisedCumulativeCents,
         previouslyRecognizedCents: history,
-        amountCents,
+        amountCents: measured.amountCents,
       });
 
       // Modification-specific: continues the ORIGINAL clock from a revised
       // cumulative entitlement. The core engine cannot express an opening
       // cumulative balance; see recognition.ts.
+      const continuationId = modificationSourceId(mod.id, "modification_continuation", po.id);
       const rows = continueFromRevisedCumulative(
         po,
-        futureSourceId(mod.id, po.id),
+        continuationId,
         entitlement,
-        revisedCumulative,
-        mod.effectiveDate,
+        measured.revisedCumulativeCents,
+        mod.modificationDate,
       );
-      pushFuture(rows, po, mod.id, futureRows, postSources);
+      pushFuture(rows, po, "modification_continuation", continuationId);
     } else {
       const entitlement =
         classification.treatment === "mixed" &&
-        mod.mixedAllocationPolicy === "total_transaction_price"
+        mod.mixedAllocationPolicy === "updated_total_transaction_price"
           ? allocated - history
           : allocated;
       if (entitlement < 0) {
@@ -285,9 +349,12 @@ export function analyzeContractModification(
           `post-modification entitlement for "${po.name}" is negative`,
         );
       }
+      const kind: ModificationSourceKind =
+        classification.treatment === "mixed" ? "mixed_prospective_po" : "prospective_modified_po";
+      const sourceId = modificationSourceId(mod.id, kind, po.id);
       // Ordinary prospective obligation: delegated to the core engine.
-      const rows = prospectiveRecognition(po, futureSourceId(mod.id, po.id), entitlement);
-      pushFuture(rows, po, mod.id, futureRows, postSources);
+      const rows = prospectiveRecognition(po, sourceId, entitlement);
+      pushFuture(rows, po, kind, sourceId);
     }
   }
 
@@ -323,7 +390,7 @@ export function analyzeContractModification(
 
   const segments: AccountingSegment[] = [
     {
-      id: "segment::historical",
+      id: HISTORICAL_SEGMENT_ID,
       label: `Original contract through ${cutoff}`,
       groupId: ORIGINAL_GROUP_ID,
       kind: "historical",
@@ -332,11 +399,11 @@ export function analyzeContractModification(
       considerationCents: historicalRevenueCents,
     },
     {
-      id: "segment::post_modification",
-      label: `Modified contract from ${mod.effectiveDate}`,
+      id: postSegmentId,
+      label: `Modified contract from ${mod.modificationDate}`,
       groupId: ORIGINAL_GROUP_ID,
-      kind: "post_modification",
-      startDate: mod.effectiveDate,
+      kind: classification.treatment === "mixed" ? "mixed" : classification.treatment === "cumulative_catch_up" ? "catch_up" : "prospective",
+      startDate: mod.modificationDate,
       endDate: null,
       considerationCents: catchUpCents + futureRevenueCents,
     },
@@ -348,11 +415,19 @@ export function analyzeContractModification(
       : ALLOCATION_BASIS_LABELS[basis];
 
   const allocationLayers: ModificationAllocationLayer[] = [
-    { basis, label: layerLabel, transactionPriceCents: poolCents, rows: allocationRows },
+    {
+      basis,
+      label: layerLabel,
+      sspEvidence: sspEvidenceFor(active, basis),
+      transactionPriceCents: poolCents,
+      rows: allocationRows,
+    },
   ];
 
   return {
     validation,
+    event: mod,
+    historicalCutoffDate: cutoff,
     classification,
     allocationLayers,
     historical,
@@ -363,7 +438,7 @@ export function analyzeContractModification(
     segments,
     totals: {
       originalTransactionPriceCents: input.originalTransactionPriceCents,
-      considerationChangeCents: mod.considerationChangeCents,
+      considerationChangeCents,
       lifecycleConsiderationCents,
       historicalRevenueCents,
       unrecognizedOriginalConsiderationCents:
@@ -385,34 +460,17 @@ export function analyzeContractModification(
   };
 }
 
-function pushFuture(
-  rows: SourceRow[],
-  po: ModifiedPerformanceObligationInput,
-  modificationId: string,
-  futureRows: SourceRow[],
-  sources: RevenueSource[],
-): void {
-  if (rows.length === 0) return;
-  futureRows.push(...rows);
-  sources.push({
-    id: futureSourceId(modificationId, po.id),
-    name: `${po.name} — after modification`,
-    sourceType: "modification_post",
-    ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
-    modificationPoId: po.id,
-    modificationId,
-  });
-}
-
 function analyzeSeparateContract(
   input: ContractModificationInput,
+  mod: ModificationEventInput,
   validation: ContractModificationAnalysis["validation"],
   classification: NonNullable<ContractModificationAnalysis["classification"]>,
   originalAllocation: AllocationRow[],
 ): ContractModificationAnalysis {
-  const mod = input.modification;
   const allocatedById = new Map(originalAllocation.map((row) => [row.poId, row.allocatedCents]));
   const originalPos = [...input.originalPerformanceObligations].sort((a, b) => a.seq - b.seq);
+  const considerationChangeCents = signedConsiderationChangeCents(mod);
+  const separateSegmentId = modificationSegmentId(mod.id, "separate");
 
   // The original contract is untouched: its approved schedule is reproduced
   // exactly, with no cutoff and no re-measurement.
@@ -427,23 +485,28 @@ function analyzeSeparateContract(
     name: po.name,
     sourceType: "original_po",
     originalPoId: po.id,
+    segmentId: ORIGINAL_SEGMENT_ID,
+    groupId: ORIGINAL_GROUP_ID,
   }));
 
-  const added = activeModifiedPos(input).filter((po) => po.status === "added");
+  const added = activeModifiedPos(mod).filter((po) => po.status === "added");
   const newAllocation = allocateTransactionPrice({
-    transactionPriceCents: mod.considerationChangeCents,
+    transactionPriceCents: considerationChangeCents,
     performanceObligations: added.map((po) => ({
       id: po.id,
       seq: po.seq,
       name: po.name,
-      sspCents: po.remainingSspCents,
+      sspCents: sspForBasis(po, "added_goods_remaining_ssp"),
     })),
   });
   const newAllocatedById = new Map(newAllocation.map((row) => [row.poId, row.allocatedCents]));
+  const newSourceIdByPo = new Map(
+    added.map((po) => [po.id, modificationSourceId(mod.id, "separate_contract_po", po.id)]),
+  );
   const newSchedule = generateRevenueSchedule(
     added.map((po) => ({
       po: {
-        id: po.id,
+        id: newSourceIdByPo.get(po.id)!,
         seq: po.seq,
         name: po.name,
         recognitionMethod: po.recognitionMethod,
@@ -455,11 +518,13 @@ function analyzeSeparateContract(
     })),
   );
   const newSources: RevenueSource[] = added.map((po) => ({
-    id: po.id,
+    id: newSourceIdByPo.get(po.id)!,
     name: po.name,
-    sourceType: "separate_contract_po",
+    sourceType: SOURCE_TYPE_BY_KIND.separate_contract_po,
     modificationPoId: po.id,
     modificationId: mod.id,
+    segmentId: separateSegmentId,
+    groupId: NEW_CONTRACT_GROUP_ID,
   }));
 
   const groups: ContractPresentationGroup[] = [
@@ -473,8 +538,8 @@ function analyzeSeparateContract(
     },
     {
       id: NEW_CONTRACT_GROUP_ID,
-      label: `New contract — ${mod.description}`,
-      transactionPriceCents: mod.considerationChangeCents,
+      label: `New contract — ${mod.scopeChangeDescription}`,
+      transactionPriceCents: considerationChangeCents,
       revenueSchedule: newSchedule,
       revenueSources: newSources,
       unscheduledRevenueCents: 0,
@@ -502,7 +567,7 @@ function analyzeSeparateContract(
   );
 
   const lifecycleConsiderationCents =
-    input.originalTransactionPriceCents + mod.considerationChangeCents;
+    input.originalTransactionPriceCents + considerationChangeCents;
   if (BigInt(combined.totalCents) !== BigInt(lifecycleConsiderationCents)) {
     throw new ContractModificationError(
       "separate-contract reconciliation invariant violated: combined revenue does not tie to lifecycle consideration",
@@ -511,12 +576,15 @@ function analyzeSeparateContract(
 
   return {
     validation,
+    event: mod,
+    historicalCutoffDate: null,
     classification,
     allocationLayers: [
       {
         basis: "added_goods_remaining_ssp",
         label: ALLOCATION_BASIS_LABELS["added_goods_remaining_ssp"],
-        transactionPriceCents: mod.considerationChangeCents,
+        sspEvidence: sspEvidenceFor(added, "added_goods_remaining_ssp"),
+        transactionPriceCents: considerationChangeCents,
         rows: newAllocation,
       },
     ],
@@ -527,7 +595,7 @@ function analyzeSeparateContract(
     groups,
     segments: [
       {
-        id: "segment::original",
+        id: ORIGINAL_SEGMENT_ID,
         label: "Original contract",
         groupId: ORIGINAL_GROUP_ID,
         kind: "original",
@@ -536,18 +604,18 @@ function analyzeSeparateContract(
         considerationCents: input.originalTransactionPriceCents,
       },
       {
-        id: "segment::separate",
-        label: `New contract from ${mod.effectiveDate}`,
+        id: separateSegmentId,
+        label: `New contract from ${mod.modificationDate}`,
         groupId: NEW_CONTRACT_GROUP_ID,
         kind: "separate_contract",
-        startDate: mod.effectiveDate,
+        startDate: mod.modificationDate,
         endDate: null,
-        considerationCents: mod.considerationChangeCents,
+        considerationCents: considerationChangeCents,
       },
     ],
     totals: {
       originalTransactionPriceCents: input.originalTransactionPriceCents,
-      considerationChangeCents: mod.considerationChangeCents,
+      considerationChangeCents,
       lifecycleConsiderationCents,
       historicalRevenueCents: 0,
       unrecognizedOriginalConsiderationCents: input.originalTransactionPriceCents,

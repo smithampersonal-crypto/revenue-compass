@@ -451,8 +451,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   }
 
   // ---- Contract modification (Phase 5C) -----------------------------------
-  if (draft.hasContractModification) {
-    const mod = draft.modification;
+  if (draft.hasContractModifications) {
     if (draftHasVariableConsideration(draft) || draftHasMaterialRights(draft)) {
       add(
         "modification.composition.unsupported",
@@ -460,107 +459,169 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
         "A contract modification cannot be combined with variable consideration or a material right in this version. Remove one of them to continue.",
       );
     }
-    if (!isValidIsoDate(mod.effectiveDate)) {
-      add("modification.effective_date", "mod", "Enter the modification effective date.");
+    if (draft.contractModifications.length === 0) {
+      add("modification.event.exists", "mod", "Enter the contract modification.");
     }
-    if (isBlank(mod.description)) {
-      add("modification.description", "mod", "Describe the contract modification.");
-    }
-    const change = parseUsdToCents(mod.considerationChangeInput);
-    if (!change.ok)
-      add("modification.consideration", "mod", `Change in consideration: ${change.error}`);
-    if (mod.addsDistinctGoodsOrServices === null) {
+    if (draft.contractModifications.length > 1) {
       add(
-        "modification.criterion_a",
+        "modification.event.single",
         "mod",
-        "Answer whether the modification adds distinct goods or services (ASC 606-10-25-12(a)).",
-      );
-    }
-    if (mod.priceReflectsStandaloneSellingPrices === null) {
-      add(
-        "modification.criterion_b",
-        "mod",
-        "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
-      );
-    }
-    if (mod.modifiedPerformanceObligations.length === 0) {
-      add(
-        "modification.pos.exists",
-        "mod",
-        "Enter the performance obligations that exist after the modification.",
+        "This version calculates a single contract modification. Remove the additional modifications to continue.",
       );
     }
     const originalIds = new Set(draft.performanceObligations.map((po) => po.id));
-    for (const po of mod.modifiedPerformanceObligations) {
-      const label = po.name || po.id;
-      if (isBlank(po.name)) {
+    for (const mod of draft.contractModifications) {
+      if (!isValidIsoDate(mod.modificationDate)) {
+        add("modification.effective_date", "mod", "Enter the modification effective date.");
+      }
+      if (mod.approvedAndEnforceable === null) {
         add(
-          "modification.po.name",
+          "modification.approval",
           "mod",
-          `Name post-modification performance obligation ${po.id}.`,
+          "State whether the modification has been approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+        );
+      } else if (mod.approvedAndEnforceable === false) {
+        add(
+          "modification.approval.not_enforceable",
+          "mod",
+          "An unapproved or unenforceable modification is not accounted for under ASC 606-10-25-10. Record it once it is approved, or remove it.",
         );
       }
-      if (po.status === "continuing" && (!po.sourcePoId || !originalIds.has(po.sourcePoId))) {
-        add(
-          "modification.po.source",
-          "mod",
-          `Select the original performance obligation that "${label}" continues.`,
-        );
+      if (isBlank(mod.scopeChangeDescription)) {
+        add("modification.description", "mod", "Describe the contract modification.");
       }
-      if (po.remainingGoodsDistinct === null) {
-        add(
-          "modification.po.distinct",
-          "mod",
-          `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
-        );
-      }
-      const remaining = parseUsdToCents(po.remainingSspInput);
-      if (!remaining.ok) {
-        add(
-          "modification.po.remaining_ssp",
-          "mod",
-          `"${label}" remaining standalone selling price: ${remaining.error}`,
-        );
-      }
-      const total = parseUsdToCents(po.totalModifiedSspInput);
-      if (!total.ok) {
-        add(
-          "modification.po.total_ssp",
-          "mod",
-          `"${label}" modified standalone selling price: ${total.error}`,
-        );
-      }
-      if (po.recognitionMethod === null) {
-        add("modification.po.method", "mod", `Select a recognition method for "${label}".`);
-      } else if (po.recognitionMethod === "over_time_ratable") {
-        if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
-          add("modification.po.dates", "mod", `Enter service start and end dates for "${label}".`);
-        } else if (po.serviceEnd < po.serviceStart) {
+      if (mod.considerationEffect !== "none" || mod.considerationMagnitudeInput.trim() !== "") {
+        const change = parseUsdToCents(mod.considerationMagnitudeInput);
+        if (!change.ok)
+          add("modification.consideration", "mod", `Change in consideration: ${change.error}`);
+        else if (change.cents < 0) {
           add(
-            "modification.po.date_sequence",
+            "modification.consideration.sign",
             "mod",
-            `Service end date for "${label}" must be on or after the service start date.`,
-          );
-        } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
-          add(
-            "modification.po.horizon",
-            "mod",
-            `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the dates entered for "${label}".`,
+            "Enter the change in consideration as a positive amount and choose increase or decrease.",
           );
         }
-      } else if (!isValidIsoDate(po.recognitionDate)) {
-        add("modification.po.recognition_date", "mod", `Enter a recognition date for "${label}".`);
       }
-      if (isBlank(po.recognitionRationale)) {
+      if (mod.priceReflectsAddedGoodsSsp === null) {
         add(
-          "modification.po.rationale",
+          "modification.criterion_b",
           "mod",
-          `Document the recognition rationale for "${label}".`,
-          "warning",
+          "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
         );
+      }
+      if (mod.modifiedPerformanceObligations.length === 0) {
+        add(
+          "modification.pos.exists",
+          "mod",
+          "Enter the performance obligations that exist after the modification.",
+        );
+      }
+      for (const po of mod.modifiedPerformanceObligations) {
+        const label = po.name || po.id;
+        if (isBlank(po.name)) {
+          add(
+            "modification.po.name",
+            "mod",
+            `Name post-modification performance obligation ${po.id}.`,
+          );
+        }
+        if (po.status === "continuing") {
+          if (!po.sourcePoId || !originalIds.has(po.sourcePoId)) {
+            add(
+              "modification.po.source",
+              "mod",
+              `Select the original performance obligation that "${label}" continues.`,
+            );
+          }
+          if (po.scopeEffect === null) {
+            add(
+              "modification.po.scope_effect",
+              "mod",
+              `State how the modification changes the scope of "${label}".`,
+            );
+          }
+        } else if (po.addedGoodsAreDistinct === null) {
+          add(
+            "modification.po.added_distinct",
+            "mod",
+            `Answer whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
+          );
+        }
+        if (po.remainingGoodsDistinctFromTransferred === null) {
+          add(
+            "modification.po.distinct",
+            "mod",
+            `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
+          );
+        }
+        if (po.remainingSspInput.trim() !== "") {
+          const remaining = parseUsdToCents(po.remainingSspInput);
+          if (!remaining.ok) {
+            add(
+              "modification.po.remaining_ssp",
+              "mod",
+              `"${label}" remaining standalone selling price: ${remaining.error}`,
+            );
+          }
+        }
+        if (po.totalModifiedSspInput.trim() !== "") {
+          const total = parseUsdToCents(po.totalModifiedSspInput);
+          if (!total.ok) {
+            add(
+              "modification.po.total_ssp",
+              "mod",
+              `"${label}" modified standalone selling price: ${total.error}`,
+            );
+          }
+        }
+        if (po.remainingSspInput.trim() === "" && po.totalModifiedSspInput.trim() === "") {
+          add(
+            "modification.po.ssp_missing",
+            "mod",
+            `Enter the standalone selling price required for "${label}".`,
+          );
+        }
+        if (po.recognitionMethod === null) {
+          add("modification.po.method", "mod", `Select a recognition method for "${label}".`);
+        } else if (po.recognitionMethod === "over_time_ratable") {
+          if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
+            add(
+              "modification.po.dates",
+              "mod",
+              `Enter service start and end dates for "${label}".`,
+            );
+          } else if (po.serviceEnd < po.serviceStart) {
+            add(
+              "modification.po.date_sequence",
+              "mod",
+              `Service end date for "${label}" must be on or after the service start date.`,
+            );
+          } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
+            add(
+              "modification.po.horizon",
+              "mod",
+              `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the dates entered for "${label}".`,
+            );
+          }
+        } else if (!isValidIsoDate(po.recognitionDate)) {
+          add(
+            "modification.po.recognition_date",
+            "mod",
+            `Enter a recognition date for "${label}".`,
+          );
+        }
+        if (isBlank(po.recognitionRationale)) {
+          add(
+            "modification.po.rationale",
+            "mod",
+            `Document the recognition rationale for "${label}".`,
+            "warning",
+          );
+        }
       }
     }
   }
+
 
   const blocking = issues.filter((i) => i.severity === "blocking");
   const warnings = issues.filter((i) => i.severity === "warning");
