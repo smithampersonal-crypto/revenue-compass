@@ -263,10 +263,45 @@ export function analyzeContractBalanceWorkflow(
   // ---- Phase 5C: a separate-contract modification produces two contracts --
   const groups = revenue.contractGroups;
   if (groups.length > 1) {
+    // Remediation item 11: with more than one contract presentation group a
+    // billing event must name its contract. A blank link is an ambiguity and a
+    // link to a group that no longer exists is a stale link; both block. An
+    // unassigned event is NEVER silently posted to the original contract.
+    const knownGroupIds = new Set(groups.map((group) => group.id));
+    const groupLinkIssues: ContractBalanceIssue[] = [];
+    for (const draftEvent of draft.contractBalances.considerationEvents) {
+      const linked = draftEvent.contractGroupId;
+      if (!linked) {
+        groupLinkIssues.push({
+          id: `billing.group.missing.${draftEvent.id}`,
+          severity: "blocking",
+          message: `Billing event ${draftEvent.seq} is not assigned to a contract. This arrangement contains more than one contract, so the contract must be selected.`,
+        });
+      } else if (!knownGroupIds.has(linked)) {
+        groupLinkIssues.push({
+          id: `billing.group.stale.${draftEvent.id}`,
+          severity: "blocking",
+          message: `Billing event ${draftEvent.seq} is linked to a contract that no longer exists in this analysis.`,
+        });
+      }
+    }
+    if (groupLinkIssues.length > 0) {
+      const blockedValidation = outcome([...draftValidation.issues, ...groupLinkIssues]);
+      return {
+        validation: blockedValidation,
+        finalized: false,
+        analysis: null,
+        engineInput: null,
+        engineValidation: null,
+        groupInputs: [],
+        grouped: null,
+      };
+    }
+
     const groupInputs: ContractBalanceGroupInput[] = groups.map((group) => {
       const groupEvents = considerationEvents.filter((event, index) => {
         const draftEvent = draft.contractBalances.considerationEvents[index]!;
-        return (draftEvent.contractGroupId ?? ORIGINAL_GROUP_ID) === group.id;
+        return draftEvent.contractGroupId === group.id;
       });
       const eventIds = new Set(groupEvents.map((event) => event.id));
       return {
