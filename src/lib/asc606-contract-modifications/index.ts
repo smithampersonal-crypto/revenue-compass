@@ -119,7 +119,9 @@ export function analyzeContractModification(
     transactionPriceCents: input.originalTransactionPriceCents,
     performanceObligations: input.originalPerformanceObligations,
   });
-  const originalAllocatedById = new Map(originalAllocation.map((row) => [row.poId, row.allocatedCents]));
+  const originalAllocatedById = new Map(
+    originalAllocation.map((row) => [row.poId, row.allocatedCents]),
+  );
 
   if (classification.treatment === "separate_contract") {
     return analyzeSeparateContract(input, validation, classification, originalAllocation);
@@ -159,7 +161,9 @@ export function analyzeContractModification(
     classification.treatment === "cumulative_catch_up" ||
     (classification.treatment === "mixed" &&
       mod.mixedAllocationPolicy === "total_transaction_price");
-  const basis: ModificationAllocationBasis = usesTotalBasis ? "total_modified_ssp" : "remaining_ssp";
+  const basis: ModificationAllocationBasis = usesTotalBasis
+    ? "total_modified_ssp"
+    : "remaining_ssp";
   const poolCents = usesTotalBasis
     ? lifecycleConsiderationCents
     : input.originalTransactionPriceCents - historicalRevenueCents + mod.considerationChangeCents;
@@ -249,7 +253,7 @@ export function analyzeContractModification(
           id: sourceId,
           name: `${po.name} — modification catch-up`,
           sourceType: "modification_catch_up",
-          originalPoId: po.sourcePoId ?? undefined,
+          ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
           modificationPoId: po.id,
           modificationId: mod.id,
         });
@@ -286,7 +290,13 @@ export function analyzeContractModification(
           `post-modification entitlement for "${po.name}" is negative`,
         );
       }
-      const rows = futureRevenue(po, futureSourceId(mod.id, po.id), entitlement, 0, mod.effectiveDate);
+      const rows = futureRevenue(
+        po,
+        futureSourceId(mod.id, po.id),
+        entitlement,
+        0,
+        mod.effectiveDate,
+      );
       pushFuture(rows, po, mod.id, futureRows, postSources);
     }
   }
@@ -398,7 +408,7 @@ function pushFuture(
     id: futureSourceId(modificationId, po.id),
     name: `${po.name} — after modification`,
     sourceType: "modification_post",
-    originalPoId: po.sourcePoId ?? undefined,
+    ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
     modificationPoId: po.id,
     modificationId,
   });

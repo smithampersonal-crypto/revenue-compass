@@ -578,3 +578,14 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Contract modifications (ASC 606-10-25-10 through 25-13)
+
+`src/lib/asc606-contract-modifications/` is a pure engine that derives the
+modification treatment (separate contract, prospective, cumulative catch-up, or
+mixed) from the accountant's judgments, preserves revenue recognized through the
+day before the effective date, and composes the post-modification schedule.
+A separate-contract modification is presented as two contracts: contract
+balances and journal entries are produced independently per contract by the
+existing Phase 3 and Phase 4 engines and aggregated gross. The
+`meridian` sample contract demonstrates the flow.

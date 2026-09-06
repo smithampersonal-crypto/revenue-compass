@@ -9,7 +9,8 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { analyzeJournalEntries } from "@/lib/asc606-journals";
+import { analyzeGroupedJournalEntries, analyzeJournalEntries } from "@/lib/asc606-journals";
+import { ContractModificationOutputs } from "./ContractModificationOutputs";
 
 import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
 import { JournalEntryOutputs } from "./JournalEntryOutputs";
@@ -45,6 +46,10 @@ export function AnalysisResults({
   ]);
   const journalAnalysis =
     balances.finalized && balances.engineInput ? analyzeJournalEntries(balances.engineInput) : null;
+  const groupedJournals =
+    balances.finalized && balances.grouped
+      ? analyzeGroupedJournalEntries(balances.groupInputs)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -467,7 +472,37 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {balances.finalized && balances.analysis ? (
+      {result.modification ? (
+        <ContractModificationOutputs modification={result.modification} />
+      ) : null}
+
+      {balances.finalized && balances.grouped ? (
+        <>
+          {balances.grouped.groups.map((group) =>
+            group.analysis.monthly ? (
+              <div key={group.groupId} className="space-y-4">
+                <Section
+                  title={`Billing, receivables and contract balances — ${group.label}`}
+                  description="Each contract is presented separately. Contract assets of one contract are never offset against contract liabilities of another."
+                >
+                  <Notice>
+                    Contract asset and contract liability are determined from cumulative revenue
+                    versus cumulative unconditional rights to consideration for this contract only.
+                  </Notice>
+                </Section>
+                <ContractBalanceOutputs analysis={group.analysis} />
+              </div>
+            ) : null,
+          )}
+          {groupedJournals?.groups.map((group) => (
+            <JournalEntryOutputs
+              key={group.groupId}
+              analysis={group.analysis}
+              poNames={sourceNames}
+            />
+          ))}
+        </>
+      ) : balances.finalized && balances.analysis ? (
         <>
           <Section
             title="Billing, receivables and contract balances"
@@ -499,7 +534,7 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {journalAnalysis ? (
+      {balances.grouped && balances.finalized ? null : journalAnalysis ? (
         <JournalEntryOutputs analysis={journalAnalysis} poNames={sourceNames} />
       ) : (
         <Section title="Journal Entries">

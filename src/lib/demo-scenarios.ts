@@ -12,6 +12,8 @@ import {
   createEmptyDraft,
   createPoDraft,
   createPromiseDraft,
+  createModificationDraft,
+  createModifiedPoDraft,
   createConsiderationEventDraft,
   createCashCollectionDraft,
   STEP1_CRITERIA,
@@ -22,7 +24,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-export type DemoScenarioId = "redwood" | "apex" | "horizon" | "stellar";
+export type DemoScenarioId = "redwood" | "apex" | "horizon" | "stellar" | "meridian";
 
 export interface DemoScenario {
   id: DemoScenarioId;
@@ -56,6 +58,13 @@ export const DEMO_SCENARIOS: readonly DemoScenario[] = [
     customer: "Stellar",
     headline: "Arrears Billing",
     description: "Tests contract assets, unbilled AR, billing transitions and journal entries.",
+  },
+  {
+    id: "meridian",
+    customer: "Meridian Health",
+    headline: "Contract Modification",
+    description:
+      "Adds 50 seats priced at their standalone selling price mid-term, tested as a separate contract.",
   },
 ];
 
@@ -92,12 +101,7 @@ function base(customer: string, contractNumber: string): WorkflowDraft {
   };
 }
 
-function distinctPromise(
-  seq: number,
-  id: string,
-  description: string,
-  poId: string,
-): PromiseDraft {
+function distinctPromise(seq: number, id: string, description: string, poId: string): PromiseDraft {
   return {
     ...createPromiseDraft(seq, id),
     description,
@@ -162,7 +166,8 @@ function billingEvent(
   return {
     ...createConsiderationEventDraft(seq, id),
     amountInput,
-    unconditionalRightDate: unconditionalRightDate as ConsiderationEventDraft["unconditionalRightDate"],
+    unconditionalRightDate:
+      unconditionalRightDate as ConsiderationEventDraft["unconditionalRightDate"],
     invoiceDate: invoiceDate as ConsiderationEventDraft["invoiceDate"],
   };
 }
@@ -184,7 +189,14 @@ function cashReceipt(
 
 function redwood(): WorkflowDraft {
   const draft = base("Redwood Retail", "DEMO-REDWOOD");
-  const po = overTimePo(1, "po-saas", "SaaS subscription", "120,000.00", "2027-01-01", "2027-12-31");
+  const po = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "120,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   return {
     ...draft,
     transactionPriceInput: "120,000.00",
@@ -196,7 +208,14 @@ function redwood(): WorkflowDraft {
 
 function apex(): WorkflowDraft {
   const draft = base("Apex Manufacturing", "DEMO-APEX");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "120,000.00", "2027-01-01", "2027-12-31");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "120,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   const training = pointInTimePo(2, "po-training", "Training", "20,000.00", "2027-01-15");
   return {
     ...draft,
@@ -212,8 +231,22 @@ function apex(): WorkflowDraft {
 
 function horizon(): WorkflowDraft {
   const draft = base("Horizon Logistics", "DEMO-HORIZON");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "144,000.00", "2027-07-01", "2028-06-30");
-  const training = overTimePo(2, "po-training", "Training", "12,000.00", "2027-07-10", "2027-07-11");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "144,000.00",
+    "2027-07-01",
+    "2028-06-30",
+  );
+  const training = overTimePo(
+    2,
+    "po-training",
+    "Training",
+    "12,000.00",
+    "2027-07-10",
+    "2027-07-11",
+  );
   const support = overTimePo(
     3,
     "po-support",
@@ -249,7 +282,14 @@ function horizon(): WorkflowDraft {
 
 function stellar(): WorkflowDraft {
   const draft = base("Stellar", "DEMO-STELLAR");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "240,000.00", "2027-01-01", "2027-12-31");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "240,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   return {
     ...draft,
     transactionPriceInput: "240,000.00",
@@ -278,7 +318,84 @@ const BUILDERS: Record<DemoScenarioId, () => WorkflowDraft> = {
   apex,
   horizon,
   stellar,
+  meridian,
 };
+
+/** Meridian Health — mid-term seat expansion priced at standalone selling price. */
+function meridian(): WorkflowDraft {
+  const draft = base("Meridian Health", "DEMO-MERIDIAN");
+  const po = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription (100 seats)",
+    "240,000.00",
+    "2027-01-01",
+    "2028-12-31",
+  );
+  return {
+    ...draft,
+    transactionPriceInput: "240,000.00",
+    transactionPriceNotes: "Fixed two-year subscription fee.",
+    promises: [distinctPromise(1, "promise-saas", "Two-year hosted SaaS subscription", po.id)],
+    performanceObligations: [po],
+    contractBalances: {
+      ...draft.contractBalances,
+      considerationEvents: [
+        {
+          ...billingEvent(1, "ce-original", "240,000.00", "2027-01-01", "2027-01-01"),
+          contractGroupId: "group::original",
+        },
+        {
+          ...billingEvent(2, "ce-added-seats", "90,000.00", "2027-07-01", "2027-07-01"),
+          contractGroupId: "group::separate",
+        },
+      ],
+      cashCollections: [
+        cashReceipt(1, "cash-original", "ce-original", "240,000.00", "2027-01-31"),
+        cashReceipt(2, "cash-added-seats", "ce-added-seats", "90,000.00", "2027-07-31"),
+      ],
+    },
+    hasContractModification: true,
+    modification: {
+      ...createModificationDraft(),
+      effectiveDate: "2027-07-01",
+      description: "Customer adds 50 seats from 1 July 2027 through the end of the term.",
+      considerationChangeInput: "90,000.00",
+      considerationChangeDirection: "increase",
+      addsDistinctGoodsOrServices: true,
+      priceReflectsStandaloneSellingPrices: true,
+      separateContractRationale:
+        "The added seats are distinct and are priced at their standalone selling price.",
+      modifiedPerformanceObligations: [
+        {
+          ...createModifiedPoDraft(1, "po-saas", "continuing"),
+          name: "SaaS subscription (100 seats)",
+          sourcePoId: "po-saas",
+          remainingGoodsDistinct: true,
+          remainingSspInput: "120,000.00",
+          totalModifiedSspInput: "240,000.00",
+          sspBasis: "Observable standalone renewal pricing.",
+          recognitionMethod: "over_time_ratable",
+          serviceStart: "2027-07-01",
+          serviceEnd: "2028-12-31",
+          recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
+        },
+        {
+          ...createModifiedPoDraft(2, "po-added-seats", "added"),
+          name: "SaaS subscription (50 added seats)",
+          remainingGoodsDistinct: true,
+          remainingSspInput: "90,000.00",
+          totalModifiedSspInput: "90,000.00",
+          sspBasis: "Observable per-seat standalone price.",
+          recognitionMethod: "over_time_ratable",
+          serviceStart: "2027-07-01",
+          serviceEnd: "2028-12-31",
+          recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
+        },
+      ],
+    },
+  };
+}
 
 /** Builds a fresh, fully editable WorkflowDraft for the requested sample. */
 export function createDemoDraft(id: DemoScenarioId): WorkflowDraft {

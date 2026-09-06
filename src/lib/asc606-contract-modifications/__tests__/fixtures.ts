@@ -45,7 +45,14 @@ export function case9SeparateContract(): ContractModificationInput {
   return {
     originalTransactionPriceCents: 24_000_000,
     originalPerformanceObligations: [
-      overTime("po-saas", 1, "SaaS subscription (100 seats)", 24_000_000, "2027-01-01", "2028-12-31"),
+      overTime(
+        "po-saas",
+        1,
+        "SaaS subscription (100 seats)",
+        24_000_000,
+        "2027-01-01",
+        "2028-12-31",
+      ),
     ],
     modification: {
       id: "mod-1",
@@ -92,7 +99,14 @@ export function case10Prospective(): ContractModificationInput {
   return {
     originalTransactionPriceCents: 12_000_000,
     originalPerformanceObligations: [
-      overTime("po-saas", 1, "SaaS subscription (100 seats)", 12_000_000, "2028-01-01", "2028-12-31"),
+      overTime(
+        "po-saas",
+        1,
+        "SaaS subscription (100 seats)",
+        12_000_000,
+        "2028-01-01",
+        "2028-12-31",
+      ),
     ],
     modification: {
       id: "mod-1",
@@ -211,7 +225,14 @@ export function case12Mixed(policy: MixedAllocationPolicy): ContractModification
   return {
     originalTransactionPriceCents: 20_000_000,
     originalPerformanceObligations: [
-      overTime("po-implementation", 1, "Managed implementation", 12_000_000, "2028-01-01", "2028-12-31"),
+      overTime(
+        "po-implementation",
+        1,
+        "Managed implementation",
+        12_000_000,
+        "2028-01-01",
+        "2028-12-31",
+      ),
       pointInTime("po-training", 2, "Onsite training", 8_000_000, "2028-10-01"),
     ],
     modification: {

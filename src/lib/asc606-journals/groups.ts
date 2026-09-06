@@ -44,7 +44,11 @@ export function analyzeGroupedJournalEntries(
     analysis: analyzeJournalEntries(group.input),
   }));
 
-  if (results.some((r) => r.analysis.entries === null || r.analysis.reconciliation.reconciled !== true)) {
+  if (
+    results.some(
+      (r) => r.analysis.entries === null || r.analysis.reconciliation.reconciled !== true,
+    )
+  ) {
     return { groups: results, entries: null, reconciled: null };
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addCalendarDays,
   accountingHorizon,
   daysInMonth,
   enumerateMonths,
@@ -70,6 +71,15 @@ describe("calendar utilities", () => {
     ]);
     expect(horizon).toEqual({ firstMonth: "2027-01", lastMonth: "2028-01" });
     expect(accountingHorizon([])).toBeNull();
+  });
+
+  it("adds and subtracts calendar days in UTC", () => {
+    expect(addCalendarDays("2027-06-30", 1)).toBe("2027-07-01");
+    expect(addCalendarDays("2027-07-01", -1)).toBe("2027-06-30");
+    expect(addCalendarDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addCalendarDays("2027-01-01", -1)).toBe("2026-12-31");
+    expect(addCalendarDays("2027-03-15", 0)).toBe("2027-03-15");
+    expect(() => addCalendarDays("2027-03-15", 1.5)).toThrow();
   });
 
   it("rejects invalid dates", () => {

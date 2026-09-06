@@ -18,6 +18,12 @@ import {
   type ContractBalanceAnalysis,
   type ContractBalanceInput,
 } from "@/lib/asc606-balances";
+import {
+  analyzeGroupedContractBalances,
+  type ContractBalanceGroupInput,
+  type GroupedContractBalanceAnalysis,
+} from "@/lib/asc606-balances";
+import { ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
 import type { WorkflowDraft } from "./types";
@@ -43,6 +49,13 @@ export interface ContractBalanceWorkflowResult {
   analysis: ContractBalanceAnalysis | null;
   /** Exact normalized input used for the Phase 3 engine; null unless finalized. */
   engineInput: ContractBalanceInput | null;
+  /**
+   * Phase 5C: one normalized engine input per contract presentation group.
+   * A single-contract analysis produces exactly one entry.
+   */
+  groupInputs: ContractBalanceGroupInput[];
+  /** Phase 5C grouped output; null unless more than one group exists. */
+  grouped: GroupedContractBalanceAnalysis | null;
 }
 
 function outcome(issues: ContractBalanceIssue[]): ContractBalanceValidationOutcome {
@@ -54,10 +67,15 @@ function outcome(issues: ContractBalanceIssue[]): ContractBalanceValidationOutco
 }
 
 /** Draft-level completeness checks. Monetary rules stay in the engine. */
-export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBalanceValidationOutcome {
+export function validateContractBalanceDraft(
+  draft: WorkflowDraft,
+): ContractBalanceValidationOutcome {
   const issues: ContractBalanceIssue[] = [];
-  const add = (id: string, message: string, severity: ContractBalanceIssue["severity"] = "blocking") =>
-    issues.push({ id, severity, message });
+  const add = (
+    id: string,
+    message: string,
+    severity: ContractBalanceIssue["severity"] = "blocking",
+  ) => issues.push({ id, severity, message });
 
   const { considerationEvents, cashCollections } = draft.contractBalances;
 
@@ -70,19 +88,29 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
     if (source === "manual") {
       const amount = parseUsdToCents(event.amountInput);
       if (!amount.ok) add("billing.event.amount", `Billing event ${label}: ${amount.error}`);
-      else if (amount.cents <= 0) add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
+      else if (amount.cents <= 0)
+        add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
     } else {
       // Phase 5B: a source-linked amount is derived by the engine, so only the
       // link itself is validated here.
       if (!event.sourceComponentId) {
-        add("billing.event.source", `Billing event ${label}: select the variable-consideration component it bills.`);
+        add(
+          "billing.event.source",
+          `Billing event ${label}: select the variable-consideration component it bills.`,
+        );
       }
       if (source === "usage_period" && !/^\d{4}-\d{2}$/.test(event.sourceMonth ?? "")) {
-        add("billing.event.source_month", `Billing event ${label}: select the usage month it bills.`);
+        add(
+          "billing.event.source_month",
+          `Billing event ${label}: select the usage month it bills.`,
+        );
       }
     }
     if (!isValidIsoDate(event.unconditionalRightDate)) {
-      add("billing.event.right_date", `Billing event ${label}: enter the date the right to consideration becomes unconditional.`);
+      add(
+        "billing.event.right_date",
+        `Billing event ${label}: enter the date the right to consideration becomes unconditional.`,
+      );
     }
     if (!isValidIsoDate(event.invoiceDate)) {
       add("billing.event.invoice_date", `Billing event ${label}: enter the invoice date.`);
@@ -96,7 +124,8 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
     }
     const amount = parseUsdToCents(collection.amountInput);
     if (!amount.ok) add("cash.amount", `Cash collection ${label}: ${amount.error}`);
-    else if (amount.cents <= 0) add("cash.amount", `Cash collection ${label}: amount must be greater than zero.`);
+    else if (amount.cents <= 0)
+      add("cash.amount", `Cash collection ${label}: amount must be greater than zero.`);
     if (!isValidIsoDate(collection.collectionDate)) {
       add("cash.collection_date", `Cash collection ${label}: enter a valid collection date.`);
     }
@@ -181,10 +210,16 @@ export function analyzeContractBalanceWorkflow(
     engineValidation,
     analysis: null,
     engineInput: null,
+    groupInputs: [],
+    grouped: null,
   });
 
   const revenue = analyzeWorkflow(draft);
-  if (!revenue.finalized || !revenue.revenueSchedule || revenue.lifecycleConsiderationCents === null) {
+  if (
+    !revenue.finalized ||
+    !revenue.revenueSchedule ||
+    revenue.lifecycleConsiderationCents === null
+  ) {
     return blocked(
       "The ASC 606 Steps 1-5 revenue analysis is not finalized, so no authoritative billing and contract-balance workpaper is produced.",
     );
@@ -225,6 +260,66 @@ export function analyzeContractBalanceWorkflow(
     },
   );
 
+  // ---- Phase 5C: a separate-contract modification produces two contracts --
+  const groups = revenue.contractGroups;
+  if (groups.length > 1) {
+    const groupInputs: ContractBalanceGroupInput[] = groups.map((group) => {
+      const groupEvents = considerationEvents.filter((event, index) => {
+        const draftEvent = draft.contractBalances.considerationEvents[index]!;
+        return (draftEvent.contractGroupId ?? ORIGINAL_GROUP_ID) === group.id;
+      });
+      const eventIds = new Set(groupEvents.map((event) => event.id));
+      return {
+        groupId: group.id,
+        label: group.label,
+        input: {
+          transactionPriceCents: group.transactionPriceCents,
+          revenueSchedule: group.revenueSchedule,
+          considerationEvents: groupEvents,
+          cashCollections: cashCollections.filter((cash) =>
+            eventIds.has(cash.considerationEventId),
+          ),
+          unscheduledRevenueCents: group.unscheduledRevenueCents,
+        },
+      };
+    });
+
+    const grouped = analyzeGroupedContractBalances(groupInputs);
+    const groupIssues: ContractBalanceIssue[] = grouped.groups.flatMap((result) =>
+      result.analysis.validation.results
+        .filter((r) => !r.passed)
+        .map((r) => ({
+          id: `${result.groupId}.${r.id}`,
+          severity: r.severity,
+          message: `${result.label}: ${r.message}`,
+        })),
+    );
+    const mergedGrouped = outcome([...draftValidation.issues, ...groupIssues]);
+    if (grouped.reconciled !== true) {
+      return {
+        validation: mergedGrouped,
+        finalized: false,
+        blockedReason:
+          "The deterministic contract-balance engine reported a blocking issue in at least one contract, so no authoritative billing schedule or rollforward is presented.",
+        engineValidation: grouped.groups[0]?.analysis.validation ?? null,
+        analysis: null,
+        engineInput: null,
+        groupInputs,
+        grouped,
+      };
+    }
+    return {
+      validation: mergedGrouped,
+      finalized: true,
+      blockedReason: null,
+      engineValidation: grouped.groups[0]!.analysis.validation,
+      analysis: grouped.groups[0]!.analysis,
+      engineInput: null,
+      groupInputs,
+      grouped,
+    };
+  }
+
   const engineInput: ContractBalanceInput = {
     // With material rights this is the lifecycle consideration: the original
     // transaction price plus consideration arising on exercised options.
@@ -261,5 +356,13 @@ export function analyzeContractBalanceWorkflow(
     engineValidation: analysis.validation,
     analysis,
     engineInput,
+    groupInputs: [
+      {
+        groupId: groups[0]?.id ?? ORIGINAL_GROUP_ID,
+        label: groups[0]?.label ?? "Contract",
+        input: engineInput,
+      },
+    ],
+    grouped: null,
   };
 }

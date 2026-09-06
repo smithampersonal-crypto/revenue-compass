@@ -1,13 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import {
-  createDemoDraftIfKnown,
-  getDemoScenario,
-  isDemoScenarioId,
-} from "@/lib/demo-scenarios";
+import { createDemoDraftIfKnown, getDemoScenario, isDemoScenarioId } from "@/lib/demo-scenarios";
 
 import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
+import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
 import { IssueList, Notice } from "@/components/asc606-workflow/fields";
 
@@ -64,7 +61,6 @@ function AnalysisPage() {
       ? []
       : (result.workflowValidation.blockingByStep[step as WorkflowStepId] ?? []);
 
-
   const goTo = (next: StepKey) => {
     setShowStepIssues(false);
     setStep(next);
@@ -108,9 +104,7 @@ function AnalysisPage() {
           </Notice>
         ) : null}
         {unknownSample ? (
-          <Notice>
-            That sample was not recognized, so a blank analysis was opened.
-          </Notice>
+          <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
         ) : null}
       </header>
 
@@ -122,9 +116,9 @@ function AnalysisPage() {
       {step === "3" ? <Step3TransactionPrice draft={draft} onChange={setDraft} /> : null}
       {step === "4" ? <Step4Allocation draft={draft} onChange={setDraft} /> : null}
       {step === "5" ? <Step5Recognition draft={draft} onChange={setDraft} /> : null}
+      {step === "mod" ? <ContractModifications draft={draft} onChange={setDraft} /> : null}
       {step === "balances" ? <BillingAndBalances draft={draft} onChange={setDraft} /> : null}
       {step === "results" ? <AnalysisResults draft={draft} result={result} /> : null}
-
 
       {showStepIssues ? (
         <IssueList title="Resolve these items before continuing" issues={stepIssues} />

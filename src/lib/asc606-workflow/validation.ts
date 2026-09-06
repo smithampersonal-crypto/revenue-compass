@@ -467,7 +467,8 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("modification.description", "mod", "Describe the contract modification.");
     }
     const change = parseUsdToCents(mod.considerationChangeInput);
-    if (!change.ok) add("modification.consideration", "mod", `Change in consideration: ${change.error}`);
+    if (!change.ok)
+      add("modification.consideration", "mod", `Change in consideration: ${change.error}`);
     if (mod.addsDistinctGoodsOrServices === null) {
       add(
         "modification.criterion_a",
@@ -493,7 +494,11 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     for (const po of mod.modifiedPerformanceObligations) {
       const label = po.name || po.id;
       if (isBlank(po.name)) {
-        add("modification.po.name", "mod", `Name post-modification performance obligation ${po.id}.`);
+        add(
+          "modification.po.name",
+          "mod",
+          `Name post-modification performance obligation ${po.id}.`,
+        );
       }
       if (po.status === "continuing" && (!po.sourcePoId || !originalIds.has(po.sourcePoId))) {
         add(
