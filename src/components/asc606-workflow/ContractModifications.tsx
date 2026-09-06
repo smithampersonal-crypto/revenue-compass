@@ -17,6 +17,7 @@ import type {
 } from "@/lib/asc606-contract-modifications";
 import {
   createModificationDraft,
+  nextModificationId,
   createModifiedPoDraft,
   nextModifiedPoId,
   type Judgment,
@@ -71,12 +72,30 @@ export function ContractModifications({
     });
   };
 
-  const addModification = () =>
+  const addModification = () => {
+    const { id, seq } = nextModificationId(modifications);
     onChange({
       ...draft,
       hasContractModifications: true,
-      contractModifications: [...modifications, createModificationDraft(modifications.length + 1)],
+      contractModifications: [...modifications, { ...createModificationDraft(seq), id }],
     });
+  };
+
+  // Entered work is only destroyed through the application's confirmation
+  // pattern, the same one used by Reset analysis.
+  const removeModification = (modId: string) => {
+    if (
+      !window.confirm(
+        "Remove this modification? Every judgment, amount and rationale entered for it will be discarded.",
+      )
+    ) {
+      return;
+    }
+    onChange({
+      ...draft,
+      contractModifications: modifications.filter((row) => row.id !== modId),
+    });
+  };
 
   return (
     <Section
@@ -125,12 +144,7 @@ export function ContractModifications({
                 <button
                   type="button"
                   className="rounded-md border border-destructive/40 px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
-                  onClick={() =>
-                    onChange({
-                      ...draft,
-                      contractModifications: modifications.filter((row) => row.id !== mod.id),
-                    })
-                  }
+                  onClick={() => removeModification(mod.id)}
                 >
                   Remove modification
                 </button>
