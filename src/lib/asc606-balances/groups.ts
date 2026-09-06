@@ -73,7 +73,8 @@ export function analyzeGroupedContractBalances(
   );
 
   const blocked = results.some(
-    (result) => result.analysis.monthly === null || result.analysis.reconciliation.reconciled !== true,
+    (result) =>
+      result.analysis.monthly === null || result.analysis.reconciliation.reconciled !== true,
   );
   if (blocked) {
     return {
@@ -88,8 +89,7 @@ export function analyzeGroupedContractBalances(
   const months = new Set<MonthKey>();
   for (const result of results) for (const row of result.analysis.monthly!) months.add(row.month);
   const sorted = [...months].sort();
-  const allMonths =
-    sorted.length > 0 ? monthRange(sorted[0]!, sorted[sorted.length - 1]!) : [];
+  const allMonths = sorted.length > 0 ? monthRange(sorted[0]!, sorted[sorted.length - 1]!) : [];
 
   const byGroup = results.map(
     (result) => new Map(result.analysis.monthly!.map((row) => [row.month, row])),

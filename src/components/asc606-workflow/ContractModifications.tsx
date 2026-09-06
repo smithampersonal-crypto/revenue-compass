@@ -82,7 +82,10 @@ export function ContractModifications({
                 onChange={(e) => setMod({ effectiveDate: e.target.value })}
               />
             </Field>
-            <Field label="Change in consideration (USD)" hint="Enter the amount as a positive number and choose the direction.">
+            <Field
+              label="Change in consideration (USD)"
+              hint="Enter the amount as a positive number and choose the direction."
+            >
               <div className="flex gap-2">
                 <input
                   className={inputClass}

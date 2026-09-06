@@ -101,12 +101,7 @@ function base(customer: string, contractNumber: string): WorkflowDraft {
   };
 }
 
-function distinctPromise(
-  seq: number,
-  id: string,
-  description: string,
-  poId: string,
-): PromiseDraft {
+function distinctPromise(seq: number, id: string, description: string, poId: string): PromiseDraft {
   return {
     ...createPromiseDraft(seq, id),
     description,
@@ -171,7 +166,8 @@ function billingEvent(
   return {
     ...createConsiderationEventDraft(seq, id),
     amountInput,
-    unconditionalRightDate: unconditionalRightDate as ConsiderationEventDraft["unconditionalRightDate"],
+    unconditionalRightDate:
+      unconditionalRightDate as ConsiderationEventDraft["unconditionalRightDate"],
     invoiceDate: invoiceDate as ConsiderationEventDraft["invoiceDate"],
   };
 }
@@ -193,7 +189,14 @@ function cashReceipt(
 
 function redwood(): WorkflowDraft {
   const draft = base("Redwood Retail", "DEMO-REDWOOD");
-  const po = overTimePo(1, "po-saas", "SaaS subscription", "120,000.00", "2027-01-01", "2027-12-31");
+  const po = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "120,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   return {
     ...draft,
     transactionPriceInput: "120,000.00",
@@ -205,7 +208,14 @@ function redwood(): WorkflowDraft {
 
 function apex(): WorkflowDraft {
   const draft = base("Apex Manufacturing", "DEMO-APEX");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "120,000.00", "2027-01-01", "2027-12-31");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "120,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   const training = pointInTimePo(2, "po-training", "Training", "20,000.00", "2027-01-15");
   return {
     ...draft,
@@ -221,8 +231,22 @@ function apex(): WorkflowDraft {
 
 function horizon(): WorkflowDraft {
   const draft = base("Horizon Logistics", "DEMO-HORIZON");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "144,000.00", "2027-07-01", "2028-06-30");
-  const training = overTimePo(2, "po-training", "Training", "12,000.00", "2027-07-10", "2027-07-11");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "144,000.00",
+    "2027-07-01",
+    "2028-06-30",
+  );
+  const training = overTimePo(
+    2,
+    "po-training",
+    "Training",
+    "12,000.00",
+    "2027-07-10",
+    "2027-07-11",
+  );
   const support = overTimePo(
     3,
     "po-support",
@@ -258,7 +282,14 @@ function horizon(): WorkflowDraft {
 
 function stellar(): WorkflowDraft {
   const draft = base("Stellar", "DEMO-STELLAR");
-  const saas = overTimePo(1, "po-saas", "SaaS subscription", "240,000.00", "2027-01-01", "2027-12-31");
+  const saas = overTimePo(
+    1,
+    "po-saas",
+    "SaaS subscription",
+    "240,000.00",
+    "2027-01-01",
+    "2027-12-31",
+  );
   return {
     ...draft,
     transactionPriceInput: "240,000.00",

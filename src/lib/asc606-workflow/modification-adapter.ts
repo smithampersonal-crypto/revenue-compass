@@ -18,8 +18,7 @@ import { parseUsdToCents } from "./money-input";
 import type { ModifiedPoDraft, WorkflowDraft } from "./types";
 
 export type BuildModificationResult =
-  | { ok: true; input: ContractModificationInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: ContractModificationInput } | { ok: false; errors: string[] };
 
 function label(po: ModifiedPoDraft): string {
   return po.name || po.id;
@@ -56,13 +55,19 @@ export function buildContractModificationInput(draft: WorkflowDraft): BuildModif
       errors.push(`Select a recognition method for "${label(po)}".`);
     }
     const remaining = parseUsdToCents(po.remainingSspInput);
-    if (!remaining.ok) errors.push(`"${label(po)}" remaining standalone selling price: ${remaining.error}`);
+    if (!remaining.ok)
+      errors.push(`"${label(po)}" remaining standalone selling price: ${remaining.error}`);
     const total = parseUsdToCents(po.totalModifiedSspInput);
     if (!total.ok) errors.push(`"${label(po)}" modified standalone selling price: ${total.error}`);
     if (po.status === "continuing" && !po.sourcePoId) {
       errors.push(`Select the original performance obligation that "${label(po)}" continues.`);
     }
-    if (!remaining.ok || !total.ok || po.recognitionMethod === null || po.remainingGoodsDistinct === null) {
+    if (
+      !remaining.ok ||
+      !total.ok ||
+      po.recognitionMethod === null ||
+      po.remainingGoodsDistinct === null
+    ) {
       continue;
     }
     performanceObligations.push({

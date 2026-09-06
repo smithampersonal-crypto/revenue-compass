@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { analyzeContractModification, futureSourceId } from "../index";
-import {
-  case9SeparateContract,
-  case10Prospective,
-  case11CatchUp,
-  case12Mixed,
-} from "./fixtures";
+import { case9SeparateContract, case10Prospective, case11CatchUp, case12Mixed } from "./fixtures";
 
 const monthTotal = (analysis: ReturnType<typeof analyzeContractModification>, month: string) =>
   analysis.revenueSchedule!.byMonth.find((row) => row.month === month)?.totalCents ?? 0;

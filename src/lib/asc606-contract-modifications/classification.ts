@@ -15,7 +15,9 @@ export function activeModifiedPos(input: ContractModificationInput) {
   return [...input.modification.modifiedPerformanceObligations].sort((a, b) => a.seq - b.seq);
 }
 
-export function deriveModificationTreatment(input: ContractModificationInput): ModificationTreatment {
+export function deriveModificationTreatment(
+  input: ContractModificationInput,
+): ModificationTreatment {
   const { addsDistinctGoodsOrServices, priceReflectsStandaloneSellingPrices } = input.modification;
   if (addsDistinctGoodsOrServices && priceReflectsStandaloneSellingPrices) {
     return "separate_contract";

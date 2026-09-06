@@ -36,15 +36,27 @@ export function ContractModificationOutputs({
         <Row label="Original transaction price" value={totals.originalTransactionPriceCents} />
         <Row label="Change in consideration" value={totals.considerationChangeCents} />
         <Row label="Lifecycle consideration" value={totals.lifecycleConsiderationCents} />
-        <Row label="Revenue recognized before the effective date" value={totals.historicalRevenueCents} />
+        <Row
+          label="Revenue recognized before the effective date"
+          value={totals.historicalRevenueCents}
+        />
         {totals.remainingTransactionPriceCents !== null ? (
-          <Row label="Remaining transaction price allocated" value={totals.remainingTransactionPriceCents} />
+          <Row
+            label="Remaining transaction price allocated"
+            value={totals.remainingTransactionPriceCents}
+          />
         ) : null}
         {totals.updatedTotalTransactionPriceCents !== null ? (
-          <Row label="Updated total transaction price allocated" value={totals.updatedTotalTransactionPriceCents} />
+          <Row
+            label="Updated total transaction price allocated"
+            value={totals.updatedTotalTransactionPriceCents}
+          />
         ) : null}
         <Row label="Cumulative catch-up recognized" value={totals.catchUpCents} />
-        <Row label="Revenue recognized after the effective date" value={totals.futureRevenueCents} />
+        <Row
+          label="Revenue recognized after the effective date"
+          value={totals.futureRevenueCents}
+        />
         <Row label="Total scheduled revenue" value={totals.scheduledRevenueCents} />
       </dl>
 
@@ -59,7 +71,9 @@ export function ContractModificationOutputs({
 
       {historical.length > 0 ? (
         <div className="overflow-x-auto">
-          <h3 className="mb-2 text-base font-semibold">Revenue preserved through the day before the effective date</h3>
+          <h3 className="mb-2 text-base font-semibold">
+            Revenue preserved through the day before the effective date
+          </h3>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>

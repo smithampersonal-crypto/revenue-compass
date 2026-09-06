@@ -67,10 +67,15 @@ function outcome(issues: ContractBalanceIssue[]): ContractBalanceValidationOutco
 }
 
 /** Draft-level completeness checks. Monetary rules stay in the engine. */
-export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBalanceValidationOutcome {
+export function validateContractBalanceDraft(
+  draft: WorkflowDraft,
+): ContractBalanceValidationOutcome {
   const issues: ContractBalanceIssue[] = [];
-  const add = (id: string, message: string, severity: ContractBalanceIssue["severity"] = "blocking") =>
-    issues.push({ id, severity, message });
+  const add = (
+    id: string,
+    message: string,
+    severity: ContractBalanceIssue["severity"] = "blocking",
+  ) => issues.push({ id, severity, message });
 
   const { considerationEvents, cashCollections } = draft.contractBalances;
 
@@ -83,19 +88,29 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
     if (source === "manual") {
       const amount = parseUsdToCents(event.amountInput);
       if (!amount.ok) add("billing.event.amount", `Billing event ${label}: ${amount.error}`);
-      else if (amount.cents <= 0) add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
+      else if (amount.cents <= 0)
+        add("billing.event.amount", `Billing event ${label}: amount must be greater than zero.`);
     } else {
       // Phase 5B: a source-linked amount is derived by the engine, so only the
       // link itself is validated here.
       if (!event.sourceComponentId) {
-        add("billing.event.source", `Billing event ${label}: select the variable-consideration component it bills.`);
+        add(
+          "billing.event.source",
+          `Billing event ${label}: select the variable-consideration component it bills.`,
+        );
       }
       if (source === "usage_period" && !/^\d{4}-\d{2}$/.test(event.sourceMonth ?? "")) {
-        add("billing.event.source_month", `Billing event ${label}: select the usage month it bills.`);
+        add(
+          "billing.event.source_month",
+          `Billing event ${label}: select the usage month it bills.`,
+        );
       }
     }
     if (!isValidIsoDate(event.unconditionalRightDate)) {
-      add("billing.event.right_date", `Billing event ${label}: enter the date the right to consideration becomes unconditional.`);
+      add(
+        "billing.event.right_date",
+        `Billing event ${label}: enter the date the right to consideration becomes unconditional.`,
+      );
     }
     if (!isValidIsoDate(event.invoiceDate)) {
       add("billing.event.invoice_date", `Billing event ${label}: enter the invoice date.`);
@@ -109,7 +124,8 @@ export function validateContractBalanceDraft(draft: WorkflowDraft): ContractBala
     }
     const amount = parseUsdToCents(collection.amountInput);
     if (!amount.ok) add("cash.amount", `Cash collection ${label}: ${amount.error}`);
-    else if (amount.cents <= 0) add("cash.amount", `Cash collection ${label}: amount must be greater than zero.`);
+    else if (amount.cents <= 0)
+      add("cash.amount", `Cash collection ${label}: amount must be greater than zero.`);
     if (!isValidIsoDate(collection.collectionDate)) {
       add("cash.collection_date", `Cash collection ${label}: enter a valid collection date.`);
     }
@@ -199,7 +215,11 @@ export function analyzeContractBalanceWorkflow(
   });
 
   const revenue = analyzeWorkflow(draft);
-  if (!revenue.finalized || !revenue.revenueSchedule || revenue.lifecycleConsiderationCents === null) {
+  if (
+    !revenue.finalized ||
+    !revenue.revenueSchedule ||
+    revenue.lifecycleConsiderationCents === null
+  ) {
     return blocked(
       "The ASC 606 Steps 1-5 revenue analysis is not finalized, so no authoritative billing and contract-balance workpaper is produced.",
     );
@@ -268,7 +288,11 @@ export function analyzeContractBalanceWorkflow(
     const groupIssues: ContractBalanceIssue[] = grouped.groups.flatMap((result) =>
       result.analysis.validation.results
         .filter((r) => !r.passed)
-        .map((r) => ({ id: `${result.groupId}.${r.id}`, severity: r.severity, message: `${result.label}: ${r.message}` })),
+        .map((r) => ({
+          id: `${result.groupId}.${r.id}`,
+          severity: r.severity,
+          message: `${result.label}: ${r.message}`,
+        })),
     );
     const mergedGrouped = outcome([...draftValidation.issues, ...groupIssues]);
     if (grouped.reconciled !== true) {

@@ -23,7 +23,13 @@ function balanceMonth(result: ReturnType<typeof analyzeContractBalanceWorkflow>,
 
 describe("demo scenarios", () => {
   it("exposes exactly the approved samples", () => {
-    expect(DEMO_SCENARIOS.map((s) => s.id)).toEqual(["redwood", "apex", "horizon", "stellar", "meridian"]);
+    expect(DEMO_SCENARIOS.map((s) => s.id)).toEqual([
+      "redwood",
+      "apex",
+      "horizon",
+      "stellar",
+      "meridian",
+    ]);
   });
 
   it("rejects unknown scenario ids without loading another sample", () => {

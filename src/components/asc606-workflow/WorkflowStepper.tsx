@@ -12,7 +12,6 @@ export const STEPS: { key: StepKey; label: string; group: string }[] = [
   { key: "results", label: "Results", group: "results" },
 ];
 
-
 export function WorkflowStepper({
   current,
   onSelect,

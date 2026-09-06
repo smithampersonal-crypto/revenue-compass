@@ -67,7 +67,8 @@ export function validateContractModification(input: ContractModificationInput): 
     );
     return outcome(results);
   }
-  const lifecycle = BigInt(input.originalTransactionPriceCents) + BigInt(mod.considerationChangeCents);
+  const lifecycle =
+    BigInt(input.originalTransactionPriceCents) + BigInt(mod.considerationChangeCents);
   if (lifecycle > BigInt(MAX_CENTS) || lifecycle < 0n) {
     fail(
       "modification.lifecycle_range",
@@ -154,7 +155,11 @@ export function validateContractModification(input: ContractModificationInput): 
       }
     } else if (po.recognitionMethod === "point_in_time") {
       if (!isValidIsoDate(po.recognitionDate)) {
-        fail("modification.po.recognition_date", "revenue", `Enter a recognition date for "${label}".`);
+        fail(
+          "modification.po.recognition_date",
+          "revenue",
+          `Enter a recognition date for "${label}".`,
+        );
       } else if (po.recognitionDate === mod.effectiveDate) {
         fail(
           "modification.po.same_day",
@@ -266,7 +271,10 @@ export function validateContractModification(input: ContractModificationInput): 
             `"${label}" must keep its original service start date so the revised measure of progress can be applied.`,
           );
         }
-      } else if (po.recognitionMethod === "over_time_ratable" && po.serviceStart! < mod.effectiveDate) {
+      } else if (
+        po.recognitionMethod === "over_time_ratable" &&
+        po.serviceStart! < mod.effectiveDate
+      ) {
         fail(
           "modification.prospective.start",
           "revenue",

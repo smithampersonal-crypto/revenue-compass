@@ -148,7 +148,10 @@ export function futureRevenue(
         amountCents: entitlementCents - priorCumulativeCents,
         explanation: {
           template: "point_in_time",
-          inputs: { allocatedCents: entitlementCents - priorCumulativeCents, recognitionDate: date },
+          inputs: {
+            allocatedCents: entitlementCents - priorCumulativeCents,
+            recognitionDate: date,
+          },
         },
       },
     ];
@@ -205,7 +208,10 @@ export function futureRevenue(
 }
 
 /** Assembles a RevenueSchedule from source rows, ordered by source then month. */
-export function composeSchedule(rows: readonly SourceRow[], sourceOrder: readonly string[]): RevenueSchedule {
+export function composeSchedule(
+  rows: readonly SourceRow[],
+  sourceOrder: readonly string[],
+): RevenueSchedule {
   const orderIndex = new Map(sourceOrder.map((id, index) => [id, index]));
   const sorted = [...rows].sort((a, b) => {
     const bySource = (orderIndex.get(a.sourceId) ?? 0) - (orderIndex.get(b.sourceId) ?? 0);

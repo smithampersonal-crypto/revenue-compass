@@ -10,10 +10,7 @@ import { analyzeGroupedJournalEntries } from "@/lib/asc606-journals";
 
 import { analyzeContractBalanceWorkflow } from "../contract-balances";
 import { analyzeWorkflow } from "../analysis";
-import {
-  NEW_CONTRACT_GROUP_ID,
-  ORIGINAL_GROUP_ID,
-} from "@/lib/asc606-contract-modifications";
+import { NEW_CONTRACT_GROUP_ID, ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 
 import {
   createCashCollectionDraft,
@@ -146,14 +143,12 @@ describe("Phase 5C workflow integration", () => {
     const journals = analyzeGroupedJournalEntries(balances.groupInputs);
     expect(journals.reconciled).toBe(true);
     expect(journals.groups).toHaveLength(2);
-    const debits = (journals.entries ?? []).flatMap((entry) => entry.lines).reduce(
-      (sum, line) => sum + line.debitCents,
-      0,
-    );
-    const credits = (journals.entries ?? []).flatMap((entry) => entry.lines).reduce(
-      (sum, line) => sum + line.creditCents,
-      0,
-    );
+    const debits = (journals.entries ?? [])
+      .flatMap((entry) => entry.lines)
+      .reduce((sum, line) => sum + line.debitCents, 0);
+    const credits = (journals.entries ?? [])
+      .flatMap((entry) => entry.lines)
+      .reduce((sum, line) => sum + line.creditCents, 0);
     expect(debits).toBe(credits);
   });
 });
