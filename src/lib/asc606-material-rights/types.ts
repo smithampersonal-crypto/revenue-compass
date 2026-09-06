@@ -73,7 +73,11 @@ export type RevenueSourceType =
   | "material_right_exercise"
   | "material_right_expiration"
   // Phase 5B: usage-as-incurred consideration related to a series PO.
-  | "usage";
+  | "usage"
+  // Phase 5C: contract-modification segments.
+  | "modification_catch_up"
+  | "modification_post"
+  | "separate_contract_po";
 
 /** Deterministic display metadata for every column of the lifecycle schedule. */
 export interface RevenueSource {
@@ -84,6 +88,10 @@ export interface RevenueSource {
   materialRightPoId?: string;
   /** Phase 5B usage sources only. */
   usageComponentId?: string;
+  /** Phase 5C: the post-modification performance obligation, when applicable. */
+  modificationPoId?: string;
+  /** Phase 5C: the modification event this source belongs to. */
+  modificationId?: string;
 }
 
 export interface MaterialRightOutcome {
