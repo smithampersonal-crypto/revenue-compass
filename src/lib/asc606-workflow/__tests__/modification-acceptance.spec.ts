@@ -213,8 +213,12 @@ describe("Case 11 — approved workflow acceptance (cumulative catch-up)", () =>
 // ---------------------------------------------------------------------------
 
 /**
- * Original $200,000: PO1 ($120,000, calendar 2028) and PO2 ($80,000, delivered
- * entirely after the modification date). Historical revenue is PO1 only.
+ * Approved Case 12 facts. Original $200,000:
+ *   PO1 integrated implementation — $120,000, over time 2028-01-01..2028-12-31
+ *   PO2 training workshop         — $80,000, point in time 2028-10-01
+ * Modification 2028-07-02 adds $50,000 of consideration, expands PO1
+ * (total modified SSP $180,000; remaining SSP $120,000) and adds
+ *   PO3 new training workshop     — SSP $40,000, point in time 2028-11-01.
  */
 function case12Draft(
   policy: "updated_total_transaction_price" | "updated_remaining_transaction_price",
@@ -222,30 +226,29 @@ function case12Draft(
   const draft = base120k();
   const po1 = {
     ...draft.performanceObligations[0]!,
+    name: "Integrated implementation",
     sspInput: "120,000.00",
   };
   const po2 = {
-    ...createPoDraft(2, "po-second"),
-    name: "Second service",
+    ...createPoDraft(2, "po-training"),
+    name: "Training workshop",
     classification: "single_distinct" as const,
-    classificationRationale: "Distinct second service.",
+    classificationRationale: "Distinct training workshop.",
     sspInput: "80,000.00",
-    sspBasis: "Observable standalone price.",
-    recognitionMethod: "over_time_ratable" as const,
-    serviceStart: MOD_DATE,
-    serviceEnd: "2028-12-31",
-    recognitionRationale: "Simultaneous receipt and consumption.",
+    sspBasis: "Observable standalone training price list.",
+    recognitionMethod: "point_in_time" as const,
+    recognitionDate: "2028-10-01",
+    recognitionRationale: "Control transfers when the workshop is delivered.",
   };
   const promise2 = {
-    ...createPromiseDraft(2, "pr-second"),
-    description: "Second distinct service",
+    ...createPromiseDraft(2, "pr-training"),
+    description: "Training workshop",
     capableOfBeingDistinct: true,
     distinctWithinContractContext: true,
     distinctRationale: "Separately beneficial.",
     performanceObligationId: po2.id,
   };
 
-  const remainingSsp = policy === "updated_total_transaction_price";
   return {
     ...draft,
     transactionPriceInput: "200,000.00",
@@ -254,18 +257,20 @@ function case12Draft(
     hasContractModifications: true,
     contractModifications: [
       modificationShell({
-        scopeChangeDescription: "Expanded the integrated service and added a distinct service.",
+        scopeChangeDescription:
+          "Expanded the integrated implementation and added a second training workshop.",
         considerationMagnitudeInput: "50,000.00",
         priceReflectsAddedGoodsSsp: false,
-        priceReflectsSspRationale: "The added service is not priced at its standalone price.",
+        priceReflectsSspRationale: "The added workshop is not priced at its standalone price.",
         mixedAllocationPolicy: policy,
         mixedAllocationPolicyRationale: "Documented entity policy for mixed modifications.",
         modifiedPerformanceObligations: [
           continuingPo({
+            name: "Integrated implementation",
             scopeEffect: "increase",
             remainingGoodsDistinctFromTransferred: false,
             remainingDistinctnessRationale: "One integrated service across the whole term.",
-            remainingSspInput: "90,000.00",
+            remainingSspInput: "120,000.00",
             remainingSspBasis: "Repriced remaining-term evidence.",
             totalModifiedSspInput: "180,000.00",
             totalModifiedSspBasis: "Repriced whole-obligation evidence.",
@@ -274,42 +279,61 @@ function case12Draft(
           }),
           {
             ...createModifiedPoDraft(2, "mod-1-po-2", "continuing"),
-            name: "Second service",
-            sourcePoId: "po-second",
+            name: "Training workshop",
+            sourcePoId: "po-training",
             scopeEffect: "unchanged" as const,
             remainingGoodsDistinctFromTransferred: true,
             remainingDistinctnessRationale: "Distinct from the service already transferred.",
-            remainingSspInput: "60,000.00",
-            remainingSspBasis: "Observable standalone price.",
+            remainingSspInput: "80,000.00",
+            remainingSspBasis: "Observable standalone training price list.",
             totalModifiedSspInput: "80,000.00",
-            totalModifiedSspBasis: "Observable standalone price.",
-            recognitionMethod: "over_time_ratable" as const,
-            serviceStart: MOD_DATE,
-            serviceEnd: "2028-12-31",
-            recognitionRationale: "Simultaneous receipt and consumption.",
+            totalModifiedSspBasis: "Observable standalone training price list.",
+            recognitionMethod: "point_in_time" as const,
+            recognitionDate: "2028-10-01",
+            recognitionRationale: "Control transfers when the workshop is delivered.",
           },
           {
             ...createModifiedPoDraft(3, "mod-1-po-3", "added"),
-            name: "Added distinct service",
+            name: "New training workshop",
             addedGoodsAreDistinct: true,
-            addedGoodsDistinctnessRationale: "Separately beneficial added service.",
+            addedGoodsDistinctnessRationale: "Separately beneficial added workshop.",
             remainingGoodsDistinctFromTransferred: true,
             remainingDistinctnessRationale: "Distinct from the service already transferred.",
-            remainingSspInput: "30,000.00",
-            remainingSspBasis: "Observable standalone price.",
+            remainingSspInput: "40,000.00",
+            remainingSspBasis: "Observable standalone training price list.",
             totalModifiedSspInput: "40,000.00",
-            totalModifiedSspBasis: "Observable standalone price.",
-            recognitionMethod: "over_time_ratable" as const,
-            serviceStart: MOD_DATE,
-            serviceEnd: "2028-12-31",
-            recognitionRationale: "Simultaneous receipt and consumption.",
+            totalModifiedSspBasis: "Observable standalone training price list.",
+            recognitionMethod: "point_in_time" as const,
+            recognitionDate: "2028-11-01",
+            recognitionRationale: "Control transfers when the workshop is delivered.",
           },
         ],
       }),
     ],
-    // The remaining-price policy layer is exercised by Case 12B only.
-    ...(remainingSsp ? {} : {}),
   };
+}
+
+/** Revenue recognized in one month for the source whose label starts with `name`. */
+function monthRevenueForPo(
+  result: ReturnType<typeof analyzeWorkflow>,
+  name: string,
+  month: string,
+): number {
+  const mod = result.modification!;
+  const ids = mod.revenueSources.filter((s) => s.name.startsWith(name)).map((s) => s.id);
+  const row = mod.revenueSchedule!.byMonth.find((r) => r.month === month);
+  return ids.reduce((total, id) => total + (row?.perPo[id] ?? 0), 0);
+}
+
+/** Total revenue across all months for the sources whose label starts with `name`. */
+function totalRevenueForPo(result: ReturnType<typeof analyzeWorkflow>, name: string): number {
+  const mod = result.modification!;
+  const ids = mod.revenueSources.filter((s) => s.name.startsWith(name)).map((s) => s.id);
+  return mod
+    .revenueSchedule!.byMonth.reduce(
+      (total, row) => total + ids.reduce((sum, id) => sum + (row.perPo[id] ?? 0), 0),
+      0,
+    );
 }
 
 describe("Case 12A — approved workflow acceptance (mixed, updated TOTAL price)", () => {
@@ -339,6 +363,13 @@ describe("Case 12A — approved workflow acceptance (mixed, updated TOTAL price)
     );
     expect(mod.totals.catchUpCents).toBe(DOLLARS(15_000));
   });
+
+  it("recognizes $100,000 of prospective distinct revenue in October and November 2028", () => {
+    expect(monthRevenueForPo(result, "Training workshop", "2028-10")).toBe(DOLLARS(66_666, 67));
+    expect(totalRevenueForPo(result, "Training workshop")).toBe(DOLLARS(66_666, 67));
+    expect(monthRevenueForPo(result, "New training workshop", "2028-11")).toBe(DOLLARS(33_333, 33));
+    expect(totalRevenueForPo(result, "New training workshop")).toBe(DOLLARS(33_333, 33));
+  });
 });
 
 describe("Case 12B — approved workflow acceptance (mixed, updated REMAINING price)", () => {
@@ -362,7 +393,15 @@ describe("Case 12B — approved workflow acceptance (mixed, updated REMAINING pr
     expect(mod.totals.lifecycleConsiderationCents).toBe(DOLLARS(250_000));
     expect(mod.reconciliation.reconciled).toBe(true);
   });
+
+  it("recognizes $95,000 of prospective distinct revenue in October and November 2028", () => {
+    expect(monthRevenueForPo(result, "Training workshop", "2028-10")).toBe(DOLLARS(63_333, 33));
+    expect(totalRevenueForPo(result, "Training workshop")).toBe(DOLLARS(63_333, 33));
+    expect(monthRevenueForPo(result, "New training workshop", "2028-11")).toBe(DOLLARS(31_666, 67));
+    expect(totalRevenueForPo(result, "New training workshop")).toBe(DOLLARS(31_666, 67));
+  });
 });
+
 
 // ---------------------------------------------------------------------------
 // Workflow-level classifier boundaries
