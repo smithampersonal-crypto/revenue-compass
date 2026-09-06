@@ -83,7 +83,8 @@ describe("separate-contract test", () => {
 
   it("fails when an added good or service is not distinct", () => {
     const input = case9((i) => {
-      i.contractModifications[0]!.postModificationPerformanceObligations[1]!.remainingGoodsDistinctFromTransferred = false;
+      i.contractModifications[0]!.postModificationPerformanceObligations[1]!.addedGoodsAreDistinct =
+        false;
     });
     expect(separateContractTest(event(input)).passed).toBe(false);
   });
