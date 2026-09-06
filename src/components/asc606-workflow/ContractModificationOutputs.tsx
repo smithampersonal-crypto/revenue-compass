@@ -29,6 +29,17 @@ export function ContractModificationOutputs({
             {classification.label}
           </p>
           <p className="text-muted-foreground">{classification.rationale}</p>
+          <p>
+            <span className="font-semibold">Separate-contract test (ASC 606-10-25-12): </span>
+            {classification.separateContractTestPassed ? "Met" : "Not met"}
+          </p>
+          {classification.separateContractFailures.length > 0 ? (
+            <ul className="list-disc pl-5 text-muted-foreground">
+              {classification.separateContractFailures.map((failure) => (
+                <li key={failure}>{failure}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
