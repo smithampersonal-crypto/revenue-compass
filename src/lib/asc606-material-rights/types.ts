@@ -100,6 +100,8 @@ export interface RevenueSource {
   segmentId?: string;
   /** Phase 5C: the contract presentation group this source belongs to. */
   groupId?: string;
+  /** Phase 5C: the date the segment this source belongs to became effective. */
+  effectiveDate?: IsoDate;
 }
 
 export interface MaterialRightOutcome {
