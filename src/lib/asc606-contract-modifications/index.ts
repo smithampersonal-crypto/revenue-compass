@@ -204,6 +204,7 @@ export function analyzeContractModification(
         modificationId: mod.id,
         segmentId: HISTORICAL_SEGMENT_ID,
         groupId: ORIGINAL_GROUP_ID,
+        effectiveDate: mod.modificationDate,
       });
     }
   }
@@ -273,6 +274,7 @@ export function analyzeContractModification(
       modificationId: mod.id,
       segmentId: postSegmentId,
       groupId: ORIGINAL_GROUP_ID,
+      effectiveDate: mod.modificationDate,
     });
   };
 
@@ -320,6 +322,7 @@ export function analyzeContractModification(
           modificationId: mod.id,
           segmentId: postSegmentId,
           groupId: ORIGINAL_GROUP_ID,
+          effectiveDate: mod.modificationDate,
         });
       }
       catchUpEvents.push({
@@ -488,6 +491,7 @@ function analyzeSeparateContract(
   const originalPos = [...input.originalPerformanceObligations].sort((a, b) => a.seq - b.seq);
   const considerationChangeCents = signedConsiderationChangeCents(mod);
   const separateSegmentId = modificationSegmentId(mod.id, "separate");
+  const newContractGroupId = modificationContractId(mod.id);
 
   // The original contract is untouched: its approved schedule is reproduced
   // exactly, with no cutoff and no re-measurement.
@@ -541,7 +545,8 @@ function analyzeSeparateContract(
     modificationPoId: po.id,
     modificationId: mod.id,
     segmentId: separateSegmentId,
-    groupId: NEW_CONTRACT_GROUP_ID,
+    groupId: newContractGroupId,
+    effectiveDate: mod.modificationDate,
   }));
 
   const groups: ContractPresentationGroup[] = [
@@ -554,7 +559,7 @@ function analyzeSeparateContract(
       unscheduledRevenueCents: 0,
     },
     {
-      id: NEW_CONTRACT_GROUP_ID,
+      id: newContractGroupId,
       label: `New contract — ${mod.scopeChangeDescription}`,
       transactionPriceCents: considerationChangeCents,
       revenueSchedule: newSchedule,
@@ -623,7 +628,7 @@ function analyzeSeparateContract(
       {
         id: separateSegmentId,
         label: `New contract from ${mod.modificationDate}`,
-        groupId: NEW_CONTRACT_GROUP_ID,
+        groupId: newContractGroupId,
         kind: "separate_contract",
         startDate: mod.modificationDate,
         endDate: null,
