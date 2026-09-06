@@ -9,7 +9,11 @@
  */
 
 import type { IsoDate, PoClassification, RecognitionMethod } from "@/lib/asc606";
-import type { MixedAllocationPolicy } from "@/lib/asc606-contract-modifications";
+import type {
+  ConsiderationEffect,
+  MixedAllocationPolicy,
+  ScopeEffect,
+} from "@/lib/asc606-contract-modifications";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import type {
   EstimationMethod,
@@ -550,8 +554,8 @@ export function createEmptyDraft(): WorkflowDraft {
     transactionPriceNotes: "",
     hasVariableConsideration: false,
     variableConsiderationComponents: [],
-    hasContractModification: false,
-    modification: createModificationDraft(),
+    hasContractModifications: false,
+    contractModifications: [],
     contractBalances: createEmptyContractBalances(),
   };
 }
