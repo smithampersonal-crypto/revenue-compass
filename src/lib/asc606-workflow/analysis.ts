@@ -250,7 +250,7 @@ export function analyzeWorkflow(
     );
   }
 
-  if (draft.hasContractModification) {
+  if (draft.hasContractModifications) {
     const builtMod = buildContractModificationInput(draft);
     if (!builtMod.ok) {
       return blocked(
