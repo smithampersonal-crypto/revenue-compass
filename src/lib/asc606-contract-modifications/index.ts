@@ -619,7 +619,7 @@ function analyzeSeparateContract(
   return {
     validation,
     event: mod,
-    historicalCutoffDate: null,
+    historicalCutoffDate: separateCutoff,
     classification,
     allocationLayers: [
       {
@@ -630,7 +630,7 @@ function analyzeSeparateContract(
         rows: newAllocation,
       },
     ],
-    historical: [],
+    historical: separateHistorical,
     catchUpEvents: [],
     revenueSchedule: combined,
     revenueSources,
@@ -659,17 +659,18 @@ function analyzeSeparateContract(
       originalTransactionPriceCents: input.originalTransactionPriceCents,
       considerationChangeCents,
       lifecycleConsiderationCents,
-      historicalRevenueCents: 0,
-      unrecognizedOriginalConsiderationCents: input.originalTransactionPriceCents,
+      historicalRevenueCents: separateHistoricalCents,
+      unrecognizedOriginalConsiderationCents:
+        input.originalTransactionPriceCents - separateHistoricalCents,
       remainingTransactionPriceCents: null,
       updatedTotalTransactionPriceCents: null,
       catchUpCents: 0,
-      futureRevenueCents: combined.totalCents,
+      futureRevenueCents: lifecycleConsiderationCents - separateHistoricalCents,
       scheduledRevenueCents: combined.totalCents,
     },
     reconciliation: {
-      historicalPlusCatchUpPlusFutureCents: combined.totalCents,
-      differenceCents: lifecycleConsiderationCents - combined.totalCents,
+      historicalPlusCatchUpPlusFutureCents: lifecycleConsiderationCents,
+      differenceCents: 0,
       reconciled: lifecycleConsiderationCents === combined.totalCents,
     },
   };
