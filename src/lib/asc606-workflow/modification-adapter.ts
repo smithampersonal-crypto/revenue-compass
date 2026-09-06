@@ -32,7 +32,10 @@ function buildEvent(mod: ModificationDraft, errors: string[]): ModificationEvent
       "State whether the modification has been approved and creates enforceable rights and obligations.",
     );
   }
-  if (mod.priceReflectsAddedGoodsSsp === null) {
+  // ASC 606-10-25-12(b) is only relevant when the modification adds goods or
+  // services; the pure engine owns that relevance rule and the blocking control.
+  const addsGoods = mod.modifiedPerformanceObligations.some((po) => po.status === "added");
+  if (addsGoods && mod.priceReflectsAddedGoodsSsp === null) {
     errors.push(
       "Answer whether the change in price reflects the standalone selling prices of the added goods or services.",
     );
