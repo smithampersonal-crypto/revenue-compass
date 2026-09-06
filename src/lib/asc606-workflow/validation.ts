@@ -486,6 +486,12 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           "mod",
           "An unapproved or unenforceable modification is not accounted for under ASC 606-10-25-10. Record it once it is approved, or remove it.",
         );
+      } else if (isBlank(mod.approvalRationale)) {
+        add(
+          "modification.approval.rationale",
+          "mod",
+          "Document the basis for concluding that the modification is approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+        );
       }
       if (isBlank(mod.scopeChangeDescription)) {
         add("modification.description", "mod", "Describe the contract modification.");
@@ -502,12 +508,39 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           );
         }
       }
-      if (mod.priceReflectsAddedGoodsSsp === null) {
-        add(
-          "modification.criterion_b",
-          "mod",
-          "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
-        );
+      // ASC 606-10-25-12(b) is only asked when the modification adds goods or
+      // services. A pure scope reduction never reaches criterion (b).
+      const addsGoods = mod.modifiedPerformanceObligations.some((po) => po.status === "added");
+      if (addsGoods) {
+        if (mod.priceReflectsAddedGoodsSsp === null) {
+          add(
+            "modification.criterion_b",
+            "mod",
+            "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+          );
+        } else if (isBlank(mod.priceReflectsSspRationale)) {
+          add(
+            "modification.criterion_b.rationale",
+            "mod",
+            "Document the basis for the conclusion on whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+          );
+        }
+      }
+      const treatment = draftModificationTreatment(mod);
+      if (treatment === "mixed") {
+        if (mod.mixedAllocationPolicy === null) {
+          add(
+            "modification.mixed_policy",
+            "mod",
+            "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services (ASC 606-10-25-13(c)).",
+          );
+        } else if (isBlank(mod.mixedAllocationPolicyRationale)) {
+          add(
+            "modification.mixed_policy.rationale",
+            "mod",
+            "Document why the selected allocation policy is appropriate for this mixed modification (ASC 606-10-25-13(c)).",
+          );
+        }
       }
       if (mod.modifiedPerformanceObligations.length === 0) {
         add(
