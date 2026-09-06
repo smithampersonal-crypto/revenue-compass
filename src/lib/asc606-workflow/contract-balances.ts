@@ -18,6 +18,12 @@ import {
   type ContractBalanceAnalysis,
   type ContractBalanceInput,
 } from "@/lib/asc606-balances";
+import {
+  analyzeGroupedContractBalances,
+  type ContractBalanceGroupInput,
+  type GroupedContractBalanceAnalysis,
+} from "@/lib/asc606-balances";
+import { ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
 import type { WorkflowDraft } from "./types";
@@ -43,6 +49,13 @@ export interface ContractBalanceWorkflowResult {
   analysis: ContractBalanceAnalysis | null;
   /** Exact normalized input used for the Phase 3 engine; null unless finalized. */
   engineInput: ContractBalanceInput | null;
+  /**
+   * Phase 5C: one normalized engine input per contract presentation group.
+   * A single-contract analysis produces exactly one entry.
+   */
+  groupInputs: ContractBalanceGroupInput[];
+  /** Phase 5C grouped output; null unless more than one group exists. */
+  grouped: GroupedContractBalanceAnalysis | null;
 }
 
 function outcome(issues: ContractBalanceIssue[]): ContractBalanceValidationOutcome {
@@ -181,6 +194,8 @@ export function analyzeContractBalanceWorkflow(
     engineValidation,
     analysis: null,
     engineInput: null,
+    groupInputs: [],
+    grouped: null,
   });
 
   const revenue = analyzeWorkflow(draft);
@@ -225,6 +240,62 @@ export function analyzeContractBalanceWorkflow(
     },
   );
 
+  // ---- Phase 5C: a separate-contract modification produces two contracts --
+  const groups = revenue.contractGroups;
+  if (groups.length > 1) {
+    const groupInputs: ContractBalanceGroupInput[] = groups.map((group) => {
+      const groupEvents = considerationEvents.filter((event, index) => {
+        const draftEvent = draft.contractBalances.considerationEvents[index]!;
+        return (draftEvent.contractGroupId ?? ORIGINAL_GROUP_ID) === group.id;
+      });
+      const eventIds = new Set(groupEvents.map((event) => event.id));
+      return {
+        groupId: group.id,
+        label: group.label,
+        input: {
+          transactionPriceCents: group.transactionPriceCents,
+          revenueSchedule: group.revenueSchedule,
+          considerationEvents: groupEvents,
+          cashCollections: cashCollections.filter((cash) =>
+            eventIds.has(cash.considerationEventId),
+          ),
+          unscheduledRevenueCents: group.unscheduledRevenueCents,
+        },
+      };
+    });
+
+    const grouped = analyzeGroupedContractBalances(groupInputs);
+    const groupIssues: ContractBalanceIssue[] = grouped.groups.flatMap((result) =>
+      result.analysis.validation.results
+        .filter((r) => !r.passed)
+        .map((r) => ({ id: `${result.groupId}.${r.id}`, severity: r.severity, message: `${result.label}: ${r.message}` })),
+    );
+    const mergedGrouped = outcome([...draftValidation.issues, ...groupIssues]);
+    if (grouped.reconciled !== true) {
+      return {
+        validation: mergedGrouped,
+        finalized: false,
+        blockedReason:
+          "The deterministic contract-balance engine reported a blocking issue in at least one contract, so no authoritative billing schedule or rollforward is presented.",
+        engineValidation: grouped.groups[0]?.analysis.validation ?? null,
+        analysis: null,
+        engineInput: null,
+        groupInputs,
+        grouped,
+      };
+    }
+    return {
+      validation: mergedGrouped,
+      finalized: true,
+      blockedReason: null,
+      engineValidation: grouped.groups[0]!.analysis.validation,
+      analysis: grouped.groups[0]!.analysis,
+      engineInput: null,
+      groupInputs,
+      grouped,
+    };
+  }
+
   const engineInput: ContractBalanceInput = {
     // With material rights this is the lifecycle consideration: the original
     // transaction price plus consideration arising on exercised options.
@@ -261,5 +332,13 @@ export function analyzeContractBalanceWorkflow(
     engineValidation: analysis.validation,
     analysis,
     engineInput,
+    groupInputs: [
+      {
+        groupId: groups[0]?.id ?? ORIGINAL_GROUP_ID,
+        label: groups[0]?.label ?? "Contract",
+        input: engineInput,
+      },
+    ],
+    grouped: null,
   };
 }
