@@ -290,6 +290,8 @@ export function analyzeContractBalanceWorkflow(
       return {
         validation: blockedValidation,
         finalized: false,
+        blockedReason:
+          "Every billing event must name the contract it belongs to before contract balances are presented.",
         analysis: null,
         engineInput: null,
         engineValidation: null,
