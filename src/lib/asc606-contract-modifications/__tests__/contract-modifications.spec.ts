@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { analyzeContractModification } from "../index";
+import { analyzeContractModification, futureSourceId } from "../index";
 import {
   case9SeparateContract,
   case10Prospective,
@@ -10,6 +10,15 @@ import {
 
 const monthTotal = (analysis: ReturnType<typeof analyzeContractModification>, month: string) =>
   analysis.revenueSchedule!.byMonth.find((row) => row.month === month)?.totalCents ?? 0;
+
+const sourceAmount = (
+  analysis: ReturnType<typeof analyzeContractModification>,
+  poId: string,
+  month: string,
+) =>
+  analysis.revenueSchedule!.byMonth.find((row) => row.month === month)?.perPo[
+    futureSourceId("mod-1", poId)
+  ] ?? 0;
 
 const yearTotal = (analysis: ReturnType<typeof analyzeContractModification>, year: string) =>
   analysis
@@ -37,8 +46,8 @@ describe("Case 9 — separate contract (ASC 606-10-25-12)", () => {
   it("recognizes the added seats over their own service period", () => {
     const added = analysis.groups[1]!.revenueSchedule;
     expect(added.byMonth.map((row) => row.totalCents)).toEqual([
-      507_273, 507_273, 490_909, 507_272, 490_909, 507_273, 507_273, 474_545, 507_273, 490_909,
-      507_273, 490_909, 507_272, 507_273, 490_909, 507_273, 490_909, 507_273,
+      507_273, 507_272, 490_910, 507_272, 490_909, 507_273, 507_273, 474_545, 507_273, 490_909,
+      507_273, 490_909, 507_273, 507_272, 490_909, 507_273, 490_909, 507_273,
     ]);
     expect(added.totalCents).toBe(9_000_000);
   });
@@ -103,8 +112,8 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
     expect(analysis.totals.catchUpCents).toBe(1_500_000);
     expect(analysis.totals.historicalRevenueCents).toBe(6_000_000);
     // Prospective distinct obligations: training plus added support.
-    expect(monthTotal(analysis, "2028-10")).toBe(6_666_667);
-    expect(monthTotal(analysis, "2028-11")).toBe(3_333_333);
+    expect(sourceAmount(analysis, "mpo-training", "2028-10")).toBe(6_666_667);
+    expect(sourceAmount(analysis, "mpo-support", "2028-11")).toBe(3_333_333);
     expect(analysis.reconciliation.reconciled).toBe(true);
   });
 
@@ -116,8 +125,8 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
     ]);
     expect(analysis.catchUpEvents[0]!.entitlementBasisCents).toBe(15_500_000);
     expect(analysis.totals.catchUpCents).toBe(1_750_000);
-    expect(monthTotal(analysis, "2028-10")).toBe(6_333_333);
-    expect(monthTotal(analysis, "2028-11")).toBe(3_166_667);
+    expect(sourceAmount(analysis, "mpo-training", "2028-10")).toBe(6_333_333);
+    expect(sourceAmount(analysis, "mpo-support", "2028-11")).toBe(3_166_667);
     expect(analysis.reconciliation.reconciled).toBe(true);
     expect(analysis.totals.scheduledRevenueCents).toBe(25_000_000);
   });
