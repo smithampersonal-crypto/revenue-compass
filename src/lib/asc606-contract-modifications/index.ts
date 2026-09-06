@@ -249,7 +249,7 @@ export function analyzeContractModification(
           id: sourceId,
           name: `${po.name} — modification catch-up`,
           sourceType: "modification_catch_up",
-          originalPoId: po.sourcePoId ?? undefined,
+          ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
           modificationPoId: po.id,
           modificationId: mod.id,
         });
@@ -398,7 +398,7 @@ function pushFuture(
     id: futureSourceId(modificationId, po.id),
     name: `${po.name} — after modification`,
     sourceType: "modification_post",
-    originalPoId: po.sourcePoId ?? undefined,
+    ...(po.sourcePoId ? { originalPoId: po.sourcePoId } : {}),
     modificationPoId: po.id,
     modificationId,
   });
