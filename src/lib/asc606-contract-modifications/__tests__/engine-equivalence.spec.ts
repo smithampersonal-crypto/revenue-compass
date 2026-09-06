@@ -101,7 +101,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
           serviceStart: "2028-07-02",
           serviceEnd: "2028-12-31",
         },
-        3_000_000,
+        2_600_000,
       ),
     );
   });
