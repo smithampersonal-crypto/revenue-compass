@@ -145,6 +145,29 @@ export function validateContractModification(input: ContractModificationInput): 
     return outcome(results);
   }
 
+  // ASC 606-10-25-12(b) is only a meaningful question when the modification
+  // actually adds goods or services. A pure scope reduction or a price-only
+  // change never reaches criterion (b), so the accountant is not asked to
+  // answer a structurally irrelevant criterion in order to continue into
+  // ASC 606-10-25-13.
+  const addedPos = active.filter((po) => po.status === "added");
+  const criterionBRelevant = addedPos.length > 0;
+  if (criterionBRelevant) {
+    if (mod.priceReflectsAddedGoodsSsp === null) {
+      fail(
+        "modification.price_reflects_ssp",
+        "contract",
+        "State whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+      );
+    } else if (isBlank(mod.priceReflectsSspRationale)) {
+      fail(
+        "modification.price_reflects_ssp.rationale",
+        "contract",
+        "Document the basis for the conclusion on whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+      );
+    }
+  }
+
   if (mod.id.includes(RESERVED_ID_NAMESPACE)) {
     fail(
       "modification.id_reserved",
