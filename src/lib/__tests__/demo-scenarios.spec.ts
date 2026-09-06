@@ -102,3 +102,19 @@ describe("demo scenarios", () => {
     expect(journals.reconciliation.reconciled).toBe(true);
   });
 });
+
+describe("Meridian modification sample", () => {
+  it("finalizes as a separate contract with grouped balances that reconcile", () => {
+    const draft = createDemoDraft("meridian");
+    const result = analyzeWorkflow(draft);
+    expect(result.finalized).toBe(true);
+    expect(result.modification?.classification?.treatment).toBe("separate_contract");
+    expect(result.contractGroups).toHaveLength(2);
+    expect(result.revenueSchedule?.totalCents).toBe(33_000_000);
+
+    const balances = analyzeContractBalanceWorkflow(draft);
+    expect(balances.finalized).toBe(true);
+    expect(balances.grouped?.reconciled).toBe(true);
+    expect(balances.grouped?.combinedRevenueCents).toBe(33_000_000);
+  });
+});
