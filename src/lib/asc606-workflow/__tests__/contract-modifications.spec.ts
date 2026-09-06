@@ -8,7 +8,18 @@ import { describe, expect, it } from "vitest";
 
 import { analyzeContractBalanceWorkflow } from "../contract-balances";
 import { analyzeWorkflow } from "../analysis";
-import { createModificationDraft, createModifiedPoDraft, type WorkflowDraft } from "../types";
+import {
+  NEW_CONTRACT_GROUP_ID,
+  ORIGINAL_GROUP_ID,
+} from "@/lib/asc606-contract-modifications";
+
+import {
+  createCashCollectionDraft,
+  createConsiderationEventDraft,
+  createModificationDraft,
+  createModifiedPoDraft,
+  type WorkflowDraft,
+} from "../types";
 import { scenarioADraft, scenarioBDraft } from "./fixtures";
 
 /** Case 9 — Redwood-style separate contract: 50 added seats priced at SSP. */
@@ -89,13 +100,45 @@ describe("Phase 5C workflow integration", () => {
     expect(result.revenueSchedule).toBeNull();
   });
 
-  it("builds one balance-engine input per presentation group", () => {
-    const balances = analyzeContractBalanceWorkflow(case9Draft());
+  it("bills and reconciles each presentation group independently", () => {
+    const draft = case9Draft();
+    const original = {
+      ...createConsiderationEventDraft(1, "ce-original"),
+      amountInput: "240,000.00",
+      unconditionalRightDate: "2027-01-01",
+      invoiceDate: "2027-01-01",
+      contractGroupId: ORIGINAL_GROUP_ID,
+    };
+    const added = {
+      ...createConsiderationEventDraft(2, "ce-added"),
+      amountInput: "90,000.00",
+      unconditionalRightDate: "2027-07-01",
+      invoiceDate: "2027-07-01",
+      contractGroupId: NEW_CONTRACT_GROUP_ID,
+    };
+    draft.contractBalances = {
+      ...draft.contractBalances,
+      considerationEvents: [original, added],
+      cashCollections: [
+        {
+          ...createCashCollectionDraft(1, "cash-1"),
+          considerationEventId: "ce-original",
+          amountInput: "240,000.00",
+          date: "2027-01-31",
+        },
+        {
+          ...createCashCollectionDraft(2, "cash-2"),
+          considerationEventId: "ce-added",
+          amountInput: "90,000.00",
+          date: "2027-07-31",
+        },
+      ],
+    };
+
+    const balances = analyzeContractBalanceWorkflow(draft);
     expect(balances.groupInputs).toHaveLength(2);
-    const total = balances.groupInputs.reduce(
-      (sum, group) => sum + group.input.transactionPriceCents,
-      0,
-    );
-    expect(total).toBe(33_000_000);
+    expect(balances.grouped?.reconciled).toBe(true);
+    expect(balances.grouped?.combinedTransactionPriceCents).toBe(33_000_000);
+    expect(balances.grouped?.combinedRevenueCents).toBe(33_000_000);
   });
 });
