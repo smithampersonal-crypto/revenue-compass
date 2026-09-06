@@ -36,9 +36,11 @@ import {
 } from "./allocation";
 import {
   HISTORICAL_SEGMENT_ID,
+  ORIGINAL_CONTRACT_ID,
   ORIGINAL_SEGMENT_ID,
   historicalCutoffDate,
   historicalRevenue,
+  modificationContractId,
   modificationSegmentId,
   modificationSourceId,
   type ModificationSourceKind,
@@ -68,8 +70,13 @@ import {
 } from "./types";
 import { validateContractModification } from "./validation";
 
-export const ORIGINAL_GROUP_ID = "group::original";
-export const NEW_CONTRACT_GROUP_ID = "group::separate";
+/**
+ * Contract-presentation identity is deterministic and shared with
+ * `segmentation.ts`. There is no second naming convention: the original
+ * contract is always `contract::original` and a modification that creates a
+ * genuinely new contract is always `contract::mod::<modificationId>`.
+ */
+export const ORIGINAL_GROUP_ID = ORIGINAL_CONTRACT_ID;
 
 const SOURCE_TYPE_BY_KIND: Record<ModificationSourceKind, RevenueSourceType> = {
   original_historical: "original_historical",
