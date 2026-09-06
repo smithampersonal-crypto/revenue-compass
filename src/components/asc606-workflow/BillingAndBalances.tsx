@@ -1,5 +1,6 @@
 import {
   analyzeContractBalanceWorkflow,
+  analyzeWorkflow,
   createCashCollectionDraft,
   createConsiderationEventDraft,
   nextId,
@@ -31,6 +32,11 @@ export function BillingAndBalances({
     ? draft.variableConsiderationComponents
     : [];
   const result = analyzeContractBalanceWorkflow(draft);
+  // Phase 5C: when a modification produced more than one contract, each billing
+  // event must name the contract it belongs to. The list of contracts is engine
+  // output; React only renders it.
+  const contractGroups = analyzeWorkflow(draft).contractGroups;
+  const needsContractLink = contractGroups.length > 1;
 
   const setEvents = (events: ConsiderationEventDraft[]) =>
     onChange({ ...draft, contractBalances: { ...draft.contractBalances, considerationEvents: events } });
@@ -99,6 +105,24 @@ export function BillingAndBalances({
                 </button>
               </div>
               <div className="grid gap-3 md:grid-cols-3">
+                {needsContractLink ? (
+                  <Field label="Contract">
+                    <select
+                      className={inputClass}
+                      value={event.contractGroupId ?? ""}
+                      onChange={(e) =>
+                        updateEvent(event.id, { contractGroupId: e.target.value || null })
+                      }
+                    >
+                      <option value="">Select a contract…</option>
+                      {contractGroups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
                 {vcComponents.length > 0 ? (
                   <Field label="Amount source">
                     <select
