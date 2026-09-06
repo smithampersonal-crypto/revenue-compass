@@ -280,7 +280,12 @@ export function analyzeWorkflow(
       engineValidation: modification.validation,
       analysis,
       lifecycle: null,
-      allocation: modification.allocationLayers[0]!.rows,
+      // Remediation item 10: the generic Results allocation is ALWAYS the
+      // original inception allocation. Modification allocation layers are
+      // presented only in the dedicated Contract Modification output, so a
+      // $90,000 modification row can never appear inside a $240,000 original
+      // allocation table.
+      allocation: analysis.allocation,
       revenueSchedule: modification.revenueSchedule,
       revenueSources: modification.revenueSources,
       unscheduledRevenueCents: 0,
