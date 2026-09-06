@@ -329,11 +329,10 @@ function monthRevenueForPo(
 function totalRevenueForPo(result: ReturnType<typeof analyzeWorkflow>, name: string): number {
   const mod = result.modification!;
   const ids = mod.revenueSources.filter((s) => s.name.startsWith(name)).map((s) => s.id);
-  return mod
-    .revenueSchedule!.byMonth.reduce(
-      (total, row) => total + ids.reduce((sum, id) => sum + (row.perPo[id] ?? 0), 0),
-      0,
-    );
+  return mod.revenueSchedule!.byMonth.reduce(
+    (total, row) => total + ids.reduce((sum, id) => sum + (row.perPo[id] ?? 0), 0),
+    0,
+  );
 }
 
 describe("Case 12A — approved workflow acceptance (mixed, updated TOTAL price)", () => {
@@ -401,7 +400,6 @@ describe("Case 12B — approved workflow acceptance (mixed, updated REMAINING pr
     expect(totalRevenueForPo(result, "New training workshop")).toBe(DOLLARS(31_666, 67));
   });
 });
-
 
 // ---------------------------------------------------------------------------
 // Workflow-level classifier boundaries

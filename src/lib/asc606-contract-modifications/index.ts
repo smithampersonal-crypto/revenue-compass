@@ -529,7 +529,6 @@ function analyzeSeparateContract(
     0,
   );
 
-
   const added = activeModifiedPos(mod).filter((po) => po.status === "added");
   const newAllocation = allocateTransactionPrice({
     transactionPriceCents: considerationChangeCents,

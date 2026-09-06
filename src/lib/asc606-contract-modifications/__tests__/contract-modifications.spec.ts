@@ -80,7 +80,6 @@ describe("Case 9 — separate contract (ASC 606-10-25-12)", () => {
     expect(rerun.revenueSchedule!.totalCents).toBe(33_000_000);
   });
 
-
   it("recognizes the added seats over their own service period", () => {
     const added = analysis.groups[1]!.revenueSchedule;
     expect(added.byMonth.map((row) => row.totalCents)).toEqual([
