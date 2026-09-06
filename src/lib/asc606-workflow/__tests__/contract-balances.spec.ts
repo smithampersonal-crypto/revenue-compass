@@ -18,9 +18,30 @@ import { answerAllStep1, scenarioADraft, scenarioBDraft } from "./fixtures";
 function horizonDraft(): WorkflowDraft {
   const base = answerAllStep1(createEmptyDraft());
   const poSpecs = [
-    { id: "po-saas", seq: 1, name: "SaaS", ssp: "144,000.00", start: "2027-07-01", end: "2028-06-30" },
-    { id: "po-training", seq: 2, name: "Training", ssp: "12,000.00", start: "2027-07-10", end: "2027-07-11" },
-    { id: "po-support", seq: 3, name: "Premium Support", ssp: "24,000.00", start: "2027-07-01", end: "2028-06-30" },
+    {
+      id: "po-saas",
+      seq: 1,
+      name: "SaaS",
+      ssp: "144,000.00",
+      start: "2027-07-01",
+      end: "2028-06-30",
+    },
+    {
+      id: "po-training",
+      seq: 2,
+      name: "Training",
+      ssp: "12,000.00",
+      start: "2027-07-10",
+      end: "2027-07-11",
+    },
+    {
+      id: "po-support",
+      seq: 3,
+      name: "Premium Support",
+      ssp: "24,000.00",
+      start: "2027-07-01",
+      end: "2028-06-30",
+    },
   ];
   const pos = poSpecs.map((spec) => ({
     ...createPoDraft(spec.seq, spec.id),
@@ -50,14 +71,44 @@ function horizonDraft(): WorkflowDraft {
     performanceObligations: pos,
     contractBalances: {
       considerationEvents: [
-        { ...createConsiderationEventDraft(1, "ce-1"), amountInput: "75,000.00", unconditionalRightDate: "2027-07-01", invoiceDate: "2027-07-01" },
-        { ...createConsiderationEventDraft(2, "ce-2"), amountInput: "39,000.00", unconditionalRightDate: "2028-01-01", invoiceDate: "2028-01-01" },
-        { ...createConsiderationEventDraft(3, "ce-3"), amountInput: "39,000.00", unconditionalRightDate: "2028-04-01", invoiceDate: "2028-04-01" },
+        {
+          ...createConsiderationEventDraft(1, "ce-1"),
+          amountInput: "75,000.00",
+          unconditionalRightDate: "2027-07-01",
+          invoiceDate: "2027-07-01",
+        },
+        {
+          ...createConsiderationEventDraft(2, "ce-2"),
+          amountInput: "39,000.00",
+          unconditionalRightDate: "2028-01-01",
+          invoiceDate: "2028-01-01",
+        },
+        {
+          ...createConsiderationEventDraft(3, "ce-3"),
+          amountInput: "39,000.00",
+          unconditionalRightDate: "2028-04-01",
+          invoiceDate: "2028-04-01",
+        },
       ],
       cashCollections: [
-        { ...createCashCollectionDraft(1, "cc-1"), considerationEventId: "ce-1", amountInput: "75,000.00", collectionDate: "2027-07-31" },
-        { ...createCashCollectionDraft(2, "cc-2"), considerationEventId: "ce-2", amountInput: "39,000.00", collectionDate: "2028-03-15" },
-        { ...createCashCollectionDraft(3, "cc-3"), considerationEventId: "ce-3", amountInput: "39,000.00", collectionDate: "2028-04-30" },
+        {
+          ...createCashCollectionDraft(1, "cc-1"),
+          considerationEventId: "ce-1",
+          amountInput: "75,000.00",
+          collectionDate: "2027-07-31",
+        },
+        {
+          ...createCashCollectionDraft(2, "cc-2"),
+          considerationEventId: "ce-2",
+          amountInput: "39,000.00",
+          collectionDate: "2028-03-15",
+        },
+        {
+          ...createCashCollectionDraft(3, "cc-3"),
+          considerationEventId: "ce-3",
+          amountInput: "39,000.00",
+          collectionDate: "2028-04-30",
+        },
       ],
     },
   };
@@ -163,7 +214,9 @@ describe("Phase 3 Acceptance Scenario A — Horizon Logistics", () => {
 
   it("finalizes and reconciles", () => {
     expect(result.finalized).toBe(true);
-    expect(formatCents(result.analysis!.reconciliation.totalConsiderationEventsCents)).toBe("$153,000.00");
+    expect(formatCents(result.analysis!.reconciliation.totalConsiderationEventsCents)).toBe(
+      "$153,000.00",
+    );
     expect(formatCents(result.analysis!.reconciliation.totalRevenueCents!)).toBe("$153,000.00");
     expect(result.analysis!.reconciliation.reconciled).toBe(true);
   });
@@ -202,7 +255,9 @@ describe("Phase 3 Acceptance Scenario B — Stellar", () => {
   it("finalizes and reconciles", () => {
     expect(result.finalized).toBe(true);
     expect(formatCents(result.analysis!.reconciliation.totalRevenueCents!)).toBe("$240,000.00");
-    expect(formatCents(result.analysis!.reconciliation.totalConsiderationEventsCents)).toBe("$240,000.00");
+    expect(formatCents(result.analysis!.reconciliation.totalConsiderationEventsCents)).toBe(
+      "$240,000.00",
+    );
     expect(result.analysis!.reconciliation.reconciled).toBe(true);
   });
 
@@ -329,7 +384,9 @@ describe("Phase 4B workflow bridge — engineInput exposure", () => {
     expect(input.considerationEvents.map((e) => [e.id, e.amountCents])).toEqual(
       draft.contractBalances.considerationEvents.map((e) => [
         e.id,
-        parseUsdToCents(e.amountInput).ok ? (parseUsdToCents(e.amountInput) as { cents: number }).cents : Number.NaN,
+        parseUsdToCents(e.amountInput).ok
+          ? (parseUsdToCents(e.amountInput) as { cents: number }).cents
+          : Number.NaN,
       ]),
     );
     expect(input.cashCollections.map((c) => [c.id, c.considerationEventId])).toEqual(

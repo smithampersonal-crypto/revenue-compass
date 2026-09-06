@@ -45,7 +45,13 @@ export function Section({
   );
 }
 
-export function Notice({ children, tone = "muted" }: { children: ReactNode; tone?: "muted" | "warning" | "danger" }) {
+export function Notice({
+  children,
+  tone = "muted",
+}: {
+  children: ReactNode;
+  tone?: "muted" | "warning" | "danger";
+}) {
   const toneClass =
     tone === "danger"
       ? "border-destructive/40 bg-destructive/10 text-destructive"

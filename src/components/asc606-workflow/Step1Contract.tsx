@@ -1,8 +1,4 @@
-import {
-  deriveStep1Conclusion,
-  STEP1_CRITERIA,
-  type WorkflowDraft,
-} from "@/lib/asc606-workflow";
+import { deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
 
@@ -58,7 +54,10 @@ export function Step1Contract({
           {STEP1_CRITERIA.map((criterion) => {
             const answer = contract.criteria[criterion.id];
             return (
-              <div key={criterion.id} className="space-y-2 border-b border-border pb-4 last:border-0">
+              <div
+                key={criterion.id}
+                className="space-y-2 border-b border-border pb-4 last:border-0"
+              >
                 <p className="text-sm text-muted-foreground">{criterion.description}</p>
                 <JudgmentControl
                   name={`criterion-${criterion.id}`}

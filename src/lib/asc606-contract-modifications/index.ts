@@ -9,6 +9,8 @@
 export * from "./types";
 export * from "./classification";
 export * from "./segmentation";
+export * from "./allocation";
+export * from "./recognition";
 export * from "./validation";
 
 import {
@@ -23,14 +25,14 @@ import {
 import type { RevenueSource } from "@/lib/asc606-material-rights";
 
 import { activeModifiedPos, classifyModification } from "./classification";
+import { allocateModificationPool, modificationPoolCents } from "./allocation";
+import { historicalCutoffDate, historicalRevenue, type SourceRow } from "./segmentation";
 import {
   composeSchedule,
-  futureRevenue,
-  historicalCutoffDate,
-  historicalRevenue,
+  continueFromRevisedCumulative,
   progressThroughCutoff,
-  type SourceRow,
-} from "./segmentation";
+  prospectiveRecognition,
+} from "./recognition";
 import {
   ContractModificationError,
   MIXED_POLICY_LABELS,
@@ -164,9 +166,7 @@ export function analyzeContractModification(
   const basis: ModificationAllocationBasis = usesTotalBasis
     ? "total_modified_ssp"
     : "remaining_ssp";
-  const poolCents = usesTotalBasis
-    ? lifecycleConsiderationCents
-    : input.originalTransactionPriceCents - historicalRevenueCents + mod.considerationChangeCents;
+  const poolCents = modificationPoolCents(input, usesTotalBasis, historicalRevenueCents);
 
   if (poolCents < 0) {
     return blockedResult(input, {
@@ -195,15 +195,7 @@ export function analyzeContractModification(
     });
   }
 
-  const allocationRows = allocateTransactionPrice({
-    transactionPriceCents: poolCents,
-    performanceObligations: active.map((po) => ({
-      id: po.id,
-      seq: po.seq,
-      name: po.name,
-      sspCents: usesTotalBasis ? po.totalModifiedSspCents : po.remainingSspCents,
-    })),
-  });
+  const allocationRows = allocateModificationPool(poolCents, active, basis);
   const allocatedById = new Map(allocationRows.map((row) => [row.poId, row.allocatedCents]));
 
   const catchUpEvents: ModificationCatchUpEvent[] = [];
@@ -271,7 +263,10 @@ export function analyzeContractModification(
         amountCents,
       });
 
-      const rows = futureRevenue(
+      // Modification-specific: continues the ORIGINAL clock from a revised
+      // cumulative entitlement. The core engine cannot express an opening
+      // cumulative balance; see recognition.ts.
+      const rows = continueFromRevisedCumulative(
         po,
         futureSourceId(mod.id, po.id),
         entitlement,
@@ -290,13 +285,8 @@ export function analyzeContractModification(
           `post-modification entitlement for "${po.name}" is negative`,
         );
       }
-      const rows = futureRevenue(
-        po,
-        futureSourceId(mod.id, po.id),
-        entitlement,
-        0,
-        mod.effectiveDate,
-      );
+      // Ordinary prospective obligation: delegated to the core engine.
+      const rows = prospectiveRecognition(po, futureSourceId(mod.id, po.id), entitlement);
       pushFuture(rows, po, mod.id, futureRows, postSources);
     }
   }

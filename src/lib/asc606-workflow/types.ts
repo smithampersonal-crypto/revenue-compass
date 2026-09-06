@@ -418,7 +418,6 @@ export function draftHasVariableConsideration(draft: WorkflowDraft): boolean {
   return draft.hasVariableConsideration && draft.variableConsiderationComponents.length > 0;
 }
 
-
 export const PO_CLASSIFICATION_LABELS: Record<PoClassification, string> = {
   single_distinct: "Single distinct promise",
   bundle_not_distinct: "Bundle of non-distinct promises",
@@ -530,7 +529,6 @@ export function createEmptyDraft(): WorkflowDraft {
     contractBalances: createEmptyContractBalances(),
   };
 }
-
 
 export type Step1Conclusion = "qualified" | "not_qualified" | "incomplete";
 

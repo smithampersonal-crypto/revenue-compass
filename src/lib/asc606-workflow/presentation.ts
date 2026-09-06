@@ -7,7 +7,12 @@
  * "not selected".
  */
 
-import { PO_CLASSIFICATION_LABELS, derivePromiseDistinct, type PoDraft, type PromiseDraft } from "./types";
+import {
+  PO_CLASSIFICATION_LABELS,
+  derivePromiseDistinct,
+  type PoDraft,
+  type PromiseDraft,
+} from "./types";
 
 export interface PromiseAnalysisRow {
   id: string;

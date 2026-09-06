@@ -18,7 +18,11 @@ function withEvents(
 ): WorkflowDraft {
   return {
     ...draft,
-    contractBalances: { ...draft.contractBalances, considerationEvents: events, cashCollections: [] },
+    contractBalances: {
+      ...draft.contractBalances,
+      considerationEvents: events,
+      cashCollections: [],
+    },
   };
 }
 
@@ -140,7 +144,9 @@ describe("signed revenue flows through balances and journals", () => {
     expect(result.finalized).toBe(true);
     const june = result.revenueSchedule!.byMonth.find((r) => r.month === "2027-06")!;
     expect(june.perPo["po-implementation"]).toBe(-2_000_000); // -$20,000.00
-    expect(result.variableConsideration!.totals.currentEstimatedConsiderationCents).toBe(47_000_000);
+    expect(result.variableConsideration!.totals.currentEstimatedConsiderationCents).toBe(
+      47_000_000,
+    );
     expect(result.variableConsideration!.reconciliation.reconciled).toBe(true);
   });
 

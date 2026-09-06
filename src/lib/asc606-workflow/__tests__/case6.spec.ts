@@ -36,7 +36,8 @@ function case6Draft(rightOverrides: Partial<PoDraft> = {}): WorkflowDraft {
     ...createPoDraft(1, "po-saas"),
     name: "Annual SaaS subscription",
     classification: "single_distinct",
-    classificationRationale: "Single distinct hosted service; the activation activity conveys no separate service.",
+    classificationRationale:
+      "Single distinct hosted service; the activation activity conveys no separate service.",
     sspInput: "120,000.00",
     sspBasis: "Observable standalone renewal pricing.",
     recognitionMethod: "over_time_ratable",

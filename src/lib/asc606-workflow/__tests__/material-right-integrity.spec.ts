@@ -40,7 +40,8 @@ function optionDraft(): WorkflowDraft {
   };
 }
 
-const ids = (draft: WorkflowDraft) => validateWorkflow(draft).blocking.map((f: { id: string }) => f.id);
+const ids = (draft: WorkflowDraft) =>
+  validateWorkflow(draft).blocking.map((f: { id: string }) => f.id);
 
 describe("Step 2 material-right integrity", () => {
   it("accepts exactly one qualifying customer option on a material right", () => {
@@ -78,7 +79,11 @@ describe("Step 2 material-right integrity", () => {
       p.id === "pr-option" ? { ...p, performanceObligationId: "po-extra" } : p,
     );
     expect(
-      ids({ ...draft, promises, performanceObligations: [...draft.performanceObligations, standard] }),
+      ids({
+        ...draft,
+        promises,
+        performanceObligations: [...draft.performanceObligations, standard],
+      }),
     ).toContain("promise.material_right.po_kind");
   });
 });
@@ -105,9 +110,7 @@ describe("a customer option conveying no material right", () => {
     const promises = draft.promises.map((p) =>
       p.id === "pr-option" ? { ...p, performanceObligationId: "po-saas" } : p,
     );
-    expect(ids({ ...draft, promises })).toContain(
-      "promise.option.no_material_right.unassigned",
-    );
+    expect(ids({ ...draft, promises })).toContain("promise.option.no_material_right.unassigned");
   });
 
   it("never enters allocation", () => {

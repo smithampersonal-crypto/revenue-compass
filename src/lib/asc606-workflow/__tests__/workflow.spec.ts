@@ -120,9 +120,9 @@ describe("workflow validation", () => {
   it("requires single_distinct to hold exactly one promise concluded distinct", () => {
     const draft = scenarioADraft();
     draft.promises[0]!.distinctWithinContractContext = false;
-    expect(
-      validateWorkflow(draft).blocking.some((i) => i.id === "po.single_distinct.valid"),
-    ).toBe(true);
+    expect(validateWorkflow(draft).blocking.some((i) => i.id === "po.single_distinct.valid")).toBe(
+      true,
+    );
 
     const two = scenarioBDraft();
     two.promises[1]!.performanceObligationId = "po-saas";
@@ -182,9 +182,9 @@ describe("workflow validation", () => {
 
     const pit = scenarioBDraft();
     pit.performanceObligations[1]!.recognitionDate = "";
-    expect(
-      validateWorkflow(pit).blocking.some((i) => i.id === "po.recognition_date.present"),
-    ).toBe(true);
+    expect(validateWorkflow(pit).blocking.some((i) => i.id === "po.recognition_date.present")).toBe(
+      true,
+    );
   });
 
   it("requires unique PO ids and sequences", () => {

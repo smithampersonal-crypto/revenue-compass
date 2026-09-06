@@ -1,5 +1,6 @@
 import {
   analyzeContractBalanceWorkflow,
+  analyzeWorkflow,
   createCashCollectionDraft,
   createConsiderationEventDraft,
   nextId,
@@ -27,13 +28,19 @@ export function BillingAndBalances({
   const { considerationEvents, cashCollections } = draft.contractBalances;
   // Phase 5B: a billing amount may be taken directly from the deterministic
   // variable-consideration engine instead of being re-entered.
-  const vcComponents = draft.hasVariableConsideration
-    ? draft.variableConsiderationComponents
-    : [];
+  const vcComponents = draft.hasVariableConsideration ? draft.variableConsiderationComponents : [];
   const result = analyzeContractBalanceWorkflow(draft);
+  // Phase 5C: when a modification produced more than one contract, each billing
+  // event must name the contract it belongs to. The list of contracts is engine
+  // output; React only renders it.
+  const contractGroups = analyzeWorkflow(draft).contractGroups;
+  const needsContractLink = contractGroups.length > 1;
 
   const setEvents = (events: ConsiderationEventDraft[]) =>
-    onChange({ ...draft, contractBalances: { ...draft.contractBalances, considerationEvents: events } });
+    onChange({
+      ...draft,
+      contractBalances: { ...draft.contractBalances, considerationEvents: events },
+    });
   const setCash = (rows: CashCollectionDraft[]) =>
     onChange({ ...draft, contractBalances: { ...draft.contractBalances, cashCollections: rows } });
 
@@ -56,8 +63,8 @@ export function BillingAndBalances({
               unconditional rights to consideration.
             </li>
             <li>
-              <span className="font-semibold">Unbilled AR</span> — an unconditional right exists, but
-              the customer has not yet been invoiced.
+              <span className="font-semibold">Unbilled AR</span> — an unconditional right exists,
+              but the customer has not yet been invoiced.
             </li>
             <li>
               <span className="font-semibold">Billed AR</span> — an unconditional right exists, the
@@ -99,6 +106,22 @@ export function BillingAndBalances({
                 </button>
               </div>
               <div className="grid gap-3 md:grid-cols-3">
+                {needsContractLink ? (
+                  <Field label="Contract">
+                    <select
+                      className={inputClass}
+                      value={event.contractGroupId ?? ""}
+                      onChange={(e) => updateEvent(event.id, { contractGroupId: e.target.value })}
+                    >
+                      <option value="">Select a contract…</option>
+                      {contractGroups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
                 {vcComponents.length > 0 ? (
                   <Field label="Amount source">
                     <select
@@ -163,7 +186,9 @@ export function BillingAndBalances({
                     type="date"
                     className={inputClass}
                     value={event.unconditionalRightDate}
-                    onChange={(e) => updateEvent(event.id, { unconditionalRightDate: e.target.value })}
+                    onChange={(e) =>
+                      updateEvent(event.id, { unconditionalRightDate: e.target.value })
+                    }
                   />
                 </Field>
                 <Field label="Invoice date">
@@ -274,7 +299,11 @@ export function BillingAndBalances({
         title="Resolve these items before the contract-balance workpaper can be finalized"
         issues={result.validation.blocking}
       />
-      <IssueList title="Contract-balance warnings" tone="warning" issues={result.validation.warnings} />
+      <IssueList
+        title="Contract-balance warnings"
+        tone="warning"
+        issues={result.validation.warnings}
+      />
 
       {result.finalized && result.analysis ? (
         <ContractBalanceOutputs analysis={result.analysis} />

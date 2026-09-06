@@ -4,7 +4,11 @@
  * an incomplete draft fails instead of defaulting to zeros or false.
  */
 
-import type { ContractPromise, PerformanceObligationInput, Phase1ContractInput } from "@/lib/asc606";
+import type {
+  ContractPromise,
+  PerformanceObligationInput,
+  Phase1ContractInput,
+} from "@/lib/asc606";
 import type {
   MaterialRightContractInput,
   MaterialRightExerciseInput,
@@ -14,8 +18,7 @@ import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import { derivePromiseDistinct, type WorkflowDraft } from "./types";
 
 export type AdapterResult =
-  | { ok: true; input: Phase1ContractInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: Phase1ContractInput } | { ok: false; errors: string[] };
 
 export function buildPhase1Input(draft: WorkflowDraft): AdapterResult {
   const errors: string[] = [];
@@ -91,15 +94,20 @@ export function buildPhase1Input(draft: WorkflowDraft): AdapterResult {
     const distinct = derivePromiseDistinct(promise);
 
     if (distinct === null) {
-      errors.push(`Distinctness judgments for "${promise.description || promise.id}" are incomplete.`);
+      errors.push(
+        `Distinctness judgments for "${promise.description || promise.id}" are incomplete.`,
+      );
       continue;
     }
-    if (promise.description.trim() === "") errors.push(`Promise "${promise.id}" requires a description.`);
+    if (promise.description.trim() === "")
+      errors.push(`Promise "${promise.id}" requires a description.`);
     if (promise.distinctRationale.trim() === "") {
       errors.push(`Distinctness rationale for "${promise.description || promise.id}" is required.`);
     }
     if (promise.performanceObligationId === null) {
-      errors.push(`Promise "${promise.description || promise.id}" is not assigned to a performance obligation.`);
+      errors.push(
+        `Promise "${promise.description || promise.id}" is not assigned to a performance obligation.`,
+      );
       continue;
     }
     promises.push({
@@ -136,8 +144,7 @@ export function buildPhase1Input(draft: WorkflowDraft): AdapterResult {
 // ---------------------------------------------------------------------------
 
 export type MaterialRightAdapterResult =
-  | { ok: true; input: MaterialRightContractInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: MaterialRightContractInput } | { ok: false; errors: string[] };
 
 export function buildMaterialRightContractInput(draft: WorkflowDraft): MaterialRightAdapterResult {
   const errors: string[] = [];
