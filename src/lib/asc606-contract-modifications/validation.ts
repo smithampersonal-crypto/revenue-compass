@@ -24,6 +24,11 @@ import {
   type ModifiedPerformanceObligationInput,
 } from "./types";
 
+/** A rationale is present only when it carries non-whitespace text. */
+function isBlank(value: string | null | undefined): boolean {
+  return value === null || value === undefined || value.trim() === "";
+}
+
 function outcome(results: CheckResult[]): ValidationOutcome {
   const blockingFailures = results.filter((r) => !r.passed && r.severity === "blocking");
   return {
