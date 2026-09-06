@@ -216,7 +216,9 @@ describe("Case 11 — approved workflow acceptance (cumulative catch-up)", () =>
  * Original $200,000: PO1 ($120,000, calendar 2028) and PO2 ($80,000, delivered
  * entirely after the modification date). Historical revenue is PO1 only.
  */
-function case12Draft(policy: "updated_total_transaction_price" | "updated_remaining_transaction_price"): WorkflowDraft {
+function case12Draft(
+  policy: "updated_total_transaction_price" | "updated_remaining_transaction_price",
+): WorkflowDraft {
   const draft = base120k();
   const po1 = {
     ...draft.performanceObligations[0]!,
@@ -332,7 +334,9 @@ describe("Case 12A — approved workflow acceptance (mixed, updated TOTAL price)
   });
 
   it("preserves $60,000 of historical revenue and recognizes a +$15,000 catch-up", () => {
-    expect(mod.historical.find((row) => row.poId === "po-saas")?.revenueCents).toBe(DOLLARS(60_000));
+    expect(mod.historical.find((row) => row.poId === "po-saas")?.revenueCents).toBe(
+      DOLLARS(60_000),
+    );
     expect(mod.totals.catchUpCents).toBe(DOLLARS(15_000));
   });
 });
