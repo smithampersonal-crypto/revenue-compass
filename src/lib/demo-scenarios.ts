@@ -347,7 +347,7 @@ function meridian(): WorkflowDraft {
         },
         {
           ...billingEvent(2, "ce-added-seats", "90,000.00", "2027-07-01", "2027-07-01"),
-          contractGroupId: "group::separate",
+          contractGroupId: "contract::mod::mod-1",
         },
       ],
       cashCollections: [
