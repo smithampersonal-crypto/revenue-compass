@@ -1,7 +1,7 @@
 import { it } from "vitest";
 import { createDemoDraft } from "@/lib/demo-scenarios";
-import { validateWorkflow } from "@/lib/asc606-workflow/validation";
+import { analyzeContractBalanceWorkflow } from "@/lib/asc606-workflow";
 it("dbg", () => {
-  const v = validateWorkflow(createDemoDraft("meridian"));
-  console.log(JSON.stringify(v.blocking, null, 1));
+  const r: any = analyzeContractBalanceWorkflow(createDemoDraft("meridian"));
+  console.log(JSON.stringify(r.issues ?? r.validation ?? r, null, 1).slice(0, 3000));
 });
