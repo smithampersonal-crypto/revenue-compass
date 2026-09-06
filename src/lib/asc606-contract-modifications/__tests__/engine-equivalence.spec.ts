@@ -105,7 +105,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   });
 
   it("Case 12A — original and newly added training match the core engine exactly", () => {
-    const analysis = analyzeContractModification(case12Mixed("total_transaction_price"));
+    const analysis = analyzeContractModification(case12Mixed("updated_total_transaction_price"));
     expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-training"))).toEqual(
       coreRows(
         {
@@ -133,7 +133,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   });
 
   it("Case 12B — original and newly added training match the core engine exactly", () => {
-    const analysis = analyzeContractModification(case12Mixed("remaining_transaction_price"));
+    const analysis = analyzeContractModification(case12Mixed("updated_remaining_transaction_price"));
     expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-training"))).toEqual(
       coreRows(
         {

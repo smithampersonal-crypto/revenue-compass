@@ -98,7 +98,7 @@ describe("Case 11 — cumulative catch-up (ASC 606-10-25-13(b))", () => {
 
 describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
   it("Policy A allocates the updated total transaction price", () => {
-    const analysis = analyzeContractModification(case12Mixed("total_transaction_price"));
+    const analysis = analyzeContractModification(case12Mixed("updated_total_transaction_price"));
     expect(analysis.classification!.treatment).toBe("mixed");
     expect(analysis.totals.updatedTotalTransactionPriceCents).toBe(25_000_000);
     expect(analysis.allocationLayers![0]!.rows.map((r) => r.allocatedCents)).toEqual([
@@ -113,7 +113,7 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
   });
 
   it("Policy B allocates the updated remaining transaction price", () => {
-    const analysis = analyzeContractModification(case12Mixed("remaining_transaction_price"));
+    const analysis = analyzeContractModification(case12Mixed("updated_remaining_transaction_price"));
     expect(analysis.totals.remainingTransactionPriceCents).toBe(19_000_000);
     expect(analysis.allocationLayers![0]!.rows.map((r) => r.allocatedCents)).toEqual([
       9_500_000, 6_333_333, 3_166_667,
@@ -129,8 +129,8 @@ describe("Case 12 — mixed modification (ASC 606-10-25-13(c))", () => {
 
 describe("modification controls", () => {
   it("blocks a point-in-time obligation transferring on the effective date", () => {
-    const input = case12Mixed("total_transaction_price");
-    input.modification.modifiedPerformanceObligations[1]!.recognitionDate = "2028-07-02";
+    const input = case12Mixed("updated_total_transaction_price");
+    input.contractModifications[0]!.postModificationPerformanceObligations[1]!.recognitionDate = "2028-07-02";
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain(
       "modification.po.same_day",
@@ -140,8 +140,8 @@ describe("modification controls", () => {
   });
 
   it("blocks a mixed modification with no allocation policy", () => {
-    const input = case12Mixed("total_transaction_price");
-    delete input.modification.mixedAllocationPolicy;
+    const input = case12Mixed("updated_total_transaction_price");
+    delete input.contractModifications[0]!.mixedAllocationPolicy;
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain(
       "modification.mixed_policy",
@@ -150,15 +150,15 @@ describe("modification controls", () => {
 
   it("blocks a reduction that leaves negative remaining consideration", () => {
     const input = case10Prospective();
-    input.modification.considerationChangeCents = -10_000_000;
+    input.contractModifications[0]!.considerationChangeCents = -10_000_000;
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.length).toBeGreaterThan(0);
     expect(analysis.revenueSchedule).toBeNull();
   });
 
   it("blocks an original obligation that is neither continued nor removed", () => {
-    const input = case12Mixed("total_transaction_price");
-    input.modification.modifiedPerformanceObligations.splice(1, 1);
+    const input = case12Mixed("updated_total_transaction_price");
+    input.contractModifications[0]!.postModificationPerformanceObligations.splice(1, 1);
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.map((f) => f.id)).toContain(
       "modification.original.accounted",
