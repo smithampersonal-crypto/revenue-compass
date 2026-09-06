@@ -8,9 +8,7 @@
 
 import { MAX_CENTS } from "@/lib/asc606";
 
-export type MoneyInputResult =
-  | { ok: true; cents: number }
-  | { ok: false; error: string };
+export type MoneyInputResult = { ok: true; cents: number } | { ok: false; error: string };
 
 const PATTERN = /^(\d{1,3}(,\d{3})*|\d+)(\.\d{1,2})?$/;
 
@@ -46,9 +44,7 @@ export function centsToInputString(cents: number): string {
   return `${negative ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
 
-export type PercentInputResult =
-  | { ok: true; bps: number }
-  | { ok: false; error: string };
+export type PercentInputResult = { ok: true; bps: number } | { ok: false; error: string };
 
 /**
  * Exact conversion of an accountant-entered percentage into integer basis
@@ -103,9 +99,7 @@ export function parseInclusivePercentToBps(raw: string): PercentInputResult {
   return { ok: true, bps };
 }
 
-export type QuantityInputResult =
-  | { ok: true; value: number }
-  | { ok: false; error: string };
+export type QuantityInputResult = { ok: true; value: number } | { ok: false; error: string };
 
 /**
  * Phase 5B usage quantities and rate denominators: whole numbers only, parsed
@@ -116,7 +110,8 @@ export function parseUsageQuantity(raw: string): QuantityInputResult {
   if (typeof raw !== "string") return { ok: false, error: "Enter a whole quantity." };
   const value = raw.trim().replace(/,/g, "");
   if (value === "") return { ok: false, error: "Enter a whole quantity." };
-  if (!/^\d+$/.test(value)) return { ok: false, error: "Enter a whole quantity, for example 8000000." };
+  if (!/^\d+$/.test(value))
+    return { ok: false, error: "Enter a whole quantity, for example 8000000." };
   const big = BigInt(value);
   if (big > BigInt(Number.MAX_SAFE_INTEGER)) {
     return { ok: false, error: "Quantity exceeds the quantity this engine can calculate exactly." };

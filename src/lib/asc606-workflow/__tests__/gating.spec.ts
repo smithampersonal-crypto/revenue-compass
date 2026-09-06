@@ -53,9 +53,9 @@ describe("Finding 2 — aggregate SSP supported range", () => {
     const draft = overflowDraft();
     const blocking = validateWorkflow(draft).blocking;
     expect(blocking.some((i) => i.id === "allocation.total_ssp.supported_range")).toBe(true);
-    expect(blocking.some((i) => i.id === "allocation.total_ssp.supported_range" && i.step === "4")).toBe(
-      true,
-    );
+    expect(
+      blocking.some((i) => i.id === "allocation.total_ssp.supported_range" && i.step === "4"),
+    ).toBe(true);
 
     const preview = previewAllocation(draft);
     expect(preview.rows).toBeNull();

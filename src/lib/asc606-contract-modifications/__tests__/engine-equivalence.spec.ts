@@ -38,9 +38,7 @@ function coreRows(po: RecognizableUnit, allocatedCents: number) {
 describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   it("Case 9 — separate-contract added service matches the core engine exactly", () => {
     const analysis = analyzeContractModification(case9SeparateContract());
-    expect(
-      phase5cRows(analysis, "po-added-seats"),
-    ).toEqual(
+    expect(phase5cRows(analysis, "po-added-seats")).toEqual(
       coreRows(
         {
           id: "po-added-seats",

@@ -14,7 +14,9 @@ import {
 import { scenarioADraft } from "./fixtures";
 
 /** Case 6 — Redwood Retail with a discounted renewal option. Fictional. */
-function case6Draft(overrides: Partial<ReturnType<typeof createMaterialRightPoDraft>> = {}): WorkflowDraft {
+function case6Draft(
+  overrides: Partial<ReturnType<typeof createMaterialRightPoDraft>> = {},
+): WorkflowDraft {
   const base = scenarioADraft();
   const right = {
     ...createMaterialRightPoDraft(2, "po-option"),

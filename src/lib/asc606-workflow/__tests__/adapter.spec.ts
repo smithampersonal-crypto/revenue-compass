@@ -62,6 +62,6 @@ describe("workflow → engine adapter", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(JSON.stringify(result)).not.toContain("Cents\":0");
+    expect(JSON.stringify(result)).not.toContain('Cents":0');
   });
 });

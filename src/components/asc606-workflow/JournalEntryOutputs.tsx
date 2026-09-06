@@ -119,7 +119,9 @@ export function JournalEntryOutputs({
               <td className={td}>{statusLabel(reconciliation.allEntriesBalanced)}</td>
             </tr>
             <tr>
-              <td className={td}>Monthly journal balances tie to Billing &amp; Contract Balances</td>
+              <td className={td}>
+                Monthly journal balances tie to Billing &amp; Contract Balances
+              </td>
               <td className={td}>{statusLabel(reconciliation.monthlyBalancesTie)}</td>
             </tr>
             <tr>

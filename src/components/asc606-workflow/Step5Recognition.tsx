@@ -20,7 +20,8 @@ export function Step5Recognition({
   const pos = draft.performanceObligations;
   // Read-only lifecycle amounts produced by the workflow/engine layer.
   const previews = new Map(materialRightStepPreviews(draft).map((row) => [row.poId, row]));
-  const money = (cents: number | null) => (cents === null ? "Not yet determinable" : formatCents(cents));
+  const money = (cents: number | null) =>
+    cents === null ? "Not yet determinable" : formatCents(cents);
   const patch = (id: string, values: Partial<PoDraft>) =>
     onChange({
       ...draft,
@@ -94,7 +95,9 @@ export function Step5Recognition({
       description="Select the recognition method and supporting dates for each performance obligation. Revenue amounts are produced by the deterministic engine."
     >
       <div className="space-y-4">
-        {pos.length === 0 ? <Notice>Create performance obligations in Step 2B first.</Notice> : null}
+        {pos.length === 0 ? (
+          <Notice>Create performance obligations in Step 2B first.</Notice>
+        ) : null}
         {pos.map((po) => (
           <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
             <p className="text-sm font-semibold">

@@ -92,7 +92,9 @@ export function Step5VariableConsideration({
                           </td>
                           <td className={td}>{formatCents(assessment.unconstrainedCents)}</td>
                           <td className={td}>{formatCents(assessment.includedCents)}</td>
-                          <td className={td}>{assessment.constraintConclusion.replace(/_/g, " ")}</td>
+                          <td className={td}>
+                            {assessment.constraintConclusion.replace(/_/g, " ")}
+                          </td>
                           <td className={td}>{formatCents(assessment.changeCents)}</td>
                         </tr>
                       ))}
