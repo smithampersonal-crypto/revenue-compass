@@ -106,7 +106,9 @@ describe("Phase 5C workflow integration", () => {
 
   it("blocks the analysis when a modification judgment is missing", () => {
     const draft = case9Draft();
-    draft.modification = { ...draft.modification, addsDistinctGoodsOrServices: null };
+    draft.contractModifications = [
+      { ...draft.contractModifications[0]!, priceReflectsAddedGoodsSsp: null },
+    ];
     const result = analyzeWorkflow(draft);
     expect(result.finalized).toBe(false);
     expect(result.revenueSchedule).toBeNull();
@@ -188,6 +190,131 @@ describe("Original contract allocation is never contaminated by a modification",
  * Remediation item 11: billing events must be explicitly assigned to a
  * contract once a modification produced more than one contract.
  */
+describe("Phase 5C workflow coverage of the remaining treatments", () => {
+  /** Case 10 — prospective: added distinct seats priced below their SSP. */
+  function case10Draft(): WorkflowDraft {
+    const draft = case9Draft();
+    const mod = draft.contractModifications[0]!;
+    draft.contractModifications = [
+      {
+        ...mod,
+        considerationMagnitudeInput: "18,000.00",
+        priceReflectsAddedGoodsSsp: false,
+        priceReflectsSspRationale: "The added seats are discounted below standalone price.",
+      },
+    ];
+    return draft;
+  }
+
+  /** Case 11 — cumulative catch-up: expanded scope of one non-distinct PO. */
+  function case11Draft(): WorkflowDraft {
+    const draft = case9Draft();
+    const mod = draft.contractModifications[0]!;
+    draft.contractModifications = [
+      {
+        ...mod,
+        scopeChangeDescription: "Expanded scope of the same integrated service",
+        considerationMagnitudeInput: "30,000.00",
+        priceReflectsAddedGoodsSsp: false,
+        modifiedPerformanceObligations: [
+          {
+            ...mod.modifiedPerformanceObligations[0]!,
+            scopeEffect: "increase" as const,
+            remainingGoodsDistinctFromTransferred: false,
+            remainingDistinctnessRationale: "Part of one integrated service.",
+            totalModifiedSspInput: "270,000.00",
+            serviceStart: "2027-01-01",
+            serviceEnd: "2028-12-31",
+          },
+        ],
+      },
+    ];
+    return draft;
+  }
+
+  /** Case 12 — mixed: one non-distinct continuing PO plus one distinct addition. */
+  function case12Draft(): WorkflowDraft {
+    const draft = case9Draft();
+    const mod = draft.contractModifications[0]!;
+    draft.contractModifications = [
+      {
+        ...mod,
+        considerationMagnitudeInput: "60,000.00",
+        priceReflectsAddedGoodsSsp: false,
+        mixedAllocationPolicy: "updated_total_transaction_price" as const,
+        mixedAllocationPolicyRationale: "Documented entity policy.",
+        modifiedPerformanceObligations: [
+          {
+            ...mod.modifiedPerformanceObligations[0]!,
+            scopeEffect: "increase" as const,
+            remainingGoodsDistinctFromTransferred: false,
+            remainingDistinctnessRationale: "Part of one integrated service.",
+            totalModifiedSspInput: "260,000.00",
+            serviceStart: "2027-01-01",
+            serviceEnd: "2028-12-31",
+          },
+          mod.modifiedPerformanceObligations[1]!,
+        ],
+      },
+    ];
+    return draft;
+  }
+
+  it("finalizes Case 10 prospectively without a catch-up", () => {
+    const result = analyzeWorkflow(case10Draft());
+    expect(result.finalized).toBe(true);
+    expect(result.modification?.classification?.treatment).toBe("prospective");
+    expect(result.modification?.totals.catchUpCents).toBe(0);
+    expect(result.modification?.reconciliation.reconciled).toBe(true);
+    expect(result.contractGroups).toHaveLength(1);
+  });
+
+  it("finalizes Case 11 with a cumulative catch-up on the effective date", () => {
+    const result = analyzeWorkflow(case11Draft());
+    expect(result.finalized).toBe(true);
+    expect(result.modification?.classification?.treatment).toBe("cumulative_catch_up");
+    expect(result.modification?.catchUpEvents).toHaveLength(1);
+    expect(result.modification?.catchUpEvents[0]!.month).toBe("2027-07");
+    expect(result.modification?.reconciliation.reconciled).toBe(true);
+  });
+
+  it("finalizes Case 12 as a mixed modification under the selected policy", () => {
+    const result = analyzeWorkflow(case12Draft());
+    expect(result.finalized).toBe(true);
+    expect(result.modification?.classification?.treatment).toBe("mixed");
+    expect(result.modification?.totals.updatedTotalTransactionPriceCents).toBe(30_000_000);
+    expect(result.modification?.reconciliation.reconciled).toBe(true);
+  });
+
+  it("blocks a mixed modification with no allocation policy selected", () => {
+    const draft = case12Draft();
+    draft.contractModifications = [
+      { ...draft.contractModifications[0]!, mixedAllocationPolicy: null },
+    ];
+    const result = analyzeWorkflow(draft);
+    expect(result.finalized).toBe(false);
+    expect(result.revenueSchedule).toBeNull();
+  });
+
+  it("blocks an unapproved modification", () => {
+    const draft = case9Draft();
+    draft.contractModifications = [
+      { ...draft.contractModifications[0]!, approvedAndEnforceable: false },
+    ];
+    const result = analyzeWorkflow(draft);
+    expect(result.finalized).toBe(false);
+  });
+
+  it("preserves entered modification data when the feature is switched off", () => {
+    const draft = case9Draft();
+    const disabled: WorkflowDraft = { ...draft, hasContractModifications: false };
+    const result = analyzeWorkflow(disabled);
+    expect(result.modification).toBeNull();
+    expect(disabled.contractModifications).toHaveLength(1);
+    expect(disabled.contractModifications[0]!.modifiedPerformanceObligations).toHaveLength(2);
+  });
+});
+
 describe("billing group assignment control", () => {
   function billedDraft(originalGroup: string | null, addedGroup: string | null): WorkflowDraft {
     const draft = case9Draft();
