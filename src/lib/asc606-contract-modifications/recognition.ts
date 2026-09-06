@@ -34,6 +34,40 @@ import type { SourceRow } from "./segmentation";
 
 export type { SourceRow } from "./segmentation";
 
+/**
+ * MODIFICATION-SPECIFIC entitlement arithmetic — ASC 606-10-25-13(b).
+ *
+ * Re-measures cumulative progress on a continuing obligation against the
+ * REVISED entitlement and derives the signed catch-up against revenue already
+ * recognized. This is accounting arithmetic, so it lives in the engine and
+ * never in orchestration or presentation code.
+ */
+export function computeCatchUp(
+  po: ModifiedPerformanceObligationInput,
+  entitlementCents: Cents,
+  previouslyRecognizedCents: Cents,
+  cutoffDate: IsoDate,
+): {
+  progressDays: number;
+  totalDays: number;
+  revisedCumulativeCents: Cents;
+  amountCents: Cents;
+} {
+  const { progressDays, totalDays } = progressThroughCutoff(po, cutoffDate);
+  const revisedCumulativeCents = proportionOfCents(
+    entitlementCents,
+    progressDays,
+    totalDays,
+    `revised cumulative revenue for "${po.name}"`,
+  );
+  return {
+    progressDays,
+    totalDays,
+    revisedCumulativeCents,
+    amountCents: revisedCumulativeCents - previouslyRecognizedCents,
+  };
+}
+
 /** Inclusive progress days through the cutoff for an over-time obligation. */
 export function progressThroughCutoff(
   po: ModifiedPerformanceObligationInput,
