@@ -111,7 +111,7 @@ export function BillingAndBalances({
                       className={inputClass}
                       value={event.contractGroupId ?? ""}
                       onChange={(e) =>
-                        updateEvent(event.id, { contractGroupId: e.target.value || null })
+                        updateEvent(event.id, { contractGroupId: e.target.value })
                       }
                     >
                       <option value="">Select a contract…</option>
