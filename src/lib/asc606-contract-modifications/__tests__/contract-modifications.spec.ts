@@ -46,8 +46,38 @@ describe("Case 9 — separate contract (ASC 606-10-25-12)", () => {
     expect(analysis.totals.lifecycleConsiderationCents).toBe(33_000_000);
     expect(analysis.totals.catchUpCents).toBe(0);
     expect(analysis.catchUpEvents).toEqual([]);
-    expect(analysis.historical).toEqual([]);
     expect(analysis.reconciliation.reconciled).toBe(true);
+  });
+
+  it("splits the lifecycle audit into history and future without touching either schedule", () => {
+    const originalSchedule = analysis.groups[0]!.revenueSchedule;
+    const separateSchedule = analysis.groups[1]!.revenueSchedule;
+    const originalBefore = originalSchedule.byMonth.map((row) => row.totalCents);
+    const separateBefore = separateSchedule.byMonth.map((row) => row.totalCents);
+    const combinedBefore = analysis.revenueSchedule!.byMonth.map((row) => row.totalCents);
+
+    expect(analysis.historicalCutoffDate).toBe("2027-06-30");
+    expect(analysis.totals.historicalRevenueCents).toBe(5_942_544);
+    expect(analysis.totals.futureRevenueCents).toBe(27_057_456);
+    expect(analysis.totals.catchUpCents).toBe(0);
+    expect(
+      analysis.totals.historicalRevenueCents +
+        analysis.totals.catchUpCents +
+        analysis.totals.futureRevenueCents,
+    ).toBe(33_000_000);
+
+    // Schedules are audit-inert: nothing is truncated, rebased or reallocated.
+    const rerun = analyzeContractModification(case9SeparateContract());
+    expect(rerun.groups[0]!.revenueSchedule.byMonth.map((r) => r.totalCents)).toEqual(
+      originalBefore,
+    );
+    expect(rerun.groups[0]!.revenueSchedule.totalCents).toBe(24_000_000);
+    expect(rerun.groups[1]!.revenueSchedule.byMonth.map((r) => r.totalCents)).toEqual(
+      separateBefore,
+    );
+    expect(rerun.groups[1]!.revenueSchedule.totalCents).toBe(9_000_000);
+    expect(rerun.revenueSchedule!.byMonth.map((r) => r.totalCents)).toEqual(combinedBefore);
+    expect(rerun.revenueSchedule!.totalCents).toBe(33_000_000);
   });
 
   it("recognizes the added seats over their own service period", () => {
