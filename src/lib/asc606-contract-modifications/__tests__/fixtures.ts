@@ -167,7 +167,8 @@ export function case10Prospective(): ContractModificationInput {
             addedGoodsAreDistinct: true,
             addedGoodsDistinctnessRationale: "The added seats are separately beneficial.",
             remainingGoodsDistinctFromTransferred: true,
-            remainingDistinctnessRationale: "The added seats are distinct from service already transferred.",
+            remainingDistinctnessRationale:
+              "The added seats are distinct from service already transferred.",
             remainingSspCents: 3_000_000,
             remainingSspBasis: EVIDENCE,
             totalModifiedSspCents: 3_000_000,
@@ -259,7 +260,8 @@ export function case12Mixed(policy: MixedAllocationPolicy): ContractModification
       scopeEffect: "unchanged",
       addedGoodsAreDistinct: null,
       remainingGoodsDistinctFromTransferred: true,
-      remainingDistinctnessRationale: "The training session is distinct from work already performed.",
+      remainingDistinctnessRationale:
+        "The training session is distinct from work already performed.",
       remainingSspCents: 8_000_000,
       remainingSspBasis: EVIDENCE,
       totalModifiedSspCents: 8_000_000,

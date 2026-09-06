@@ -131,7 +131,9 @@ describe("modification catch-up reaches the journals with the correct sign", () 
   });
 
   it("replays each presentation group's journals to that group's own rollforward", () => {
-    const balances = analyzeContractBalanceWorkflow(repricedDraft("150,000.00", "increase", "30,000.00"));
+    const balances = analyzeContractBalanceWorkflow(
+      repricedDraft("150,000.00", "increase", "30,000.00"),
+    );
     const journals = analyzeGroupedJournalEntries(balances.groupInputs);
     expect(journals.groups.length).toBeGreaterThan(0);
     for (const group of journals.groups) {

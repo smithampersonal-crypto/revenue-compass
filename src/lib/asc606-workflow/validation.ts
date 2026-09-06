@@ -634,7 +634,10 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
             "mod",
             `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
           );
-        } else if (treatment !== "separate_contract" && isBlank(po.remainingDistinctnessRationale)) {
+        } else if (
+          treatment !== "separate_contract" &&
+          isBlank(po.remainingDistinctnessRationale)
+        ) {
           add(
             "modification.po.distinct_rationale",
             "mod",
