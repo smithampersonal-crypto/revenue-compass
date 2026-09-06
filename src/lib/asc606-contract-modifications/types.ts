@@ -61,6 +61,13 @@ export interface ModifiedPerformanceObligationInput {
   /** Accountant judgment: is the remaining good or service distinct? */
   remainingGoodsDistinct: boolean;
   distinctRationale?: string;
+  /**
+   * Accountant judgment: how this modification changes the obligation's scope.
+   * A continuing obligation whose scope is NOT "unchanged" has been repriced or
+   * restructured, which disqualifies ASC 606-10-25-12 separate treatment.
+   * Absent, an obligation is treated as unchanged.
+   */
+  scopeEffect?: "unchanged" | "increase" | "decrease" | "reconfigured";
   /** SSP of the goods or services REMAINING to be transferred at the modification date. */
   remainingSspCents: Cents;
   /** SSP of the obligation as modified, measured for the whole obligation. */
@@ -81,6 +88,11 @@ export interface ModificationEventInput {
   description: string;
   /** Signed change in fixed consideration (a reduction is negative). */
   considerationChangeCents: Cents;
+  /**
+   * Direction of the change in consideration. Derived from the signed amount
+   * when the accountant's draft does not record it explicitly.
+   */
+  considerationEffect?: "increase" | "decrease" | "none";
   /** Accountant judgment: the added goods or services are distinct. */
   addsDistinctGoodsOrServices: boolean;
   /** Accountant judgment: the price increase reflects standalone selling prices. */
@@ -115,6 +127,9 @@ export interface ModificationClassification {
   allRemainingGoodsDistinct: boolean;
   /** True when no remaining good or service is distinct. */
   noRemainingGoodsDistinct: boolean;
+  /** ASC 606-10-25-12 test outcome and, when failed, every failed criterion. */
+  separateContractTestPassed: boolean;
+  separateContractFailures: string[];
   rationale: string;
   mixedAllocationPolicy: MixedAllocationPolicy | null;
 }
