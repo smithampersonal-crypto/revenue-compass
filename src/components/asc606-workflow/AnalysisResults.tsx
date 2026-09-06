@@ -9,7 +9,8 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { analyzeJournalEntries } from "@/lib/asc606-journals";
+import { analyzeGroupedJournalEntries, analyzeJournalEntries } from "@/lib/asc606-journals";
+import { ContractModificationOutputs } from "./ContractModificationOutputs";
 
 import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
 import { JournalEntryOutputs } from "./JournalEntryOutputs";
@@ -45,6 +46,10 @@ export function AnalysisResults({
   ]);
   const journalAnalysis =
     balances.finalized && balances.engineInput ? analyzeJournalEntries(balances.engineInput) : null;
+  const groupedJournals =
+    balances.finalized && balances.grouped
+      ? analyzeGroupedJournalEntries(balances.groupInputs)
+      : null;
 
   return (
     <div className="space-y-6">

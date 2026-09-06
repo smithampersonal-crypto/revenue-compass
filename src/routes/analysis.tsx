@@ -8,6 +8,7 @@ import {
 } from "@/lib/demo-scenarios";
 
 import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
+import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
 import { IssueList, Notice } from "@/components/asc606-workflow/fields";
 
@@ -122,6 +123,7 @@ function AnalysisPage() {
       {step === "3" ? <Step3TransactionPrice draft={draft} onChange={setDraft} /> : null}
       {step === "4" ? <Step4Allocation draft={draft} onChange={setDraft} /> : null}
       {step === "5" ? <Step5Recognition draft={draft} onChange={setDraft} /> : null}
+      {step === "mod" ? <ContractModifications draft={draft} onChange={setDraft} /> : null}
       {step === "balances" ? <BillingAndBalances draft={draft} onChange={setDraft} /> : null}
       {step === "results" ? <AnalysisResults draft={draft} result={result} /> : null}
 
