@@ -122,7 +122,8 @@ export function validatePhase1(input: Phase1ContractInput): ValidationOutcome {
   results.push(
     check(
       pos.every(
-        (po) => po.recognitionMethod === "over_time_ratable" || po.recognitionMethod === "point_in_time",
+        (po) =>
+          po.recognitionMethod === "over_time_ratable" || po.recognitionMethod === "point_in_time",
       ),
       "po.recognition_method.present",
       "revenue",
@@ -223,7 +224,9 @@ export function validatePhase1(input: Phase1ContractInput): ValidationOutcome {
     const poIds = new Set(pos.map((po) => po.id));
     results.push(
       check(
-        input.promises.every((p) => p.performanceObligationId !== null && poIds.has(p.performanceObligationId)),
+        input.promises.every(
+          (p) => p.performanceObligationId !== null && poIds.has(p.performanceObligationId),
+        ),
         "promise.assigned",
         "performance_obligations",
         "Every contract promise must be assigned to a performance obligation.",

@@ -15,7 +15,17 @@ import { describe, expect, it } from "vitest";
 
 import { recognizePerformanceObligation, type RecognizableUnit } from "@/lib/asc606";
 
-import { analyzeContractModification, futureSourceId } from "../index";
+import { analyzeContractModification } from "../index";
+
+/** Resolves the ordinary prospective revenue source for a modified obligation. */
+const futureSourceId = (analysis: ContractModificationAnalysis, poId: string) =>
+  analysis.revenueSources.find(
+    (source) =>
+      source.modificationPoId === poId &&
+      (source.sourceType === "prospective_modified_po" ||
+        source.sourceType === "mixed_prospective_po" ||
+        source.sourceType === "separate_contract_po"),
+  )?.id ?? "";
 import { case10Prospective, case12Mixed, case9SeparateContract } from "./fixtures";
 import type { ContractModificationAnalysis } from "../types";
 
@@ -38,7 +48,7 @@ function coreRows(po: RecognizableUnit, allocatedCents: number) {
 describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   it("Case 9 — separate-contract added service matches the core engine exactly", () => {
     const analysis = analyzeContractModification(case9SeparateContract());
-    expect(phase5cRows(analysis, "po-added-seats")).toEqual(
+    expect(phase5cRows(analysis, futureSourceId(analysis, "po-added-seats"))).toEqual(
       coreRows(
         {
           id: "po-added-seats",
@@ -72,7 +82,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
 
   it("Case 10 — remaining original prospective service matches the core engine exactly", () => {
     const analysis = analyzeContractModification(case10Prospective());
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-saas"))).toEqual(
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-saas"))).toEqual(
       coreRows(
         {
           id: "mpo-saas",
@@ -89,7 +99,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
 
   it("Case 10 — added prospective service matches the core engine exactly", () => {
     const analysis = analyzeContractModification(case10Prospective());
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-added-seats"))).toEqual(
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-added-seats"))).toEqual(
       coreRows(
         {
           id: "mpo-added-seats",
@@ -105,8 +115,8 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   });
 
   it("Case 12A — original and newly added training match the core engine exactly", () => {
-    const analysis = analyzeContractModification(case12Mixed("total_transaction_price"));
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-training"))).toEqual(
+    const analysis = analyzeContractModification(case12Mixed("updated_total_transaction_price"));
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-training"))).toEqual(
       coreRows(
         {
           id: "mpo-training",
@@ -118,7 +128,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
         6_666_667,
       ),
     );
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-support"))).toEqual(
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-support"))).toEqual(
       coreRows(
         {
           id: "mpo-support",
@@ -133,8 +143,10 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
   });
 
   it("Case 12B — original and newly added training match the core engine exactly", () => {
-    const analysis = analyzeContractModification(case12Mixed("remaining_transaction_price"));
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-training"))).toEqual(
+    const analysis = analyzeContractModification(
+      case12Mixed("updated_remaining_transaction_price"),
+    );
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-training"))).toEqual(
       coreRows(
         {
           id: "mpo-training",
@@ -146,7 +158,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
         6_333_333,
       ),
     );
-    expect(phase5cRows(analysis, futureSourceId("mod-1", "mpo-support"))).toEqual(
+    expect(phase5cRows(analysis, futureSourceId(analysis, "mpo-support"))).toEqual(
       coreRows(
         {
           id: "mpo-support",
@@ -174,7 +186,7 @@ describe("independent cumulative-cent clocks", () => {
 
   it("a 25-13(a) prospective segment restarts at zero on the modification date", () => {
     const analysis = analyzeContractModification(case10Prospective());
-    const rows = phase5cRows(analysis, futureSourceId("mod-1", "mpo-saas"));
+    const rows = phase5cRows(analysis, futureSourceId(analysis, "mpo-saas"));
     expect(rows[0]?.month).toBe("2028-07");
     // First prospective month is measured from day one of the NEW clock, not
     // as a continuation of the original contract's cumulative curve.

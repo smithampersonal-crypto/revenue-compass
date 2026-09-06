@@ -108,7 +108,12 @@ export function validateMaterialRightContract(
     }
     if (po.recognitionMethod === "over_time_ratable") {
       if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
-        fail(results, "po.service_dates.present", "revenue", `Service dates for "${label}" are required.`);
+        fail(
+          results,
+          "po.service_dates.present",
+          "revenue",
+          `Service dates for "${label}" are required.`,
+        );
       } else if (po.serviceEnd! < po.serviceStart!) {
         fail(
           results,
@@ -123,7 +128,12 @@ export function validateMaterialRightContract(
       }
     } else if (po.recognitionMethod === "point_in_time") {
       if (!isValidIsoDate(po.recognitionDate)) {
-        fail(results, "po.recognition_date.present", "revenue", `A recognition date for "${label}" is required.`);
+        fail(
+          results,
+          "po.recognition_date.present",
+          "revenue",
+          `A recognition date for "${label}" is required.`,
+        );
       } else {
         recognitionMonths.push(monthKeyOf(po.recognitionDate!));
       }
@@ -141,7 +151,12 @@ export function validateMaterialRightContract(
   for (const mr of rights) {
     const label = mr.name || mr.id;
     if (!mr.name || mr.name.trim() === "") {
-      fail(results, "material_right.name.present", "performance_obligations", `Material right "${mr.id}" requires a name.`);
+      fail(
+        results,
+        "material_right.name.present",
+        "performance_obligations",
+        `Material right "${mr.id}" requires a name.`,
+      );
     }
     if (!mr.underlyingGoodOrServiceName || mr.underlyingGoodOrServiceName.trim() === "") {
       fail(
@@ -171,7 +186,10 @@ export function validateMaterialRightContract(
         `The exercise probability at contract inception for "${label}" must be greater than 0% and no greater than 100%.`,
       );
     }
-    if (canMeasureMaterialRight(mr) && materialRightSspCents(mr.benefitAmountCents, mr.exerciseProbabilityBps) <= 0) {
+    if (
+      canMeasureMaterialRight(mr) &&
+      materialRightSspCents(mr.benefitAmountCents, mr.exerciseProbabilityBps) <= 0
+    ) {
       fail(
         results,
         "material_right.ssp.positive",
@@ -251,7 +269,12 @@ export function validateMaterialRightContract(
         continue;
       }
       if (!isValidIsoDate(exercise.exerciseDate)) {
-        fail(results, "material_right.exercise_date.present", "revenue", `A valid exercise date for "${label}" is required.`);
+        fail(
+          results,
+          "material_right.exercise_date.present",
+          "revenue",
+          `A valid exercise date for "${label}" is required.`,
+        );
       }
       if (!isValidCents(exercise.newConsiderationCents) || exercise.newConsiderationCents < 0) {
         fail(
@@ -276,11 +299,21 @@ export function validateMaterialRightContract(
             "revenue",
             `The exercise service end date for "${label}" must be on or after its start date.`,
           );
-        } else if (datePeriodExceedsSupportedHorizon(exercise.serviceStart!, exercise.serviceEnd!)) {
+        } else if (
+          datePeriodExceedsSupportedHorizon(exercise.serviceStart!, exercise.serviceEnd!)
+        ) {
           // Arithmetic check only: no month enumeration for an absurd range.
-          fail(results, "material_right.exercise_period.supported_range", "revenue", HORIZON_MESSAGE);
+          fail(
+            results,
+            "material_right.exercise_period.supported_range",
+            "revenue",
+            HORIZON_MESSAGE,
+          );
         } else {
-          recognitionMonths.push(monthKeyOf(exercise.serviceStart!), monthKeyOf(exercise.serviceEnd!));
+          recognitionMonths.push(
+            monthKeyOf(exercise.serviceStart!),
+            monthKeyOf(exercise.serviceEnd!),
+          );
         }
       } else if (exercise.recognitionMethod === "point_in_time") {
         if (!isValidIsoDate(exercise.recognitionDate)) {
@@ -309,7 +342,9 @@ export function validateMaterialRightContract(
   for (const po of standard) if (isValidCents(po.sspCents)) totalSspBig += BigInt(po.sspCents);
   for (const mr of rights) {
     if (canMeasureMaterialRight(mr)) {
-      totalSspBig += BigInt(materialRightSspCents(mr.benefitAmountCents, mr.exerciseProbabilityBps));
+      totalSspBig += BigInt(
+        materialRightSspCents(mr.benefitAmountCents, mr.exerciseProbabilityBps),
+      );
     }
   }
   if (totalSspBig > BigInt(MAX_CENTS)) {

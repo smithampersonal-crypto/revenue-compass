@@ -76,7 +76,13 @@ describe("Issue 2 — cumulative-to-date rounding", () => {
     for (let allocated = 0; allocated <= 60; allocated += 1) {
       for (const [serviceStart, serviceEnd] of periods) {
         const rows = recognizeOverTime(
-          overTimePo({ id: "po", seq: 1, sspCents: Math.max(allocated, 1), serviceStart, serviceEnd }),
+          overTimePo({
+            id: "po",
+            seq: 1,
+            sspCents: Math.max(allocated, 1),
+            serviceStart,
+            serviceEnd,
+          }),
           allocated,
         );
         expect(rows.every((row) => row.revenueCents >= 0)).toBe(true);

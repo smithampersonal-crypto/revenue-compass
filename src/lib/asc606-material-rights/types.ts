@@ -102,7 +102,6 @@ export interface RevenueSource {
   groupId?: string;
 }
 
-
 export interface MaterialRightOutcome {
   poId: string;
   seq: number;

@@ -37,11 +37,7 @@ interface PendingOp {
   sourceId: string | null;
 }
 
-function finalize(
-  op: PendingOp,
-  description: string,
-  lines: JournalLine[],
-): JournalEntry {
+function finalize(op: PendingOp, description: string, lines: JournalLine[]): JournalEntry {
   let debits = 0n;
   let credits = 0n;
   for (const line of lines) {
@@ -160,7 +156,11 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
           });
         }
         if (assetIncrease > 0n) {
-          lines.push({ account: "contract_asset", debitCents: Number(assetIncrease), creditCents: 0 });
+          lines.push({
+            account: "contract_asset",
+            debitCents: Number(assetIncrease),
+            creditCents: 0,
+          });
         }
         contractLiability -= liabilityUsed;
         contractAsset += assetIncrease;
@@ -171,7 +171,11 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
         const assetReduced = magnitude < contractAsset ? magnitude : contractAsset;
         const liabilityIncrease = magnitude - assetReduced;
         if (assetReduced > 0n) {
-          lines.push({ account: "contract_asset", debitCents: 0, creditCents: Number(assetReduced) });
+          lines.push({
+            account: "contract_asset",
+            debitCents: 0,
+            creditCents: Number(assetReduced),
+          });
         }
         if (liabilityIncrease > 0n) {
           lines.push({

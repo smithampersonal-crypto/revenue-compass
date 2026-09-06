@@ -126,11 +126,7 @@ describe("revenue-schedule integrity validation", () => {
     let running = 0;
     const byMonth = base.byMonth.map((row, index) => {
       const totalCents =
-        index === 0
-          ? row.totalCents - 100
-          : index === 1
-            ? row.totalCents + 100
-            : row.totalCents;
+        index === 0 ? row.totalCents - 100 : index === 1 ? row.totalCents + 100 : row.totalCents;
       running += totalCents;
       return { ...row, totalCents, cumulativeCents: running };
     });

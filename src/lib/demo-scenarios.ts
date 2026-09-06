@@ -355,45 +355,59 @@ function meridian(): WorkflowDraft {
         cashReceipt(2, "cash-added-seats", "ce-added-seats", "90,000.00", "2027-07-31"),
       ],
     },
-    hasContractModification: true,
-    modification: {
-      ...createModificationDraft(),
-      effectiveDate: "2027-07-01",
-      description: "Customer adds 50 seats from 1 July 2027 through the end of the term.",
-      considerationChangeInput: "90,000.00",
-      considerationChangeDirection: "increase",
-      addsDistinctGoodsOrServices: true,
-      priceReflectsStandaloneSellingPrices: true,
-      separateContractRationale:
-        "The added seats are distinct and are priced at their standalone selling price.",
-      modifiedPerformanceObligations: [
-        {
-          ...createModifiedPoDraft(1, "po-saas", "continuing"),
-          name: "SaaS subscription (100 seats)",
-          sourcePoId: "po-saas",
-          remainingGoodsDistinct: true,
-          remainingSspInput: "120,000.00",
-          totalModifiedSspInput: "240,000.00",
-          sspBasis: "Observable standalone renewal pricing.",
-          recognitionMethod: "over_time_ratable",
-          serviceStart: "2027-07-01",
-          serviceEnd: "2028-12-31",
-          recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
-        },
-        {
-          ...createModifiedPoDraft(2, "po-added-seats", "added"),
-          name: "SaaS subscription (50 added seats)",
-          remainingGoodsDistinct: true,
-          remainingSspInput: "90,000.00",
-          totalModifiedSspInput: "90,000.00",
-          sspBasis: "Observable per-seat standalone price.",
-          recognitionMethod: "over_time_ratable",
-          serviceStart: "2027-07-01",
-          serviceEnd: "2028-12-31",
-          recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
-        },
-      ],
-    },
+    hasContractModifications: true,
+    contractModifications: [
+      {
+        ...createModificationDraft(1),
+        modificationDate: "2027-07-01",
+        approvedAndEnforceable: true,
+        approvalRationale: "Signed amendment countersigned by both parties on 1 July 2027.",
+        scopeChangeDescription:
+          "Customer adds 50 seats from 1 July 2027 through the end of the term.",
+        considerationMagnitudeInput: "90,000.00",
+        considerationEffect: "increase",
+        priceReflectsAddedGoodsSsp: true,
+        priceReflectsSspRationale:
+          "The added seats are priced at the observable per-seat standalone selling price.",
+        modifiedPerformanceObligations: [
+          {
+            ...createModifiedPoDraft(1, "mod-1-po-1", "continuing"),
+            name: "SaaS subscription (100 seats)",
+            sourcePoId: "po-saas",
+            scopeEffect: "unchanged",
+            remainingGoodsDistinctFromTransferred: true,
+            remainingDistinctnessRationale:
+              "Each day of hosted service is distinct from the days already transferred.",
+            remainingSspInput: "120,000.00",
+            remainingSspBasis: "Observable standalone renewal pricing.",
+            totalModifiedSspInput: "240,000.00",
+            totalModifiedSspBasis: "Observable standalone renewal pricing.",
+            recognitionMethod: "over_time_ratable",
+            serviceStart: "2027-07-01",
+            serviceEnd: "2028-12-31",
+            recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
+          },
+          {
+            ...createModifiedPoDraft(2, "mod-1-po-2", "added"),
+            name: "SaaS subscription (50 added seats)",
+            addedGoodsAreDistinct: true,
+            addedGoodsDistinctnessRationale:
+              "The added seats are capable of being distinct and are separately identifiable.",
+            remainingGoodsDistinctFromTransferred: true,
+            remainingDistinctnessRationale:
+              "The added seats are distinct from the service already transferred.",
+            remainingSspInput: "90,000.00",
+            remainingSspBasis: "Observable per-seat standalone price.",
+            totalModifiedSspInput: "90,000.00",
+            totalModifiedSspBasis: "Observable per-seat standalone price.",
+            recognitionMethod: "over_time_ratable",
+            serviceStart: "2027-07-01",
+            serviceEnd: "2028-12-31",
+            recognitionRationale: "Simultaneous receipt and consumption of the hosted service.",
+          },
+        ],
+      },
+    ],
   };
 }
 

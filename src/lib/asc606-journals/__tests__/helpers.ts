@@ -1,8 +1,4 @@
-import {
-  analyzePhase1,
-  type PerformanceObligationInput,
-  type RevenueSchedule,
-} from "@/lib/asc606";
+import { analyzePhase1, type PerformanceObligationInput, type RevenueSchedule } from "@/lib/asc606";
 import type {
   CashCollectionEvent,
   ConsiderationEvent,
@@ -16,7 +12,9 @@ export function schedule(pos: PerformanceObligationInput[], priceCents: number):
     performanceObligations: pos,
   });
   if (!analysis.revenueSchedule) {
-    throw new Error(`fixture schedule invalid: ${analysis.validation.blockingFailures.map((f) => f.id).join(",")}`);
+    throw new Error(
+      `fixture schedule invalid: ${analysis.validation.blockingFailures.map((f) => f.id).join(",")}`,
+    );
   }
   return analysis.revenueSchedule;
 }

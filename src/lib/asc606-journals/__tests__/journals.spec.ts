@@ -249,7 +249,9 @@ describe("Phase 4A Acceptance Scenario A — Horizon Logistics", () => {
       ["revenue", 0, 1_020_000, "po-training"],
       ["revenue", 0, 172_787, "po-support"],
     ]);
-    const july = entries().filter((e) => e.date === "2027-07-31").map((e) => e.eventType);
+    const july = entries()
+      .filter((e) => e.date === "2027-07-31")
+      .map((e) => e.eventType);
     expect(july).toEqual(["revenue_recognition", "cash_collection"]);
     expect(linesOf(entryAt(entries(), "2027-07-31", "cash_collection"))).toEqual([
       ["cash", 7_500_000, 0, undefined],
@@ -300,10 +302,11 @@ describe("Phase 4A Acceptance Scenario A — Horizon Logistics", () => {
       ["revenue", 0, 1_003_279, "po-saas"],
       ["revenue", 0, 167_213, "po-support"],
     ]);
-    expect(entries().filter((e) => e.date === "2028-04-30").map((e) => e.eventType)).toEqual([
-      "revenue_recognition",
-      "cash_collection",
-    ]);
+    expect(
+      entries()
+        .filter((e) => e.date === "2028-04-30")
+        .map((e) => e.eventType),
+    ).toEqual(["revenue_recognition", "cash_collection"]);
   });
 
   it("replays to the approved Phase 3 monthly balances", () => {
@@ -363,10 +366,11 @@ describe("Phase 4A Acceptance Scenario B — Stellar", () => {
       ["contract_asset", 1_890_411, 0, undefined],
       ["revenue", 0, 1_972_603, "po-saas"],
     ]);
-    expect(entries().filter((e) => e.date === "2027-04-30").map((e) => e.eventType)).toEqual([
-      "revenue_recognition",
-      "cash_collection",
-    ]);
+    expect(
+      entries()
+        .filter((e) => e.date === "2027-04-30")
+        .map((e) => e.eventType),
+    ).toEqual(["revenue_recognition", "cash_collection"]);
   });
 
   it("books the later quarter rights", () => {
@@ -387,10 +391,11 @@ describe("Phase 4A Acceptance Scenario B — Stellar", () => {
   });
 
   it("books January 2028 invoice and cash with no revenue", () => {
-    expect(entries().filter((e) => e.month === "2028-01").map((e) => e.eventType)).toEqual([
-      "invoice_reclassification",
-      "cash_collection",
-    ]);
+    expect(
+      entries()
+        .filter((e) => e.month === "2028-01")
+        .map((e) => e.eventType),
+    ).toEqual(["invoice_reclassification", "cash_collection"]);
     const led = result.ledgerByMonth!;
     const at = (month: string) => led.find((r) => r.month === month)!;
     expect(at("2027-03").unbilledArCents).toBe(6_000_000);

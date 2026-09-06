@@ -100,7 +100,9 @@ describe("consideration-event validation", () => {
 
   it("blocks invalid dates", () => {
     expect(
-      blockingIds(input({ considerationEvents: [event({ unconditionalRightDate: "2027-02-30" })] })),
+      blockingIds(
+        input({ considerationEvents: [event({ unconditionalRightDate: "2027-02-30" })] }),
+      ),
     ).toContain("consideration.unconditional_right_date.valid");
     expect(blockingIds(input({ considerationEvents: [event({ invoiceDate: "" })] }))).toContain(
       "consideration.invoice_date.valid",
@@ -108,12 +110,12 @@ describe("consideration-event validation", () => {
   });
 
   it("requires consideration events to equal the transaction price exactly", () => {
-    expect(blockingIds(input({ considerationEvents: [event({ amountCents: 18_000_000 })] }))).toContain(
-      "consideration.total.equals_transaction_price",
-    );
-    expect(blockingIds(input({ considerationEvents: [event({ amountCents: 30_000_000 })] }))).toContain(
-      "consideration.total.equals_transaction_price",
-    );
+    expect(
+      blockingIds(input({ considerationEvents: [event({ amountCents: 18_000_000 })] })),
+    ).toContain("consideration.total.equals_transaction_price");
+    expect(
+      blockingIds(input({ considerationEvents: [event({ amountCents: 30_000_000 })] })),
+    ).toContain("consideration.total.equals_transaction_price");
     expect(blockingIds(input())).not.toContain("consideration.total.equals_transaction_price");
   });
 });
@@ -140,16 +142,18 @@ describe("cash collection validation", () => {
   });
 
   it("blocks cash before the invoice date", () => {
-    expect(blockingIds(input({ cashCollections: [cash({ collectionDate: "2027-03-31" })] }))).toContain(
-      "cash.before_invoice_date",
-    );
+    expect(
+      blockingIds(input({ cashCollections: [cash({ collectionDate: "2027-03-31" })] })),
+    ).toContain("cash.before_invoice_date");
   });
 
   it("blocks cash before the unconditional-right date", () => {
     expect(
       blockingIds(
         input({
-          considerationEvents: [event({ unconditionalRightDate: "2027-06-30", invoiceDate: "2027-01-01" })],
+          considerationEvents: [
+            event({ unconditionalRightDate: "2027-06-30", invoiceDate: "2027-01-01" }),
+          ],
           cashCollections: [cash({ collectionDate: "2027-02-01" })],
         }),
       ),
@@ -163,14 +167,16 @@ describe("cash collection validation", () => {
   });
 
   it("blocks collections exceeding the event amount", () => {
-    expect(
-      blockingIds(input({ cashCollections: [cash({ amountCents: PRICE + 1 })] })),
-    ).toContain("cash.exceeds_event_amount");
+    expect(blockingIds(input({ cashCollections: [cash({ amountCents: PRICE + 1 })] }))).toContain(
+      "cash.exceeds_event_amount",
+    );
   });
 
   it("blocks invalid ids, sequences, amounts and dates", () => {
     expect(blockingIds(input({ cashCollections: [cash({ id: "" })] }))).toContain("cash.id.empty");
-    expect(blockingIds(input({ cashCollections: [cash({ seq: 1.5 })] }))).toContain("cash.seq.valid");
+    expect(blockingIds(input({ cashCollections: [cash({ seq: 1.5 })] }))).toContain(
+      "cash.seq.valid",
+    );
     expect(blockingIds(input({ cashCollections: [cash({ amountCents: 0 })] }))).toContain(
       "cash.amount.valid",
     );
@@ -266,7 +272,12 @@ describe("AR classification", () => {
       input({
         cashCollections: [
           cash({ id: "cc-1", seq: 1, amountCents: 2_000_000, collectionDate: "2027-05-15" }),
-          cash({ id: "cc-2", seq: 2, amountCents: PRICE - 2_000_000, collectionDate: "2027-06-15" }),
+          cash({
+            id: "cc-2",
+            seq: 2,
+            amountCents: PRICE - 2_000_000,
+            collectionDate: "2027-06-15",
+          }),
         ],
       }),
     );
@@ -289,16 +300,64 @@ describe("blocked analyses produce no authoritative accounting", () => {
 describe("monthly accounting invariants", () => {
   it("holds for every month of a representative arrears-billing contract", () => {
     const events: ConsiderationEvent[] = [
-      { id: "q1", seq: 1, amountCents: 6_000_000, unconditionalRightDate: "2027-03-31", invoiceDate: "2027-04-01" },
-      { id: "q2", seq: 2, amountCents: 6_000_000, unconditionalRightDate: "2027-06-30", invoiceDate: "2027-07-01" },
-      { id: "q3", seq: 3, amountCents: 6_000_000, unconditionalRightDate: "2027-09-30", invoiceDate: "2027-10-01" },
-      { id: "q4", seq: 4, amountCents: 6_000_000, unconditionalRightDate: "2027-12-31", invoiceDate: "2028-01-01" },
+      {
+        id: "q1",
+        seq: 1,
+        amountCents: 6_000_000,
+        unconditionalRightDate: "2027-03-31",
+        invoiceDate: "2027-04-01",
+      },
+      {
+        id: "q2",
+        seq: 2,
+        amountCents: 6_000_000,
+        unconditionalRightDate: "2027-06-30",
+        invoiceDate: "2027-07-01",
+      },
+      {
+        id: "q3",
+        seq: 3,
+        amountCents: 6_000_000,
+        unconditionalRightDate: "2027-09-30",
+        invoiceDate: "2027-10-01",
+      },
+      {
+        id: "q4",
+        seq: 4,
+        amountCents: 6_000_000,
+        unconditionalRightDate: "2027-12-31",
+        invoiceDate: "2028-01-01",
+      },
     ];
     const collections: CashCollectionEvent[] = [
-      { id: "c1", seq: 1, considerationEventId: "q1", amountCents: 6_000_000, collectionDate: "2027-04-30" },
-      { id: "c2", seq: 2, considerationEventId: "q2", amountCents: 6_000_000, collectionDate: "2027-07-31" },
-      { id: "c3", seq: 3, considerationEventId: "q3", amountCents: 6_000_000, collectionDate: "2027-10-31" },
-      { id: "c4", seq: 4, considerationEventId: "q4", amountCents: 6_000_000, collectionDate: "2028-01-31" },
+      {
+        id: "c1",
+        seq: 1,
+        considerationEventId: "q1",
+        amountCents: 6_000_000,
+        collectionDate: "2027-04-30",
+      },
+      {
+        id: "c2",
+        seq: 2,
+        considerationEventId: "q2",
+        amountCents: 6_000_000,
+        collectionDate: "2027-07-31",
+      },
+      {
+        id: "c3",
+        seq: 3,
+        considerationEventId: "q3",
+        amountCents: 6_000_000,
+        collectionDate: "2027-10-31",
+      },
+      {
+        id: "c4",
+        seq: 4,
+        considerationEventId: "q4",
+        amountCents: 6_000_000,
+        collectionDate: "2028-01-31",
+      },
     ];
     const result = analyzeContractBalances(
       input({ considerationEvents: events, cashCollections: collections }),

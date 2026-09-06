@@ -19,17 +19,13 @@ import { parseUsdToCents } from "./money-input";
 import type { ModificationDraft, ModifiedPoDraft, WorkflowDraft } from "./types";
 
 export type BuildModificationResult =
-  | { ok: true; input: ContractModificationInput }
-  | { ok: false; errors: string[] };
+  { ok: true; input: ContractModificationInput } | { ok: false; errors: string[] };
 
 function label(po: ModifiedPoDraft): string {
   return po.name || po.id;
 }
 
-function buildEvent(
-  mod: ModificationDraft,
-  errors: string[],
-): ModificationEventInput | null {
+function buildEvent(mod: ModificationDraft, errors: string[]): ModificationEventInput | null {
   if (!mod.modificationDate) errors.push("Enter the modification effective date.");
   if (mod.approvedAndEnforceable === null) {
     errors.push(

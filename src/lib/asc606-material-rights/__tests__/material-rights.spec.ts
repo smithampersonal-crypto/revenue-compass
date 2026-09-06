@@ -106,10 +106,9 @@ describe("Case 6 — exercised material right", () => {
     const source = analysis.revenueSources.find((s) => s.sourceType === "material_right_exercise");
     expect(source?.id).toBe("po-2::exercise");
     expect(source?.materialRightPoId).toBe("po-2");
-    const exerciseRevenue = analysis.revenueSchedule!.byPo.filter((r) => r.poId === source!.id).reduce(
-      (t, r) => t + r.revenueCents,
-      0,
-    );
+    const exerciseRevenue = analysis
+      .revenueSchedule!.byPo.filter((r) => r.poId === source!.id)
+      .reduce((t, r) => t + r.revenueCents, 0);
     expect(exerciseRevenue).toBe(EXPECTED_RIGHT_ALLOCATION + 2_400_000);
     expect(analysis.revenueSchedule!.lastMonth).toBe("2028-12");
   });

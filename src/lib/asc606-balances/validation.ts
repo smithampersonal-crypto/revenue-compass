@@ -13,11 +13,7 @@ import {
   MAX_CENTS,
   MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
 } from "@/lib/asc606";
-import type {
-  BalanceCheckResult,
-  BalanceValidationOutcome,
-  ContractBalanceInput,
-} from "./types";
+import type { BalanceCheckResult, BalanceValidationOutcome, ContractBalanceInput } from "./types";
 
 export function validateContractBalanceInput(
   input: ContractBalanceInput,
@@ -46,7 +42,11 @@ export function validateContractBalanceInput(
   // ---- Consideration events ----------------------------------------------
   const ids = events.map((e) => (e.id ?? "").trim());
   if (ids.some((id) => id === "")) {
-    fail("consideration.id.empty", "consideration", "Every billing event needs a non-empty identifier.");
+    fail(
+      "consideration.id.empty",
+      "consideration",
+      "Every billing event needs a non-empty identifier.",
+    );
   }
   const nonEmptyIds = ids.filter((id) => id !== "");
   if (new Set(nonEmptyIds).size !== nonEmptyIds.length) {
@@ -54,7 +54,11 @@ export function validateContractBalanceInput(
   }
   const seqs = events.map((e) => e.seq);
   if (seqs.some((s) => !Number.isInteger(s) || s <= 0)) {
-    fail("consideration.seq.valid", "consideration", "Every billing event sequence must be a positive whole number.");
+    fail(
+      "consideration.seq.valid",
+      "consideration",
+      "Every billing event sequence must be a positive whole number.",
+    );
   }
   const validSeqs = seqs.filter((s) => Number.isInteger(s) && s > 0);
   if (new Set(validSeqs).size !== validSeqs.length) {
@@ -80,7 +84,11 @@ export function validateContractBalanceInput(
     );
   }
   if (events.some((e) => !isValidIsoDate(e.invoiceDate))) {
-    fail("consideration.invoice_date.valid", "consideration", "Every billing event needs a valid invoice date.");
+    fail(
+      "consideration.invoice_date.valid",
+      "consideration",
+      "Every billing event needs a valid invoice date.",
+    );
   }
 
   let totalEvents = 0n;
@@ -97,7 +105,11 @@ export function validateContractBalanceInput(
   }
   const priceValid = amountValid(input.transactionPriceCents);
   if (!priceValid) {
-    fail("consideration.transaction_price.valid", "consideration", "The transaction price is not a supported whole-cent amount.");
+    fail(
+      "consideration.transaction_price.valid",
+      "consideration",
+      "The transaction price is not a supported whole-cent amount.",
+    );
   } else if (events.length > 0 && totalEvents !== BigInt(input.transactionPriceCents)) {
     fail(
       "consideration.total.equals_transaction_price",
@@ -117,22 +129,38 @@ export function validateContractBalanceInput(
   }
   const cashSeqs = cash.map((c) => c.seq);
   if (cashSeqs.some((s) => !Number.isInteger(s) || s <= 0)) {
-    fail("cash.seq.valid", "cash", "Every cash collection sequence must be a positive whole number.");
+    fail(
+      "cash.seq.valid",
+      "cash",
+      "Every cash collection sequence must be a positive whole number.",
+    );
   }
   const validCashSeqs = cashSeqs.filter((s) => Number.isInteger(s) && s > 0);
   if (new Set(validCashSeqs).size !== validCashSeqs.length) {
     fail("cash.seq.unique", "cash", "Cash collection sequences must be unique.");
   }
   if (cash.some((c) => !amountValid(c.amountCents))) {
-    fail("cash.amount.valid", "cash", "Every cash collection must be a supported whole-cent amount greater than zero.");
+    fail(
+      "cash.amount.valid",
+      "cash",
+      "Every cash collection must be a supported whole-cent amount greater than zero.",
+    );
   }
   if (cash.some((c) => !isValidIsoDate(c.collectionDate))) {
-    fail("cash.collection_date.valid", "cash", "Every cash collection needs a valid collection date.");
+    fail(
+      "cash.collection_date.valid",
+      "cash",
+      "Every cash collection needs a valid collection date.",
+    );
   }
 
   const byId = new Map(events.map((e) => [e.id, e]));
   if (cash.some((c) => !byId.has(c.considerationEventId))) {
-    fail("cash.event_reference.valid", "cash", "Every cash collection must reference an existing billing event.");
+    fail(
+      "cash.event_reference.valid",
+      "cash",
+      "Every cash collection must reference an existing billing event.",
+    );
   }
 
   let cashBeforeInvoice = false;
@@ -141,7 +169,11 @@ export function validateContractBalanceInput(
   for (const c of cash) {
     const event = byId.get(c.considerationEventId);
     if (!event) continue;
-    if (isValidIsoDate(c.collectionDate) && isValidIsoDate(event.invoiceDate) && c.collectionDate < event.invoiceDate) {
+    if (
+      isValidIsoDate(c.collectionDate) &&
+      isValidIsoDate(event.invoiceDate) &&
+      c.collectionDate < event.invoiceDate
+    ) {
       cashBeforeInvoice = true;
     }
     if (
@@ -152,10 +184,7 @@ export function validateContractBalanceInput(
       cashBeforeRight = true;
     }
     if (amountValid(c.amountCents)) {
-      appliedByEvent.set(
-        event.id,
-        (appliedByEvent.get(event.id) ?? 0n) + BigInt(c.amountCents),
-      );
+      appliedByEvent.set(event.id, (appliedByEvent.get(event.id) ?? 0n) + BigInt(c.amountCents));
     }
   }
   if (cashBeforeInvoice) {
@@ -216,7 +245,11 @@ type FailFn = (
 function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): void {
   const schedule = input.revenueSchedule;
   if (!schedule || !Array.isArray(schedule.byMonth)) {
-    fail("revenue_schedule.present", "revenue_schedule", "A completed revenue schedule is required.");
+    fail(
+      "revenue_schedule.present",
+      "revenue_schedule",
+      "A completed revenue schedule is required.",
+    );
     return;
   }
 
@@ -296,7 +329,11 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
     running += BigInt(row.totalCents);
     const cumulative = (row as { cumulativeCents?: unknown }).cumulativeCents;
     if (cumulative === undefined) continue;
-    if (typeof cumulative !== "number" || !Number.isInteger(cumulative) || BigInt(cumulative) !== running) {
+    if (
+      typeof cumulative !== "number" ||
+      !Number.isInteger(cumulative) ||
+      BigInt(cumulative) !== running
+    ) {
       cumulativeBroken = true;
     }
   }
@@ -317,7 +354,7 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
       "revenue_schedule.unscheduled.valid",
       "revenue_schedule",
       "Unscheduled material-right consideration must be a nonnegative whole-cent amount.",
-      );
+    );
   } else if (
     priceValid &&
     BigInt(schedule.totalCents) + BigInt(unscheduled) !== BigInt(input.transactionPriceCents)
@@ -340,11 +377,13 @@ function validateAccountingHorizon(input: ContractBalanceInput, fail: FailFn): v
     if (isValidMonthKey(row.month)) months.push(row.month);
   }
   for (const event of input.considerationEvents ?? []) {
-    if (isValidIsoDate(event.unconditionalRightDate)) months.push(monthKeyOf(event.unconditionalRightDate));
+    if (isValidIsoDate(event.unconditionalRightDate))
+      months.push(monthKeyOf(event.unconditionalRightDate));
     if (isValidIsoDate(event.invoiceDate)) months.push(monthKeyOf(event.invoiceDate));
   }
   for (const collection of input.cashCollections ?? []) {
-    if (isValidIsoDate(collection.collectionDate)) months.push(monthKeyOf(collection.collectionDate));
+    if (isValidIsoDate(collection.collectionDate))
+      months.push(monthKeyOf(collection.collectionDate));
   }
   if (months.length === 0) return;
   const first = months.reduce((a, b) => (a < b ? a : b));

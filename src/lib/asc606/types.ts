@@ -80,14 +80,12 @@ export interface RecognizableUnit {
 
 /** Performance obligation resulting from the accountant's Step 2 grouping. */
 export interface PerformanceObligationInput
-  extends AllocatablePerformanceObligation,
-    RecognizableUnit {
+  extends AllocatablePerformanceObligation, RecognizableUnit {
   /** Accountant's documentation of how SSP was determined. */
   sspBasis?: string;
   classification?: PoClassification;
   classificationRationale?: string;
 }
-
 
 /** Phase 1 engine input: the contract facts needed for Steps 4 and 5. */
 export interface Phase1ContractInput {

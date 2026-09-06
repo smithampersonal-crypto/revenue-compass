@@ -494,6 +494,51 @@ export function AnalysisResults({
               </div>
             ) : null,
           )}
+          {balances.grouped.combinedMonthly ? (
+            <Section
+              title="Combined contract balances — gross presentation"
+              description="The sum of each contract's separately determined balances. Contract assets and contract liabilities are added gross and are never offset against each other."
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr>
+                      <th className={th}>Month</th>
+                      <th className={th}>Revenue</th>
+                      <th className={th}>Billed AR</th>
+                      <th className={th}>Unbilled AR</th>
+                      <th className={th}>Contract asset (gross)</th>
+                      <th className={th}>Contract liability (gross)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {balances.grouped.combinedMonthly.map((row) => (
+                      <tr key={row.month}>
+                        <td className={td}>{row.month}</td>
+                        <td className={td}>{formatCents(row.revenueCents)}</td>
+                        <td className={td}>{formatCents(row.billedArCents)}</td>
+                        <td className={td}>{formatCents(row.unbilledArCents)}</td>
+                        <td className={td}>{formatCents(row.contractAssetCents)}</td>
+                        <td className={td}>{formatCents(row.contractLiabilityCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-sm">
+                <span className="font-semibold">Combined transaction price: </span>
+                {formatCents(balances.grouped.combinedTransactionPriceCents)}
+                {balances.grouped.combinedRevenueCents !== null ? (
+                  <>
+                    {" · "}
+                    <span className="font-semibold">Combined revenue recognized: </span>
+                    {formatCents(balances.grouped.combinedRevenueCents)}
+                  </>
+                ) : null}
+              </p>
+            </Section>
+          ) : null}
+
           {groupedJournals?.groups.map((group) => (
             <JournalEntryOutputs
               key={group.groupId}

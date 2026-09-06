@@ -42,8 +42,8 @@ function EngineCheck() {
       <header className="space-y-2">
         <h1 className="text-2xl font-bold">ASC 606 Engine Check</h1>
         <p className="text-muted-foreground">
-          Internal validation view. All contracts are fictional. Every number below is produced by the
-          deterministic Phase 1 engine; this page performs no accounting arithmetic.
+          Internal validation view. All contracts are fictional. Every number below is produced by
+          the deterministic Phase 1 engine; this page performs no accounting arithmetic.
         </p>
         <select
           className="border border-border bg-background px-2 py-1"

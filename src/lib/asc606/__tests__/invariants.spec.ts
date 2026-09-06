@@ -39,7 +39,10 @@ describe("allocation invariants", () => {
       overTimePo({ id: "b", seq: 2, sspCents: 1_000_000 }),
       overTimePo({ id: "c", seq: 3, sspCents: 1_000_000 }),
     ];
-    const forward = allocateTransactionPrice({ transactionPriceCents: 10_000_000, performanceObligations: pos });
+    const forward = allocateTransactionPrice({
+      transactionPriceCents: 10_000_000,
+      performanceObligations: pos,
+    });
     const reversed = allocateTransactionPrice({
       transactionPriceCents: 10_000_000,
       performanceObligations: [...pos].reverse(),
@@ -142,7 +145,13 @@ describe("recognition invariants", () => {
   it("invalid date sequences cannot produce a schedule", () => {
     expect(() =>
       recognizeOverTime(
-        overTimePo({ id: "po", seq: 1, sspCents: 1000, serviceStart: "2027-05-01", serviceEnd: "2027-04-30" }),
+        overTimePo({
+          id: "po",
+          seq: 1,
+          sspCents: 1000,
+          serviceStart: "2027-05-01",
+          serviceEnd: "2027-04-30",
+        }),
         1000,
       ),
     ).toThrow();

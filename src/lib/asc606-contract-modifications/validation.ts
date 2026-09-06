@@ -126,8 +126,7 @@ export function validateContractModification(input: ContractModificationInput): 
     return outcome(results);
   }
   const considerationChangeCents = signedConsiderationChangeCents(mod);
-  const lifecycle =
-    BigInt(input.originalTransactionPriceCents) + BigInt(considerationChangeCents);
+  const lifecycle = BigInt(input.originalTransactionPriceCents) + BigInt(considerationChangeCents);
   if (lifecycle > BigInt(MAX_CENTS) || lifecycle < 0n) {
     fail(
       "modification.lifecycle_range",
@@ -391,7 +390,8 @@ export function validateContractModification(input: ContractModificationInput): 
       if (usesTotalBasis) requireTotal(po, context);
       else requireRemaining(po, context);
 
-      const isCatchUp = treatment === "cumulative_catch_up" || !po.remainingGoodsDistinctFromTransferred;
+      const isCatchUp =
+        treatment === "cumulative_catch_up" || !po.remainingGoodsDistinctFromTransferred;
       if (isCatchUp) {
         if (po.recognitionMethod !== "over_time_ratable") {
           fail(
