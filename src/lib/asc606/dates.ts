@@ -68,6 +68,20 @@ export function dayIndex(value: IsoDate): number {
   return Math.round(Date.UTC(year, month - 1, day) / MS_PER_DAY);
 }
 
+/** Calendar-day arithmetic in UTC. Negative offsets move backwards. */
+export function addCalendarDays(value: IsoDate, days: number): IsoDate {
+  if (!Number.isInteger(days)) {
+    throw new DateError(`day offset must be an integer (received ${days})`);
+  }
+  const { year, month, day } = parseIsoDate(value);
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  return toIsoDate({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  });
+}
+
 /** Exclusive difference: daysBetween("2027-01-01", "2027-01-02") === 1. */
 export function daysBetween(start: IsoDate, end: IsoDate): number {
   return dayIndex(end) - dayIndex(start);
