@@ -472,7 +472,37 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {balances.finalized && balances.analysis ? (
+      {result.modification ? (
+        <ContractModificationOutputs modification={result.modification} />
+      ) : null}
+
+      {balances.finalized && balances.grouped ? (
+        <>
+          {balances.grouped.groups.map((group) =>
+            group.analysis.monthly ? (
+              <div key={group.groupId} className="space-y-4">
+                <Section
+                  title={`Billing, receivables and contract balances — ${group.label}`}
+                  description="Each contract is presented separately. Contract assets of one contract are never offset against contract liabilities of another."
+                >
+                  <Notice>
+                    Contract asset and contract liability are determined from cumulative revenue
+                    versus cumulative unconditional rights to consideration for this contract only.
+                  </Notice>
+                </Section>
+                <ContractBalanceOutputs analysis={group.analysis} />
+              </div>
+            ) : null,
+          )}
+          {groupedJournals?.groups.map((group) => (
+            <JournalEntryOutputs
+              key={group.groupId}
+              analysis={group.analysis}
+              poNames={sourceNames}
+            />
+          ))}
+        </>
+      ) : balances.finalized && balances.analysis ? (
         <>
           <Section
             title="Billing, receivables and contract balances"
@@ -504,7 +534,7 @@ export function AnalysisResults({
         </Section>
       )}
 
-      {journalAnalysis ? (
+      {balances.grouped ? null : journalAnalysis ? (
         <JournalEntryOutputs analysis={journalAnalysis} poNames={sourceNames} />
       ) : (
         <Section title="Journal Entries">
