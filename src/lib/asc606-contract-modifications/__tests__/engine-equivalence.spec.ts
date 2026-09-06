@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { recognizePerformanceObligation, type RecognizableUnit } from "@/lib/asc606";
 
-import { analyzeContractModification } from "../index";
+import { analyzeContractModification, ORIGINAL_GROUP_ID } from "../index";
 
 /** Resolves the ordinary prospective revenue source for a modified obligation. */
 const futureSourceId = (analysis: ContractModificationAnalysis, poId: string) =>
