@@ -10,37 +10,57 @@
 
 import { allocateTransactionPrice, type AllocationRow, type Cents } from "@/lib/asc606";
 
-import type {
-  ContractModificationInput,
-  ModificationAllocationBasis,
-  ModifiedPerformanceObligationInput,
+import {
+  ContractModificationError,
+  type ModificationAllocationBasis,
+  type ModifiedPerformanceObligationInput,
 } from "./types";
 
 /**
  * Consideration available to the post-modification allocation.
  *
- * - total basis (25-13(b) and Mixed Policy A): the updated TOTAL transaction
- *   price for the whole lifecycle.
- * - remaining basis (25-13(a) and Mixed Policy B): original transaction price
- *   less revenue already recognized, plus the signed change in consideration.
+ * - total basis (25-13(b) and the updated-total mixed policy): the updated
+ *   TOTAL transaction price for the whole lifecycle.
+ * - remaining basis (25-13(a) and the updated-remaining mixed policy): original
+ *   transaction price less revenue already recognized, plus the signed change.
  */
 export function modificationPoolCents(
-  input: ContractModificationInput,
+  originalTransactionPriceCents: Cents,
+  considerationChangeCents: Cents,
   usesTotalBasis: boolean,
   historicalRevenueCents: Cents,
 ): Cents {
-  const change = input.modification.considerationChangeCents;
   return usesTotalBasis
-    ? input.originalTransactionPriceCents + change
-    : input.originalTransactionPriceCents - historicalRevenueCents + change;
+    ? originalTransactionPriceCents + considerationChangeCents
+    : originalTransactionPriceCents - historicalRevenueCents + considerationChangeCents;
 }
 
-/** Which SSP concept the derived branch requires. Never substituted. */
+/**
+ * Which SSP concept the derived branch requires. Never substituted: when the
+ * branch-specific standalone selling price is absent, allocation is impossible
+ * and the engine refuses rather than falling back to the other measure.
+ */
 export function sspForBasis(
   po: ModifiedPerformanceObligationInput,
   basis: ModificationAllocationBasis,
 ): Cents {
-  return basis === "total_modified_ssp" ? po.totalModifiedSspCents : po.remainingSspCents;
+  const value = basis === "total_modified_ssp" ? po.totalModifiedSspCents : po.remainingSspCents;
+  if (value === null || value === undefined) {
+    throw new ContractModificationError(
+      `the standalone selling price required by the derived treatment is missing for "${po.name}"`,
+    );
+  }
+  return value;
+}
+
+/** Accountant evidence supporting the SSPs used by the derived branch. */
+export function sspBasisFor(
+  po: ModifiedPerformanceObligationInput,
+  basis: ModificationAllocationBasis,
+): string | null {
+  const value =
+    basis === "total_modified_ssp" ? po.totalModifiedSspBasis : po.remainingSspBasis;
+  return value && value.trim() !== "" ? value : null;
 }
 
 /** Relative-SSP allocation of a modification pool via the existing engine. */
