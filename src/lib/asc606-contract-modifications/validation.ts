@@ -24,6 +24,11 @@ import {
   type ModifiedPerformanceObligationInput,
 } from "./types";
 
+/** A rationale is present only when it carries non-whitespace text. */
+function isBlank(value: string | null | undefined): boolean {
+  return value === null || value === undefined || value.trim() === "";
+}
+
 function outcome(results: CheckResult[]): ValidationOutcome {
   const blockingFailures = results.filter((r) => !r.passed && r.severity === "blocking");
   return {
@@ -91,6 +96,13 @@ export function validateContractModification(input: ContractModificationInput): 
     );
   } else {
     pass("modification.approval", "contract", "The modification is approved and enforceable.");
+    if (isBlank(mod.approvalRationale)) {
+      fail(
+        "modification.approval.rationale",
+        "contract",
+        "Document the basis for concluding that the modification is approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+      );
+    }
   }
 
   if (!isValidIsoDate(mod.modificationDate)) {
@@ -104,13 +116,6 @@ export function validateContractModification(input: ContractModificationInput): 
       "modification.description",
       "contract",
       "Describe the change in scope, price, or both made by the modification.",
-    );
-  }
-  if (mod.priceReflectsAddedGoodsSsp === null) {
-    fail(
-      "modification.price_reflects_ssp",
-      "contract",
-      "State whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
     );
   }
   if (
@@ -143,6 +148,29 @@ export function validateContractModification(input: ContractModificationInput): 
       "Enter the performance obligations that exist after the modification.",
     );
     return outcome(results);
+  }
+
+  // ASC 606-10-25-12(b) is only a meaningful question when the modification
+  // actually adds goods or services. A pure scope reduction or a price-only
+  // change never reaches criterion (b), so the accountant is not asked to
+  // answer a structurally irrelevant criterion in order to continue into
+  // ASC 606-10-25-13.
+  const addedPos = active.filter((po) => po.status === "added");
+  const criterionBRelevant = addedPos.length > 0;
+  if (criterionBRelevant) {
+    if (mod.priceReflectsAddedGoodsSsp === null) {
+      fail(
+        "modification.price_reflects_ssp",
+        "contract",
+        "State whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+      );
+    } else if (isBlank(mod.priceReflectsSspRationale)) {
+      fail(
+        "modification.price_reflects_ssp.rationale",
+        "contract",
+        "Document the basis for the conclusion on whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+      );
+    }
   }
 
   if (mod.id.includes(RESERVED_ID_NAMESPACE)) {
@@ -206,6 +234,12 @@ export function validateContractModification(input: ContractModificationInput): 
           "modification.po.added_distinct",
           "performance_obligations",
           `State whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
+        );
+      } else if (isBlank(po.addedGoodsDistinctnessRationale)) {
+        fail(
+          "modification.po.added_distinct_rationale",
+          "performance_obligations",
+          `Document the basis for the distinctness conclusion on the goods or services added by "${label}" (ASC 606-10-25-12(a)).`,
         );
       }
     }
@@ -300,12 +334,35 @@ export function validateContractModification(input: ContractModificationInput): 
   const treatment = deriveModificationTreatment(mod);
   const cutoff = historicalCutoffDate(mod.modificationDate);
 
-  if (treatment === "mixed" && !mod.mixedAllocationPolicy) {
-    fail(
-      "modification.mixed_policy",
-      "allocation",
-      "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services.",
-    );
+  if (treatment === "mixed") {
+    if (!mod.mixedAllocationPolicy) {
+      fail(
+        "modification.mixed_policy",
+        "allocation",
+        "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services.",
+      );
+    } else if (isBlank(mod.mixedAllocationPolicyRationale)) {
+      fail(
+        "modification.mixed_policy.rationale",
+        "allocation",
+        "Document why the selected allocation policy is appropriate for this mixed modification (ASC 606-10-25-13(c)).",
+      );
+    }
+  }
+
+  // ASC 606-10-25-13 routing turns entirely on whether the remaining goods or
+  // services are distinct from those already transferred. Whenever that
+  // judgment is used, its basis is mandatory.
+  if (treatment !== "separate_contract") {
+    for (const po of active) {
+      if (isBlank(po.remainingDistinctnessRationale)) {
+        fail(
+          "modification.po.remaining_distinct_rationale",
+          "performance_obligations",
+          `Document why the remaining goods or services of "${po.name || po.id}" are or are not distinct from those already transferred (ASC 606-10-25-13).`,
+        );
+      }
+    }
   }
 
   // ---- Branch-specific standalone selling prices ---------------------------

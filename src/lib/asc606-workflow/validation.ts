@@ -14,6 +14,11 @@ import {
   MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
 } from "@/lib/asc606";
 import { materialRightSspCents } from "@/lib/asc606-material-rights";
+import {
+  deriveModificationTreatment,
+  type ModificationEventInput,
+  type ModificationTreatment,
+} from "@/lib/asc606-contract-modifications";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   derivePromiseDistinct,
@@ -21,9 +26,46 @@ import {
   draftHasMaterialRights,
   draftHasVariableConsideration,
   STEP1_CRITERIA,
+  type ModificationDraft,
   type PoDraft,
   type WorkflowDraft,
 } from "./types";
+
+/**
+ * Derives the ASC 606 treatment of a draft modification with the AUTHORITATIVE
+ * pure classifier so the workflow layer can surface the same rationale controls
+ * the engine enforces. The routing rule is never reimplemented here.
+ */
+function draftModificationTreatment(mod: ModificationDraft): ModificationTreatment {
+  const event: ModificationEventInput = {
+    id: mod.id,
+    seq: mod.seq,
+    modificationDate: mod.modificationDate || "1970-01-01",
+    approvedAndEnforceable: mod.approvedAndEnforceable,
+    scopeChangeDescription: mod.scopeChangeDescription,
+    considerationEffect: mod.considerationEffect,
+    considerationMagnitudeCents: parseUsdToCents(mod.considerationMagnitudeInput).ok
+      ? (parseUsdToCents(mod.considerationMagnitudeInput) as { ok: true; cents: number }).cents
+      : 0,
+    priceReflectsAddedGoodsSsp: mod.priceReflectsAddedGoodsSsp,
+    mixedAllocationPolicy: mod.mixedAllocationPolicy,
+    removedPoIds: [...mod.removedPoIds],
+    postModificationPerformanceObligations: mod.modifiedPerformanceObligations.map((po) => ({
+      id: po.id,
+      seq: po.seq,
+      name: po.name,
+      status: po.status,
+      sourcePoId: po.sourcePoId,
+      scopeEffect: po.scopeEffect,
+      addedGoodsAreDistinct: po.addedGoodsAreDistinct,
+      remainingGoodsDistinctFromTransferred: po.remainingGoodsDistinctFromTransferred === true,
+      remainingSspCents: null,
+      totalModifiedSspCents: null,
+      recognitionMethod: po.recognitionMethod ?? "over_time_ratable",
+    })),
+  };
+  return deriveModificationTreatment(event);
+}
 
 export type WorkflowStepId = "1" | "2a" | "2b" | "3" | "4" | "5" | "mod";
 
@@ -486,6 +528,12 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           "mod",
           "An unapproved or unenforceable modification is not accounted for under ASC 606-10-25-10. Record it once it is approved, or remove it.",
         );
+      } else if (isBlank(mod.approvalRationale)) {
+        add(
+          "modification.approval.rationale",
+          "mod",
+          "Document the basis for concluding that the modification is approved and creates enforceable rights and obligations (ASC 606-10-25-10).",
+        );
       }
       if (isBlank(mod.scopeChangeDescription)) {
         add("modification.description", "mod", "Describe the contract modification.");
@@ -502,12 +550,39 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
           );
         }
       }
-      if (mod.priceReflectsAddedGoodsSsp === null) {
-        add(
-          "modification.criterion_b",
-          "mod",
-          "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
-        );
+      // ASC 606-10-25-12(b) is only asked when the modification adds goods or
+      // services. A pure scope reduction never reaches criterion (b).
+      const addsGoods = mod.modifiedPerformanceObligations.some((po) => po.status === "added");
+      if (addsGoods) {
+        if (mod.priceReflectsAddedGoodsSsp === null) {
+          add(
+            "modification.criterion_b",
+            "mod",
+            "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+          );
+        } else if (isBlank(mod.priceReflectsSspRationale)) {
+          add(
+            "modification.criterion_b.rationale",
+            "mod",
+            "Document the basis for the conclusion on whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+          );
+        }
+      }
+      const treatment = draftModificationTreatment(mod);
+      if (treatment === "mixed") {
+        if (mod.mixedAllocationPolicy === null) {
+          add(
+            "modification.mixed_policy",
+            "mod",
+            "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services (ASC 606-10-25-13(c)).",
+          );
+        } else if (isBlank(mod.mixedAllocationPolicyRationale)) {
+          add(
+            "modification.mixed_policy.rationale",
+            "mod",
+            "Document why the selected allocation policy is appropriate for this mixed modification (ASC 606-10-25-13(c)).",
+          );
+        }
       }
       if (mod.modifiedPerformanceObligations.length === 0) {
         add(
@@ -546,12 +621,24 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
             "mod",
             `Answer whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
           );
+        } else if (isBlank(po.addedGoodsDistinctnessRationale)) {
+          add(
+            "modification.po.added_distinct_rationale",
+            "mod",
+            `Document the basis for the distinctness conclusion on the goods or services added by "${label}" (ASC 606-10-25-12(a)).`,
+          );
         }
         if (po.remainingGoodsDistinctFromTransferred === null) {
           add(
             "modification.po.distinct",
             "mod",
             `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
+          );
+        } else if (treatment !== "separate_contract" && isBlank(po.remainingDistinctnessRationale)) {
+          add(
+            "modification.po.distinct_rationale",
+            "mod",
+            `Document why the remaining goods or services of "${label}" are or are not distinct from those already transferred (ASC 606-10-25-13).`,
           );
         }
         if (po.remainingSspInput.trim() !== "") {

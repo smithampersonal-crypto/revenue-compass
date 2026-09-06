@@ -36,9 +36,11 @@ import {
 } from "./allocation";
 import {
   HISTORICAL_SEGMENT_ID,
+  ORIGINAL_CONTRACT_ID,
   ORIGINAL_SEGMENT_ID,
   historicalCutoffDate,
   historicalRevenue,
+  modificationContractId,
   modificationSegmentId,
   modificationSourceId,
   type ModificationSourceKind,
@@ -68,8 +70,13 @@ import {
 } from "./types";
 import { validateContractModification } from "./validation";
 
-export const ORIGINAL_GROUP_ID = "group::original";
-export const NEW_CONTRACT_GROUP_ID = "group::separate";
+/**
+ * Contract-presentation identity is deterministic and shared with
+ * `segmentation.ts`. There is no second naming convention: the original
+ * contract is always `contract::original` and a modification that creates a
+ * genuinely new contract is always `contract::mod::<modificationId>`.
+ */
+export const ORIGINAL_GROUP_ID = ORIGINAL_CONTRACT_ID;
 
 const SOURCE_TYPE_BY_KIND: Record<ModificationSourceKind, RevenueSourceType> = {
   original_historical: "original_historical",
@@ -197,6 +204,7 @@ export function analyzeContractModification(
         modificationId: mod.id,
         segmentId: HISTORICAL_SEGMENT_ID,
         groupId: ORIGINAL_GROUP_ID,
+        effectiveDate: mod.modificationDate,
       });
     }
   }
@@ -266,6 +274,7 @@ export function analyzeContractModification(
       modificationId: mod.id,
       segmentId: postSegmentId,
       groupId: ORIGINAL_GROUP_ID,
+      effectiveDate: mod.modificationDate,
     });
   };
 
@@ -313,6 +322,7 @@ export function analyzeContractModification(
           modificationId: mod.id,
           segmentId: postSegmentId,
           groupId: ORIGINAL_GROUP_ID,
+          effectiveDate: mod.modificationDate,
         });
       }
       catchUpEvents.push({
@@ -481,6 +491,7 @@ function analyzeSeparateContract(
   const originalPos = [...input.originalPerformanceObligations].sort((a, b) => a.seq - b.seq);
   const considerationChangeCents = signedConsiderationChangeCents(mod);
   const separateSegmentId = modificationSegmentId(mod.id, "separate");
+  const newContractGroupId = modificationContractId(mod.id);
 
   // The original contract is untouched: its approved schedule is reproduced
   // exactly, with no cutoff and no re-measurement.
@@ -534,7 +545,8 @@ function analyzeSeparateContract(
     modificationPoId: po.id,
     modificationId: mod.id,
     segmentId: separateSegmentId,
-    groupId: NEW_CONTRACT_GROUP_ID,
+    groupId: newContractGroupId,
+    effectiveDate: mod.modificationDate,
   }));
 
   const groups: ContractPresentationGroup[] = [
@@ -547,7 +559,7 @@ function analyzeSeparateContract(
       unscheduledRevenueCents: 0,
     },
     {
-      id: NEW_CONTRACT_GROUP_ID,
+      id: newContractGroupId,
       label: `New contract — ${mod.scopeChangeDescription}`,
       transactionPriceCents: considerationChangeCents,
       revenueSchedule: newSchedule,
@@ -616,7 +628,7 @@ function analyzeSeparateContract(
       {
         id: separateSegmentId,
         label: `New contract from ${mod.modificationDate}`,
-        groupId: NEW_CONTRACT_GROUP_ID,
+        groupId: newContractGroupId,
         kind: "separate_contract",
         startDate: mod.modificationDate,
         endDate: null,

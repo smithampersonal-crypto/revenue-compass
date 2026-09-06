@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { recognizePerformanceObligation, type RecognizableUnit } from "@/lib/asc606";
 
-import { analyzeContractModification } from "../index";
+import { analyzeContractModification, ORIGINAL_GROUP_ID } from "../index";
 
 /** Resolves the ordinary prospective revenue source for a modified obligation. */
 const futureSourceId = (analysis: ContractModificationAnalysis, poId: string) =>
@@ -176,7 +176,7 @@ describe("Phase 5C delegates ordinary recognition to the core engine", () => {
 describe("independent cumulative-cent clocks", () => {
   it("a separate contract starts its own clock on the modification date", () => {
     const analysis = analyzeContractModification(case9SeparateContract());
-    const group = analysis.groups.find((g) => g.id !== "group::original");
+    const group = analysis.groups.find((g) => g.id !== ORIGINAL_GROUP_ID);
     expect(group?.revenueSchedule?.firstMonth).toBe("2027-07");
     expect(group?.revenueSchedule?.byMonth[0]?.cumulativeCents).toBe(
       group?.revenueSchedule?.byMonth[0]?.totalCents,

@@ -10,7 +10,9 @@ import { analyzeGroupedJournalEntries } from "@/lib/asc606-journals";
 
 import { analyzeContractBalanceWorkflow } from "../contract-balances";
 import { analyzeWorkflow } from "../analysis";
-import { NEW_CONTRACT_GROUP_ID, ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
+import { modificationContractId, ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
+
+const NEW_CONTRACT_GROUP_ID = modificationContractId("mod-1");
 
 import {
   createCashCollectionDraft,

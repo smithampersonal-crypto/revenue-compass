@@ -286,6 +286,20 @@ export function createModifiedPoDraft(
   };
 }
 
+/**
+ * Deterministic modification identity. Removing and re-adding a modification
+ * can never resurrect an ID that is still in use.
+ */
+export function nextModificationId(modifications: readonly ModificationDraft[]): {
+  id: string;
+  seq: number;
+} {
+  const used = new Set(modifications.map((mod) => mod.id));
+  let seq = modifications.length + 1;
+  while (used.has(`mod-${seq}`)) seq += 1;
+  return { id: `mod-${seq}`, seq };
+}
+
 export function createModificationDraft(seq = 1): ModificationDraft {
   return {
     id: `mod-${seq}`,

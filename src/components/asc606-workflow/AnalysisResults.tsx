@@ -505,8 +505,12 @@ export function AnalysisResults({
                     <tr>
                       <th className={th}>Month</th>
                       <th className={th}>Revenue</th>
+                      <th className={th}>Unconditional rights</th>
+                      <th className={th}>Invoices</th>
+                      <th className={th}>Cash</th>
                       <th className={th}>Billed AR</th>
                       <th className={th}>Unbilled AR</th>
+                      <th className={th}>Total AR</th>
                       <th className={th}>Contract asset (gross)</th>
                       <th className={th}>Contract liability (gross)</th>
                     </tr>
@@ -516,8 +520,12 @@ export function AnalysisResults({
                       <tr key={row.month}>
                         <td className={td}>{row.month}</td>
                         <td className={td}>{formatCents(row.revenueCents)}</td>
+                        <td className={td}>{formatCents(row.unconditionalRightsCents)}</td>
+                        <td className={td}>{formatCents(row.invoicesIssuedCents)}</td>
+                        <td className={td}>{formatCents(row.cashCollectedCents)}</td>
                         <td className={td}>{formatCents(row.billedArCents)}</td>
                         <td className={td}>{formatCents(row.unbilledArCents)}</td>
+                        <td className={td}>{formatCents(row.totalArCents)}</td>
                         <td className={td}>{formatCents(row.contractAssetCents)}</td>
                         <td className={td}>{formatCents(row.contractLiabilityCents)}</td>
                       </tr>
@@ -544,8 +552,40 @@ export function AnalysisResults({
               key={group.groupId}
               analysis={group.analysis}
               poNames={sourceNames}
+              title={`Journal Entries — ${group.label}`}
             />
           ))}
+          {groupedJournals ? (
+            <Section
+              title="Combined journal reconciliation"
+              description="Each contract's journal entries are generated and reconciled independently. No combined journal is created and no contract is netted against another."
+            >
+              <table className="w-full border-collapse text-sm">
+                <tbody>
+                  <tr>
+                    <td className={td}>Contract groups</td>
+                    <td className={td}>{groupedJournals.groups.length}</td>
+                  </tr>
+                  {groupedJournals.groups.map((group) => (
+                    <tr key={group.groupId}>
+                      <td className={td}>{group.label}</td>
+                      <td className={td}>
+                        {group.analysis.reconciliation.reconciled === true
+                          ? "Reconciled"
+                          : "Not reconciled"}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold">
+                    <td className={td}>Overall grouped reconciliation</td>
+                    <td className={td}>
+                      {groupedJournals.reconciled === true ? "Reconciled" : "Not reconciled"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Section>
+          ) : null}
         </>
       ) : balances.finalized && balances.analysis ? (
         <>

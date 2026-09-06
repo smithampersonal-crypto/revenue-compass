@@ -47,9 +47,12 @@ function statusLabel(value: boolean | null): string {
 export function JournalEntryOutputs({
   analysis,
   poNames,
+  title = "Journal Entries",
 }: {
   analysis: JournalAnalysis;
   poNames: ReadonlyMap<string, string>;
+  /** Identifies the contract these entries belong to in a grouped analysis. */
+  title?: string;
 }) {
   const { entries, reconciliation, validation } = analysis;
   const finalized = entries !== null && reconciliation.reconciled === true;
@@ -57,7 +60,7 @@ export function JournalEntryOutputs({
   return (
     <div className="space-y-6">
       <Section
-        title="Journal Entries"
+        title={title}
         description="These journal entries are generated deterministically from the approved revenue and contract-balance workpapers. They are read-only and are not posted or saved."
       >
         {finalized ? (
@@ -111,7 +114,7 @@ export function JournalEntryOutputs({
         )}
       </Section>
 
-      <Section title="Journal Reconciliation">
+      <Section title={`${title} — reconciliation`}>
         <table className="w-full border-collapse text-sm">
           <tbody>
             <tr>
