@@ -6,22 +6,25 @@
  */
 
 import type {
-  ContractModificationInput,
   ModificationClassification,
+  ModificationEventInput,
   ModificationTreatment,
+  ModifiedPerformanceObligationInput,
+  SeparateContractCriterion,
 } from "./types";
-import { MODIFICATION_TREATMENT_LABELS } from "./types";
+import { MODIFICATION_TREATMENT_LABELS, signedConsiderationChangeCents } from "./types";
 
 /** Obligations that exist after the modification (continuing or added). */
-export function activeModifiedPos(input: ContractModificationInput) {
-  return [...input.modification.modifiedPerformanceObligations].sort((a, b) => a.seq - b.seq);
+export function activeModifiedPos(
+  event: ModificationEventInput,
+): ModifiedPerformanceObligationInput[] {
+  return [...event.postModificationPerformanceObligations].sort((a, b) => a.seq - b.seq);
 }
 
-function considerationEffect(input: ContractModificationInput): "increase" | "decrease" | "none" {
-  const explicit = input.modification.considerationEffect;
-  if (explicit) return explicit;
-  const change = input.modification.considerationChangeCents;
-  return change > 0 ? "increase" : change < 0 ? "decrease" : "none";
+/** ASC 606-10-25-12(a), derived from the per-obligation added-goods judgments. */
+export function addsDistinctGoodsOrServices(event: ModificationEventInput): boolean {
+  const added = activeModifiedPos(event).filter((po) => po.status === "added");
+  return added.length > 0 && added.every((po) => po.addedGoodsAreDistinct === true);
 }
 
 /**
@@ -31,72 +34,96 @@ function considerationEffect(input: ContractModificationInput): "increase" | "de
  * Two global Yes/No judgments are not sufficient: a price-only change, a scope
  * decrease, a removal of original goods or services, or a reconfiguration of
  * continuing scope each disqualify separate treatment even when the accountant
- * answered "adds distinct goods" and "priced at SSP" affirmatively.
+ * concluded that distinct goods were added at their standalone selling prices.
  */
-export function separateContractTest(input: ContractModificationInput): {
+export function separateContractTest(event: ModificationEventInput): {
   passed: boolean;
+  criteria: SeparateContractCriterion[];
   failures: string[];
 } {
-  const mod = input.modification;
-  const active = activeModifiedPos(input);
+  const active = activeModifiedPos(event);
   const added = active.filter((po) => po.status === "added");
   const continuing = active.filter((po) => po.status === "continuing");
-  const failures: string[] = [];
+  const change = signedConsiderationChangeCents(event);
+  const criteria: SeparateContractCriterion[] = [];
 
-  if (considerationEffect(input) !== "increase") {
-    failures.push(
-      "The consideration did not increase, so the modification cannot be a separate contract.",
-    );
-  }
-  if (mod.considerationChangeCents <= 0) {
-    failures.push("The change in consideration is not a positive amount.");
-  }
-  if (added.length === 0) {
-    failures.push(
-      "No performance obligation was added, so there is no separate contract to account for.",
-    );
-  }
-  if (!mod.addsDistinctGoodsOrServices || added.some((po) => !po.remainingGoodsDistinct)) {
-    failures.push("Not every added good or service is distinct.");
-  }
-  if (continuing.some((po) => (po.scopeEffect ?? "unchanged") !== "unchanged")) {
-    failures.push(
-      "A continuing performance obligation was repriced or reconfigured, so the remaining original scope is affected.",
-    );
-  }
-  if ((mod.removedPoIds?.length ?? 0) > 0) {
-    failures.push("An original good or service was removed by the modification.");
-  }
-  if (!mod.priceReflectsStandaloneSellingPrices) {
-    failures.push(
-      "The price increase does not reflect the standalone selling prices of the added goods and services.",
-    );
-  }
+  const record = (id: string, label: string, passed: boolean, detail: string) =>
+    criteria.push({ id, label, passed, detail });
 
-  return { passed: failures.length === 0, failures };
+  record(
+    "added_scope",
+    "The modification adds goods or services to the contract's scope.",
+    added.length > 0,
+    added.length > 0
+      ? `${added.length} performance obligation(s) were added.`
+      : "No performance obligation was added, so there is no separate contract to account for.",
+  );
+  record(
+    "added_distinct",
+    "Every added good or service is distinct (ASC 606-10-25-12(a)).",
+    addsDistinctGoodsOrServices(event),
+    addsDistinctGoodsOrServices(event)
+      ? "Each added good or service was judged distinct."
+      : "Not every added good or service is distinct.",
+  );
+  record(
+    "consideration_increase",
+    "The consideration increases by a positive amount.",
+    event.considerationEffect === "increase" && change > 0,
+    event.considerationEffect === "increase" && change > 0
+      ? "The consideration increased."
+      : "The consideration did not increase, so the modification cannot be a separate contract.",
+  );
+  record(
+    "price_reflects_ssp",
+    "The price increase reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+    event.priceReflectsAddedGoodsSsp === true,
+    event.priceReflectsAddedGoodsSsp === true
+      ? "The price increase reflects the standalone selling prices of the added goods and services."
+      : "The price increase does not reflect the standalone selling prices of the added goods and services.",
+  );
+  const noRemovals = (event.removedPoIds?.length ?? 0) === 0;
+  record(
+    "no_removals",
+    "No original good or service is removed.",
+    noRemovals,
+    noRemovals
+      ? "No original good or service was removed."
+      : "An original good or service was removed by the modification.",
+  );
+  const scopeUnchanged = continuing.every((po) => po.scopeEffect === "unchanged");
+  record(
+    "continuing_scope_unchanged",
+    "The remaining original scope is unchanged.",
+    scopeUnchanged,
+    scopeUnchanged
+      ? "Every continuing obligation keeps its original scope and price."
+      : "A continuing performance obligation was repriced or reconfigured, so the remaining original scope is affected.",
+  );
+
+  const failures = criteria.filter((c) => !c.passed).map((c) => c.detail);
+  return { passed: failures.length === 0, criteria, failures };
 }
 
-export function deriveModificationTreatment(
-  input: ContractModificationInput,
-): ModificationTreatment {
-  if (separateContractTest(input).passed) return "separate_contract";
+export function deriveModificationTreatment(event: ModificationEventInput): ModificationTreatment {
+  if (separateContractTest(event).passed) return "separate_contract";
 
   // The separate-contract test failed: route the ACTIVE affected obligations by
   // the distinctness of their remaining performance. Series obligations are
   // governed by the distinctness of the underlying remaining services, which is
   // exactly the judgment recorded on each obligation.
-  const active = activeModifiedPos(input);
-  const distinctCount = active.filter((po) => po.remainingGoodsDistinct).length;
+  const active = activeModifiedPos(event);
+  const distinctCount = active.filter((po) => po.remainingGoodsDistinctFromTransferred).length;
   if (active.length > 0 && distinctCount === active.length) return "prospective";
   if (distinctCount === 0) return "cumulative_catch_up";
   return "mixed";
 }
 
-export function classifyModification(input: ContractModificationInput): ModificationClassification {
-  const test = separateContractTest(input);
-  const treatment = deriveModificationTreatment(input);
-  const active = activeModifiedPos(input);
-  const distinctCount = active.filter((po) => po.remainingGoodsDistinct).length;
+export function classifyModification(event: ModificationEventInput): ModificationClassification {
+  const test = separateContractTest(event);
+  const treatment = deriveModificationTreatment(event);
+  const active = activeModifiedPos(event);
+  const distinctCount = active.filter((po) => po.remainingGoodsDistinctFromTransferred).length;
   const allRemainingGoodsDistinct = active.length > 0 && distinctCount === active.length;
   const noRemainingGoodsDistinct = distinctCount === 0;
 
@@ -112,14 +139,18 @@ export function classifyModification(input: ContractModificationInput): Modifica
   return {
     treatment,
     label: MODIFICATION_TREATMENT_LABELS[treatment],
-    addsDistinctGoodsOrServices: input.modification.addsDistinctGoodsOrServices,
-    priceReflectsStandaloneSellingPrices: input.modification.priceReflectsStandaloneSellingPrices,
+    addsDistinctGoodsOrServices: addsDistinctGoodsOrServices(event),
+    priceReflectsStandaloneSellingPrices: event.priceReflectsAddedGoodsSsp === true,
     allRemainingGoodsDistinct,
     noRemainingGoodsDistinct,
     separateContractTestPassed: test.passed,
+    separateContractCriteria: test.criteria,
     separateContractFailures: test.failures,
     rationale,
-    mixedAllocationPolicy:
-      treatment === "mixed" ? (input.modification.mixedAllocationPolicy ?? null) : null,
+    mixedAllocationPolicy: treatment === "mixed" ? (event.mixedAllocationPolicy ?? null) : null,
+    mixedAllocationPolicyRationale:
+      treatment === "mixed" ? (event.mixedAllocationPolicyRationale ?? null) : null,
+    approvedAndEnforceable: event.approvedAndEnforceable === true,
+    approvalRationale: event.approvalRationale ?? null,
   };
 }
