@@ -343,7 +343,7 @@ function meridian(): WorkflowDraft {
       considerationEvents: [
         {
           ...billingEvent(1, "ce-original", "240,000.00", "2027-01-01", "2027-01-01"),
-          contractGroupId: "group::original",
+          contractGroupId: "contract::original",
         },
         {
           ...billingEvent(2, "ce-added-seats", "90,000.00", "2027-07-01", "2027-07-01"),
