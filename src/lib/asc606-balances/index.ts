@@ -9,6 +9,7 @@
 export * from "./types";
 export * from "./validation";
 export * from "./rollforward";
+export * from "./groups";
 
 import { buildBillingSchedule, buildMonthlyRollforward } from "./rollforward";
 import { ContractBalanceError, type ContractBalanceAnalysis, type ContractBalanceInput } from "./types";

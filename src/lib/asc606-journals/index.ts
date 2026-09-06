@@ -11,6 +11,7 @@ export * from "./types";
 export * from "./validation";
 export * from "./generator";
 export * from "./replay";
+export * from "./groups";
 
 import { analyzeContractBalances, type ContractBalanceInput } from "@/lib/asc606-balances";
 import { generateJournalEntries } from "./generator";

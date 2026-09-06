@@ -48,16 +48,14 @@ export function analyzeGroupedJournalEntries(
     return { groups: results, entries: null, reconciled: null };
   }
 
-  const entries: GroupedJournalEntry[] = results.flatMap((result, index) =>
+  const entries: GroupedJournalEntry[] = results.flatMap((result) =>
     result.analysis.entries!.map((entry) => ({
       ...entry,
       id: `${result.groupId}::${entry.id}`,
       groupId: result.groupId,
       groupLabel: result.label,
-      // Deterministic ordering key: group order, then date, then engine order.
-      sortIndex: index,
     })),
-  ) as GroupedJournalEntry[];
+  );
 
   entries.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
