@@ -50,7 +50,14 @@ export function historicalCutoffDate(effectiveDate: IsoDate): IsoDate {
 export const ORIGINAL_SEGMENT_ID = "segment::original";
 export const ORIGINAL_CONTRACT_ID = "contract::original";
 
-export type ModificationSegmentKind = "separate" | "prospective" | "catch_up" | "mixed";
+export type ModificationSegmentKind =
+  | "historical"
+  | "separate"
+  | "prospective"
+  | "catch_up"
+  | "mixed";
+
+export const HISTORICAL_SEGMENT_ID = "segment::historical";
 
 export function modificationSegmentId(
   modificationId: string,
@@ -69,7 +76,8 @@ export type ModificationSourceKind =
   | "prospective_modified_po"
   | "modification_catch_up"
   | "mixed_prospective_po"
-  | "mixed_catch_up";
+  | "mixed_catch_up"
+  | "modification_continuation";
 
 export function modificationSourceId(
   modificationId: string,
