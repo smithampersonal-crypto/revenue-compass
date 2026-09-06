@@ -9,6 +9,7 @@
  */
 
 import type { IsoDate, PoClassification, RecognitionMethod } from "@/lib/asc606";
+import type { MixedAllocationPolicy } from "@/lib/asc606-contract-modifications";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import type {
   EstimationMethod,
@@ -148,6 +149,8 @@ export interface ConsiderationEventDraft {
   amountInput: string;
   unconditionalRightDate: IsoDate | "";
   invoiceDate: IsoDate | "";
+  /** Phase 5C: the contract presentation group this event belongs to. */
+  contractGroupId?: string;
   /** Defaults to "manual" for every pre-Phase-5B draft. */
   amountSource?: ConsiderationAmountSource;
   /** Variable-consideration component the amount is derived from. */
@@ -179,8 +182,103 @@ export interface WorkflowDraft {
   /** Phase 5B: does the contract contain variable consideration? */
   hasVariableConsideration: boolean;
   variableConsiderationComponents: VcComponentDraft[];
+  /** Phase 5C: has the contract been modified after inception? */
+  hasContractModification: boolean;
+  modification: ModificationDraft;
   /** Phase 3 billing, receivables and contract-balance inputs. */
   contractBalances: ContractBalanceDraft;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5C contract-modification drafts
+// ---------------------------------------------------------------------------
+
+/** Direction of the change in fixed consideration. */
+export type ModificationConsiderationDirection = "increase" | "decrease";
+
+export interface ModifiedPoDraft {
+  id: string;
+  seq: number;
+  name: string;
+  status: "continuing" | "added";
+  /** Original performance obligation this one continues; null when added. */
+  sourcePoId: string | null;
+  /** Accountant judgment: are the remaining goods or services distinct? */
+  remainingGoodsDistinct: Judgment;
+  distinctRationale: string;
+  /** SSP of the goods or services remaining at the modification date, USD. */
+  remainingSspInput: string;
+  /** SSP of the obligation as modified, USD. */
+  totalModifiedSspInput: string;
+  sspBasis: string;
+  recognitionMethod: RecognitionMethod | null;
+  serviceStart: IsoDate | "";
+  serviceEnd: IsoDate | "";
+  recognitionDate: IsoDate | "";
+  recognitionRationale: string;
+}
+
+export interface ModificationDraft {
+  id: string;
+  effectiveDate: IsoDate | "";
+  description: string;
+  /** Magnitude of the change in fixed consideration, USD. */
+  considerationChangeInput: string;
+  considerationChangeDirection: ModificationConsiderationDirection;
+  /** ASC 606-10-25-12 criterion (a). */
+  addsDistinctGoodsOrServices: Judgment;
+  /** ASC 606-10-25-12 criterion (b). */
+  priceReflectsStandaloneSellingPrices: Judgment;
+  separateContractRationale: string;
+  /** Required only when the derived treatment is mixed. */
+  mixedAllocationPolicy: MixedAllocationPolicy | null;
+  removedPoIds: string[];
+  modifiedPerformanceObligations: ModifiedPoDraft[];
+}
+
+export function createModifiedPoDraft(
+  seq: number,
+  id: string,
+  status: ModifiedPoDraft["status"] = "continuing",
+): ModifiedPoDraft {
+  return {
+    id,
+    seq,
+    name: "",
+    status,
+    sourcePoId: null,
+    remainingGoodsDistinct: null,
+    distinctRationale: "",
+    remainingSspInput: "",
+    totalModifiedSspInput: "",
+    sspBasis: "",
+    recognitionMethod: null,
+    serviceStart: "",
+    serviceEnd: "",
+    recognitionDate: "",
+    recognitionRationale: "",
+  };
+}
+
+export function createModificationDraft(): ModificationDraft {
+  return {
+    id: "mod-1",
+    effectiveDate: "",
+    description: "",
+    considerationChangeInput: "",
+    considerationChangeDirection: "increase",
+    addsDistinctGoodsOrServices: null,
+    priceReflectsStandaloneSellingPrices: null,
+    separateContractRationale: "",
+    mixedAllocationPolicy: null,
+    removedPoIds: [],
+    modifiedPerformanceObligations: [],
+  };
+}
+
+/** True when the accountant has recorded a contract modification. */
+export function draftHasContractModification(draft: WorkflowDraft): boolean {
+  return draft.hasContractModification === true;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +525,8 @@ export function createEmptyDraft(): WorkflowDraft {
     transactionPriceNotes: "",
     hasVariableConsideration: false,
     variableConsiderationComponents: [],
+    hasContractModification: false,
+    modification: createModificationDraft(),
     contractBalances: createEmptyContractBalances(),
   };
 }

@@ -18,13 +18,14 @@ import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   derivePromiseDistinct,
   deriveStep1Conclusion,
+  draftHasMaterialRights,
   draftHasVariableConsideration,
   STEP1_CRITERIA,
   type PoDraft,
   type WorkflowDraft,
 } from "./types";
 
-export type WorkflowStepId = "1" | "2a" | "2b" | "3" | "4" | "5";
+export type WorkflowStepId = "1" | "2a" | "2b" | "3" | "4" | "5" | "mod";
 
 export interface WorkflowIssue {
   id: string;
@@ -449,6 +450,113 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
+  // ---- Contract modification (Phase 5C) -----------------------------------
+  if (draft.hasContractModification) {
+    const mod = draft.modification;
+    if (draftHasVariableConsideration(draft) || draftHasMaterialRights(draft)) {
+      add(
+        "modification.composition.unsupported",
+        "mod",
+        "A contract modification cannot be combined with variable consideration or a material right in this version. Remove one of them to continue.",
+      );
+    }
+    if (!isValidIsoDate(mod.effectiveDate)) {
+      add("modification.effective_date", "mod", "Enter the modification effective date.");
+    }
+    if (isBlank(mod.description)) {
+      add("modification.description", "mod", "Describe the contract modification.");
+    }
+    const change = parseUsdToCents(mod.considerationChangeInput);
+    if (!change.ok) add("modification.consideration", "mod", `Change in consideration: ${change.error}`);
+    if (mod.addsDistinctGoodsOrServices === null) {
+      add(
+        "modification.criterion_a",
+        "mod",
+        "Answer whether the modification adds distinct goods or services (ASC 606-10-25-12(a)).",
+      );
+    }
+    if (mod.priceReflectsStandaloneSellingPrices === null) {
+      add(
+        "modification.criterion_b",
+        "mod",
+        "Answer whether the change in price reflects the standalone selling prices of the added goods or services (ASC 606-10-25-12(b)).",
+      );
+    }
+    if (mod.modifiedPerformanceObligations.length === 0) {
+      add(
+        "modification.pos.exists",
+        "mod",
+        "Enter the performance obligations that exist after the modification.",
+      );
+    }
+    const originalIds = new Set(draft.performanceObligations.map((po) => po.id));
+    for (const po of mod.modifiedPerformanceObligations) {
+      const label = po.name || po.id;
+      if (isBlank(po.name)) {
+        add("modification.po.name", "mod", `Name post-modification performance obligation ${po.id}.`);
+      }
+      if (po.status === "continuing" && (!po.sourcePoId || !originalIds.has(po.sourcePoId))) {
+        add(
+          "modification.po.source",
+          "mod",
+          `Select the original performance obligation that "${label}" continues.`,
+        );
+      }
+      if (po.remainingGoodsDistinct === null) {
+        add(
+          "modification.po.distinct",
+          "mod",
+          `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
+        );
+      }
+      const remaining = parseUsdToCents(po.remainingSspInput);
+      if (!remaining.ok) {
+        add(
+          "modification.po.remaining_ssp",
+          "mod",
+          `"${label}" remaining standalone selling price: ${remaining.error}`,
+        );
+      }
+      const total = parseUsdToCents(po.totalModifiedSspInput);
+      if (!total.ok) {
+        add(
+          "modification.po.total_ssp",
+          "mod",
+          `"${label}" modified standalone selling price: ${total.error}`,
+        );
+      }
+      if (po.recognitionMethod === null) {
+        add("modification.po.method", "mod", `Select a recognition method for "${label}".`);
+      } else if (po.recognitionMethod === "over_time_ratable") {
+        if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
+          add("modification.po.dates", "mod", `Enter service start and end dates for "${label}".`);
+        } else if (po.serviceEnd < po.serviceStart) {
+          add(
+            "modification.po.date_sequence",
+            "mod",
+            `Service end date for "${label}" must be on or after the service start date.`,
+          );
+        } else if (datePeriodExceedsSupportedHorizon(po.serviceStart, po.serviceEnd)) {
+          add(
+            "modification.po.horizon",
+            "mod",
+            `Accounting horizon exceeds the current ${MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS / 12}-year supported range. Check the dates entered for "${label}".`,
+          );
+        }
+      } else if (!isValidIsoDate(po.recognitionDate)) {
+        add("modification.po.recognition_date", "mod", `Enter a recognition date for "${label}".`);
+      }
+      if (isBlank(po.recognitionRationale)) {
+        add(
+          "modification.po.rationale",
+          "mod",
+          `Document the recognition rationale for "${label}".`,
+          "warning",
+        );
+      }
+    }
+  }
+
   const blocking = issues.filter((i) => i.severity === "blocking");
   const warnings = issues.filter((i) => i.severity === "warning");
   const blockingByStep: Record<WorkflowStepId, WorkflowIssue[]> = {
@@ -458,6 +566,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     "3": [],
     "4": [],
     "5": [],
+    mod: [],
   };
   const warningsByStep: Record<WorkflowStepId, WorkflowIssue[]> = {
     "1": [],
@@ -466,6 +575,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     "3": [],
     "4": [],
     "5": [],
+    mod: [],
   };
   for (const issue of blocking) blockingByStep[issue.step].push(issue);
   for (const issue of warnings) warningsByStep[issue.step].push(issue);

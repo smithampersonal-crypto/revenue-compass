@@ -29,7 +29,13 @@ import {
   type VariableConsiderationAnalysis,
   type VcAllocationPreview,
 } from "@/lib/asc606-variable-consideration";
+import {
+  analyzeContractModification,
+  type ContractModificationAnalysis,
+  type ContractPresentationGroup,
+} from "@/lib/asc606-contract-modifications";
 import { buildMaterialRightContractInput, buildPhase1Input } from "./adapter";
+import { buildContractModificationInput } from "./modification-adapter";
 import {
   buildVariableConsiderationAllocationInput,
   buildVariableConsiderationInput,
@@ -72,6 +78,10 @@ export interface WorkflowAnalysisResult {
   lifecycleConsiderationCents: Cents | null;
   /** Phase 5B output; null unless the contract has variable consideration. */
   variableConsideration: VariableConsiderationAnalysis | null;
+  /** Phase 5C output; null unless the contract has been modified. */
+  modification: ContractModificationAnalysis | null;
+  /** Presentation groups; a separate-contract modification produces two. */
+  contractGroups: ContractPresentationGroup[];
 }
 
 export interface AnalyzeWorkflowDeps {
@@ -107,6 +117,8 @@ export function analyzeWorkflow(
     unscheduledRevenueCents: 0,
     lifecycleConsiderationCents: null,
     variableConsideration: null,
+    modification: null,
+    contractGroups: [],
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -167,6 +179,8 @@ export function analyzeWorkflow(
       unscheduledRevenueCents: vc.totals.unscheduledConsiderationCents ?? 0,
       lifecycleConsiderationCents: vc.totals.lifecycleConsiderationCents,
       variableConsideration: vc,
+      modification: null,
+      contractGroups: [],
     };
   }
 
@@ -208,6 +222,8 @@ export function analyzeWorkflow(
       unscheduledRevenueCents: lifecycle.totals.unscheduledMaterialRightCents ?? 0,
       lifecycleConsiderationCents: lifecycle.totals.lifecycleConsiderationCents,
       variableConsideration: null,
+      modification: null,
+      contractGroups: [],
     };
   }
 
@@ -234,6 +250,47 @@ export function analyzeWorkflow(
     );
   }
 
+  if (draft.hasContractModification) {
+    const builtMod = buildContractModificationInput(draft);
+    if (!builtMod.ok) {
+      return blocked(
+        "The contract modification could not be converted into a complete engine input.",
+        builtMod.errors,
+      );
+    }
+    const modification = analyzeContractModification(builtMod.input);
+    if (
+      modification.validation.blockingFailures.length > 0 ||
+      modification.revenueSchedule === null ||
+      modification.allocationLayers === null ||
+      modification.reconciliation.reconciled !== true
+    ) {
+      return blocked(
+        "The deterministic contract-modification engine reported a blocking validation issue, so no finalized analysis is presented.",
+        [],
+        modification.validation,
+      );
+    }
+    return {
+      workflowValidation,
+      step1Conclusion,
+      finalized: true,
+      blockedReason: null,
+      adapterErrors: [],
+      engineValidation: modification.validation,
+      analysis,
+      lifecycle: null,
+      allocation: modification.allocationLayers[0]!.rows,
+      revenueSchedule: modification.revenueSchedule,
+      revenueSources: modification.revenueSources,
+      unscheduledRevenueCents: 0,
+      lifecycleConsiderationCents: modification.totals.lifecycleConsiderationCents,
+      variableConsideration: null,
+      modification,
+      contractGroups: modification.groups,
+    };
+  }
+
   return {
     workflowValidation,
     step1Conclusion,
@@ -254,6 +311,8 @@ export function analyzeWorkflow(
     unscheduledRevenueCents: 0,
     lifecycleConsiderationCents: analysis.totals.transactionPriceCents,
     variableConsideration: null,
+    modification: null,
+    contractGroups: [],
   };
 }
 
