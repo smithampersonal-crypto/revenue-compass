@@ -124,13 +124,13 @@ describe("Phase 5C workflow integration", () => {
           ...createCashCollectionDraft(1, "cash-1"),
           considerationEventId: "ce-original",
           amountInput: "240,000.00",
-          date: "2027-01-31",
+          collectionDate: "2027-01-31",
         },
         {
           ...createCashCollectionDraft(2, "cash-2"),
           considerationEventId: "ce-added",
           amountInput: "90,000.00",
-          date: "2027-07-31",
+          collectionDate: "2027-07-31",
         },
       ],
     };
