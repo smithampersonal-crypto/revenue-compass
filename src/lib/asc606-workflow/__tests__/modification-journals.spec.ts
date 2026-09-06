@@ -95,9 +95,10 @@ function repricedDraft(
   };
 }
 
-export function debugRepriced(){return repricedDraft("90,000.00","decrease","30,000.00");}
-
-function julyRevenue(draft: WorkflowDraft) {
+/** The July revenue line posted for the modification catch-up source only. */
+function catchUpRevenueLine(draft: WorkflowDraft) {
+  const analysis = analyzeWorkflow(draft);
+  const catchUp = analysis.modification!.catchUpEvents[0]!;
   const balances = analyzeContractBalanceWorkflow(draft);
   expect(balances.finalized).toBe(true);
   const journals = analyzeJournalEntries(balances.engineInput!);
@@ -105,36 +106,28 @@ function julyRevenue(draft: WorkflowDraft) {
   const lines = (journals.entries ?? [])
     .filter((entry) => entry.month === CATCH_UP_MONTH)
     .flatMap((entry) => entry.lines)
-    .filter((line) => line.account === "revenue");
-  return {
-    debits: lines.reduce((sum, line) => sum + line.debitCents, 0),
-    credits: lines.reduce((sum, line) => sum + line.creditCents, 0),
-  };
+    .filter((line) => line.account === "revenue" && line.poId === catchUp.sourceId);
+  expect(lines).toHaveLength(1);
+  return { catchUpCents: catchUp.amountCents, line: lines[0]! };
 }
 
 describe("modification catch-up reaches the journals with the correct sign", () => {
-  it("credits revenue for a +$15,000 catch-up", () => {
-    const draft = repricedDraft("150,000.00", "increase", "30,000.00");
-    const analysis = analyzeWorkflow(draft);
-    expect(analysis.modification?.totals.catchUpCents).toBe(1_500_000);
-
-    const control = julyRevenue(
-      // Same contract, same month, without any modification.
-      { ...draft, hasContractModifications: false },
+  it("credits revenue $15,000 for a +$15,000 catch-up", () => {
+    const { catchUpCents, line } = catchUpRevenueLine(
+      repricedDraft("150,000.00", "increase", "30,000.00"),
     );
-    const withCatchUp = julyRevenue(draft);
-    expect(withCatchUp.debits).toBe(0);
-    expect(withCatchUp.credits).toBeGreaterThan(control.credits);
+    expect(catchUpCents).toBe(1_500_000);
+    expect(line.creditCents).toBe(1_500_000);
+    expect(line.debitCents).toBe(0);
   });
 
-  it("debits revenue for a -$15,000 catch-up", () => {
-    const draft = repricedDraft("90,000.00", "decrease", "30,000.00");
-    const analysis = analyzeWorkflow(draft);
-    expect(analysis.modification?.totals.catchUpCents).toBe(-1_500_000);
-
-    const july = julyRevenue(draft);
-    expect(july.credits).toBe(0);
-    expect(july.debits).toBeGreaterThan(0);
+  it("debits revenue $15,000 for a -$15,000 catch-up", () => {
+    const { catchUpCents, line } = catchUpRevenueLine(
+      repricedDraft("90,000.00", "decrease", "30,000.00"),
+    );
+    expect(catchUpCents).toBe(-1_500_000);
+    expect(line.debitCents).toBe(1_500_000);
+    expect(line.creditCents).toBe(0);
   });
 
   it("replays each presentation group's journals to that group's own rollforward", () => {
