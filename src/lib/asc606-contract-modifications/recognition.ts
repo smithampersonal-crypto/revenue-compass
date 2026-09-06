@@ -72,7 +72,7 @@ export function prospectiveRecognition(
       ...(po.serviceStart ? { serviceStart: po.serviceStart } : {}),
       ...(po.serviceEnd ? { serviceEnd: po.serviceEnd } : {}),
       ...(po.recognitionDate ? { recognitionDate: po.recognitionDate } : {}),
-      ...(po.overTimeConvention ? { overTimeConvention: po.overTimeConvention } : {}),
+      
     },
     allocatedCents,
   ).map((row) => ({
