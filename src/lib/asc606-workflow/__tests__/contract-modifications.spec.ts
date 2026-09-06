@@ -152,3 +152,21 @@ describe("Phase 5C workflow integration", () => {
     expect(debits).toBe(credits);
   });
 });
+
+/**
+ * Remediation item 10: the generic Results allocation must stay the ORIGINAL
+ * inception allocation. A modification row must never be presented inside it.
+ */
+describe("Original contract allocation is never contaminated by a modification", () => {
+  it("keeps the Meridian-style separate contract out of the original allocation", () => {
+    const result = analyzeWorkflow(case9Draft());
+    const allocatedTotal = (result.allocation ?? []).reduce(
+      (sum, row) => sum + row.allocatedCents,
+      0,
+    );
+    expect(allocatedTotal).toBe(24_000_000);
+    expect(result.allocation?.some((row) => row.allocatedCents === 9_000_000)).toBe(false);
+    expect(result.modification?.allocationLayers?.[0]?.transactionPriceCents).toBe(9_000_000);
+    expect(result.lifecycleConsiderationCents).toBe(33_000_000);
+  });
+});

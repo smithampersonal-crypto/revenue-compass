@@ -170,7 +170,7 @@ export function AnalysisResults({
       </Section>
 
       {result.variableConsideration ? null : allocation ? (
-        <Section title="SSP allocation (engine output)">
+        <Section title="Original contract allocation (engine output)">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -212,7 +212,7 @@ export function AnalysisResults({
           ) : null}
         </Section>
       ) : (
-        <Section title="SSP allocation">
+        <Section title="Original contract allocation">
           <Notice tone="danger">No finalized SSP allocation is presented.</Notice>
         </Section>
       )}
