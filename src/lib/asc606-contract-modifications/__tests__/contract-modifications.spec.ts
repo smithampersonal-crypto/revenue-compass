@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { analyzeContractModification, futureSourceId } from "../index";
+import { analyzeContractModification } from "../index";
+
+/** Resolves the ordinary prospective revenue source for a modified obligation. */
+const prospectiveSourceId = (
+  analysis: ReturnType<typeof analyzeContractModification>,
+  poId: string,
+) =>
+  analysis.revenueSources.find(
+    (source) =>
+      source.modificationPoId === poId &&
+      (source.sourceType === "prospective_modified_po" ||
+        source.sourceType === "mixed_prospective_po"),
+  )?.id ?? "";
 import { case9SeparateContract, case10Prospective, case11CatchUp, case12Mixed } from "./fixtures";
 
 const monthTotal = (analysis: ReturnType<typeof analyzeContractModification>, month: string) =>
@@ -12,7 +24,7 @@ const sourceAmount = (
   month: string,
 ) =>
   analysis.revenueSchedule!.byMonth.find((row) => row.month === month)?.perPo[
-    futureSourceId("mod-1", poId)
+    prospectiveSourceId(analysis, poId)
   ] ?? 0;
 
 const yearTotal = (analysis: ReturnType<typeof analyzeContractModification>, year: string) =>
@@ -150,7 +162,8 @@ describe("modification controls", () => {
 
   it("blocks a reduction that leaves negative remaining consideration", () => {
     const input = case10Prospective();
-    input.contractModifications[0]!.considerationChangeCents = -10_000_000;
+    input.contractModifications[0]!.considerationEffect = "decrease";
+    input.contractModifications[0]!.considerationMagnitudeCents = 10_000_000;
     const analysis = analyzeContractModification(input);
     expect(analysis.validation.blockingFailures.length).toBeGreaterThan(0);
     expect(analysis.revenueSchedule).toBeNull();
