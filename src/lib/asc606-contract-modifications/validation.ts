@@ -230,6 +230,12 @@ export function validateContractModification(input: ContractModificationInput): 
           "performance_obligations",
           `State whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
         );
+      } else if (isBlank(po.addedGoodsDistinctnessRationale)) {
+        fail(
+          "modification.po.added_distinct_rationale",
+          "performance_obligations",
+          `Document the basis for the distinctness conclusion on the goods or services added by "${label}" (ASC 606-10-25-12(a)).`,
+        );
       }
     }
     if (po.recognitionMethod === "over_time_ratable") {
