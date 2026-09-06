@@ -329,12 +329,35 @@ export function validateContractModification(input: ContractModificationInput): 
   const treatment = deriveModificationTreatment(mod);
   const cutoff = historicalCutoffDate(mod.modificationDate);
 
-  if (treatment === "mixed" && !mod.mixedAllocationPolicy) {
-    fail(
-      "modification.mixed_policy",
-      "allocation",
-      "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services.",
-    );
+  if (treatment === "mixed") {
+    if (!mod.mixedAllocationPolicy) {
+      fail(
+        "modification.mixed_policy",
+        "allocation",
+        "Select the allocation policy applied to a modification with both distinct and non-distinct remaining goods or services.",
+      );
+    } else if (isBlank(mod.mixedAllocationPolicyRationale)) {
+      fail(
+        "modification.mixed_policy.rationale",
+        "allocation",
+        "Document why the selected allocation policy is appropriate for this mixed modification (ASC 606-10-25-13(c)).",
+      );
+    }
+  }
+
+  // ASC 606-10-25-13 routing turns entirely on whether the remaining goods or
+  // services are distinct from those already transferred. Whenever that
+  // judgment is used, its basis is mandatory.
+  if (treatment !== "separate_contract") {
+    for (const po of active) {
+      if (isBlank(po.remainingDistinctnessRationale)) {
+        fail(
+          "modification.po.remaining_distinct_rationale",
+          "performance_obligations",
+          `Document why the remaining goods or services of "${po.name || po.id}" are or are not distinct from those already transferred (ASC 606-10-25-13).`,
+        );
+      }
+    }
   }
 
   // ---- Branch-specific standalone selling prices ---------------------------
