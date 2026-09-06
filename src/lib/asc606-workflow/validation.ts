@@ -14,6 +14,11 @@ import {
   MAX_SUPPORTED_ACCOUNTING_HORIZON_MONTHS,
 } from "@/lib/asc606";
 import { materialRightSspCents } from "@/lib/asc606-material-rights";
+import {
+  deriveModificationTreatment,
+  type ModificationEventInput,
+  type ModificationTreatment,
+} from "@/lib/asc606-contract-modifications";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
 import {
   derivePromiseDistinct,
@@ -21,9 +26,46 @@ import {
   draftHasMaterialRights,
   draftHasVariableConsideration,
   STEP1_CRITERIA,
+  type ModificationDraft,
   type PoDraft,
   type WorkflowDraft,
 } from "./types";
+
+/**
+ * Derives the ASC 606 treatment of a draft modification with the AUTHORITATIVE
+ * pure classifier so the workflow layer can surface the same rationale controls
+ * the engine enforces. The routing rule is never reimplemented here.
+ */
+function draftModificationTreatment(mod: ModificationDraft): ModificationTreatment {
+  const event: ModificationEventInput = {
+    id: mod.id,
+    seq: mod.seq,
+    modificationDate: mod.modificationDate || "1970-01-01",
+    approvedAndEnforceable: mod.approvedAndEnforceable,
+    scopeChangeDescription: mod.scopeChangeDescription,
+    considerationEffect: mod.considerationEffect,
+    considerationMagnitudeCents: parseUsdToCents(mod.considerationMagnitudeInput).ok
+      ? (parseUsdToCents(mod.considerationMagnitudeInput) as { ok: true; cents: number }).cents
+      : 0,
+    priceReflectsAddedGoodsSsp: mod.priceReflectsAddedGoodsSsp,
+    mixedAllocationPolicy: mod.mixedAllocationPolicy,
+    removedPoIds: [...mod.removedPoIds],
+    postModificationPerformanceObligations: mod.modifiedPerformanceObligations.map((po) => ({
+      id: po.id,
+      seq: po.seq,
+      name: po.name,
+      status: po.status,
+      sourcePoId: po.sourcePoId,
+      scopeEffect: po.scopeEffect,
+      addedGoodsAreDistinct: po.addedGoodsAreDistinct,
+      remainingGoodsDistinctFromTransferred: po.remainingGoodsDistinctFromTransferred === true,
+      remainingSspCents: null,
+      totalModifiedSspCents: null,
+      recognitionMethod: po.recognitionMethod ?? "over_time_ratable",
+    })),
+  };
+  return deriveModificationTreatment(event);
+}
 
 export type WorkflowStepId = "1" | "2a" | "2b" | "3" | "4" | "5" | "mod";
 
