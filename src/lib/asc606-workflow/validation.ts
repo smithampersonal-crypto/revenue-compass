@@ -579,12 +579,24 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
             "mod",
             `Answer whether the goods or services added by "${label}" are distinct (ASC 606-10-25-12(a)).`,
           );
+        } else if (isBlank(po.addedGoodsDistinctnessRationale)) {
+          add(
+            "modification.po.added_distinct_rationale",
+            "mod",
+            `Document the basis for the distinctness conclusion on the goods or services added by "${label}" (ASC 606-10-25-12(a)).`,
+          );
         }
         if (po.remainingGoodsDistinctFromTransferred === null) {
           add(
             "modification.po.distinct",
             "mod",
             `Answer whether the remaining goods or services of "${label}" are distinct from those already transferred.`,
+          );
+        } else if (treatment !== "separate_contract" && isBlank(po.remainingDistinctnessRationale)) {
+          add(
+            "modification.po.distinct_rationale",
+            "mod",
+            `Document why the remaining goods or services of "${label}" are or are not distinct from those already transferred (ASC 606-10-25-13).`,
           );
         }
         if (po.remainingSspInput.trim() !== "") {
