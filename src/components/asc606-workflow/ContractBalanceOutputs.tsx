@@ -42,7 +42,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
             </tbody>
           </table>
         ) : (
-          <Notice tone="danger">No finalized billing schedule is presented.</Notice>
+          <Notice tone="danger">No billing schedule is presented.</Notice>
         )}
       </Section>
 
@@ -83,7 +83,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
             </table>
           </div>
         ) : (
-          <Notice tone="danger">No finalized contract-balance rollforward is presented.</Notice>
+          <Notice tone="danger">No contract-balance rollforward is presented.</Notice>
         )}
       </Section>
 
