@@ -41,35 +41,35 @@ function AnalysisWorkspace() {
 
   return (
     <PublicAppShell>
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
-      <header className="space-y-2">
-        <Link
-          to="/"
-          className="inline-flex min-h-9 items-center text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          ← Back to Home
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">ASC 606 Analysis</h1>
-        <p className="text-sm text-muted-foreground">
-          Enter and review the accounting judgments. All accounting judgments are yours; allocation,
-          revenue recognition and reconciliation amounts are produced by the deterministic ASC 606
-          engine and are read-only.
-        </p>
-        <Notice>
-          This workspace holds one in-memory analysis. Nothing is saved: refreshing the page clears
-          all entered data.
-        </Notice>
-        {unknownSample ? (
-          <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
-        ) : null}
-      </header>
+      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <header className="space-y-2">
+          <Link
+            to="/"
+            className="inline-flex min-h-9 items-center text-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            ← Back to Home
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">ASC 606 Analysis</h1>
+          <p className="text-sm text-muted-foreground">
+            Enter and review the accounting judgments. All accounting judgments are yours;
+            allocation, revenue recognition and reconciliation amounts are produced by the
+            deterministic ASC 606 engine and are read-only.
+          </p>
+          <Notice>
+            This workspace holds one in-memory analysis. Nothing is saved: refreshing the page clears
+            all entered data.
+          </Notice>
+          {unknownSample ? (
+            <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
+          ) : null}
+        </header>
 
-      <AnalysisSummary />
+        <AnalysisSummary />
 
-      <AnalysisNavigation />
+        <AnalysisNavigation />
 
-      <Outlet />
-    </main>
+        <Outlet />
+      </main>
     </PublicAppShell>
   );
 }
