@@ -44,7 +44,7 @@ export function Step2PerformanceObligations({
 
   return (
     <Section
-      title="Step 2B — Form Performance Obligations"
+      title="Performance Obligations"
       description="Group promises into performance obligations. Each promise belongs to exactly one performance obligation. A customer option that conveys a material right is created here as a material-right performance obligation."
     >
       <div className="space-y-5">

@@ -227,7 +227,7 @@ export function Step3TransactionPrice({
 
   return (
     <Section
-      title="Step 3 — Determine the Transaction Price"
+      title="Transaction Price"
       description="Enter fixed consideration, then add any variable-consideration components. Every estimate, constraint conclusion and allocation judgment is yours; the engine only calculates."
     >
       <div className="grid gap-4 sm:grid-cols-2">

@@ -16,7 +16,7 @@ export function Step1Contract({
 
   return (
     <div className="space-y-6">
-      <Section title="Step 1 — Identify the Contract" description="Basic contract facts.">
+      <Section title="Contract Overview" description="Basic contract facts.">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Customer name">
             <input
@@ -47,7 +47,7 @@ export function Step1Contract({
       </Section>
 
       <Section
-        title="ASC 606 contract criteria"
+        title="ASC 606 Contract Criteria"
         description="Answer each criterion and document your rationale. The conclusion below is derived and cannot be overridden."
       >
         <div className="space-y-5">

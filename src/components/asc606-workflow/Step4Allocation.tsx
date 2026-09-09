@@ -38,7 +38,7 @@ export function Step4Allocation({
 
   return (
     <Section
-      title="Step 4 — Allocate the Transaction Price"
+      title="Allocation Inputs"
       description="Enter the standalone selling price and its basis for each performance obligation. Allocation is produced by the deterministic engine and is never editable."
     >
       <div className="space-y-4">
