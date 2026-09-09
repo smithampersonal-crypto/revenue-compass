@@ -86,9 +86,10 @@ export function buildAnalysisSummary({
     { label: "Performance obligations", value: String(draft.performanceObligations.length) },
   ];
 
-  const hasMaterialRight = draft.performanceObligations.some((po) => po.kind === "material_right");
+  const hasMaterialRight = draft.performanceOblifications.some((po) => po.kind === "material_right");
   const hasVariableConsideration =
     draft.hasVariableConsideration && draft.variableConsiderationComponents.length > 0;
+  const hasActiveModification = draft.hasContractModifications;
   const modification = result.modification;
   const modificationTotals =
     modification && modification.classification !== null ? modification.totals : null;
@@ -112,7 +113,7 @@ export function buildAnalysisSummary({
   } else if (
     !hasVariableConsideration &&
     !hasMaterialRight &&
-    modification === null &&
+    !hasActiveModification &&
     result.analysis !== null
   ) {
     metrics.push({
@@ -125,7 +126,7 @@ export function buildAnalysisSummary({
   const commonMethod =
     methods.length > 0 && methods.every((m) => m !== null && m === methods[0]) ? methods[0] : null;
   const recognitionLabel =
-    commonMethod && modification === null ? RECOGNITION_LABELS[commonMethod] : null;
+    commonMethod && !hasActiveModification ? RECOGNITION_LABELS[commonMethod] : null;
 
   return {
     originLabel: ORIGIN_LABELS[origin],
