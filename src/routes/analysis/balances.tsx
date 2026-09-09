@@ -8,6 +8,7 @@ export const Route = createFileRoute("/analysis/balances")({
 });
 
 function ContractBalancesArea() {
-  const { draft, setDraft } = useAnalysis();
-  return <ContractBalancesView draft={draft} onChange={setDraft} />;
+  const { draft, setDraft, result } = useAnalysis();
+  return <ContractBalancesView draft={draft} result={result} onChange={setDraft} />;
 }
+
