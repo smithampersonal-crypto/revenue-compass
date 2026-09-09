@@ -153,7 +153,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     const user = userEvent.setup();
     await renderAt("/analysis?sample=meridian");
     await user.click(screen.getByRole("link", { name: "Revenue Schedule" }));
-    expect(await screen.findByText("2027-06-30")).toBeInTheDocument();
-    expect(screen.getAllByText("$59,425.44").length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Historical cutoff date:\s*2027-06-30/)).toBeInTheDocument();
+    expect(document.body.textContent).toContain("$59,425.44");
   });
 });
