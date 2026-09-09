@@ -1,34 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useAnalysis } from "@/components/arc/analysis-context";
-import { IssueList, Notice, Section } from "@/components/asc606-workflow/fields";
+import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
 
 export const Route = createFileRoute("/analysis/review")({
   component: ReviewFinalizeArea,
 });
 
 function ReviewFinalizeArea() {
-  const { result } = useAnalysis();
-  const { workflowValidation } = result;
-
-  return (
-    <div className="space-y-6">
-      <Section
-        title="Review"
-        description="Every outstanding item reported by the deterministic engine and the workflow validation layer."
-      >
-        <Notice tone={result.blockedReason ? "danger" : "muted"}>
-          {result.blockedReason ??
-            "No blocking issues were reported. The current draft is complete and all required engine outputs are available."}
-        </Notice>
-      </Section>
-
-      <IssueList title="Workflow items requiring attention" issues={workflowValidation.blocking} />
-      <IssueList title="Workflow warnings" tone="warning" issues={workflowValidation.warnings} />
-      <IssueList
-        title="Engine input could not be assembled"
-        issues={result.adapterErrors.map((message, index) => ({ id: String(index), message }))}
-      />
-    </div>
-  );
+  const { draft, result } = useAnalysis();
+  return <ReviewFinalizeView draft={draft} result={result} />;
 }
