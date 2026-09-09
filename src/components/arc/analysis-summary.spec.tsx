@@ -144,6 +144,28 @@ describe("Analysis summary view model (Phase 4)", () => {
     expect(summaryFor(incomplete).recognitionLabel).toBeNull();
   });
 
+  it("suppresses the recognition chip when a contract modification is active even if incomplete", () => {
+    const draft = createDemoDraft("redwood");
+    expect(summaryFor(draft, "sample").recognitionLabel).toBe("Over time");
+
+    const withIncompleteModification: WorkflowDraft = {
+      ...draft,
+      hasContractModifications: true,
+      contractModifications: [createModificationDraft(1)],
+    };
+    const result = analyzeWorkflow(withIncompleteModification);
+    expect(result.workflowValidation.blocking.length).toBeGreaterThan(0);
+    expect(result.modification).toBeNull();
+
+    const summary = buildAnalysisSummary({
+      draft: withIncompleteModification,
+      result,
+      origin: "sample",
+      scenario: getDemoScenario("redwood"),
+    });
+    expect(summary.recognitionLabel).toBeNull();
+  });
+
   it("reports an outstanding-items state for an incomplete analysis", () => {
     const summary = summaryFor(createEmptyDraft());
     expect(summary.statusTone).not.toBe("ok");
