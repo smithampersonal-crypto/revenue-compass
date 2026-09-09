@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { QueryClient } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +18,13 @@ const AREAS = [
   "Source Documents",
   "Review & Finalize",
 ] as const;
+
+function navLink(options: { name: string }) {
+  return within(screen.getByRole("navigation", { name: "Analysis areas" })).getByRole(
+    "link",
+    options,
+  );
+}
 
 async function renderAt(initialPath: string) {
   const router = createRouter({
@@ -38,7 +45,7 @@ describe("ARC analysis workspace (Phase 1)", () => {
     expect(router.state.location.search).toEqual({ sample: "meridian" });
 
     for (const area of AREAS) {
-      await user.click(screen.getByRole("link", { name: area }));
+      await user.click(navLink({ name: area }));
       await waitFor(() => {
         expect(router.state.location.search).toEqual({ sample: "meridian" });
       });
@@ -56,10 +63,10 @@ describe("ARC analysis workspace (Phase 1)", () => {
     expect(customer).toHaveValue("Edited Customer LLC");
 
     for (const area of AREAS.slice(1)) {
-      await user.click(screen.getByRole("link", { name: area }));
+      await user.click(navLink({ name: area }));
       await screen.findByRole("navigation", { name: "Analysis areas" });
     }
-    await user.click(screen.getByRole("link", { name: "ASC 606 Analysis" }));
+    await user.click(navLink({ name: "ASC 606 Analysis" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText(/customer/i)).toHaveValue("Edited Customer LLC");
@@ -70,20 +77,20 @@ describe("ARC analysis workspace (Phase 1)", () => {
     const user = userEvent.setup();
     await renderAt("/analysis");
 
-    await user.click(screen.getByRole("link", { name: "Journal Entries" }));
+    await user.click(navLink({ name: "Journal Entries" }));
     expect(
       await screen.findByText(/Journal entries are not available until the Billing/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Debit/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: "Contract Balances" }));
+    await user.click(navLink({ name: "Contract Balances" }));
     expect(
       await screen.findByText(
         /five-step draft analysis must be complete before the Billing & Contract Balances workpaper/i,
       ),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: "Review & Finalize" }));
+    await user.click(navLink({ name: "Review & Finalize" }));
     expect(await screen.findByText(/Workflow items requiring attention/i)).toBeInTheDocument();
   });
 });

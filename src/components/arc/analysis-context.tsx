@@ -59,8 +59,10 @@ export function AnalysisProvider({
       sample,
       loadedSample,
       unknownSample,
+      // A sample resets back to its canonical fixture (the URL, and therefore
+      // the sample origin, is untouched); a manual analysis resets to blank.
       resetAnalysis: () => {
-        setDraft(createEmptyDraft());
+        setDraft(createDemoDraftIfKnown(sample) ?? createEmptyDraft());
       },
     }),
     [draft, result, loadedSample, unknownSample, sample],
