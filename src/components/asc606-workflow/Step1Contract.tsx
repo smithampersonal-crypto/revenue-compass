@@ -98,7 +98,7 @@ export function Step1Contract({
             {conclusion === "qualified"
               ? "Qualifies as a contract under ASC 606."
               : conclusion === "not_qualified"
-                ? "Does not currently qualify for a finalized ASC 606 analysis. Later steps may still be documented, but no finalized allocation or revenue schedule will be produced."
+                ? "Does not currently qualify for a complete ASC 606 draft analysis. Later steps may still be documented, but no allocation or revenue schedule will be produced until Step 1 is resolved."
                 : "Incomplete — one or more criteria remain unanswered."}
           </p>
         </Notice>
