@@ -2,7 +2,8 @@ import { ContractModifications } from "@/components/asc606-workflow/ContractModi
 import { judgmentLabel, Notice } from "@/components/asc606-workflow/fields";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { AccordionSection, issueStatus } from "./AccordionSection";
+import { AccordionSection } from "./AccordionSection";
+import { issueStatus } from "./issue-status";
 
 /**
  * Additional Topics Applied.

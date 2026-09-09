@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { AccordionSection, issueStatus } from "@/components/arc/AccordionSection";
+import { AccordionSection } from "@/components/arc/AccordionSection";
+import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { IssueList } from "@/components/asc606-workflow/fields";

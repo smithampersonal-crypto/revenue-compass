@@ -68,8 +68,3 @@ export function AccordionSection({
     </section>
   );
 }
-
-export function issueStatus(count: number): string | null {
-  if (count === 0) return null;
-  return count === 1 ? "1 issue" : `${count} issues`;
-}
