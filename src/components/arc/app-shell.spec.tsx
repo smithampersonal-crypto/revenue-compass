@@ -86,6 +86,10 @@ describe("ARC app shell (Phase 5)", () => {
 
   it("offers one Redwood sample path and no legacy sample grid", async () => {
     await renderAt("/");
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "ASC 606 analysis, from contract judgment to journal entry.",
+    });
 
     const sampleLinks = screen.getAllByRole("link").filter((link) =>
       link.getAttribute("href")?.includes("sample="),
@@ -101,7 +105,7 @@ describe("ARC app shell (Phase 5)", () => {
     const user = userEvent.setup();
     const router = await renderAt("/");
 
-    await user.click(screen.getByRole("link", { name: "Start Analysis" }));
+    await user.click(await screen.findByRole("link", { name: "Start Analysis" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
 
@@ -116,7 +120,7 @@ describe("ARC app shell (Phase 5)", () => {
   it("shows only enabled global navigation and exposes no unfinished controls", async () => {
     const user = userEvent.setup();
     const router = await renderAt("/");
-    const primaryNav = screen.getByRole("navigation", { name: "Primary navigation" });
+    const primaryNav = await screen.findByRole("navigation", { name: "Primary navigation" });
 
     expect(within(primaryNav).getAllByRole("link")).toHaveLength(1);
     expect(within(primaryNav).getByRole("link", { name: "Analyze" })).toBeInTheDocument();
