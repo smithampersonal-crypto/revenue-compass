@@ -6,23 +6,27 @@ Scope: information architecture, navigation, presentation and component structur
 ## 1. Current-state assessment
 
 Routes
+
 - `src/routes/index.tsx` — landing page: title, "Start Blank Analysis", grid of 5 sample cards, demo-mode note.
 - `src/routes/analysis.tsx` — the entire workspace. Holds one `useState<WorkflowDraft>` draft, a `StepKey` state, a `showStepIssues` flag, and `analyzeWorkflow(draft)` in a `useMemo`. Reads `?sample=` to seed a demo draft.
 - `src/routes/engine-check.tsx` — internal engine verification page (Phase 1b), unrelated to the accountant workspace.
 - `src/routes/__root.tsx` — bare shell, no app chrome, and still carries the default "Lovable App" title/description metadata.
 
 Navigation / state architecture
+
 - `WorkflowStepper.tsx` renders the nine step buttons (`1, 2a, 2b, 3, 4, 5, mod, balances, results`) as a flat pill row; `analysis.tsx` conditionally renders exactly one step component. Back / Continue / Reset live below.
 - Single source of truth: the `draft` object, mutated only via `onChange(setDraft)` from each step component. Every derived number comes from `analyzeWorkflow`, plus `previewAllocation`, `materialRightStepPreviews`, `variableConsiderationPreview` used for in-step previews. No component performs accounting arithmetic.
 - `validateWorkflow` returns `blockingByStep` keyed by `WorkflowStepId = "1"|"2a"|"2b"|"3"|"4"|"5"|"mod"`, which today drives both the Continue gate and the per-step issue list.
 
 Reusable assets (keep)
+
 - Pure layers: `src/lib/asc606*`, `src/lib/asc606-workflow/*` (types, validation, adapters, analysis, presentation, contract-balances), `src/lib/demo-scenarios.ts`.
 - Step editors: `Step1Contract`, `Step2Promises`, `Step2PerformanceObligations`, `Step3TransactionPrice`, `Step5VariableConsideration`, `Step4Allocation`, `Step5Recognition`, `ContractModifications`, `BillingAndBalances`.
 - Read-only output blocks: `ContractBalanceOutputs`, `JournalEntryOutputs`, `ContractModificationOutputs`, `VariableConsiderationOutputs`.
 - Primitives: `fields.tsx` (`Field`, `Section`, `Notice`, `JudgmentControl`, `IssueList`, `inputClass`, `th`, `td`), plus the full unused shadcn set (`accordion`, `tabs`, `card`, `badge`, `table`, `button`, …) already installed.
 
 Technical debt relevant to this redesign
+
 - `AnalysisResults.tsx` (634 lines) is a monolith that mixes contract conclusion, promises, POs, allocation, revenue schedule, validation, reconciliation, balances and journals — it must be split along the new parent areas.
 - `Step3TransactionPrice.tsx` (610) and `ContractModifications.tsx` (555) are large but internally coherent; they will be moved, not rewritten.
 - Styling is raw Tailwind utilities on the default shadcn slate theme in light mode; there is no dark class applied and no green accent. There is no app shell, header, or brand.
@@ -32,6 +36,7 @@ Technical debt relevant to this redesign
 ## 2. Proposed target architecture
 
 Routes
+
 ```
 /                                landing (Analyze | Case Studies | Guidance Library nav)
 /case-studies                    case study index (all sample contracts)
@@ -44,9 +49,11 @@ Routes
 /analysis/review                 Review & Finalize
 /engine-check                    unchanged, unlinked internal page
 ```
+
 `src/routes/analysis.tsx` becomes a **layout route** owning draft state and rendering `<Outlet />`; the six areas are child leaf routes. `?sample=` and `?source=` search params stay on the layout route so deep links keep working.
 
 Component hierarchy (new folder `src/components/arc/`)
+
 ```
 AppHeader / AppFooter            brand chrome (ARC), site nav
 AnalysisWorkspace                layout body: summary + horizontal nav + outlet
@@ -70,18 +77,21 @@ AnalysisWorkspace                layout body: summary + horizontal nav + outlet
 **Navigation form (revised).** The six parent areas render as a horizontal tab bar directly under the analysis summary, matching the mockup. There is no desktop left rail and no sidebar component. Below roughly 1024px the same bar becomes horizontally scrollable; it never converts into a vertical rail on desktop.
 
 **One authoritative editor per input (revised).** Every accounting input has exactly one editing location:
+
 - Variable Consideration — canonical editor stays in Step 3 (with the existing Step 5 measurement/usage surface where it lives today). Additional Topics shows a read-only summary plus a "Go to Step 3" link.
 - Material Rights — canonical editing stays on the material-right performance obligation in Step 2/4/5 exactly as today. Additional Topics shows a read-only summary plus a link.
 - Contract Modifications — remains a standalone Additional Topic with its own editor (`ContractModifications`), the single location for those inputs.
-No component may render a second editable control bound to the same draft field. A per-phase review checks that each draft field has one editing call site.
+  No component may render a second editable control bound to the same draft field. A per-phase review checks that each draft field has one editing call site.
 
 State / data flow (unchanged in substance)
+
 - The layout route keeps `useState<WorkflowDraft>` and `useMemo(analyzeWorkflow)`. It exposes them through a small React context (`AnalysisProvider` / `useAnalysis()`) so child routes read the same `draft`, `setDraft`, `result` — no prop drilling, no second copy, no per-route state.
 - Because the draft lives on the parent layout route, navigating between the six areas never unmounts it; edits survive area switches and accordion collapse.
 - Every number rendered still comes from engine output. No new derived arithmetic in React.
 - Judgment semantics are untouched: `JudgmentControl` keeps Yes / No / **Unanswered** as three distinct states, and unanswered stays `null`. The mockups are layout and aesthetic references only; they carry no authority over accounting controls, wording of judgments, or validation.
 
 One canonical renderer
+
 - Add a presentation-only field on the workspace: `origin: "manual" | "sample" | "ai"` (derived today from whether `?sample=` was used). It affects only the summary badge, the available contextual actions (e.g. "Reset Sample"), and the landing copy.
 - All three origins mount the exact same `Asc606AnalysisView` and the same financial views.
 - To leave room for future AI provenance and guidance, each accordion field group is wrapped in a `FieldBlock` with optional `provenance` and `guidance` slots that render nothing today. No AI or guidance data model is introduced now.
@@ -89,30 +99,31 @@ One canonical renderer
 **Origin/sample context preservation (revised).** `?sample=` (and the derived origin) lives on the `/analysis` layout route's search schema and is propagated to every child link via `<Link search={(prev) => prev}>`, so moving between the six areas never drops sample context or re-seeds the draft. An explicit regression test asserts that after loading `/analysis?sample=meridian`, editing a field, and navigating through all six areas, the URL still carries `sample=meridian` and the edited value is intact.
 
 **Analysis summary metrics (revised).** `AnalysisSummary` is accounting-aware and conditional. It shows only measures that are unambiguous from existing engine output for the analysis at hand:
+
 - always: origin/status label, customer, contract reference, count of performance obligations, count of blocking issues.
 - only when unambiguous: a single fixed transaction price (suppressed when variable consideration, material rights or a modification make a single "contract value" ambiguous; in those cases the summary shows the labelled lifecycle/consideration figures the engine already produces, or nothing).
 - no invented "Recognition Pattern" scalar. A pattern chip appears only when every performance obligation shares one recognition method; otherwise it is omitted (details remain in Step 5).
-No summary figure is computed in React — each is read directly from engine output or is a simple count of draft rows.
-
+  No summary figure is computed in React — each is read directly from engine output or is a simple count of draft rows.
 
 ## 3. Migration mapping
 
-| Current stage | New location |
-|---|---|
-| 1 Contract | ASC 606 Analysis → Step 1, split into "Contract overview" (customer, reference, execution date, currency) and "ASC 606 contract criteria" (the five existing criteria, unchanged) |
-| 2A Promises | Step 2 → subsection "Promised goods and services" |
-| 2B Performance Obligations | Step 2 → subsection "Performance obligations" |
-| 3 Transaction Price | Step 3 (variable-consideration editor stays inside Step 3) |
-| 4 Allocation | Step 4 |
-| 5 Recognition | Step 5 (`Step5VariableConsideration` remains attached where it lives today) |
-| Contract Modification | Additional Topics Applied → "Contract modifications", same `ContractModifications` component and same engine path |
-| Billing & Contract Balances | Contract Balances area (billing/cash inputs on top, `ContractBalanceOutputs` below) |
-| Results | Dissolved: contract conclusion / promises / PO / allocation summaries fold into the matching accordion sections; revenue schedule → Revenue Schedule; balances → Contract Balances; journals → Journal Entries; validation + reconciliation → Review & Finalize (with a compact status in the summary bar) |
-| Back / Continue / Reset | Replaced by area navigation + summary-bar actions; blocking issues surface inline per step and are aggregated in Review & Finalize |
+| Current stage               | New location                                                                                                                                                                                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Contract                  | ASC 606 Analysis → Step 1, split into "Contract overview" (customer, reference, execution date, currency) and "ASC 606 contract criteria" (the five existing criteria, unchanged)                                                                                                                          |
+| 2A Promises                 | Step 2 → subsection "Promised goods and services"                                                                                                                                                                                                                                                          |
+| 2B Performance Obligations  | Step 2 → subsection "Performance obligations"                                                                                                                                                                                                                                                              |
+| 3 Transaction Price         | Step 3 (variable-consideration editor stays inside Step 3)                                                                                                                                                                                                                                                 |
+| 4 Allocation                | Step 4                                                                                                                                                                                                                                                                                                     |
+| 5 Recognition               | Step 5 (`Step5VariableConsideration` remains attached where it lives today)                                                                                                                                                                                                                                |
+| Contract Modification       | Additional Topics Applied → "Contract modifications", same `ContractModifications` component and same engine path                                                                                                                                                                                          |
+| Billing & Contract Balances | Contract Balances area (billing/cash inputs on top, `ContractBalanceOutputs` below)                                                                                                                                                                                                                        |
+| Results                     | Dissolved: contract conclusion / promises / PO / allocation summaries fold into the matching accordion sections; revenue schedule → Revenue Schedule; balances → Contract Balances; journals → Journal Entries; validation + reconciliation → Review & Finalize (with a compact status in the summary bar) |
+| Back / Continue / Reset     | Replaced by area navigation + summary-bar actions; blocking issues surface inline per step and are aggregated in Review & Finalize                                                                                                                                                                         |
 
 ## 4. Files added / modified / removed
 
 Added
+
 - `src/routes/analysis/route.tsx` (layout), `analysis/index.tsx`, `schedule.tsx`, `balances.tsx`, `journals.tsx`, `documents.tsx`, `review.tsx`
 - `src/routes/case-studies.tsx`, `src/routes/guidance.tsx`
 - `src/components/arc/AppHeader.tsx`, `AppFooter.tsx`, `AnalysisWorkspace.tsx`, `AnalysisNavigation.tsx`, `AnalysisSummary.tsx`, `Asc606AnalysisView.tsx`, `AnalysisStepAccordion.tsx`, `AdditionalTopics.tsx`, `RevenueScheduleView.tsx`, `ContractBalancesView.tsx`, `JournalEntriesView.tsx`, `SourceDocumentsView.tsx`, `ReviewFinalizeView.tsx`, `FieldBlock.tsx`
@@ -121,6 +132,7 @@ Added
 - `src/lib/arc/features.ts` (build-time feature flags for unfinished public destinations)
 
 Modified
+
 - `src/routes/index.tsx` (new landing IA), `src/routes/__root.tsx` (header/footer chrome, real ARC metadata, dark class)
 - `src/styles.css` (dark-first ARC palette + green accent tokens)
 - `src/components/asc606-workflow/*` step editors: heading/wrapper trimming only so they nest inside accordions; no field, judgment or validation removed
@@ -128,6 +140,7 @@ Modified
 - `src/lib/demo-scenarios.ts` — add a `featured` flag and case-study grouping metadata only
 
 Removed / deprecated
+
 - `WorkflowStepper.tsx` and the `StepKey` model
 - `AnalysisResults.tsx` after its sections are relocated
 - The Back / Continue / Reset button row in `analysis.tsx`
@@ -145,7 +158,7 @@ The only permitted workflow-layer addition is a display-oriented summary view-mo
 - **Duplicated state** — one `WorkflowDraft`, one `setDraft`, distributed only through context. No child route may hold its own copy; a review step in each phase checks for `useState<WorkflowDraft>` outside the layout.
 - **Stale calculations** — the single `useMemo(() => analyzeWorkflow(draft), [draft])` stays the only analysis call; views receive `result` as a prop/context value.
 - **Broken validations** — `validateWorkflow` and `blockingByStep` keep their existing `WorkflowStepId` keys; the accordion maps `2a`/`2b` into Step 2's section and `mod` into Additional Topics. Nothing is filtered out: unmapped issues fall through to Review & Finalize so no issue can silently disappear.
-- **Gating (revised)** — removing Back/Continue is approved: users navigate freely among sections. Everything the engine enforces stays intact — `validateWorkflow` blocking issues, per-step issue lists, and suppression of allocation/schedule/balance/journal output when a blocking failure exists. Free navigation changes only where issues are *displayed*, never whether results are produced.
+- **Gating (revised)** — removing Back/Continue is approved: users navigate freely among sections. Everything the engine enforces stays intact — `validateWorkflow` blocking issues, per-step issue lists, and suppression of allocation/schedule/balance/journal output when a blocking failure exists. Free navigation changes only where issues are _displayed_, never whether results are produced.
 - **No simulated finalized state** — no immutable/finalized flag is introduced anywhere in draft state or UI. That lifecycle is deferred to the future persistence/revision subsystem.
 
 ## 7. Responsive / accessibility approach
@@ -187,6 +200,7 @@ Each phase is verified before the next begins: the affected behaviour is checked
 **Variable-consideration single-editor resolution (addendum).** During phase 2, each control in `Step5VariableConsideration` is traced to its draft field. Controls bound to fields already edited in Step 3 are removed from Step 5 (replaced by a read-only display plus a link); controls bound to distinct measurement/usage inputs required by the approved workflow (e.g. `usagePeriods`, remeasurement assessments) stay in Step 5 as their canonical home. No Phase 5B engine change is made either way.
 
 **Analysis summary metric rule (addendum, resolved).**
+
 ```text
 Simple analysis
   Transaction price            $XXX
@@ -197,6 +211,7 @@ Modification analysis
   Lifecycle consideration      $XXX
   Modification treatment       <engine-derived treatment>
 ```
+
 Each figure renders only when the engine exposes it unambiguously for that branch; an unavailable metric is omitted rather than substituted or recomputed in React. A modification-analysis monetary figure is never labelled "Contract Value".
 
 ## 10. Risks and open questions
@@ -208,11 +223,10 @@ Each figure renders only when the engine exposes it unambiguously for that branc
 - Deep-linkable child routes change existing URLs (`/analysis` only, today). Old links still land on the ASC 606 Analysis area, so nothing breaks.
 - Review & Finalize aggregates existing validation and reconciliation controls only. No finalized/immutable state is created or simulated; that is reserved for the future persistence and revision subsystem.
 
-
-
 ## 11. Visual interpretation
 
 The existing design system is token-based (`styles.css` `@theme inline` + oklch variables), so the ARC look is achieved by redefining tokens rather than hardcoding colours:
+
 - Dark surfaces via a near-black `--background` with a slightly lifted `--card`/`--muted`, borders at low-alpha white for thin hairlines.
 - `--primary` becomes the restrained green, used only for primary CTAs, active nav/step indicators and success states. Structure stays neutral gray; there is no green flood, no gradient, no glass.
 - `--muted-foreground` is raised until small secondary text clears 4.5:1 on card surfaces — a specific fix for the readability risk in dark mode.

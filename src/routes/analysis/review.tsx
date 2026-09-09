@@ -19,7 +19,7 @@ function ReviewFinalizeArea() {
       >
         <Notice tone={result.blockedReason ? "danger" : "muted"}>
           {result.blockedReason ??
-            "No blocking issue was reported. The engine produced a finalized analysis."}
+            "No blocking issues were reported. The current draft is complete and all required engine outputs are available."}
         </Notice>
       </Section>
 
