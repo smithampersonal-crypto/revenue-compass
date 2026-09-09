@@ -49,17 +49,17 @@ Routes
 Component hierarchy (new folder `src/components/arc/`)
 ```
 AppHeader / AppFooter            brand chrome (ARC), site nav
-AnalysisWorkspace                layout body: summary + nav + outlet
-  AnalysisSummary                status badge, customer, value, PO count, pattern, actions
-  AnalysisNavigation             6 parent areas, keyboard-accessible, active state
+AnalysisWorkspace                layout body: summary + horizontal nav + outlet
+  AnalysisSummary                conditional metrics + contextual actions
+  AnalysisNavigation             horizontal tab bar of the 6 parent areas
   Asc606AnalysisView             accordion list
     AnalysisStepAccordion        one section: number, title, status chip, content
       Step1 → ContractOverview + Step1Contract (criteria)
       Step2 → Step2Promises + Step2PerformanceObligations
-      Step3 → Step3TransactionPrice (+ VC editor when applicable)
+      Step3 → Step3TransactionPrice (canonical Variable Consideration editor)
       Step4 → Step4Allocation
-      Step5 → Step5Recognition
-    AdditionalTopics             Contract Modifications / Variable Consideration / Material Rights
+      Step5 → Step5Recognition (+ Step5VariableConsideration measurement, as today)
+    AdditionalTopics             read-only summaries + links, except Contract Modifications
   RevenueScheduleView
   ContractBalancesView
   JournalEntriesView
@@ -67,15 +67,33 @@ AnalysisWorkspace                layout body: summary + nav + outlet
   ReviewFinalizeView
 ```
 
+**Navigation form (revised).** The six parent areas render as a horizontal tab bar directly under the analysis summary, matching the mockup. There is no desktop left rail and no sidebar component. Below roughly 1024px the same bar becomes horizontally scrollable; it never converts into a vertical rail on desktop.
+
+**One authoritative editor per input (revised).** Every accounting input has exactly one editing location:
+- Variable Consideration — canonical editor stays in Step 3 (with the existing Step 5 measurement/usage surface where it lives today). Additional Topics shows a read-only summary plus a "Go to Step 3" link.
+- Material Rights — canonical editing stays on the material-right performance obligation in Step 2/4/5 exactly as today. Additional Topics shows a read-only summary plus a link.
+- Contract Modifications — remains a standalone Additional Topic with its own editor (`ContractModifications`), the single location for those inputs.
+No component may render a second editable control bound to the same draft field. A per-phase review checks that each draft field has one editing call site.
+
 State / data flow (unchanged in substance)
 - The layout route keeps `useState<WorkflowDraft>` and `useMemo(analyzeWorkflow)`. It exposes them through a small React context (`AnalysisProvider` / `useAnalysis()`) so child routes read the same `draft`, `setDraft`, `result` — no prop drilling, no second copy, no per-route state.
 - Because the draft lives on the parent layout route, navigating between the six areas never unmounts it; edits survive area switches and accordion collapse.
 - Every number rendered still comes from engine output. No new derived arithmetic in React.
+- Judgment semantics are untouched: `JudgmentControl` keeps Yes / No / **Unanswered** as three distinct states, and unanswered stays `null`. The mockups are layout and aesthetic references only; they carry no authority over accounting controls, wording of judgments, or validation.
 
 One canonical renderer
 - Add a presentation-only field on the workspace: `origin: "manual" | "sample" | "ai"` (derived today from whether `?sample=` was used). It affects only the summary badge, the available contextual actions (e.g. "Reset Sample"), and the landing copy.
 - All three origins mount the exact same `Asc606AnalysisView` and the same financial views.
 - To leave room for future AI provenance and guidance, each accordion field group is wrapped in a `FieldBlock` with optional `provenance` and `guidance` slots that render nothing today. No AI or guidance data model is introduced now.
+
+**Origin/sample context preservation (revised).** `?sample=` (and the derived origin) lives on the `/analysis` layout route's search schema and is propagated to every child link via `<Link search={(prev) => prev}>`, so moving between the six areas never drops sample context or re-seeds the draft. An explicit regression test asserts that after loading `/analysis?sample=meridian`, editing a field, and navigating through all six areas, the URL still carries `sample=meridian` and the edited value is intact.
+
+**Analysis summary metrics (revised).** `AnalysisSummary` is accounting-aware and conditional. It shows only measures that are unambiguous from existing engine output for the analysis at hand:
+- always: origin/status label, customer, contract reference, count of performance obligations, count of blocking issues.
+- only when unambiguous: a single fixed transaction price (suppressed when variable consideration, material rights or a modification make a single "contract value" ambiguous; in those cases the summary shows the labelled lifecycle/consideration figures the engine already produces, or nothing).
+- no invented "Recognition Pattern" scalar. A pattern chip appears only when every performance obligation shares one recognition method; otherwise it is omitted (details remain in Step 5).
+No summary figure is computed in React — each is read directly from engine output or is a simple count of draft rows.
+
 
 ## 3. Migration mapping
 
