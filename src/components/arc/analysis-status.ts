@@ -78,7 +78,7 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
     tone: "ok",
     headline: "Draft complete",
     detail:
-      "No blocking issues were reported. The current draft is complete and all required engine outputs are available.",
+      "No blocking issues were reported in the ASC 606 five-step analysis. The required revenue-analysis outputs are available.",
     engineReason,
   };
 }

@@ -11,8 +11,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { ContractBalanceOutputs } from "./ContractBalanceOutputs";
-import { Field, inputClass, IssueList, Notice, Section, td, th } from "./fields";
+import { Field, inputClass, IssueList, Notice, Section } from "./fields";
 
 /**
  * Post-ASC-606 accounting workpaper stage. React collects input strings and
@@ -304,34 +303,6 @@ export function BillingAndBalances({
         tone="warning"
         issues={result.validation.warnings}
       />
-
-      {result.finalized && result.analysis ? (
-        <ContractBalanceOutputs analysis={result.analysis} />
-      ) : (
-        <Section title="Contract-balance preview">
-          <Notice tone="danger">
-            {result.blockedReason ?? "The Billing & Contract Balances workpaper is incomplete."}
-          </Notice>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className={th}>Output</th>
-                <th className={th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className={td}>Billing schedule</td>
-                <td className={td}>Not presented</td>
-              </tr>
-              <tr>
-                <td className={td}>Monthly contract-balance rollforward</td>
-                <td className={td}>Not presented</td>
-              </tr>
-            </tbody>
-          </table>
-        </Section>
-      )}
     </div>
   );
 }

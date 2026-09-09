@@ -203,7 +203,7 @@ export function Step4Allocation({
             <Notice>
               Usage-based consideration is recognized as the usage occurs and is never forecast, so
               it is not included in this inception allocation. Later changes in estimate are shown
-              in full on the results screen.
+              in full in the Revenue Schedule area.
             </Notice>
           </>
         ) : null}
@@ -213,7 +213,7 @@ export function Step4Allocation({
             This contract contains variable consideration. The table above is the engine's relative
             standalone-selling-price allocation. Amounts allocated specifically to a single
             performance obligation or to a service period, and every later change in estimate, are
-            shown in full on the results screen.
+            shown in full in the Revenue Schedule area.
           </Notice>
         ) : null}
 

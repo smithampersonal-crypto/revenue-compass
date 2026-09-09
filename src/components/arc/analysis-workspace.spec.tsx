@@ -78,7 +78,9 @@ describe("ARC analysis workspace (Phase 1)", () => {
 
     await user.click(screen.getByRole("link", { name: "Contract Balances" }));
     expect(
-      await screen.findByText(/Billing & Contract Balances workpaper is incomplete/i),
+      await screen.findByText(
+        /five-step draft analysis must be complete before the Billing & Contract Balances workpaper/i,
+      ),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("link", { name: "Review & Finalize" }));
