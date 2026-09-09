@@ -23,7 +23,7 @@ export function Step2Promises({
 
   return (
     <Section
-      title="Step 2A — Identify and Assess Promises"
+      title="Promised Goods and Services"
       description="List every promised good or service and record your distinctness judgments. Customer options are recorded here too: for an option you conclude whether it conveys a material right instead of answering the distinctness judgments. The distinct conclusion is derived from your two answers and cannot be edited directly."
     >
       <div className="space-y-5">

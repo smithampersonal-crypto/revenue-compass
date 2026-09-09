@@ -91,7 +91,7 @@ export function Step5Recognition({
 
   return (
     <Section
-      title="Step 5 — Determine Revenue Recognition"
+      title="Recognition Judgments"
       description="Select the recognition method and supporting dates for each performance obligation. Revenue amounts are produced by the deterministic engine."
     >
       <div className="space-y-4">
