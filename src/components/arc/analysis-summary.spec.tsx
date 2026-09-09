@@ -106,13 +106,9 @@ describe("Analysis summary view model (Phase 4)", () => {
     const summary = summaryFor(draft, "sample");
     const value = (label: string) => summary.metrics.find((m) => m.label === label)?.value;
 
-    expect(value("Original consideration")).toBe(
-      formatCents(totals.originalTransactionPriceCents),
-    );
+    expect(value("Original consideration")).toBe(formatCents(totals.originalTransactionPriceCents));
     expect(value("Modification consideration")).toBe(formatCents(totals.considerationChangeCents));
-    expect(value("Lifecycle consideration")).toBe(
-      formatCents(totals.lifecycleConsiderationCents),
-    );
+    expect(value("Lifecycle consideration")).toBe(formatCents(totals.lifecycleConsiderationCents));
     expect(value("Modification treatment")).toBe(result.modification!.classification!.label);
     expect(summary.metrics.some((m) => m.label === "Contract Value")).toBe(false);
     expect(summary.metrics.some((m) => m.label === "Transaction price")).toBe(false);
@@ -197,7 +193,9 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
       expect(screen.getByLabelText(/customer/i)).toHaveValue(canonical);
     });
     expect(router.state.location.search).toEqual({ sample: "redwood" });
-    expect(within(summaryRegion()).getByText("Sample Analysis — Fictional Contract")).toBeInTheDocument();
+    expect(
+      within(summaryRegion()).getByText("Sample Analysis — Fictional Contract"),
+    ).toBeInTheDocument();
     confirm.mockRestore();
   });
 
