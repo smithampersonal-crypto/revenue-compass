@@ -50,7 +50,12 @@ export function AdditionalTopics({
         open={open["topic-modifications"] ?? false}
         onToggle={(next) => onToggle("topic-modifications", next)}
       >
-        <ContractModifications draft={draft} onChange={onChange} />
+        <div className="space-y-6">
+          <ContractModifications draft={draft} onChange={onChange} />
+          {result.modification ? (
+            <ContractModificationOutputs modification={result.modification} />
+          ) : null}
+        </div>
       </AccordionSection>
 
       {vcRelevant ? (
