@@ -1,9 +1,11 @@
 -- ARC Phase 7A — ownership, RLS, and lifecycle-constraint assertions.
--- Runs entirely inside a transaction that is rolled back; creates only
+-- Runs entirely inside a transaction that is rolled back and creates only
 -- synthetic auth users. Never run against production data.
+-- Every row of the final result set must report passed = true.
 begin;
 
 create temporary table arc_test_results (assertion text, passed boolean) on commit drop;
+grant all on arc_test_results to authenticated;
 
 do $$
 declare
@@ -35,58 +37,62 @@ begin
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
   values (ana_a, 1, '{"draft":true}'::jsonb, 'arc-workflow-1') returning id into rev_a;
 
-  -- User A sees own rows through RLS
+  -- User A, caller-scoped
   set local role authenticated;
   perform set_config('request.jwt.claims', json_build_object('sub', user_a, 'role', 'authenticated')::text, true);
   select count(*) into seen from public.customers;
-  insert into arc_test_results values ('user A sees own 2 customers', seen = 2);
+  insert into arc_test_results values ('01 user A sees own 2 customers', seen = 2);
   select count(*) into seen from public.analysis_revisions;
-  insert into arc_test_results values ('user A sees own revision', seen = 1);
+  insert into arc_test_results values ('02 user A sees own revision', seen = 1);
   update public.customers set name = 'Renamed A' where id = cust_a;
-  insert into arc_test_results values ('user A can update own customer',
+  insert into arc_test_results values ('03 user A can update own customer',
     (select name from public.customers where id = cust_a) = 'Renamed A');
 
-  -- User B is denied
+  -- User B, denied everywhere
   perform set_config('request.jwt.claims', json_build_object('sub', user_b, 'role', 'authenticated')::text, true);
   select count(*) into seen from public.customers;
-  insert into arc_test_results values ('user B sees no customers of A', seen = 0);
+  insert into arc_test_results values ('04 user B sees no customers of A', seen = 0);
   select count(*) into seen from public.contracts;
-  insert into arc_test_results values ('user B sees no contracts of A', seen = 0);
+  insert into arc_test_results values ('05 user B sees no contracts of A', seen = 0);
   select count(*) into seen from public.analyses;
-  insert into arc_test_results values ('user B sees no analyses of A', seen = 0);
+  insert into arc_test_results values ('06 user B sees no analyses of A', seen = 0);
   select count(*) into seen from public.analysis_revisions;
-  insert into arc_test_results values ('user B sees no revisions of A', seen = 0);
+  insert into arc_test_results values ('07 user B sees no revisions of A', seen = 0);
   update public.customers set name = 'hacked' where id = cust_a;
   get diagnostics seen = row_count;
-  insert into arc_test_results values ('user B cannot update A customer', seen = 0);
+  insert into arc_test_results values ('08 user B cannot update A customer', seen = 0);
 
-  -- Guest workspaces are unreachable from the Data API roles
   begin
     select count(*) into seen from public.guest_workspaces;
-    insert into arc_test_results values ('guest workspaces unreachable by authenticated', false);
+    insert into arc_test_results values ('09 guest workspaces unreachable by authenticated', false);
   exception when others then
-    insert into arc_test_results values ('guest workspaces unreachable by authenticated', true);
+    insert into arc_test_results values ('09 guest workspaces unreachable by authenticated', true);
+  end;
+
+  begin
+    perform public.arc_finalize_revision(user_b, rev_a, 1, '{}'::jsonb, '{}'::jsonb, 's', 'e');
+    insert into arc_test_results values ('10 authenticated cannot execute finalize function', false);
+  exception when others then
+    insert into arc_test_results values ('10 authenticated cannot execute finalize function', true);
   end;
 
   reset role;
 
-  -- One active draft per analysis
   ok := false;
   begin
     insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
     values (ana_a, 2, '{}'::jsonb, 'arc-workflow-1');
   exception when unique_violation then ok := true;
   end;
-  insert into arc_test_results values ('second active draft rejected', ok);
+  insert into arc_test_results values ('11 second active draft rejected', ok);
 
-  -- Duplicate revision numbers rejected
   ok := false;
   begin
     insert into public.analysis_revisions (analysis_id, revision_number, status, canonical_inputs, schema_version)
     values (ana_a, 1, 'finalized', '{}'::jsonb, 'arc-workflow-1');
   exception when unique_violation then ok := true;
   end;
-  insert into arc_test_results values ('duplicate revision number rejected', ok);
+  insert into arc_test_results values ('12 duplicate revision number rejected', ok);
 end $$;
 
 select assertion, passed from arc_test_results order by assertion;

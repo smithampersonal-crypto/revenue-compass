@@ -2,10 +2,10 @@
 
 ## Phase 7 — Identity + Core Persistence Foundation
 
-- [ ] 7A Foundation: enums, tables, constraints, grants, RLS, trusted SECURITY DEFINER
-      functions, generated types, database/security tests. Preserve
-      draft → finalized → superseded lifecycle with
-      `analyses.current_finalized_revision_id`. **← current, stop for review after**
+- [x] 7A Foundation: enums, tables, constraints, grants, RLS, trusted SECURITY DEFINER
+      functions, generated types, database/security tests. draft → finalized →
+      superseded lifecycle with `analyses.current_finalized_revision_id`.
+      **Awaiting review — do not start 7B until reviewed.**
 - [ ] 7B Identity: auth server functions, sign-in/callback, account menu.
       Must include the Google-broker acceptance test (broker sign-in → user exists in
       this project's `auth.users` → `getUser()` verifies → caller-scoped query succeeds →
