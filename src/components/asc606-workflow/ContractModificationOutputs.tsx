@@ -34,7 +34,7 @@ export function ContractModificationOutputs({
 
   return (
     <Section
-      title="Contract modification"
+      title="Contract modification results (engine output)"
       description="Derived ASC 606 modification treatment, preserved historical revenue, and the allocation applied from the effective date forward."
     >
       <div className="space-y-1 text-sm">

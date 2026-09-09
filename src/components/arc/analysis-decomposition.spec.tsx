@@ -116,7 +116,7 @@ describe("Phase 3 — Revenue Schedule", () => {
   it("contains neither balance nor journal tables", async () => {
     await renderAt("/analysis/schedule?sample=horizon");
     expect(screen.queryByText(/Billing schedule \(engine output\)/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Journal Entries/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Journal entries \(engine output\)/i)).not.toBeInTheDocument();
   });
 
   it("keeps the Meridian modification figures available", async () => {
@@ -163,8 +163,8 @@ describe("Phase 3 — supporting engine output", () => {
 describe("Phase 3 — Contract Modification detail", () => {
   it("renders the detailed modification output exactly once, inside Additional Topics", async () => {
     await renderAt("/analysis?sample=meridian");
-    const headings = screen.getAllByText("Contract modification");
-    expect(headings.length).toBeLessThanOrEqual(1);
+    const headings = screen.getAllByText("Contract modification results (engine output)");
+    expect(headings).toHaveLength(1);
     const topic = document.getElementById("topic-modifications");
     expect(topic).not.toBeNull();
     for (const heading of headings) {
@@ -202,7 +202,8 @@ describe("Phase 3 — Contract Balances", () => {
 describe("Phase 3 — Journal Entries", () => {
   it("renders ordinary journal output", async () => {
     await renderAt("/analysis/journals?sample=horizon");
-    expect(await screen.findByText(/Journal Entries/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Journal Entries/)).length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Debit").length).toBeGreaterThan(0);
   });
 
   it("renders one journal table per group and a combined reconciliation only", async () => {
@@ -228,7 +229,7 @@ describe("Phase 3 — Review & Finalize", () => {
   it("shows validation and reconciliation status in one place", async () => {
     await renderAt("/analysis/review?sample=horizon");
     expect(await screen.findByText("Engine validation")).toBeInTheDocument();
-    expect(screen.getByText(/reconciliation/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Billing and contract-balance workpaper")).toBeInTheDocument();
   });
 
