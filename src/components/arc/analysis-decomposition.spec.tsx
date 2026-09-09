@@ -163,7 +163,7 @@ describe("Phase 3 — supporting engine output", () => {
 describe("Phase 3 — Contract Modification detail", () => {
   it("renders the detailed modification output exactly once, inside Additional Topics", async () => {
     await renderAt("/analysis?sample=meridian");
-    const headings = screen.getAllByText(/Contract modification .*(engine output|result)/i);
+    const headings = screen.getAllByText("Contract modification");
     expect(headings.length).toBeLessThanOrEqual(1);
     const topic = document.getElementById("topic-modifications");
     expect(topic).not.toBeNull();

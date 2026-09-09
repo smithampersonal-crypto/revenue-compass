@@ -98,9 +98,7 @@ export function ReviewFinalizeView({
               <tr>
                 <td className={td}>Classification</td>
                 <td className={td}>
-                  {modification.classification
-                    ? modification.classification.replace(/_/g, " ")
-                    : "Not available"}
+                  {modification.classification?.label ?? "Not available"}
                 </td>
               </tr>
               <tr>
