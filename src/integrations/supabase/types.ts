@@ -14,7 +14,212 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analyses: {
+        Row: {
+          contract_id: string
+          created_at: string
+          current_finalized_revision_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          current_finalized_revision_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          current_finalized_revision_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analyses_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: true
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analyses_current_finalized_revision_id_fkey"
+            columns: ["current_finalized_revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analysis_revisions: {
+        Row: {
+          analysis_id: string
+          canonical_inputs: Json
+          created_at: string
+          engine_outputs: Json | null
+          engine_version: string | null
+          finalized_at: string | null
+          id: string
+          lock_version: number
+          reconciliation_snapshot: Json | null
+          revision_number: number
+          schema_version: string
+          status: Database["public"]["Enums"]["arc_revision_status"]
+          supersedes_revision_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          analysis_id: string
+          canonical_inputs: Json
+          created_at?: string
+          engine_outputs?: Json | null
+          engine_version?: string | null
+          finalized_at?: string | null
+          id?: string
+          lock_version?: number
+          reconciliation_snapshot?: Json | null
+          revision_number: number
+          schema_version: string
+          status?: Database["public"]["Enums"]["arc_revision_status"]
+          supersedes_revision_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analysis_id?: string
+          canonical_inputs?: Json
+          created_at?: string
+          engine_outputs?: Json | null
+          engine_version?: string | null
+          finalized_at?: string | null
+          id?: string
+          lock_version?: number
+          reconciliation_snapshot?: Json | null
+          revision_number?: number
+          schema_version?: string
+          status?: Database["public"]["Enums"]["arc_revision_status"]
+          supersedes_revision_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_revisions_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analysis_revisions_supersedes_revision_id_fkey"
+            columns: ["supersedes_revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          contract_number: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          status: Database["public"]["Enums"]["arc_contract_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          contract_number?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["arc_contract_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          contract_number?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["arc_contract_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      guest_workspaces: {
+        Row: {
+          created_at: string
+          draft_json: Json
+          expires_at: string
+          id: string
+          lock_version: number
+          migrated_user_id: string | null
+          schema_version: string
+          status: Database["public"]["Enums"]["arc_guest_workspace_status"]
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          draft_json: Json
+          expires_at: string
+          id?: string
+          lock_version?: number
+          migrated_user_id?: string | null
+          schema_version: string
+          status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          draft_json?: Json
+          expires_at?: string
+          id?: string
+          lock_version?: number
+          migrated_user_id?: string | null
+          schema_version?: string
+          status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +228,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      arc_contract_status: "active" | "archived"
+      arc_guest_workspace_status:
+        | "active"
+        | "migrating"
+        | "migrated"
+        | "expired"
+      arc_revision_status: "draft" | "finalized" | "superseded"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +361,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      arc_contract_status: ["active", "archived"],
+      arc_guest_workspace_status: [
+        "active",
+        "migrating",
+        "migrated",
+        "expired",
+      ],
+      arc_revision_status: ["draft", "finalized", "superseded"],
+    },
   },
 } as const
