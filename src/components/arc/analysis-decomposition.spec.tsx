@@ -200,7 +200,9 @@ describe("Phase 3 — Contract Balances", () => {
 
   it("renders exactly one billing schedule for an ordinary contract", async () => {
     const draft = createDemoDraft("horizon");
-    render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    render(
+      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+    );
     expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(1);
   });
 
@@ -208,15 +210,38 @@ describe("Phase 3 — Contract Balances", () => {
     const draft = createDemoDraft("meridian");
     const balances = analyzeContractBalanceWorkflow(draft);
     expect(balances.grouped).not.toBeNull();
-    render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    render(
+      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+    );
     expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(
       balances.grouped!.groups.length,
     );
   });
 
+  it("renders each balance blocking issue exactly once when blocked", () => {
+    const draft = createDemoDraft("horizon");
+    const blocked = {
+      ...draft,
+      contractBalances: { ...draft.contractBalances, considerationEvents: [], cashCollections: [] },
+    };
+    const balances = analyzeContractBalanceWorkflow(blocked);
+    const issue = balances.validation.blocking[0];
+    expect(issue).toBeDefined();
+    render(
+      <ContractBalancesView
+        draft={blocked}
+        result={analyzeWorkflow(blocked)}
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getAllByText(issue!.message)).toHaveLength(1);
+  });
+
   it("exposes no finalization terminology when the workpaper is blocked", () => {
     const draft = createEmptyDraft();
-    const { container } = render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    const { container } = render(
+      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+    );
     expect(container.textContent ?? "").not.toMatch(/finalized/i);
   });
 });

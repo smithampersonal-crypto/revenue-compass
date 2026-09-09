@@ -1,6 +1,4 @@
 import {
-  analyzeContractBalanceWorkflow,
-  analyzeWorkflow,
   createCashCollectionDraft,
   createConsiderationEventDraft,
   nextId,
@@ -8,6 +6,8 @@ import {
   type CashCollectionDraft,
   type ConsiderationAmountSource,
   type ConsiderationEventDraft,
+  type ContractBalanceWorkflowResult,
+  type WorkflowAnalysisResult,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
@@ -16,23 +16,28 @@ import { Field, inputClass, IssueList, Notice, Section } from "./fields";
 /**
  * Post-ASC-606 accounting workpaper stage. React collects input strings and
  * displays deterministic engine output; it performs no balance accounting.
+ * The balance workflow result and contract groups are evaluated once by the
+ * Contract Balances parent and passed in.
  */
 export function BillingAndBalances({
   draft,
   onChange,
+  balances,
+  contractGroups,
 }: {
   draft: WorkflowDraft;
   onChange: (draft: WorkflowDraft) => void;
+  balances: ContractBalanceWorkflowResult;
+  contractGroups: WorkflowAnalysisResult["contractGroups"];
 }) {
   const { considerationEvents, cashCollections } = draft.contractBalances;
   // Phase 5B: a billing amount may be taken directly from the deterministic
   // variable-consideration engine instead of being re-entered.
   const vcComponents = draft.hasVariableConsideration ? draft.variableConsiderationComponents : [];
-  const result = analyzeContractBalanceWorkflow(draft);
+  const result = balances;
   // Phase 5C: when a modification produced more than one contract, each billing
   // event must name the contract it belongs to. The list of contracts is engine
   // output; React only renders it.
-  const contractGroups = analyzeWorkflow(draft).contractGroups;
   const needsContractLink = contractGroups.length > 1;
 
   const setEvents = (events: ConsiderationEventDraft[]) =>
