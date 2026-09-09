@@ -85,7 +85,11 @@ export function AdditionalTopics({
                 ? "Engine output for this topic is presented with the analysis results."
                 : "No variable-consideration output is available for the current draft."}
             </p>
-            <TopicLink label="Go to Step 3 — Determine the Transaction Price" target="step-3" onNavigate={onNavigate} />
+            <TopicLink
+              label="Go to Step 3 — Determine the Transaction Price"
+              target="step-3"
+              onNavigate={onNavigate}
+            />
           </div>
         </AccordionSection>
       ) : null}
@@ -113,14 +117,16 @@ export function AdditionalTopics({
                   <span className="font-medium">
                     {po.name || `Performance obligation ${po.seq}`}
                   </span>{" "}
-                  — material-right performance obligation ({po.materialRightStatus.replace(
-                    /_/g,
-                    " ",
-                  )})
+                  — material-right performance obligation (
+                  {po.materialRightStatus.replace(/_/g, " ")})
                 </li>
               ))}
             </ul>
-            <TopicLink label="Go to Step 2 — Identify Performance Obligations" target="step-2" onNavigate={onNavigate} />
+            <TopicLink
+              label="Go to Step 2 — Identify Performance Obligations"
+              target="step-2"
+              onNavigate={onNavigate}
+            />
           </div>
         </AccordionSection>
       ) : null}

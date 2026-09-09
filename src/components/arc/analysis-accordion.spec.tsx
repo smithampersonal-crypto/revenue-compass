@@ -135,9 +135,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     await user.type(customer, "Authoritative Draft Co.");
 
     await user.click(screen.getByRole("link", { name: "Revenue Schedule" }));
-    await waitFor(() =>
-      expect(screen.getByText(/Authoritative Draft Co\./)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Authoritative Draft Co\./)).toBeInTheDocument());
   });
 
   it("still suppresses downstream output for a blocked draft", async () => {
