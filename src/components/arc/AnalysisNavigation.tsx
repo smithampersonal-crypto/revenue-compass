@@ -8,7 +8,12 @@ export const ANALYSIS_AREAS = [
   { to: "/analysis/schedule", label: "Revenue Schedule", exact: false },
   { to: "/analysis/balances", label: "Contract Balances", exact: false },
   { to: "/analysis/journals", label: "Journal Entries", exact: false },
-  { to: "/analysis/documents", label: "Source Documents", exact: false, feature: "SOURCE_DOCUMENTS" },
+  {
+    to: "/analysis/documents",
+    label: "Source Documents",
+    exact: false,
+    feature: "SOURCE_DOCUMENTS",
+  },
   { to: "/analysis/review", label: "Review & Finalize", exact: false },
 ] as const;
 

@@ -12,10 +12,7 @@ export const Route = createFileRoute("/analysis/documents")({
 
 function SourceDocumentsArea() {
   return (
-    <Section
-      title="Source documents"
-      description="Supporting documentation for this analysis."
-    >
+    <Section title="Source documents" description="Supporting documentation for this analysis.">
       <Notice>
         This analysis was entered directly in the workspace, so there are no attached source
         documents. Document intake is not part of the current release and no accounting output
