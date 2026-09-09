@@ -7,7 +7,14 @@ import { Notice, Section, td, th } from "./fields";
  * Read-only Phase 5B presentation. Every amount is engine output; this
  * component performs no accounting arithmetic.
  */
-export function VariableConsiderationOutputs({ vc }: { vc: VariableConsiderationAnalysis }) {
+export function VariableConsiderationOutputs({
+  vc,
+  showReconciliation = true,
+}: {
+  vc: VariableConsiderationAnalysis;
+  /** Review & Finalize owns the reconciliation; supporting views hide it. */
+  showReconciliation?: boolean;
+}) {
   const layers = vc.allocation;
 
   return (
