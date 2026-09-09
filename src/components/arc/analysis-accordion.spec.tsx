@@ -46,8 +46,8 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     const user = userEvent.setup();
     await renderAt("/analysis?sample=meridian");
 
-    const step1 = screen.getByRole("button", { name: STEP_HEADERS[0] });
-    const step3 = screen.getByRole("button", { name: STEP_HEADERS[2] });
+    const step1 = screen.getByRole("button", { name: STEP_HEADERS[0]! });
+    const step3 = screen.getByRole("button", { name: STEP_HEADERS[2]! });
     expect(step1).toHaveAttribute("aria-expanded", "true");
 
     await user.click(step3);
@@ -63,7 +63,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     await user.clear(customer);
     await user.type(customer, "Collapse Test Inc.");
 
-    const step1 = screen.getByRole("button", { name: STEP_HEADERS[0] });
+    const step1 = screen.getByRole("button", { name: STEP_HEADERS[0]! });
     await user.click(step1);
     expect(step1).toHaveAttribute("aria-expanded", "false");
     await user.click(step1);
@@ -84,7 +84,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     const step2 = section("step-2");
     expect(within(step2).getByText(/Items requiring attention in Step 2/)).toBeInTheDocument();
     expect(
-      within(screen.getByRole("button", { name: STEP_HEADERS[1] })).getByText(/issue/),
+      within(screen.getByRole("button", { name: STEP_HEADERS[1]! })).getByText(/issue/),
     ).toBeInTheDocument();
   });
 
