@@ -56,8 +56,8 @@ function AnalysisWorkspace() {
             deterministic ASC 606 engine and are read-only.
           </p>
           <Notice>
-            This workspace holds one in-memory analysis. Nothing is saved: refreshing the page clears
-            all entered data.
+            This workspace holds one in-memory analysis. Nothing is saved: refreshing the page
+            clears all entered data.
           </Notice>
           {unknownSample ? (
             <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>

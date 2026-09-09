@@ -31,7 +31,9 @@ describe("ARC app shell (Phase 5)", () => {
 
   it("keeps the internal engine check outside recruiter-facing ARC chrome", async () => {
     await renderAt("/engine-check");
-    expect(await screen.findByRole("heading", { name: "ASC 606 Engine Check" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "ASC 606 Engine Check" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("ASC 606 Analysis Platform")).not.toBeInTheDocument();
     expect(screen.queryByText("© 2026 Ayden's Revenue Compass (ARC)")).not.toBeInTheDocument();
   });

@@ -152,12 +152,7 @@ function TopicLink({
   onNavigate: (sectionId: string) => void;
 }) {
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={() => onNavigate(target)}
-    >
+    <Button type="button" size="sm" variant="outline" onClick={() => onNavigate(target)}>
       {label}
     </Button>
   );

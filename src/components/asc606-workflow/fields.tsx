@@ -55,9 +55,9 @@ export function Notice({
 }) {
   const toneClass =
     tone === "danger"
-        ? "border-destructive/40 bg-destructive/10 text-destructive-foreground"
+      ? "border-destructive/40 bg-destructive/10 text-destructive-foreground"
       : tone === "warning"
-          ? "border-warning/40 bg-warning/10 text-warning-foreground"
+        ? "border-warning/40 bg-warning/10 text-warning-foreground"
         : "border-border bg-muted text-muted-foreground";
   return <div className={`rounded-md border p-3 text-sm ${toneClass}`}>{children}</div>;
 }
