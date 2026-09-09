@@ -42,7 +42,9 @@ export function ReviewFinalizeView({
         title="Review"
         description="Status, outstanding items and reconciliation from the deterministic engines."
       >
-        <Notice tone={status.tone === "ok" ? "muted" : status.tone === "blocked" ? "danger" : "warning"}>
+        <Notice
+          tone={status.tone === "ok" ? "muted" : status.tone === "blocked" ? "danger" : "warning"}
+        >
           <p className="font-semibold">{status.headline}</p>
           <p className="mt-1">{status.detail}</p>
         </Notice>
@@ -97,9 +99,7 @@ export function ReviewFinalizeView({
             <tbody>
               <tr>
                 <td className={td}>Classification</td>
-                <td className={td}>
-                  {modification.classification?.label ?? "Not available"}
-                </td>
+                <td className={td}>{modification.classification?.label ?? "Not available"}</td>
               </tr>
               <tr>
                 <td className={td}>Historical cutoff date</td>
@@ -202,7 +202,9 @@ export function ReviewFinalizeView({
           )
         ) : (
           <>
-            <Notice tone="warning">The Billing &amp; Contract Balances workpaper is incomplete.</Notice>
+            <Notice tone="warning">
+              The Billing &amp; Contract Balances workpaper is incomplete.
+            </Notice>
             <IssueList
               title="Outstanding billing and contract-balance items"
               tone="warning"

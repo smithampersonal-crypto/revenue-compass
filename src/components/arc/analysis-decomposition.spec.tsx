@@ -177,9 +177,7 @@ describe("Phase 3 — Contract Balances", () => {
   it("renders ordinary engine balance output", async () => {
     await renderAt("/analysis/balances?sample=horizon");
     expect(await screen.findByText("Billing schedule (engine output)")).toBeInTheDocument();
-    expect(
-      screen.getByText("Contract-balance reconciliation (engine output)"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Contract-balance reconciliation (engine output)")).toBeInTheDocument();
   });
 
   it("shows separate group balances plus a gross combined presentation", async () => {

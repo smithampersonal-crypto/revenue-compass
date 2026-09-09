@@ -310,8 +310,7 @@ export function BillingAndBalances({
       ) : (
         <Section title="Contract-balance preview">
           <Notice tone="danger">
-            {result.blockedReason ??
-              "The Billing & Contract Balances workpaper is incomplete."}
+            {result.blockedReason ?? "The Billing & Contract Balances workpaper is incomplete."}
           </Notice>
           <table className="w-full border-collapse text-sm">
             <thead>

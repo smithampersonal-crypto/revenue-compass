@@ -8,11 +8,7 @@ import { Section, td, th } from "./fields";
  * independently by the engine; this table only displays the engine's gross
  * aggregation. Contract assets are never offset against contract liabilities.
  */
-export function CombinedContractBalances({
-  grouped,
-}: {
-  grouped: GroupedContractBalanceAnalysis;
-}) {
+export function CombinedContractBalances({ grouped }: { grouped: GroupedContractBalanceAnalysis }) {
   if (!grouped.combinedMonthly) return null;
   return (
     <Section

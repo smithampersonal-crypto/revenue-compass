@@ -179,11 +179,7 @@ export function VariableConsiderationOutputs({
 }
 
 /** Reconciliation only; Review & Finalize is its central home. */
-export function VariableConsiderationReconciliation({
-  vc,
-}: {
-  vc: VariableConsiderationAnalysis;
-}) {
+export function VariableConsiderationReconciliation({ vc }: { vc: VariableConsiderationAnalysis }) {
   return (
     <Section title="Variable-consideration reconciliation (engine output)">
       <table className="w-full border-collapse text-sm">

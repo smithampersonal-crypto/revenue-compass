@@ -61,7 +61,8 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
     return {
       tone: "blocked",
       headline: "Engine validation requires attention",
-      detail: "The deterministic engine reported blocking validation items. Review the items below.",
+      detail:
+        "The deterministic engine reported blocking validation items. Review the items below.",
       engineReason,
     };
   }
@@ -69,8 +70,7 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
     return {
       tone: "attention",
       headline: "Outputs not yet available",
-      detail:
-        "No revenue schedule is available until the outstanding analysis items are resolved.",
+      detail: "No revenue schedule is available until the outstanding analysis items are resolved.",
       engineReason,
     };
   }
