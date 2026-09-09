@@ -303,7 +303,6 @@ export function BillingAndBalances({
         tone="warning"
         issues={result.validation.warnings}
       />
-
     </div>
   );
 }
