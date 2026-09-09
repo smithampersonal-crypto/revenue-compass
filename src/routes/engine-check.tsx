@@ -18,9 +18,11 @@ export const Route = createFileRoute("/engine-check")({
         content: "Internal ASC 606 engine output review for fictional demonstration contracts.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "/engine-check" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
+    links: [{ rel: "canonical", href: "/engine-check" }],
   }),
   component: EngineCheck,
 });

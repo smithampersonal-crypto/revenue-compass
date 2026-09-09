@@ -1,4 +1,7 @@
 import { useId, type ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 /**
  * Accordion section used by the ASC 606 Analysis workspace.
@@ -32,23 +35,24 @@ export function AccordionSection({
   return (
     <section
       id={id}
-      className="scroll-mt-24 overflow-hidden rounded-lg border border-border bg-background"
+      className={`scroll-mt-24 overflow-hidden rounded-lg border bg-card transition-colors ${
+        open ? "border-primary/45" : "border-border"
+      }`}
     >
       <h2>
-        <button
+        <Button
+          variant="ghost"
           type="button"
           aria-expanded={open}
           aria-controls={contentId}
           onClick={() => onToggle(!open)}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent"
+          className="h-auto min-h-14 w-full justify-start gap-3 whitespace-normal rounded-none px-4 py-3 text-left hover:bg-accent"
         >
-          <span
+          <ChevronRight
             aria-hidden="true"
-            className="text-xs text-muted-foreground transition-transform"
+            className="size-4 shrink-0 text-muted-foreground transition-transform"
             style={{ transform: open ? "rotate(90deg)" : undefined }}
-          >
-            ▶
-          </span>
+          />
           <span className="flex-1">
             <span className="block text-base font-semibold text-foreground">{title}</span>
             {subtitle ? (
@@ -60,9 +64,9 @@ export function AccordionSection({
               {status}
             </span>
           ) : null}
-        </button>
+        </Button>
       </h2>
-      <div id={contentId} hidden={!open} className="border-t border-border p-4">
+      <div id={contentId} hidden={!open} className="border-t border-border bg-background/35 p-4">
         {children}
       </div>
     </section>

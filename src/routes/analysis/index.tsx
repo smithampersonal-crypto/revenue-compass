@@ -14,6 +14,24 @@ import { Step4Allocation } from "@/components/asc606-workflow/Step4Allocation";
 import { Step5Recognition } from "@/components/asc606-workflow/Step5Recognition";
 
 export const Route = createFileRoute("/analysis/")({
+  head: () => ({
+    meta: [
+      { title: "ASC 606 Five-Step Analysis — Ayden's Revenue Compass" },
+      {
+        name: "description",
+        content: "Document ASC 606 judgments across the five-step revenue recognition model.",
+      },
+      { property: "og:title", content: "ASC 606 Five-Step Analysis — Ayden's Revenue Compass" },
+      {
+        property: "og:description",
+        content: "Document ASC 606 judgments across the five-step revenue recognition model.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "/analysis" },
+      { name: "twitter:card", content: "summary" },
+    ],
+    links: [{ rel: "canonical", href: "/analysis" }],
+  }),
   component: Asc606AnalysisArea,
 });
 

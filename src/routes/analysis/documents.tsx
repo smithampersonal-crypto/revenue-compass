@@ -4,6 +4,24 @@ import { Notice, Section } from "@/components/asc606-workflow/fields";
 import { FEATURES } from "@/lib/arc/features";
 
 export const Route = createFileRoute("/analysis/documents")({
+  head: () => ({
+    meta: [
+      { title: "Source Documents — Ayden's Revenue Compass" },
+      {
+        name: "description",
+        content: "Review source-document context for an ASC 606 analysis.",
+      },
+      { property: "og:title", content: "Source Documents — Ayden's Revenue Compass" },
+      {
+        property: "og:description",
+        content: "Review source-document context for an ASC 606 analysis.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "/analysis/documents" },
+      { name: "twitter:card", content: "summary" },
+    ],
+    links: [{ rel: "canonical", href: "/analysis/documents" }],
+  }),
   beforeLoad: () => {
     if (!FEATURES.SOURCE_DOCUMENTS) throw notFound();
   },
