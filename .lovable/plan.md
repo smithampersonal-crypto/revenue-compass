@@ -144,11 +144,13 @@ The only permitted workflow-layer addition is a display-oriented summary view-mo
 - **Duplicated state** — one `WorkflowDraft`, one `setDraft`, distributed only through context. No child route may hold its own copy; a review step in each phase checks for `useState<WorkflowDraft>` outside the layout.
 - **Stale calculations** — the single `useMemo(() => analyzeWorkflow(draft), [draft])` stays the only analysis call; views receive `result` as a prop/context value.
 - **Broken validations** — `validateWorkflow` and `blockingByStep` keep their existing `WorkflowStepId` keys; the accordion maps `2a`/`2b` into Step 2's section and `mod` into Additional Topics. Nothing is filtered out: unmapped issues fall through to Review & Finalize so no issue can silently disappear.
-- **Gating** — replacing Continue removes a forward gate, so blocking issues become permanently visible per section plus a consolidated list in Review & Finalize; blocked engine output continues to suppress financial results exactly as today.
+- **Gating (revised)** — removing Back/Continue is approved: users navigate freely among sections. Everything the engine enforces stays intact — `validateWorkflow` blocking issues, per-step issue lists, and suppression of allocation/schedule/balance/journal output when a blocking failure exists. Free navigation changes only where issues are *displayed*, never whether results are produced.
+- **No simulated finalized state** — no immutable/finalized flag is introduced anywhere in draft state or UI. That lifecycle is deferred to the future persistence/revision subsystem.
 
 ## 7. Responsive / accessibility approach
 
-- Desktop-first two-column workspace (nav rail + content), collapsing to a stacked layout with a horizontally scrollable nav under ~1024px.
+- Desktop-first single-column workspace with a **horizontal parent-area tab bar** under the summary (per the mockup). No left rail at any breakpoint; the bar becomes horizontally scrollable on narrow screens.
+
 - Radix `Accordion` (`type="multiple"`) and Radix-based nav give keyboard operation and correct ARIA out of the box; area nav uses `<Link>` with `activeProps` and `aria-current`.
 - Visible `focus-visible` ring on all interactive elements; semantic `h1/h2/h3` order; every input keeps a real `<label>`.
 - Status is always text + shape, never colour alone (e.g. "Blocked · 2 items", not a red dot).
