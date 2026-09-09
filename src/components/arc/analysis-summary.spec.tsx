@@ -15,6 +15,7 @@ import {
   analyzeWorkflow,
   createEmptyDraft,
   createMaterialRightPoDraft,
+  createModificationDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 import { case7Draft } from "@/lib/asc606-workflow/__tests__/vc-fixtures";
