@@ -44,21 +44,7 @@ export function ContractBalancesView({
           )}
           <CombinedContractBalances grouped={balances.grouped} />
         </>
-      ) : balances.finalized && balances.analysis ? (
-        <>
-          <Section
-            title="Billing, receivables and contract balances"
-            description="A separate post-ASC-606 workpaper. It does not affect the five-step revenue analysis."
-          >
-            <Notice>
-              Contract asset and contract liability are determined from cumulative revenue versus
-              cumulative unconditional rights to consideration; invoicing and cash affect only the
-              receivable presentation.
-            </Notice>
-          </Section>
-          <ContractBalanceOutputs analysis={balances.analysis} />
-        </>
-      ) : (
+      ) : balances.finalized && balances.analysis ? null : ( // The editor above already renders the ordinary engine balance output.
         <Section title="Billing, receivables and contract balances">
           <Notice tone="warning">
             The Billing &amp; Contract Balances workpaper is incomplete, so no billing schedule or
