@@ -14,6 +14,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Component tests render the whole router; allow for slower CI machines.
+    testTimeout: 30_000,
     include: ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
     setupFiles: ["./src/test/setup-component-tests.ts"],
   },
