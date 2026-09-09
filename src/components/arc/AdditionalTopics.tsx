@@ -1,3 +1,4 @@
+import { ContractModificationOutputs } from "@/components/asc606-workflow/ContractModificationOutputs";
 import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { judgmentLabel, Notice } from "@/components/asc606-workflow/fields";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
@@ -50,7 +51,12 @@ export function AdditionalTopics({
         open={open["topic-modifications"] ?? false}
         onToggle={(next) => onToggle("topic-modifications", next)}
       >
-        <ContractModifications draft={draft} onChange={onChange} />
+        <div className="space-y-6">
+          <ContractModifications draft={draft} onChange={onChange} />
+          {result.modification ? (
+            <ContractModificationOutputs modification={result.modification} />
+          ) : null}
+        </div>
       </AccordionSection>
 
       {vcRelevant ? (
@@ -83,7 +89,7 @@ export function AdditionalTopics({
             )}
             <p className="text-muted-foreground">
               {result.variableConsideration
-                ? "Engine output for this topic is presented with the analysis results."
+                ? "Engine output for this topic is presented in the Revenue Schedule area."
                 : "No variable-consideration output is available for the current draft."}
             </p>
             <TopicLink

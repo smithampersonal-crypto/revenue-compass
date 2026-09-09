@@ -188,7 +188,11 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     await user.type(customer, "Authoritative Draft Co.");
 
     await user.click(screen.getByRole("link", { name: "Revenue Schedule" }));
-    await waitFor(() => expect(screen.getByText(/Authoritative Draft Co\./)).toBeInTheDocument());
+    await screen.findByRole("heading", { name: /Revenue Schedule/i });
+    await user.click(screen.getByRole("link", { name: "ASC 606 Analysis" }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/customer name/i)).toHaveValue("Authoritative Draft Co."),
+    );
   });
 
   it("still suppresses downstream output for a blocked draft", async () => {
@@ -203,7 +207,6 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
   it("retains the approved Meridian modification results", async () => {
     const user = userEvent.setup();
     await renderAt("/analysis?sample=meridian");
-    await user.click(screen.getByRole("link", { name: "Revenue Schedule" }));
     await waitFor(() => {
       expect(document.body.textContent).toContain("Historical cutoff date: 2027-06-30");
     });

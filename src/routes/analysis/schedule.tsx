@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useAnalysis } from "@/components/arc/analysis-context";
-import { AnalysisResults } from "@/components/asc606-workflow/AnalysisResults";
+import { RevenueScheduleView } from "@/components/arc/RevenueScheduleView";
 
 export const Route = createFileRoute("/analysis/schedule")({
   component: RevenueScheduleArea,
@@ -9,5 +9,5 @@ export const Route = createFileRoute("/analysis/schedule")({
 
 function RevenueScheduleArea() {
   const { draft, result } = useAnalysis();
-  return <AnalysisResults draft={draft} result={result} />;
+  return <RevenueScheduleView draft={draft} result={result} />;
 }

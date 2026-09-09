@@ -296,7 +296,7 @@ export function BillingAndBalances({
       </Section>
 
       <IssueList
-        title="Resolve these items before the contract-balance workpaper can be finalized"
+        title="Resolve these items to complete the contract-balance workpaper"
         issues={result.validation.blocking}
       />
       <IssueList
@@ -310,8 +310,7 @@ export function BillingAndBalances({
       ) : (
         <Section title="Contract-balance preview">
           <Notice tone="danger">
-            {result.blockedReason ??
-              "Billing and contract-balance workpaper has not been finalized."}
+            {result.blockedReason ?? "The Billing & Contract Balances workpaper is incomplete."}
           </Notice>
           <table className="w-full border-collapse text-sm">
             <thead>
