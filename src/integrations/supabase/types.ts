@@ -225,7 +225,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      arc_finalize_revision: {
+        Args: {
+          p_engine_outputs: Json
+          p_engine_version: string
+          p_expected_lock_version: number
+          p_owner_user_id: string
+          p_reconciliation_snapshot: Json
+          p_revision_id: string
+          p_schema_version: string
+        }
+        Returns: string
+      }
+      arc_migrate_guest_workspace: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_customer_name: string
+          p_guest_workspace_id: string
+          p_owner_user_id: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
+          revision_id: string
+        }[]
+      }
     }
     Enums: {
       arc_contract_status: "active" | "archived"
