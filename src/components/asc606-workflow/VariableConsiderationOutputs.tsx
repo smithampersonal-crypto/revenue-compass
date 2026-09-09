@@ -173,70 +173,81 @@ export function VariableConsiderationOutputs({
         </Section>
       ) : null}
 
-      <Section title="Variable-consideration reconciliation (engine output)">
-        <table className="w-full border-collapse text-sm">
-          <tbody>
-            <tr>
-              <td className={td}>Fixed consideration</td>
-              <td className={td}>{formatCents(vc.totals.fixedConsiderationCents)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Initial transaction price (fixed plus constrained estimate)</td>
-              <td className={td}>{formatCents(vc.totals.initialTransactionPriceCents)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Current estimated consideration</td>
-              <td className={td}>{formatCents(vc.totals.currentEstimatedConsiderationCents)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Usage-as-incurred consideration</td>
-              <td className={td}>{formatCents(vc.totals.usageConsiderationCents)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Consideration on exercised material rights</td>
-              <td className={td}>{formatCents(vc.totals.exerciseConsiderationCents)}</td>
-            </tr>
-            <tr className="font-semibold">
-              <td className={td}>Total lifecycle consideration</td>
-              <td className={td}>{formatCents(vc.totals.lifecycleConsiderationCents)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Scheduled revenue</td>
-              <td className={td}>
-                {vc.totals.scheduledRevenueCents === null
-                  ? "Not available"
-                  : formatCents(vc.totals.scheduledRevenueCents)}
-              </td>
-            </tr>
-            <tr>
-              <td className={td}>Unscheduled consideration</td>
-              <td className={td}>
-                {vc.totals.unscheduledConsiderationCents === null
-                  ? "Not available"
-                  : formatCents(vc.totals.unscheduledConsiderationCents)}
-              </td>
-            </tr>
-            <tr>
-              <td className={td}>Difference</td>
-              <td className={td}>
-                {vc.reconciliation.differenceCents === null
-                  ? "Not available"
-                  : formatCents(vc.reconciliation.differenceCents)}
-              </td>
-            </tr>
-            <tr>
-              <td className={td}>Status</td>
-              <td className={td}>
-                {vc.reconciliation.reconciled === null
-                  ? "Not available"
-                  : vc.reconciliation.reconciled
-                    ? "Reconciled"
-                    : "Not reconciled"}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </Section>
+      {showReconciliation ? <VariableConsiderationReconciliation vc={vc} /> : null}
     </>
+  );
+}
+
+/** Reconciliation only; Review & Finalize is its central home. */
+export function VariableConsiderationReconciliation({
+  vc,
+}: {
+  vc: VariableConsiderationAnalysis;
+}) {
+  return (
+    <Section title="Variable-consideration reconciliation (engine output)">
+      <table className="w-full border-collapse text-sm">
+        <tbody>
+          <tr>
+            <td className={td}>Fixed consideration</td>
+            <td className={td}>{formatCents(vc.totals.fixedConsiderationCents)}</td>
+          </tr>
+          <tr>
+            <td className={td}>Initial transaction price (fixed plus constrained estimate)</td>
+            <td className={td}>{formatCents(vc.totals.initialTransactionPriceCents)}</td>
+          </tr>
+          <tr>
+            <td className={td}>Current estimated consideration</td>
+            <td className={td}>{formatCents(vc.totals.currentEstimatedConsiderationCents)}</td>
+          </tr>
+          <tr>
+            <td className={td}>Usage-as-incurred consideration</td>
+            <td className={td}>{formatCents(vc.totals.usageConsiderationCents)}</td>
+          </tr>
+          <tr>
+            <td className={td}>Consideration on exercised material rights</td>
+            <td className={td}>{formatCents(vc.totals.exerciseConsiderationCents)}</td>
+          </tr>
+          <tr className="font-semibold">
+            <td className={td}>Total lifecycle consideration</td>
+            <td className={td}>{formatCents(vc.totals.lifecycleConsiderationCents)}</td>
+          </tr>
+          <tr>
+            <td className={td}>Scheduled revenue</td>
+            <td className={td}>
+              {vc.totals.scheduledRevenueCents === null
+                ? "Not available"
+                : formatCents(vc.totals.scheduledRevenueCents)}
+            </td>
+          </tr>
+          <tr>
+            <td className={td}>Unscheduled consideration</td>
+            <td className={td}>
+              {vc.totals.unscheduledConsiderationCents === null
+                ? "Not available"
+                : formatCents(vc.totals.unscheduledConsiderationCents)}
+            </td>
+          </tr>
+          <tr>
+            <td className={td}>Difference</td>
+            <td className={td}>
+              {vc.reconciliation.differenceCents === null
+                ? "Not available"
+                : formatCents(vc.reconciliation.differenceCents)}
+            </td>
+          </tr>
+          <tr>
+            <td className={td}>Status</td>
+            <td className={td}>
+              {vc.reconciliation.reconciled === null
+                ? "Not available"
+                : vc.reconciliation.reconciled
+                  ? "Reconciled"
+                  : "Not reconciled"}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </Section>
   );
 }
