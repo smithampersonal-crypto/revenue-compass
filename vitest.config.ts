@@ -1,15 +1,21 @@
 import path from "node:path";
 
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
-// Standalone config: the ASC 606 engine is pure TypeScript with no React,
-// DOM, or Vite plugin dependencies, so tests run in a plain node environment.
+// The ASC 606 engine is pure TypeScript and keeps running in a plain node
+// environment. Component tests (*.spec.tsx) additionally need React and jsdom;
+// they are matched by their own environment glob so the engine suite is
+// completely unaffected.
 export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
   test: {
     environment: "node",
-    include: ["src/**/*.spec.ts"],
+    include: ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
+    environmentMatchGlobs: [["src/**/*.spec.tsx", "jsdom"]],
+    setupFiles: ["./src/test/setup-component-tests.ts"],
   },
 });
