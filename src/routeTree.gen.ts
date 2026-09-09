@@ -10,12 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalysisRouteRouteImport } from './routes/analysis/route'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as EngineCheckRouteImport } from './routes/engine-check'
+import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
+import { Route as AnalysisDocumentsRouteImport } from './routes/analysis/documents'
+import { Route as AnalysisScheduleRouteImport } from './routes/analysis/schedule'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRouteRoute = AnalysisRouteRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -28,34 +37,76 @@ const EngineCheckRoute = EngineCheckRouteImport.update({
   path: '/engine-check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalysisIndexRoute = AnalysisIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisDocumentsRoute = AnalysisDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisScheduleRoute = AnalysisScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => AnalysisRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/analysis/documents': typeof AnalysisDocumentsRoute
+  '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/analysis/': typeof AnalysisIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisIndexRoute
   '/engine-check': typeof EngineCheckRoute
+  '/analysis/documents': typeof AnalysisDocumentsRoute
+  '/analysis/schedule': typeof AnalysisScheduleRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/analysis': typeof AnalysisRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/analysis/documents': typeof AnalysisDocumentsRoute
+  '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/analysis/': typeof AnalysisIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/analysis' | '/engine-check'
+  fullPaths:
+    | '/'
+    | '/analysis'
+    | '/engine-check'
+    | '/analysis/documents'
+    | '/analysis/schedule'
+    | '/analysis/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analysis' | '/engine-check'
-  id: '__root__' | '/' | '/analysis' | '/engine-check'
+  to:
+    | '/'
+    | '/analysis'
+    | '/engine-check'
+    | '/analysis/documents'
+    | '/analysis/schedule'
+  id:
+    | '__root__'
+    | '/'
+    | '/analysis'
+    | '/engine-check'
+    | '/analysis/documents'
+    | '/analysis/schedule'
+    | '/analysis/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AnalysisRoute: typeof AnalysisRoute
+  AnalysisRouteRoute: typeof AnalysisRouteRoute
+  AnalysisRoute: typeof AnalysisRouteWithChildren
   EngineCheckRoute: typeof EngineCheckRoute
 }
 
@@ -72,6 +123,13 @@ declare module '@tanstack/react-router' {
       id: '/analysis'
       path: '/analysis'
       fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -82,12 +140,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngineCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analysis/': {
+      id: '/analysis/'
+      path: '/'
+      fullPath: '/analysis/'
+      preLoaderRoute: typeof AnalysisIndexRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/documents': {
+      id: '/analysis/documents'
+      path: '/documents'
+      fullPath: '/analysis/documents'
+      preLoaderRoute: typeof AnalysisDocumentsRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/schedule': {
+      id: '/analysis/schedule'
+      path: '/schedule'
+      fullPath: '/analysis/schedule'
+      preLoaderRoute: typeof AnalysisScheduleRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
   }
 }
 
+interface AnalysisRouteChildren {
+  AnalysisDocumentsRoute: typeof AnalysisDocumentsRoute
+  AnalysisScheduleRoute: typeof AnalysisScheduleRoute
+  AnalysisIndexRoute: typeof AnalysisIndexRoute
+}
+
+const AnalysisRouteChildren: AnalysisRouteChildren = {
+  AnalysisDocumentsRoute: AnalysisDocumentsRoute,
+  AnalysisScheduleRoute: AnalysisScheduleRoute,
+  AnalysisIndexRoute: AnalysisIndexRoute,
+}
+
+const AnalysisRouteWithChildren = AnalysisRoute._addFileChildren(
+  AnalysisRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AnalysisRoute: AnalysisRoute,
+  AnalysisRouteRoute: AnalysisRouteRoute,
+  AnalysisRoute: AnalysisRouteWithChildren,
   EngineCheckRoute: EngineCheckRoute,
 }
 export const routeTree = rootRouteImport
