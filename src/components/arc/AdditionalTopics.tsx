@@ -1,3 +1,4 @@
+import { ContractModificationOutputs } from "@/components/asc606-workflow/ContractModificationOutputs";
 import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { judgmentLabel, Notice } from "@/components/asc606-workflow/fields";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
