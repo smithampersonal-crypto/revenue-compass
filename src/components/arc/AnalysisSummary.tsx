@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 
+import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { buildAnalysisSummary } from "@/lib/arc/analysis-summary";
 import { FEATURES } from "@/lib/arc/features";
 
 const TONE_CLASS = {
-  ok: "border-border bg-muted text-muted-foreground",
-  attention: "border-border bg-accent text-accent-foreground",
+  ok: "border-primary/35 bg-primary/10 text-primary",
+  attention: "border-warning/35 bg-warning/10 text-warning-foreground",
   blocked: "border-destructive/40 bg-destructive/10 text-destructive",
 } as const;
 
@@ -23,10 +24,10 @@ export function AnalysisSummary() {
   return (
     <section
       aria-label="Analysis summary"
-      className="space-y-3 rounded-lg border border-border bg-card p-4"
+      className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-md border border-border bg-muted px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
           {summary.originLabel}
         </span>
         <span
@@ -52,13 +53,13 @@ export function AnalysisSummary() {
         </div>
       ) : null}
 
-      <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         {summary.metrics.map((metric) => (
           <div key={metric.label} className="space-y-0.5">
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               {metric.label}
             </dt>
-            <dd className="text-sm font-semibold tabular-nums text-foreground">{metric.value}</dd>
+            <dd className="text-base font-semibold tabular-nums text-foreground">{metric.value}</dd>
           </div>
         ))}
       </dl>
@@ -68,25 +69,23 @@ export function AnalysisSummary() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Link
-          to="/analysis/review"
-          search={(previous: Record<string, unknown>) => previous}
-          className="rounded-md border border-border px-3 py-1 text-sm font-medium text-foreground hover:bg-accent"
-        >
-          Review &amp; Finalize
-        </Link>
-        {FEATURES.SOURCE_DOCUMENTS ? (
-          <Link
-            to="/analysis/documents"
-            search={(previous: Record<string, unknown>) => previous}
-            className="rounded-md border border-border px-3 py-1 text-sm font-medium text-foreground hover:bg-accent"
-          >
-            Source Documents
+        <Button asChild size="sm">
+          <Link to="/analysis/review" search={(previous: Record<string, unknown>) => previous}>
+            Review &amp; Finalize
           </Link>
+        </Button>
+        {FEATURES.SOURCE_DOCUMENTS ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to="/analysis/documents" search={(previous: Record<string, unknown>) => previous}>
+              Source Documents
+            </Link>
+          </Button>
         ) : null}
-        <button
+        <Button
           type="button"
-          className="rounded-md border border-destructive/40 px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
+          size="sm"
+          variant="outline"
+          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
           onClick={() => {
             const message = loadedSample
               ? "Reset this sample? Your edits to the sample contract will be discarded."
@@ -95,7 +94,7 @@ export function AnalysisSummary() {
           }}
         >
           {summary.resetLabel}
-        </button>
+        </Button>
       </div>
     </section>
   );

@@ -2,6 +2,7 @@ import { ContractModificationOutputs } from "@/components/asc606-workflow/Contra
 import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { judgmentLabel, Notice } from "@/components/asc606-workflow/fields";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+import { Button } from "@/components/ui/button";
 
 import { AccordionSection } from "./AccordionSection";
 import { issueStatus } from "./issue-status";
@@ -151,12 +152,13 @@ function TopicLink({
   onNavigate: (sectionId: string) => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
-      className="rounded-md border border-border px-3 py-1 text-sm font-medium hover:bg-accent"
+      size="sm"
+      variant="outline"
       onClick={() => onNavigate(target)}
     >
       {label}
-    </button>
+    </Button>
   );
 }
