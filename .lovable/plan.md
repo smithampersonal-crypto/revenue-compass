@@ -161,32 +161,39 @@ The only permitted workflow-layer addition is a display-oriented summary view-mo
 
 - A. All 381 existing pure tests must pass unchanged; no test file under `src/lib/**` is edited to accommodate UI work.
 - B–E. Add component tests. This requires new dev dependencies (`@testing-library/react`, `@testing-library/user-event`, `jsdom`) and a jsdom `environmentMatchGlobs` entry in `vitest.config.ts` so node-environment engine tests are unaffected. Coverage: each of the six areas renders; accordion expand/collapse preserves entered values; editing a field in Step 3 changes the same figures the current workspace produces; each sample loads and shows its known headline figures.
+- **New: origin/sample-context regression** — load `/analysis?sample=meridian`, edit a field, visit all six areas, assert `sample=meridian` survives every navigation and the edit is preserved.
+- **New: single-editor assertion** — Additional Topics renders no editable control for variable consideration or material rights (read-only summary + link only).
+- **New: blocking-behaviour parity** — a draft with a known blocking failure suppresses schedule/balance/journal output in the new workspace exactly as it does today.
 - F. Meridian sample rendered in the new workspace shows the approved Case 9 audit values (cutoff 2027-06-30, historical $59,425.44, lifecycle $330,000, future $270,574.56).
-- G. Keyboard traversal of nav + accordions and a narrow-viewport smoke check via Playwright screenshots.
+- G. Keyboard traversal of the horizontal tab bar + accordions and a narrow-viewport smoke check via Playwright screenshots.
 - Every phase ends with `bun run test`, `bunx tsc --noEmit`, `bun run build`, `bun run lint`, `bunx prettier --check .`.
 
-## 9. Implementation sequence
+## 9. Implementation sequence (revised — highest risk first)
 
-1. **Design system + shell** — ARC dark palette and green accent tokens in `styles.css`, `AppHeader`/`AppFooter`, root metadata. No IA change yet.
-2. **Landing page IA** — three-item nav, two primary CTAs, secondary manual-entry link, one featured sample, "Browse all case studies".
-3. **Case Studies + Guidance shells** — `/case-studies` lists existing samples and reserves slots for the three planned cases; `/guidance` placeholder.
-4. **Workspace skeleton** — convert `/analysis` to a layout route with context, add the six child routes and `AnalysisNavigation`; temporarily render existing step components per area to prove state survives navigation.
-5. **ASC 606 Analysis accordion** — Steps 1–5 sections, Step 1 split into overview + criteria, Step 2 subsections, Additional Topics hosting contract modifications (and VC / material-rights entry points).
-6. **Financial areas** — split `AnalysisResults` into `RevenueScheduleView`, `ContractBalancesView`, `JournalEntriesView`; `ReviewFinalizeView` takes validation + reconciliation; delete the stepper and `AnalysisResults`.
-7. **Summary bar + status labelling** — origin badges (Draft / Sample Analysis — Fictional Contract / Finalized), contextual actions.
-8. **Accessibility, responsive pass, and the test suite from section 8.**
+1. **Workspace + state migration** — convert `/analysis` to a layout route with `AnalysisProvider`, add the six child routes and the horizontal `AnalysisNavigation`, preserve `?sample=`/origin across all child links. Existing step components render per area unchanged so state preservation and blocking behaviour are proven before any visual work.
+2. **ASC 606 Analysis accordion** — Steps 1–5 sections, Step 1 split into overview + criteria, Step 2 subsections, Additional Topics as summaries/links (Contract Modifications standalone with its editor).
+3. **Financial areas** — split `AnalysisResults` into `RevenueScheduleView`, `ContractBalancesView`, `JournalEntriesView`; `ReviewFinalizeView` aggregates existing validation and reconciliation only; delete the stepper and `AnalysisResults`.
+4. **Test infrastructure and the suite in section 8**, including the new sample-context, single-editor and blocking-parity tests.
+5. **Analysis summary bar** — conditional accounting-aware metrics and origin labelling.
+6. **Design system** — ARC dark palette and green accent tokens, `AppHeader`/`AppFooter`, root metadata.
+7. **Landing page IA** — three-item nav, two primary CTAs, secondary manual-entry link, one featured sample, "Browse all case studies".
+8. **Case Studies + gated Guidance** — `/case-studies` lists existing samples; `/guidance` and any unfinished case content sit behind a feature flag (see below).
+9. **Accessibility and responsive pass.**
 
 Each phase is independently reviewable and leaves the app working.
 
+**Feature gating for unfinished destinations.** A single `src/lib/arc/features.ts` module exports build-time flags (e.g. `GUIDANCE_LIBRARY`, `SOURCE_DOCUMENTS`, `CASE_STUDIES_EXPANDED`). When a flag is off, the corresponding nav item and route content are hidden rather than shown as "Coming Soon"; the route itself returns not-found. Development can enable the flags freely, so the portfolio never exposes visibly unfinished experiences.
+
 ## 10. Risks and open questions
 
-- **The referenced landing-page and analysis mockups were not attached to this request.** Phase 1 will be executed from the written visual direction unless the images are supplied first; supplying them before Phase 1 is strongly preferred.
-- Removing Continue removes the current forward gate. Confirm you accept always-visible inline issues plus a Review & Finalize roll-up instead of blocking navigation.
-- The theme is currently light-mode shadcn slate. Going dark-first affects `/engine-check` too; it will inherit the new tokens without layout changes.
+- **The referenced landing-page and analysis mockups were not attached to this request.** The design phase will follow the written visual direction unless the images are supplied first; supplying them before phase 6 is strongly preferred.
+- The theme is currently light-mode shadcn slate. Going dark-first affects `/engine-check` too — it inherits the new tokens but is **not** redesigned, not wrapped in portfolio navigation, and stays an isolated internal verification route.
 - `AnalysisResults`, `Step3TransactionPrice` and `ContractModifications` are large; splitting them is the highest-regression-risk mechanical work and gets its own phase with screenshot comparison against today's output.
 - No component-test infrastructure exists today; adding jsdom + testing-library is a new dev dependency decision.
 - Deep-linkable child routes change existing URLs (`/analysis` only, today). Old links still land on the ASC 606 Analysis area, so nothing breaks.
-- "Finalized immutable analysis" does not exist in the engine; Review & Finalize will present current validation/reconciliation state only, with room for the future lifecycle.
+- Review & Finalize currently aggregates existing validation and reconciliation controls only. No finalized/immutable state is created or simulated; that is reserved for the future persistence and revision subsystem.
+- Open: whether the summary should show lifecycle consideration for modification analyses, or omit any single monetary headline entirely. Default is to show only the engine's own labelled lifecycle figure.
+
 
 ## 11. Visual interpretation
 
