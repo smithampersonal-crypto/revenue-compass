@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
+import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { Notice } from "@/components/asc606-workflow/fields";
 
 const TITLE = "ASC 606 Analysis — Ayden's Revenue Compass";
