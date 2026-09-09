@@ -117,7 +117,8 @@ Added
 - `src/routes/case-studies.tsx`, `src/routes/guidance.tsx`
 - `src/components/arc/AppHeader.tsx`, `AppFooter.tsx`, `AnalysisWorkspace.tsx`, `AnalysisNavigation.tsx`, `AnalysisSummary.tsx`, `Asc606AnalysisView.tsx`, `AnalysisStepAccordion.tsx`, `AdditionalTopics.tsx`, `RevenueScheduleView.tsx`, `ContractBalancesView.tsx`, `JournalEntriesView.tsx`, `SourceDocumentsView.tsx`, `ReviewFinalizeView.tsx`, `FieldBlock.tsx`
 - `src/components/arc/analysis-context.tsx`
-- `src/lib/arc/analysis-origin.ts` (pure: origin type + summary view-model built from existing engine output)
+- `src/lib/arc/analysis-origin.ts` (pure: origin type + conditional summary view-model built from existing engine output)
+- `src/lib/arc/features.ts` (build-time feature flags for unfinished public destinations)
 
 Modified
 - `src/routes/index.tsx` (new landing IA), `src/routes/__root.tsx` (header/footer chrome, real ARC metadata, dark class)
