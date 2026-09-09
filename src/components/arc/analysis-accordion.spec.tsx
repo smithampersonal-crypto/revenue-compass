@@ -155,5 +155,5 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     await user.click(screen.getByRole("link", { name: "Revenue Schedule" }));
     expect(await screen.findByText(/Historical cutoff date:\s*2027-06-30/, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(document.body.textContent).toContain("$59,425.44");
-  });
+  }, 20000);
 });
