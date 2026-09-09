@@ -48,7 +48,6 @@ export function BillingAndBalances({
   const setCash = (rows: CashCollectionDraft[]) =>
     onChange({ ...draft, contractBalances: { ...draft.contractBalances, cashCollections: rows } });
 
-
   const updateEvent = (id: string, patch: Partial<ConsiderationEventDraft>) =>
     setEvents(considerationEvents.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   const updateCash = (id: string, patch: Partial<CashCollectionDraft>) =>

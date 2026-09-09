@@ -228,7 +228,11 @@ describe("Phase 3 — Contract Balances", () => {
     const issue = balances.validation.blocking[0];
     expect(issue).toBeDefined();
     render(
-      <ContractBalancesView draft={blocked} result={analyzeWorkflow(blocked)} onChange={() => {}} />,
+      <ContractBalancesView
+        draft={blocked}
+        result={analyzeWorkflow(blocked)}
+        onChange={() => {}}
+      />,
     );
     expect(screen.getAllByText(issue!.message)).toHaveLength(1);
   });

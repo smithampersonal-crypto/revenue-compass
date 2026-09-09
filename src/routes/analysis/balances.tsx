@@ -11,4 +11,3 @@ function ContractBalancesArea() {
   const { draft, setDraft, result } = useAnalysis();
   return <ContractBalancesView draft={draft} result={result} onChange={setDraft} />;
 }
-
