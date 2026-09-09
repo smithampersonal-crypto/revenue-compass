@@ -86,7 +86,7 @@ export function buildAnalysisSummary({
     { label: "Performance obligations", value: String(draft.performanceObligations.length) },
   ];
 
-  const hasMaterialRight = draft.performanceOblifications.some((po) => po.kind === "material_right");
+  const hasMaterialRight = draft.performanceObligations.some((po) => po.kind === "material_right");
   const hasVariableConsideration =
     draft.hasVariableConsideration && draft.variableConsiderationComponents.length > 0;
   const hasActiveModification = draft.hasContractModifications;
