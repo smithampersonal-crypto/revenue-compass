@@ -5,6 +5,15 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
+import {
+  analyzeWorkflow,
+  createEmptyDraft,
+  createMaterialRightPoDraft,
+  createPromiseDraft,
+  createVcComponentDraft,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 import { routeTree } from "@/routeTree.gen";
 
 const STEP_HEADERS = [
@@ -104,19 +113,62 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     expect(unanswered).toBeChecked();
   });
 
-  it("exposes no editable Variable Consideration or Material Right controls in Additional Topics", async () => {
+  it("renders read-only Variable Consideration and Material Right topics with links to their canonical editors", async () => {
     const user = userEvent.setup();
-    await renderAt("/analysis?sample=cloudai");
 
-    const vc = document.getElementById("topic-variable-consideration");
-    if (vc) {
-      await user.click(within(vc as HTMLElement).getByRole("button", { name: /Variable/ }));
-      expect((vc as HTMLElement).querySelectorAll("input, select, textarea")).toHaveLength(0);
-    }
-    const mr = document.getElementById("topic-material-rights");
-    if (mr) {
-      expect((mr as HTMLElement).querySelectorAll("input, select, textarea")).toHaveLength(0);
-    }
+    const draft: WorkflowDraft = {
+      ...createEmptyDraft(),
+      hasVariableConsideration: true,
+      variableConsiderationComponents: [
+        {
+          ...createVcComponentDraft(1, "vc-1"),
+          description: "Usage overage fees",
+        },
+      ],
+      promises: [
+        {
+          ...createPromiseDraft(1, "promise-1"),
+          kind: "customer_option",
+          description: "Renewal option at a discount",
+        },
+      ],
+      performanceObligations: [createMaterialRightPoDraft(1, "po-mr-1")],
+    };
+
+    render(
+      <AdditionalTopics
+        draft={draft}
+        onChange={() => {}}
+        result={analyzeWorkflow(draft)}
+        open={{
+          "topic-variable-consideration": true,
+          "topic-material-rights": true,
+        }}
+        onToggle={() => {}}
+        onNavigate={() => {}}
+      />,
+    );
+
+    const vc = document.getElementById("topic-variable-consideration") as HTMLElement;
+    const mr = document.getElementById("topic-material-rights") as HTMLElement;
+    expect(vc).toBeInTheDocument();
+    expect(mr).toBeInTheDocument();
+
+    expect(vc.querySelectorAll("input, select, textarea")).toHaveLength(0);
+    expect(mr.querySelectorAll("input, select, textarea")).toHaveLength(0);
+
+    expect(
+      within(vc).getByRole("button", { name: /Go to Step 3 — Determine the Transaction Price/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(mr).getByRole("button", {
+        name: /Go to Step 2 — Identify Performance Obligations/,
+      }),
+    ).toBeInTheDocument();
+
+    // The read-only summaries stay read-only after interaction with the headers.
+    await user.click(within(vc).getByRole("button", { name: /Variable Consideration/ }));
+    expect(vc.querySelectorAll("input, select, textarea")).toHaveLength(0);
   });
 
   it("keeps Contract Modifications editable in exactly one location", async () => {
@@ -124,6 +176,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
     const editors = document.querySelectorAll('[id="topic-modifications"]');
     expect(editors).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: /Contract Modifications/ })).toHaveLength(1);
+    expect(screen.getAllByLabelText(/This contract has been modified/)).toHaveLength(1);
   });
 
   it("writes edits made through the accordion into the one authoritative draft", async () => {

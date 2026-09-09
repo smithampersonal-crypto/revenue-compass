@@ -133,7 +133,7 @@ export function ContractModifications({
           {modifications.length > 1 ? (
             <Notice>
               This version calculates a single contract modification. Remove the additional
-              modifications to see a finalized analysis.
+              modifications to produce a complete draft analysis.
             </Notice>
           ) : null}
 
