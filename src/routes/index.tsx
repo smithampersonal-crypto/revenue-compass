@@ -95,7 +95,9 @@ function Index() {
         <section className="mt-12 border-t border-border pt-8">
           <div className="mb-5">
             <p className="text-xs font-semibold uppercase text-primary">Why ARC</p>
-            <h2 className="mt-2 text-2xl font-semibold text-foreground">Built for accountable analysis</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-foreground">
+              Built for accountable analysis
+            </h2>
           </div>
           <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
             {PRINCIPLES.map((principle) => (

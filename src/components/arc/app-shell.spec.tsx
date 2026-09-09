@@ -91,12 +91,17 @@ describe("ARC app shell (Phase 5)", () => {
       name: "ASC 606 analysis, from contract judgment to journal entry.",
     });
 
-    const sampleLinks = screen.getAllByRole("link").filter((link) =>
-      link.getAttribute("href")?.includes("sample="),
-    );
+    const sampleLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.includes("sample="));
     expect(sampleLinks).toHaveLength(1);
     expect(sampleLinks[0]).toHaveAttribute("href", "/analysis?sample=redwood");
-    for (const hiddenSample of ["Apex Manufacturing", "Horizon Logistics", "Stellar", "Meridian Health"]) {
+    for (const hiddenSample of [
+      "Apex Manufacturing",
+      "Horizon Logistics",
+      "Stellar",
+      "Meridian Health",
+    ]) {
       expect(screen.queryByText(hiddenSample)).not.toBeInTheDocument();
     }
   });
