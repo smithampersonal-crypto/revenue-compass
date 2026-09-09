@@ -4,10 +4,12 @@ import { QueryClient } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { ContractBalancesView } from "@/components/arc/ContractBalancesView";
 import { RevenueScheduleView } from "@/components/arc/RevenueScheduleView";
 import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
 import { formatCents } from "@/lib/asc606";
 import {
+  analyzeContractBalanceWorkflow,
   analyzeWorkflow,
   createEmptyDraft,
   createMaterialRightPoDraft,
@@ -194,6 +196,28 @@ describe("Phase 3 — Contract Balances", () => {
   it("does not present journal entries", async () => {
     await renderAt("/analysis/balances?sample=horizon");
     expect(screen.queryByText(/Journal entries \(engine output\)/i)).not.toBeInTheDocument();
+  });
+
+  it("renders exactly one billing schedule for an ordinary contract", async () => {
+    const draft = createDemoDraft("horizon");
+    render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(1);
+  });
+
+  it("renders one billing schedule per engine group for Meridian", async () => {
+    const draft = createDemoDraft("meridian");
+    const balances = analyzeContractBalanceWorkflow(draft);
+    expect(balances.grouped).not.toBeNull();
+    render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(
+      balances.grouped!.groups.length,
+    );
+  });
+
+  it("exposes no finalization terminology when the workpaper is blocked", () => {
+    const draft = createEmptyDraft();
+    const { container } = render(<ContractBalancesView draft={draft} onChange={() => {}} />);
+    expect(container.textContent ?? "").not.toMatch(/finalized/i);
   });
 });
 
