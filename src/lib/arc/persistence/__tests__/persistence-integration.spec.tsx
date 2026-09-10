@@ -556,3 +556,139 @@ describe("finalized and superseded revisions", () => {
     });
   }
 });
+
+describe("cached revision data is never authoritative", () => {
+  /** One QueryClient shared across unmount/remount, so the cache survives. */
+  function sharedClient() {
+    return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  }
+
+  function ReloadProbe() {
+    const { persistence } = useAnalysis();
+    return (
+      <div>
+        <p data-testid="lock">{String(persistence.lockVersion)}</p>
+        <button type="button" onClick={persistence.reload}>
+          reload now
+        </button>
+      </div>
+    );
+  }
+
+  function tree(client: QueryClient) {
+    return (
+      <QueryClientProvider client={client}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={undefined}>
+          <SaveStatusIndicator />
+          <ReloadProbe />
+          <Probe />
+        </AnalysisProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  it("never resurrects a pre-save cached draft on remount", async () => {
+    const client = sharedClient();
+    load.mockResolvedValueOnce(loadedRevision());
+    save.mockResolvedValue({ ok: true, lockVersion: 2, savedAt: new Date().toISOString() });
+
+    const first = render(tree(client));
+    await screen.findByText("Saved");
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    await waitFor(() => expect(screen.getByTestId("lock")).toHaveTextContent("2"), {
+      timeout: 3000,
+    });
+    first.unmount();
+
+    // Remount the same revision while the old cache still exists. The fresh
+    // load is deferred so the cached copy cannot masquerade as authoritative.
+    let release: ((value: LoadedRevisionDto) => void) | undefined;
+    load.mockReturnValueOnce(
+      new Promise<LoadedRevisionDto>((resolve) => {
+        release = resolve;
+      }),
+    );
+    render(tree(client));
+
+    expect(await screen.findByText("Loading")).toBeInTheDocument();
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("false");
+    expect(screen.getByTestId("lock")).toHaveTextContent("null");
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "edit C" }));
+    expect(screen.getByTestId("name")).not.toHaveTextContent("C");
+
+    await act(async () => {
+      release?.(loadedRevision({ lockVersion: 2, draft: draftNamed("B") }));
+    });
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.getByTestId("name")).toHaveTextContent("B");
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("true");
+    expect(screen.getByTestId("lock")).toHaveTextContent("2");
+  });
+
+  it("cannot edit or autosave a cached revision when the fresh load fails", async () => {
+    const client = sharedClient();
+    load.mockResolvedValueOnce(loadedRevision());
+    const first = render(tree(client));
+    await screen.findByText("Saved");
+    first.unmount();
+
+    load.mockRejectedValueOnce(new Error("That saved analysis could not be opened."));
+    render(tree(client));
+
+    expect(await screen.findByText("Could not open")).toBeInTheDocument();
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("false");
+    expect(screen.getByTestId("lock")).toHaveTextContent("null");
+    fireEvent.click(screen.getByRole("button", { name: "edit C" }));
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("never silently replaces locally unsaved work with a background refetch", async () => {
+    const client = sharedClient();
+    load.mockResolvedValue(loadedRevision());
+    save.mockImplementation(() => new Promise<SaveDraftResult>(() => {}));
+    render(tree(client));
+    await screen.findByText("Saved");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit C" }));
+    expect(screen.getByTestId("name")).toHaveTextContent("C");
+
+    load.mockResolvedValue(loadedRevision({ draft: draftNamed("server") }));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["arc-analysis-revision", CONTRACT_ID, null] });
+    });
+
+    expect(screen.getByTestId("name")).toHaveTextContent("C");
+  });
+
+  it("makes an explicit reload a real loading boundary", async () => {
+    const client = sharedClient();
+    load.mockResolvedValueOnce(loadedRevision());
+    render(tree(client));
+    await screen.findByText("Saved");
+
+    let release: ((value: LoadedRevisionDto) => void) | undefined;
+    load.mockReturnValueOnce(
+      new Promise<LoadedRevisionDto>((resolve) => {
+        release = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "reload now" }));
+
+    expect(await screen.findByText("Loading")).toBeInTheDocument();
+    expect(screen.getByTestId("can-edit")).toHaveTextContent("false");
+    fireEvent.click(screen.getByRole("button", { name: "edit C" }));
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      release?.(loadedRevision({ lockVersion: 5, draft: draftNamed("fresh") }));
+    });
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.getByTestId("name")).toHaveTextContent("fresh");
+    expect(screen.getByTestId("lock")).toHaveTextContent("5");
+  });
+});
