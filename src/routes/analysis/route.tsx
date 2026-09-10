@@ -1,9 +1,10 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
+import { ReadOnlyInputs } from "@/components/arc/ReadOnlyInputs";
 import { SaveStatusIndicator } from "@/components/arc/SaveStatusIndicator";
 import { Notice } from "@/components/asc606-workflow/fields";
 
@@ -12,6 +13,9 @@ const DESCRIPTION =
   "Work through the ASC 606 five-step revenue recognition model for a SaaS contract and review deterministic allocation, revenue, contract balance and journal output.";
 
 export const Route = createFileRoute("/analysis")({
+  // An ambiguous URL that names both an ephemeral sample and a saved contract
+  // is normalized to the sample: samples are never saved, so the saved
+  // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
   ): { sample?: string; contract?: string; revision?: string } => ({
@@ -19,6 +23,11 @@ export const Route = createFileRoute("/analysis")({
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
   }),
+  beforeLoad: ({ search }) => {
+    if (search.sample && (search.contract || search.revision)) {
+      throw redirect({ to: "/analysis", search: { sample: search.sample } });
+    }
+  },
   head: () => ({
     meta: [
       { title: TITLE },
@@ -43,7 +52,7 @@ function AnalysisLayout() {
 }
 
 function AnalysisWorkspace() {
-  const { unknownSample, persistence } = useAnalysis();
+  const { unknownSample, persistence, canEdit } = useAnalysis();
 
   return (
     <PublicAppShell>
@@ -78,7 +87,9 @@ function AnalysisWorkspace() {
 
         <AnalysisNavigation />
 
-        <Outlet />
+        <ReadOnlyInputs active={!canEdit}>
+          <Outlet />
+        </ReadOnlyInputs>
       </main>
     </PublicAppShell>
   );

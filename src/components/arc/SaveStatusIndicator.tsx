@@ -9,16 +9,21 @@ const TONE_CLASS = {
   warning: "border-destructive/50 bg-destructive/10 text-foreground",
 } as const;
 
+const ACTION_CLASS =
+  "min-h-8 rounded-md border border-border px-2 text-sm font-medium hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
+
 /**
  * Presentation-only save indicator for a saved (owned) analysis. It reports
  * what the server has accepted; it never implies an accounting conclusion.
+ *
+ * An ordinary failed save offers Retry save; only an optimistic-lock conflict
+ * or a failed load offers Reload saved version.
  */
 export function SaveStatusIndicator() {
   const { persistence } = useAnalysis();
   if (!persistence.enabled) return null;
 
   const description = describeSaveStatus(persistence.status);
-  const showReload = persistence.status.kind === "conflict" || persistence.status.kind === "error";
 
   return (
     <div
@@ -28,13 +33,14 @@ export function SaveStatusIndicator() {
     >
       <span className="font-medium">{description.label}</span>
       <span className="text-muted-foreground">{description.detail}</span>
-      {showReload ? (
-        <button
-          type="button"
-          onClick={persistence.reload}
-          className="min-h-8 rounded-md border border-border px-2 text-sm font-medium hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Reload saved analysis
+      {description.action === "retry" ? (
+        <button type="button" onClick={persistence.retrySave} className={ACTION_CLASS}>
+          Retry save
+        </button>
+      ) : null}
+      {description.action === "reload" ? (
+        <button type="button" onClick={persistence.reload} className={ACTION_CLASS}>
+          Reload saved version
         </button>
       ) : null}
     </div>
