@@ -34,7 +34,13 @@
       (reload) recovery, atomic contract creation through a SECURITY INVOKER
       transaction, runtime draft validation and strict schema-version equality,
       ambiguous `?sample=` + `?contract=` normalization, and source-controlled
-      persistence + database regressions. **Awaiting review — do not start 7D.**
+      persistence + database regressions. Cache-authority patch applied: cached
+      React Query revision data is never treated as a fresh authoritative load
+      (no Saved, no editing, no lock version until the current identity's own
+      load succeeds), background refetches never silently replace local work,
+      the query cache is updated with each accepted save, explicit reload is a
+      real loading boundary, and the read-only wrapper only re-enables controls
+      it disabled itself. **Awaiting review — do not start 7D.**
 
 - [ ] 7D Finalization snapshot + Review & Finalize lifecycle + revision history
       (Superseded shown explicitly).
