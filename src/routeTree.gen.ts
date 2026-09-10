@@ -18,6 +18,8 @@ import { Route as AnalysisDocumentsRouteImport } from './routes/analysis/documen
 import { Route as AnalysisJournalsRouteImport } from './routes/analysis/journals'
 import { Route as AnalysisReviewRouteImport } from './routes/analysis/review'
 import { Route as AnalysisScheduleRouteImport } from './routes/analysis/schedule'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +66,16 @@ const AnalysisScheduleRoute = AnalysisScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AnalysisRouteRoute,
 } as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/auth/',
+  path: '/auth/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,7 +86,9 @@ export interface FileRoutesByFullPath {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
+  '/auth/': typeof AuthIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -84,7 +98,9 @@ export interface FileRoutesByTo {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/analysis': typeof AnalysisIndexRoute
+  '/auth': typeof AuthIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -96,7 +112,9 @@ export interface FileRoutesById {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
+  '/auth/': typeof AuthIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -109,7 +127,9 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/auth/callback'
     | '/analysis/'
+    | '/auth/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -119,7 +139,9 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/auth/callback'
     | '/analysis'
+    | '/auth'
   id:
     | '__root__'
     | '/'
@@ -130,13 +152,17 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/auth/callback'
     | '/analysis/'
+    | '/auth/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalysisRouteRoute: typeof AnalysisRouteRouteWithChildren
   EngineCheckRoute: typeof EngineCheckRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  AuthIndexRoute: typeof AuthIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -204,6 +230,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalysisScheduleRouteImport
       parentRoute: typeof AnalysisRouteRoute
     }
+    '/auth/': {
+      id: '/auth/'
+      path: '/auth'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -233,6 +273,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalysisRouteRoute: AnalysisRouteRouteWithChildren,
   EngineCheckRoute: EngineCheckRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
+  AuthIndexRoute: AuthIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
