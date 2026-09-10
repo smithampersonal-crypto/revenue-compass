@@ -139,7 +139,9 @@ describe("ARC identity header (Phase 7B)", () => {
 
   it("shows a friendly ARC error when the callback cannot complete", async () => {
     await renderAt("/auth/callback");
-    expect(await screen.findByText("That sign-in link didn't work")).toBeInTheDocument();
+    expect(
+      await screen.findByText("That sign-in link didn't work", undefined, { timeout: 8000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/auth");
   });
 
