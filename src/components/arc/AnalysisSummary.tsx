@@ -18,7 +18,7 @@ const TONE_CLASS = {
  * from the workspace context and never invokes an accounting engine.
  */
 export function AnalysisSummary() {
-  const { draft, result, origin, loadedSample, resetAnalysis } = useAnalysis();
+  const { draft, result, origin, loadedSample, resetAnalysis, canEdit } = useAnalysis();
   const summary = buildAnalysisSummary({ draft, result, origin, scenario: loadedSample });
 
   return (
@@ -85,6 +85,7 @@ export function AnalysisSummary() {
           type="button"
           size="sm"
           variant="outline"
+          disabled={!canEdit}
           className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
           onClick={() => {
             const message = loadedSample

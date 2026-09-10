@@ -12,7 +12,12 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { ARC_WORKFLOW_SCHEMA_VERSION, parseCanonicalInputs, toCanonicalInputs } from "./schema";
+import {
+  ARC_WORKFLOW_SCHEMA_VERSION,
+  parseCanonicalInputs,
+  toCanonicalInputs,
+  validateDraftForPersistence,
+} from "./schema";
 
 export type RevisionStatus = "draft" | "finalized" | "superseded";
 
@@ -89,7 +94,10 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
     }
     if (!revision) throw new Error("That analysis revision was not found.");
 
-    const parsed = parseCanonicalInputs(revision.canonical_inputs);
+    // The stored envelope version, the revision row's schema_version and the
+    // engine's supported version must all agree before the draft may reach
+    // analyzeWorkflow().
+    const parsed = parseCanonicalInputs(revision.canonical_inputs, revision.schema_version);
     if (!parsed.ok) throw new Error(parsed.reason);
 
     const customer = contract.customers as unknown as { name: string } | null;
@@ -128,7 +136,12 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }): Promise<SaveDraftResult> => {
-    const canonical = toCanonicalInputs(data.draft);
+    // Runtime validation of the browser-supplied draft: TypeScript typing is
+    // not validation, and a malformed nested row must never be persisted.
+    const validated = validateDraftForPersistence(data.draft);
+    if (!validated.ok) throw new Error(validated.reason);
+
+    const canonical = toCanonicalInputs(validated.draft);
     if (canonical.schemaVersion !== ARC_WORKFLOW_SCHEMA_VERSION) {
       throw new Error("This analysis uses an unsupported schema version.");
     }

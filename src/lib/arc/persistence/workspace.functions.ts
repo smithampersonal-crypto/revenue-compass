@@ -79,8 +79,11 @@ export const createCustomer = createServerFn({ method: "POST" })
 
 /**
  * Creates a contract, its analysis and an empty draft revision in the caller's
- * workspace. The draft revision starts from `createEmptyDraft()` so the stored
- * analysis is always a valid canonical input document.
+ * workspace as one database transaction: either the whole hierarchy exists or
+ * nothing does. The trusted function is SECURITY INVOKER, so caller identity
+ * and row-level security remain authoritative. The draft revision starts from
+ * `createEmptyDraft()` so the stored analysis is always a valid canonical
+ * input document.
  */
 export const createContract = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -99,40 +102,24 @@ export const createContract = createServerFn({ method: "POST" })
       data,
       context,
     }): Promise<{ contractId: string; analysisId: string; revisionId: string }> => {
-      const { data: contract, error: contractError } = await context.supabase
-        .from("contracts")
-        .insert({
-          customer_id: data.customerId,
-          title: data.title,
-          contract_number:
-            data.contractNumber && data.contractNumber.length > 0 ? data.contractNumber : null,
-        })
-        .select("id")
-        .single();
-      if (contractError || !contract) throw new Error("That contract could not be saved.");
-
-      const { data: analysis, error: analysisError } = await context.supabase
-        .from("analyses")
-        .insert({ contract_id: contract.id })
-        .select("id")
-        .single();
-      if (analysisError || !analysis)
-        throw new Error("That contract's analysis could not be created.");
-
       const canonical = toCanonicalInputs(createEmptyDraft());
-      const { data: revision, error: revisionError } = await context.supabase
-        .from("analysis_revisions")
-        .insert({
-          analysis_id: analysis.id,
-          revision_number: 1,
-          canonical_inputs: canonical as unknown as never,
-          schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
-        })
-        .select("id")
-        .single();
-      if (revisionError || !revision)
-        throw new Error("That contract's draft could not be created.");
 
-      return { contractId: contract.id, analysisId: analysis.id, revisionId: revision.id };
+      const { data: created, error } = await context.supabase
+        .rpc("arc_create_contract_with_draft", {
+          p_customer_id: data.customerId,
+          p_title: data.title,
+          p_contract_number: data.contractNumber ?? "",
+          p_canonical_inputs: canonical as unknown as never,
+          p_schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
+        })
+        .single();
+
+      if (error || !created) throw new Error("That contract could not be saved.");
+
+      return {
+        contractId: created.contract_id,
+        analysisId: created.analysis_id,
+        revisionId: created.revision_id,
+      };
     },
   );

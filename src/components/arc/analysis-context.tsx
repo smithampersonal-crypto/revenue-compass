@@ -115,6 +115,13 @@ export function AnalysisProvider({
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
   const savedSnapshotRef = useRef<string | null>(null);
+  /**
+   * The last server-accepted snapshot, held as state so it is committed in the
+   * same batch as the draft it describes. A ref alone would make the autosave
+   * effect briefly compare a new baseline against the previous draft and
+   * report spurious unsaved changes.
+   */
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
@@ -127,6 +134,7 @@ export function AnalysisProvider({
     if (!loaded) return;
     lockVersionRef.current = loaded.lockVersion;
     savedSnapshotRef.current = serializeDraft(loaded.draft);
+    setSavedSnapshot(savedSnapshotRef.current);
     blockedRef.current = loaded.readOnly;
     draftRef.current = loaded.draft;
     setDraftState(loaded.draft);
@@ -200,6 +208,7 @@ export function AnalysisProvider({
 
           lockVersionRef.current = outcome.lockVersion;
           savedSnapshotRef.current = snapshot;
+          setSavedSnapshot(snapshot);
 
           if (serializeDraft(draftRef.current) === snapshot) {
             setStatus({ kind: "saved", at: outcome.savedAt });
@@ -218,15 +227,16 @@ export function AnalysisProvider({
   // browser can never overwrite work it has not seen.
   useEffect(() => {
     if (!persistenceEnabled || !loaded || loaded.readOnly || blockedRef.current) return;
+    if (savedSnapshot === null) return;
     const snapshot = serializeDraft(draft);
-    if (snapshot === savedSnapshotRef.current) return;
+    if (snapshot === savedSnapshot) return;
 
     setStatus((current) => (current.kind === "saving" ? current : { kind: "unsaved" }));
     const timer = setTimeout(() => {
       void runSave(loaded.revisionId);
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [draft, persistenceEnabled, loaded, runSave]);
+  }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
 
   const reload = useCallback(() => {
     blockedRef.current = false;
