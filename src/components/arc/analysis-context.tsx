@@ -37,6 +37,13 @@ export interface AnalysisPersistence {
   status: SaveStatus;
   /** Saved-analysis metadata, once loaded. */
   revision: LoadedRevisionDto | null;
+  /**
+   * The newest lock version the server has accepted for this revision. It is
+   * initialized from the loaded revision and advances only on an accepted
+   * save; a conflict or a failed save never advances it. Finalization (7D)
+   * must use this value, not `revision.lockVersion`.
+   */
+  lockVersion: number | null;
   /** Finalized / superseded revisions open read-only. */
   readOnly: boolean;
   /** Reloads the saved copy, discarding unsaved local edits. */
