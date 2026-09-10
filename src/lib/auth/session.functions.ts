@@ -25,7 +25,7 @@ export const getVerifiedIdentity = createServerFn({ method: "POST" })
   });
 
 /**
- * Builds the OAuth / magic-link callback URL on the server from trusted ARC
+ * Builds the magic-link callback URL on the server from trusted ARC
  * configuration. The browser only contributes a `next` hint, which is reduced
  * to an ARC-local path before use.
  */
