@@ -3,6 +3,8 @@ import { Compass } from "lucide-react";
 
 import { FEATURES } from "@/lib/arc/features";
 
+import { AccountMenu } from "./AccountMenu";
+
 const TOP_LEVEL_NAVIGATION = [
   { label: "Analyze", to: "/analysis" as const, enabled: true },
   { label: "Case Studies", to: null, enabled: FEATURES.CASE_STUDIES_EXPANDED },
@@ -31,23 +33,27 @@ export function AppHeader() {
           </span>
         </Link>
 
-        <nav aria-label="Primary navigation">
-          <ul className="flex items-center gap-1">
-            {TOP_LEVEL_NAVIGATION.map((item) =>
-              item.enabled && item.to ? (
-                <li key={item.label}>
-                  <Link
-                    to={item.to}
-                    className="inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    activeProps={{ className: "bg-accent text-foreground" }}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ) : null,
-            )}
-          </ul>
-        </nav>
+        <div className="flex flex-wrap items-center gap-2">
+          <nav aria-label="Primary navigation">
+            <ul className="flex items-center gap-1">
+              {TOP_LEVEL_NAVIGATION.map((item) =>
+                item.enabled && item.to ? (
+                  <li key={item.label}>
+                    <Link
+                      to={item.to}
+                      className="inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      activeProps={{ className: "bg-accent text-foreground" }}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ) : null,
+              )}
+            </ul>
+          </nav>
+
+          <AccountMenu />
+        </div>
       </div>
     </header>
   );
