@@ -226,6 +226,8 @@ export function AnalysisProvider({
           }
 
           lockVersionRef.current = outcome.lockVersion;
+          setLockVersion(outcome.lockVersion);
+          lastSavedAtRef.current = outcome.savedAt;
           savedSnapshotRef.current = snapshot;
           setSavedSnapshot(snapshot);
 
