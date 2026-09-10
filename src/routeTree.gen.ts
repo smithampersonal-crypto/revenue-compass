@@ -10,8 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AnalysisRouteRouteImport } from './routes/analysis/route'
 import { Route as EngineCheckRouteImport } from './routes/engine-check'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
+import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
 import { Route as AnalysisBalancesRouteImport } from './routes/analysis/balances'
 import { Route as AnalysisDocumentsRouteImport } from './routes/analysis/documents'
@@ -26,6 +29,10 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalysisRouteRoute = AnalysisRouteRouteImport.update({
   id: '/analysis',
   path: '/analysis',
@@ -35,6 +42,16 @@ const EngineCheckRoute = EngineCheckRouteImport.update({
   id: '/engine-check',
   path: '/engine-check',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AnalysisIndexRoute = AnalysisIndexRouteImport.update({
   id: '/',
@@ -81,6 +98,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRouteRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
   '/analysis/documents': typeof AnalysisDocumentsRoute
   '/analysis/journals': typeof AnalysisJournalsRoute
@@ -93,6 +112,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/engine-check': typeof EngineCheckRoute
+  '/account': typeof AuthenticatedAccountRoute
+  '/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
   '/analysis/documents': typeof AnalysisDocumentsRoute
   '/analysis/journals': typeof AnalysisJournalsRoute
@@ -105,8 +126,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/analysis': typeof AnalysisRouteRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
+  '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
   '/analysis/documents': typeof AnalysisDocumentsRoute
   '/analysis/journals': typeof AnalysisJournalsRoute
@@ -122,6 +146,8 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/engine-check'
+    | '/account'
+    | '/workspace'
     | '/analysis/balances'
     | '/analysis/documents'
     | '/analysis/journals'
@@ -134,6 +160,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/engine-check'
+    | '/account'
+    | '/workspace'
     | '/analysis/balances'
     | '/analysis/documents'
     | '/analysis/journals'
@@ -145,8 +173,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
     | '/analysis'
     | '/engine-check'
+    | '/_authenticated/account'
+    | '/_authenticated/workspace'
     | '/analysis/balances'
     | '/analysis/documents'
     | '/analysis/journals'
@@ -159,6 +190,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AnalysisRouteRoute: typeof AnalysisRouteRouteWithChildren
   EngineCheckRoute: typeof EngineCheckRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -174,6 +206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analysis': {
       id: '/analysis'
       path: '/analysis'
@@ -187,6 +226,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/engine-check'
       preLoaderRoute: typeof EngineCheckRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/workspace': {
+      id: '/_authenticated/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof AuthenticatedWorkspaceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/analysis/': {
       id: '/analysis/'
@@ -247,6 +300,19 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
+  AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
+  AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 interface AnalysisRouteRouteChildren {
   AnalysisBalancesRoute: typeof AnalysisBalancesRoute
   AnalysisDocumentsRoute: typeof AnalysisDocumentsRoute
@@ -271,6 +337,7 @@ const AnalysisRouteRouteWithChildren = AnalysisRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AnalysisRouteRoute: AnalysisRouteRouteWithChildren,
   EngineCheckRoute: EngineCheckRoute,
   AuthCallbackRoute: AuthCallbackRoute,
