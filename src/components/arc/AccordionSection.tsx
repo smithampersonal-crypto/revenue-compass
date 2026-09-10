@@ -43,6 +43,7 @@ export function AccordionSection({
         <Button
           variant="ghost"
           type="button"
+          data-arc-accordion-trigger="true"
           aria-expanded={open}
           aria-controls={contentId}
           onClick={() => onToggle(!open)}
