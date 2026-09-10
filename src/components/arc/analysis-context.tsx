@@ -304,6 +304,7 @@ export function AnalysisProvider({
       enabled: persistenceEnabled,
       status,
       revision: loaded,
+      lockVersion: loaded ? (lockVersion ?? loaded.lockVersion) : null,
       readOnly: Boolean(loaded?.readOnly),
       reload,
       retrySave,
