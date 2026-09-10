@@ -53,12 +53,7 @@ function AnalysisLayout() {
   const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
 
   return (
-    <AnalysisProvider
-      key={identity}
-      sample={sample}
-      contractId={contract}
-      revisionId={revision}
-    >
+    <AnalysisProvider key={identity} sample={sample} contractId={contract} revisionId={revision}>
       <AnalysisWorkspace />
     </AnalysisProvider>
   );

@@ -359,9 +359,9 @@ describe("analysis identity isolation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "edit B" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1), { timeout: 3000 });
-    expect(
-      (save.mock.calls[0]?.[0] as { data: { revisionId: string } }).data.revisionId,
-    ).toBe(REVISION_ID);
+    expect((save.mock.calls[0]?.[0] as { data: { revisionId: string } }).data.revisionId).toBe(
+      REVISION_ID,
+    );
 
     // Route identity changes to revision B before A's save resolves.
     goTo({ contractId: CONTRACT_ID, revisionId: REVISION_B });
