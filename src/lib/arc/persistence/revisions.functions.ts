@@ -72,11 +72,12 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       query = query.eq("status", "draft");
     }
 
-    let { data: revision, error: revisionError } = await query
+    const initial = await query
       .order("revision_number", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (revisionError) throw new Error("That analysis revision could not be opened.");
+    if (initial.error) throw new Error("That analysis revision could not be opened.");
+    let revision = initial.data;
 
     if (!revision && !data.revisionId && analysis.current_finalized_revision_id) {
       const fallback = await context.supabase
