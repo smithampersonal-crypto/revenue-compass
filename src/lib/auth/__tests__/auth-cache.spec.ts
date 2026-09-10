@@ -19,29 +19,41 @@ function setup() {
 }
 
 describe("auth state cache isolation", () => {
-  it("removes private cached data on SIGNED_OUT", () => {
+  it("removes private cached data on SIGNED_OUT, including mutation state", () => {
     const { queryClient, handle, invalidations } = setup();
     handle("SIGNED_IN", userA);
     queryClient.setQueryData(["verified-identity"], { userId: userA.user.id });
+    void queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: ["autosave"] })
+      .execute({ userId: userA.user.id })
+      .catch(() => undefined);
 
     handle("SIGNED_OUT", null);
 
     expect(queryClient.getQueryData(["verified-identity"])).toBeUndefined();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
     expect(invalidations()).toBeGreaterThan(0);
   });
 
-  it("clears User A cached data before User B's session can render", () => {
+  it("clears User A cached data, including mutations, before User B's session can render", () => {
     const { queryClient, handle } = setup();
     handle("SIGNED_IN", userA);
     queryClient.setQueryData(["verified-identity"], { userId: userA.user.id });
     queryClient.setQueryData(["contracts"], [{ id: "contract-a" }]);
+    void queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: ["autosave"] })
+      .execute({ userId: userA.user.id })
+      .catch(() => undefined);
 
     // Account switch without an intervening SIGNED_OUT (other tab, expiry).
     handle("SIGNED_IN", userB);
 
     expect(queryClient.getQueryData(["verified-identity"])).toBeUndefined();
     expect(queryClient.getQueryData(["contracts"])).toBeUndefined();
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 
   it("keeps cached data across a token refresh for the same identity", () => {

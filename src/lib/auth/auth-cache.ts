@@ -23,7 +23,9 @@ export function createAuthStateHandler({ queryClient, invalidateRouter }: Deps) 
 
   const purge = () => {
     void queryClient.cancelQueries();
-    queryClient.removeQueries();
+    // clear() wipes the MutationCache too; removeQueries() alone would let a
+    // pending autosave/finalize mutation from User A survive into User B.
+    queryClient.clear();
   };
 
   return (event: AuthCacheEvent, session: AuthCacheSession) => {
