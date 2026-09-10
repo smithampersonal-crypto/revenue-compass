@@ -19,12 +19,18 @@
       (SIGNED_OUT and A→B identity change purge private cached data), dedicated
       duplicate-revision constraint test. Guest/sample use stays available without
       signing in. Google/social login is a future enhancement, not recruiter-ready v1.
-      **Awaiting review — do not start 7C.** Open item for the project owner: run a live
+      **Accepted.** Open item for the project owner: run a live
       magic-link round trip once Supabase's development email quota resets
       (`over_email_send_rate_limit` is an infrastructure quota, not an ARC defect;
       custom SMTP is deferred to 7F).
-- [ ] 7C Persistence in the workspace (DTOs, workspace/revision server functions,
-      autosave, lock-version conflicts).
+- [x] 7C Persistence in the workspace: canonical persistence envelope
+      (`arc.workflow.v1`) with Zod validation, caller-scoped workspace server
+      functions (list/create customer, contract, analysis, seed draft revision),
+      revision load + optimistic-lock autosave (`lock_version`), save-status
+      indicator, read-only finalized/superseded revisions, `/workspace` customer
+      and contract management. Samples never autosave; engine output is never
+      persisted from the browser. **Awaiting review — do not start 7D.**
+
 - [ ] 7D Finalization snapshot + Review & Finalize lifecycle + revision history
       (Superseded shown explicitly).
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
