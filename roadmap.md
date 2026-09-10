@@ -29,7 +29,14 @@
       revision load + optimistic-lock autosave (`lock_version`), save-status
       indicator, read-only finalized/superseded revisions, `/workspace` customer
       and contract management. Samples never autosave; engine output is never
-      persisted from the browser. **Awaiting review — do not start 7D.**
+      persisted from the browser. Acceptance patch applied: queued autosave for
+      edits made during an in-flight save, editing blocked while loading /
+      after a failed load, read-only enforcement at `setDraft`, `resetAnalysis`
+      and every input control, distinct save-failure (retry) vs conflict
+      (reload) recovery, atomic contract creation through a SECURITY INVOKER
+      transaction, runtime draft validation and strict schema-version equality,
+      ambiguous `?sample=` + `?contract=` normalization, and source-controlled
+      persistence + database regressions. **Awaiting review — do not start 7D.**
 
 - [ ] 7D Finalization snapshot + Review & Finalize lifecycle + revision history
       (Superseded shown explicitly).
