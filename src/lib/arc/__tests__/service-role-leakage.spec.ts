@@ -35,6 +35,7 @@ describe("service-role secret leakage guardrail", () => {
     for (const file of collectFiles(join(ROOT, "src"))) {
       // *.server.ts / client.server.ts are blocked from client bundles by name.
       if (/\.server\.tsx?$/.test(file)) continue;
+      if (file === __filename) continue;
       const contents = readFileSync(file, "utf8");
       if (contents.includes("SUPABASE_SERVICE_ROLE_KEY") || contents.includes("supabaseAdmin")) {
         // A dynamic import inside a server handler is the approved pattern.

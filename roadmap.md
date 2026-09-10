@@ -5,6 +5,11 @@
 - [x] 7A Foundation: enums, tables, constraints, grants, RLS, trusted SECURITY DEFINER
       functions, generated types, database/security tests. draft → finalized →
       superseded lifecycle with `analyses.current_finalized_revision_id`.
+- [x] 7A acceptance patch: least-privilege column grants on contracts/analyses/
+      analysis_revisions, INSERT+UPDATE validation in the revision trigger, frozen
+      ownership parents, pointer/supersession lineage triggers, lifecycle-shape check
+      constraints, analyses row lock in finalization, adversarial privilege tests
+      (`supabase/tests/phase7_privileges.sql`), service-role leakage test.
       **Awaiting review — do not start 7B until reviewed.**
 - [ ] 7B Identity: auth server functions, sign-in/callback, account menu.
       Must include the Google-broker acceptance test (broker sign-in → user exists in
