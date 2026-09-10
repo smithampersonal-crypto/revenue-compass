@@ -52,7 +52,7 @@ function AnalysisLayout() {
 }
 
 function AnalysisWorkspace() {
-  const { unknownSample, persistence } = useAnalysis();
+  const { unknownSample, persistence, canEdit } = useAnalysis();
 
   return (
     <PublicAppShell>
@@ -87,7 +87,9 @@ function AnalysisWorkspace() {
 
         <AnalysisNavigation />
 
-        <Outlet />
+        <ReadOnlyInputs active={!canEdit}>
+          <Outlet />
+        </ReadOnlyInputs>
       </main>
     </PublicAppShell>
   );
