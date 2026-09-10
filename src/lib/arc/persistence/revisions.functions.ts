@@ -58,7 +58,8 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       .select("id, current_finalized_revision_id")
       .eq("contract_id", data.contractId)
       .maybeSingle();
-    if (analysisError || !analysis) throw new Error("That contract's analysis could not be opened.");
+    if (analysisError || !analysis)
+      throw new Error("That contract's analysis could not be opened.");
 
     let query = context.supabase
       .from("analysis_revisions")
@@ -109,8 +110,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
   });
 
 export type SaveDraftResult =
-  | { ok: true; lockVersion: number; savedAt: string }
-  | { ok: false; conflict: true };
+  { ok: true; lockVersion: number; savedAt: string } | { ok: false; conflict: true };
 
 /**
  * Autosave for an owned draft revision. The update is conditional on the

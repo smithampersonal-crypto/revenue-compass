@@ -18,8 +18,7 @@ export function SaveStatusIndicator() {
   if (!persistence.enabled) return null;
 
   const description = describeSaveStatus(persistence.status);
-  const showReload =
-    persistence.status.kind === "conflict" || persistence.status.kind === "error";
+  const showReload = persistence.status.kind === "conflict" || persistence.status.kind === "error";
 
   return (
     <div

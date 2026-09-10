@@ -66,8 +66,7 @@ export function toCanonicalInputs(draft: WorkflowDraft): CanonicalInputs {
 }
 
 export type CanonicalInputsParseResult =
-  | { ok: true; schemaVersion: string; draft: WorkflowDraft }
-  | { ok: false; reason: string };
+  { ok: true; schemaVersion: string; draft: WorkflowDraft } | { ok: false; reason: string };
 
 /**
  * Validates a stored envelope. Unknown future keys are preserved, and missing

@@ -4,7 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
-import { createContract, createCustomer, listWorkspace } from "@/lib/arc/persistence/workspace.functions";
+import {
+  createContract,
+  createCustomer,
+  listWorkspace,
+} from "@/lib/arc/persistence/workspace.functions";
 import { getVerifiedIdentity } from "@/lib/auth/session.functions";
 
 export const Route = createFileRoute("/_authenticated/workspace")({
@@ -158,7 +162,11 @@ function WorkspacePage() {
                 />
               </label>
               <div className="flex items-end">
-                <button type="submit" className={BUTTON_CLASS} disabled={contractMutation.isPending}>
+                <button
+                  type="submit"
+                  className={BUTTON_CLASS}
+                  disabled={contractMutation.isPending}
+                >
                   {contractMutation.isPending ? "Creating…" : "Create contract"}
                 </button>
               </div>

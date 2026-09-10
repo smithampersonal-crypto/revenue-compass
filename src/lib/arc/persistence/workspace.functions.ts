@@ -87,16 +87,25 @@ export const createContract = createServerFn({ method: "POST" })
   .inputValidator((input: { customerId: string; title: string; contractNumber?: string }) => ({
     customerId: z.string().uuid().parse(input?.customerId),
     title: nameSchema.parse(input?.title),
-    contractNumber: z.string().trim().max(120).optional().parse(input?.contractNumber ?? undefined),
+    contractNumber: z
+      .string()
+      .trim()
+      .max(120)
+      .optional()
+      .parse(input?.contractNumber ?? undefined),
   }))
   .handler(
-    async ({ data, context }): Promise<{ contractId: string; analysisId: string; revisionId: string }> => {
+    async ({
+      data,
+      context,
+    }): Promise<{ contractId: string; analysisId: string; revisionId: string }> => {
       const { data: contract, error: contractError } = await context.supabase
         .from("contracts")
         .insert({
           customer_id: data.customerId,
           title: data.title,
-          contract_number: data.contractNumber && data.contractNumber.length > 0 ? data.contractNumber : null,
+          contract_number:
+            data.contractNumber && data.contractNumber.length > 0 ? data.contractNumber : null,
         })
         .select("id")
         .single();
@@ -107,7 +116,8 @@ export const createContract = createServerFn({ method: "POST" })
         .insert({ contract_id: contract.id })
         .select("id")
         .single();
-      if (analysisError || !analysis) throw new Error("That contract's analysis could not be created.");
+      if (analysisError || !analysis)
+        throw new Error("That contract's analysis could not be created.");
 
       const canonical = toCanonicalInputs(createEmptyDraft());
       const { data: revision, error: revisionError } = await context.supabase
@@ -120,7 +130,8 @@ export const createContract = createServerFn({ method: "POST" })
         })
         .select("id")
         .single();
-      if (revisionError || !revision) throw new Error("That contract's draft could not be created.");
+      if (revisionError || !revision)
+        throw new Error("That contract's draft could not be created.");
 
       return { contractId: contract.id, analysisId: analysis.id, revisionId: revision.id };
     },

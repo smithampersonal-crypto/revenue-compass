@@ -41,7 +41,12 @@ describe("canonical persistence envelope", () => {
   });
 
   it("rejects a malformed stored document instead of loading a partial draft", () => {
-    for (const bad of [null, {}, { schemaVersion: "arc.workflow.v1" }, { schemaVersion: "", draft: {} }]) {
+    for (const bad of [
+      null,
+      {},
+      { schemaVersion: "arc.workflow.v1" },
+      { schemaVersion: "", draft: {} },
+    ]) {
       expect(parseCanonicalInputs(bad).ok).toBe(false);
     }
   });
