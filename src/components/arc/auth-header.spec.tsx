@@ -11,6 +11,7 @@ const authState: {
 } = { user: null };
 
 const listeners = new Set<(event: string, session: unknown) => void>();
+const otpCalls: Array<{ email: string }> = [];
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -27,6 +28,11 @@ vi.mock("@/integrations/supabase/client", () => ({
         listeners.add(callback);
         return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } };
       },
+      signInWithOtp: async ({ email }: { email: string }) => {
+        otpCalls.push({ email });
+        return { error: null };
+      },
+      exchangeCodeForSession: async () => ({ error: new Error("invalid code") }),
       signOut: async () => {
         authState.user = null;
         for (const listener of listeners) listener("SIGNED_OUT", null);
@@ -34,6 +40,16 @@ vi.mock("@/integrations/supabase/client", () => ({
       },
     },
   },
+}));
+
+vi.mock("@/lib/auth/session.functions", () => ({
+  buildAuthCallbackUrl: async ({ data }: { data: { next: string } }) => ({
+    callbackUrl: `http://localhost:8080/auth/callback?next=${encodeURIComponent(data.next)}`,
+    next: data.next,
+  }),
+  getVerifiedIdentity: Object.assign(async () => ({ userId: "u", email: null }), {
+    url: "/_serverFn/getVerifiedIdentity",
+  }),
 }));
 
 async function renderAt(initialPath: string) {
