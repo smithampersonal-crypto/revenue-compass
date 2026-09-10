@@ -309,7 +309,7 @@ export function AnalysisProvider({
       reload,
       retrySave,
     }),
-    [persistenceEnabled, status, loaded, reload, retrySave],
+    [persistenceEnabled, status, loaded, lockVersion, reload, retrySave],
   );
 
   const resetAnalysis = useCallback(() => {
