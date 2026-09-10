@@ -57,7 +57,10 @@ function SignInPage() {
       if (otpError) {
         // Non-sensitive diagnostics only (e.g. over_email_send_rate_limit);
         // never raw auth responses, tokens or keys.
-        console.warn("magic link request failed", (otpError as { code?: string }).code ?? "unknown");
+        console.warn(
+          "magic link request failed",
+          (otpError as { code?: string }).code ?? "unknown",
+        );
         throw otpError;
       }
       // Neutral copy: never discloses whether an account already existed.
