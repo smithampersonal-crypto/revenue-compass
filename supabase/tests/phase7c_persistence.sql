@@ -130,7 +130,6 @@ begin
   insert into arc_test_results values ('14 intruder contract was not created', seen = 0);
 
   -- a finalized revision can no longer be autosaved
-  perform set_config('role', 'postgres', true);
   reset role;
   update public.analysis_revisions
      set status = 'finalized',
