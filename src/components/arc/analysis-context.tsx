@@ -121,6 +121,10 @@ export function AnalysisProvider({
 
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
+  /** Authoritative server-accepted lock version, exposed to consumers. */
+  const [lockVersion, setLockVersion] = useState<number | null>(null);
+  /** Time of the last accepted save, reused when a reverted draft returns to Saved. */
+  const lastSavedAtRef = useRef<string | null>(null);
   const savedSnapshotRef = useRef<string | null>(null);
   /**
    * The last server-accepted snapshot, held as state so it is committed in the
