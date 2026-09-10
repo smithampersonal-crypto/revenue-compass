@@ -18,13 +18,11 @@ export const Route = createFileRoute("/analysis")({
   // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { sample?: string; contract?: string; revision?: string } => {
-    if (typeof search["sample"] === "string") return { sample: search["sample"] };
-    return {
-      ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
-      ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
-    };
-  },
+  ): { sample?: string; contract?: string; revision?: string } => ({
+    ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
+    ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
+    ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
+  }),
   beforeLoad: ({ search }) => {
     if (search.sample && (search.contract || search.revision)) {
       throw redirect({ to: "/analysis", search: { sample: search.sample } });
