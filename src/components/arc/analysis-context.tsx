@@ -115,6 +115,13 @@ export function AnalysisProvider({
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
   const savedSnapshotRef = useRef<string | null>(null);
+  /**
+   * The last server-accepted snapshot, held as state so it is committed in the
+   * same batch as the draft it describes. A ref alone would make the autosave
+   * effect briefly compare a new baseline against the previous draft and
+   * report spurious unsaved changes.
+   */
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
