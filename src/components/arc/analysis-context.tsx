@@ -18,9 +18,9 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 import { createDemoDraftIfKnown, getDemoScenario, isDemoScenarioId } from "@/lib/demo-scenarios";
-import type { DemoScenario } from "@/lib/demo-scenarios";
 import { loadContractAnalysis, saveDraftRevision } from "@/lib/arc/persistence/revisions.functions";
 import type { LoadedRevisionDto } from "@/lib/arc/persistence/revisions.functions";
+import type { DemoScenario } from "@/lib/demo-scenarios";
 import { serializeDraft } from "@/lib/arc/persistence/schema";
 import type { SaveStatus } from "@/lib/arc/persistence/save-status";
 
@@ -41,6 +41,8 @@ export interface AnalysisPersistence {
   readOnly: boolean;
   /** Reloads the saved copy, discarding unsaved local edits. */
   reload: () => void;
+  /** Retries an ordinary failed save, keeping local edits. */
+  retrySave: () => void;
 }
 
 export interface AnalysisContextValue {
@@ -49,6 +51,11 @@ export interface AnalysisContextValue {
   setDraft: (updater: WorkflowDraft | ((previous: WorkflowDraft) => WorkflowDraft)) => void;
   /** Deterministic engine output for the current draft. */
   result: WorkflowAnalysisResult;
+  /**
+   * False for finalized / superseded revisions and while a saved analysis is
+   * loading or failed to load. Every accounting input must respect it.
+   */
+  canEdit: boolean;
   origin: AnalysisOrigin;
   /** The sample id in the URL, when one was supplied. */
   sample: string | undefined;
@@ -60,7 +67,8 @@ export interface AnalysisContextValue {
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 
-const AUTOSAVE_DELAY_MS = 1200;
+/** Approved autosave debounce. */
+const AUTOSAVE_DELAY_MS = 750;
 
 export function AnalysisProvider({
   sample,
@@ -79,7 +87,7 @@ export function AnalysisProvider({
 
   // Initial state only: later user edits are never overwritten by a rerender,
   // and navigating between parent areas never remounts this provider.
-  const [draft, setDraft] = useState<WorkflowDraft>(
+  const [draft, setDraftState] = useState<WorkflowDraft>(
     () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
   );
 
@@ -108,7 +116,11 @@ export function AnalysisProvider({
   const lockVersionRef = useRef<number>(0);
   const savedSnapshotRef = useRef<string | null>(null);
   const inFlightRef = useRef(false);
+  /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
+  /** Always the newest in-memory draft, even mid-save. */
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   // Adopt the saved copy as the authoritative draft once it arrives.
   useEffect(() => {
@@ -116,7 +128,8 @@ export function AnalysisProvider({
     lockVersionRef.current = loaded.lockVersion;
     savedSnapshotRef.current = serializeDraft(loaded.draft);
     blockedRef.current = loaded.readOnly;
-    setDraft(loaded.draft);
+    draftRef.current = loaded.draft;
+    setDraftState(loaded.draft);
     setStatus(loaded.readOnly ? { kind: "read-only" } : { kind: "saved", at: null });
   }, [loaded]);
 
@@ -132,7 +145,7 @@ export function AnalysisProvider({
     if (persistenceEnabled && revisionQuery.isError) {
       blockedRef.current = true;
       setStatus({
-        kind: "error",
+        kind: "load-error",
         message:
           revisionQuery.error instanceof Error
             ? revisionQuery.error.message
@@ -141,31 +154,59 @@ export function AnalysisProvider({
     }
   }, [persistenceEnabled, revisionQuery.isError, revisionQuery.error]);
 
-  const flush = useCallback(
-    async (snapshot: string, payload: WorkflowDraft, revision: string) => {
+  /**
+   * Saves until the server holds the newest draft. If the draft changes while
+   * a save is in flight, the newer draft is saved immediately afterwards with
+   * the lock version the accepted save returned, and the UI never claims
+   * "Saved" while newer local edits exist.
+   */
+  const runSave = useCallback(
+    async (revision: string) => {
+      if (inFlightRef.current) return;
       inFlightRef.current = true;
-      setStatus({ kind: "saving" });
       try {
-        const outcome = await saveRevision({
-          data: {
-            revisionId: revision,
-            expectedLockVersion: lockVersionRef.current,
-            draft: payload,
-          },
-        });
-        if (!outcome.ok) {
-          blockedRef.current = true;
-          setStatus({ kind: "conflict" });
-          return;
+        for (;;) {
+          if (blockedRef.current) break;
+          const payload = draftRef.current;
+          const snapshot = serializeDraft(payload);
+          if (snapshot === savedSnapshotRef.current) break;
+
+          setStatus({ kind: "saving" });
+          let outcome;
+          try {
+            outcome = await saveRevision({
+              data: {
+                revisionId: revision,
+                expectedLockVersion: lockVersionRef.current,
+                draft: payload,
+              },
+            });
+          } catch (error) {
+            setStatus({
+              kind: "error",
+              message:
+                error instanceof Error && error.message
+                  ? error.message
+                  : "Your latest edits could not be saved.",
+            });
+            break;
+          }
+
+          if (!outcome.ok) {
+            blockedRef.current = true;
+            setStatus({ kind: "conflict" });
+            break;
+          }
+
+          lockVersionRef.current = outcome.lockVersion;
+          savedSnapshotRef.current = snapshot;
+
+          if (serializeDraft(draftRef.current) === snapshot) {
+            setStatus({ kind: "saved", at: outcome.savedAt });
+            break;
+          }
+          // A newer draft arrived mid-save: keep saving before reporting Saved.
         }
-        lockVersionRef.current = outcome.lockVersion;
-        savedSnapshotRef.current = snapshot;
-        setStatus({ kind: "saved", at: outcome.savedAt });
-      } catch (error) {
-        setStatus({
-          kind: "error",
-          message: error instanceof Error ? error.message : "Your latest edits could not be saved.",
-        });
       } finally {
         inFlightRef.current = false;
       }
@@ -179,19 +220,40 @@ export function AnalysisProvider({
     if (!persistenceEnabled || !loaded || loaded.readOnly || blockedRef.current) return;
     const snapshot = serializeDraft(draft);
     if (snapshot === savedSnapshotRef.current) return;
-    if (inFlightRef.current) return;
 
     setStatus((current) => (current.kind === "saving" ? current : { kind: "unsaved" }));
     const timer = setTimeout(() => {
-      void flush(snapshot, draft, loaded.revisionId);
+      void runSave(loaded.revisionId);
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [draft, persistenceEnabled, loaded, flush]);
+  }, [draft, persistenceEnabled, loaded, runSave]);
 
   const reload = useCallback(() => {
     blockedRef.current = false;
     void revisionQuery.refetch();
   }, [revisionQuery]);
+
+  const retrySave = useCallback(() => {
+    if (!loaded || loaded.readOnly || blockedRef.current) return;
+    void runSave(loaded.revisionId);
+  }, [loaded, runSave]);
+
+  // A saved analysis is only editable once its saved copy is in hand. Until
+  // then the blank placeholder must not be editable, and a failed load must
+  // never leave an editable blank workspace that looks like the contract.
+  const canEdit = persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true;
+
+  const setDraft = useCallback<AnalysisContextValue["setDraft"]>(
+    (updater) => {
+      if (!canEdit) return;
+      setDraftState((previous) =>
+        typeof updater === "function"
+          ? (updater as (p: WorkflowDraft) => WorkflowDraft)(previous)
+          : updater,
+      );
+    },
+    [canEdit],
+  );
 
   const persistence = useMemo<AnalysisPersistence>(
     () => ({
@@ -200,27 +262,42 @@ export function AnalysisProvider({
       revision: loaded,
       readOnly: Boolean(loaded?.readOnly),
       reload,
+      retrySave,
     }),
-    [persistenceEnabled, status, loaded, reload],
+    [persistenceEnabled, status, loaded, reload, retrySave],
   );
+
+  const resetAnalysis = useCallback(() => {
+    if (!canEdit) return;
+    setDraftState(createDemoDraftIfKnown(sample) ?? createEmptyDraft());
+  }, [canEdit, sample]);
 
   const value = useMemo<AnalysisContextValue>(
     () => ({
       draft,
       setDraft,
       result,
+      canEdit,
       origin: loadedSample ? "sample" : "manual",
       sample,
       loadedSample,
       unknownSample,
       // A sample resets back to its canonical fixture (the URL, and therefore
       // the sample origin, is untouched); a manual analysis resets to blank.
-      resetAnalysis: () => {
-        setDraft(createDemoDraftIfKnown(sample) ?? createEmptyDraft());
-      },
+      resetAnalysis,
       persistence,
     }),
-    [draft, result, loadedSample, unknownSample, sample, persistence],
+    [
+      draft,
+      setDraft,
+      result,
+      canEdit,
+      loadedSample,
+      unknownSample,
+      sample,
+      resetAnalysis,
+      persistence,
+    ],
   );
 
   return <AnalysisContext.Provider value={value}>{children}</AnalysisContext.Provider>;
