@@ -144,6 +144,8 @@ export function AnalysisProvider({
   useEffect(() => {
     if (!loaded) return;
     lockVersionRef.current = loaded.lockVersion;
+    setLockVersion(loaded.lockVersion);
+    lastSavedAtRef.current = null;
     savedSnapshotRef.current = serializeDraft(loaded.draft);
     setSavedSnapshot(savedSnapshotRef.current);
     blockedRef.current = loaded.readOnly;
