@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   createContext,
@@ -35,11 +35,11 @@ export interface AnalysisPersistence {
   /** True when this workspace is backed by a saved, owned contract. */
   enabled: boolean;
   status: SaveStatus;
-  /** Saved-analysis metadata, once loaded. */
+  /** Saved-analysis metadata, once a fresh server load has been adopted. */
   revision: LoadedRevisionDto | null;
   /**
    * The newest lock version the server has accepted for this revision. It is
-   * initialized from the loaded revision and advances only on an accepted
+   * initialized from the adopted fresh load and advances only on an accepted
    * save; a conflict or a failed save never advances it. Finalization (7D)
    * must use this value, not `revision.lockVersion`.
    */
@@ -105,11 +105,28 @@ export function AnalysisProvider({
 
   const loadRevision = useServerFn(loadContractAnalysis);
   const saveRevision = useServerFn(saveDraftRevision);
+  const queryClient = useQueryClient();
+
+  const queryKey = useMemo(
+    () => ["arc-analysis-revision", contractId ?? null, revisionId ?? null] as const,
+    [contractId, revisionId],
+  );
+
+  /**
+   * Only a server response received at or after this moment counts as a fresh
+   * authoritative load. It starts at mount time (so React Query's retained
+   * cache is never adopted as authoritative) and is reset by an explicit
+   * Reload saved version.
+   */
+  const [loadEpoch, setLoadEpoch] = useState<number>(() => Date.now());
 
   const revisionQuery = useQuery({
-    queryKey: ["arc-analysis-revision", contractId ?? null, revisionId ?? null],
+    queryKey,
     enabled: persistenceEnabled,
     retry: false,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     queryFn: () =>
       loadRevision({
@@ -117,7 +134,12 @@ export function AnalysisProvider({
       }),
   });
 
-  const loaded = revisionQuery.data ?? null;
+  /**
+   * The adopted, freshly loaded revision. Cached query data is never adopted:
+   * a persistent revision only becomes editable and authoritative after the
+   * current identity's own load has completed successfully.
+   */
+  const [loaded, setLoaded] = useState<LoadedRevisionDto | null>(null);
 
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
@@ -139,31 +161,63 @@ export function AnalysisProvider({
   /** Always the newest in-memory draft, even mid-save. */
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  /** `dataUpdatedAt` of the response already adopted (or deliberately skipped). */
+  const consumedAtRef = useRef<number>(0);
+  const loadedRef = useRef<LoadedRevisionDto | null>(null);
+  loadedRef.current = loaded;
 
-  // Adopt the saved copy as the authoritative draft once it arrives.
+  // Adopt a fresh server response as the authoritative draft. A response that
+  // predates this mount (or the current explicit reload) is React Query cache,
+  // not an authoritative load, and is never adopted.
   useEffect(() => {
-    if (!loaded) return;
-    lockVersionRef.current = loaded.lockVersion;
-    setLockVersion(loaded.lockVersion);
-    lastSavedAtRef.current = null;
-    savedSnapshotRef.current = serializeDraft(loaded.draft);
-    setSavedSnapshot(savedSnapshotRef.current);
-    blockedRef.current = loaded.readOnly;
-    draftRef.current = loaded.draft;
-    setDraftState(loaded.draft);
-    setStatus(loaded.readOnly ? { kind: "read-only" } : { kind: "saved", at: null });
-  }, [loaded]);
+    if (!persistenceEnabled) return;
+    const data = revisionQuery.data;
+    if (!data || revisionQuery.isFetching) return;
+    const updatedAt = revisionQuery.dataUpdatedAt;
+    if (updatedAt < loadEpoch) return;
+    if (updatedAt === consumedAtRef.current) return;
+    consumedAtRef.current = updatedAt;
 
+    // A background refetch must never silently discard local work.
+    const current = loadedRef.current;
+    if (current && savedSnapshotRef.current !== null) {
+      const dirty = serializeDraft(draftRef.current) !== savedSnapshotRef.current;
+      if (dirty) {
+        if (data.lockVersion !== lockVersionRef.current) {
+          blockedRef.current = true;
+          setStatus({ kind: "conflict" });
+        }
+        return;
+      }
+    }
+
+    lockVersionRef.current = data.lockVersion;
+    setLockVersion(data.lockVersion);
+    lastSavedAtRef.current = null;
+    savedSnapshotRef.current = serializeDraft(data.draft);
+    setSavedSnapshot(savedSnapshotRef.current);
+    blockedRef.current = data.readOnly;
+    draftRef.current = data.draft;
+    setDraftState(data.draft);
+    setLoaded(data);
+    setStatus(data.readOnly ? { kind: "read-only" } : { kind: "saved", at: null });
+  }, [
+    persistenceEnabled,
+    revisionQuery.data,
+    revisionQuery.isFetching,
+    revisionQuery.dataUpdatedAt,
+    loadEpoch,
+  ]);
+
+  // Until a fresh load is adopted the workspace is a disabled placeholder,
+  // never a Saved analysis.
   useEffect(() => {
     if (!persistenceEnabled) {
       setStatus({ kind: "off" });
       return;
     }
-    if (revisionQuery.isPending) setStatus({ kind: "loading" });
-  }, [persistenceEnabled, revisionQuery.isPending]);
-
-  useEffect(() => {
-    if (persistenceEnabled && revisionQuery.isError) {
+    if (loaded) return;
+    if (revisionQuery.isError && revisionQuery.errorUpdatedAt >= loadEpoch) {
       blockedRef.current = true;
       setStatus({
         kind: "load-error",
@@ -172,8 +226,17 @@ export function AnalysisProvider({
             ? revisionQuery.error.message
             : "That saved analysis could not be opened.",
       });
+      return;
     }
-  }, [persistenceEnabled, revisionQuery.isError, revisionQuery.error]);
+    setStatus({ kind: "loading" });
+  }, [
+    persistenceEnabled,
+    loaded,
+    revisionQuery.isError,
+    revisionQuery.error,
+    revisionQuery.errorUpdatedAt,
+    loadEpoch,
+  ]);
 
   /**
    * Saves until the server holds the newest draft. If the draft changes while
@@ -231,6 +294,14 @@ export function AnalysisProvider({
           savedSnapshotRef.current = snapshot;
           setSavedSnapshot(snapshot);
 
+          // Keep React Query's cache coherent with what the server accepted so
+          // a later remount can never resurrect the pre-save draft or lock.
+          queryClient.setQueryData(queryKey, (previous: LoadedRevisionDto | undefined) =>
+            previous ? { ...previous, draft: payload, lockVersion: outcome.lockVersion } : previous,
+          );
+          const state = queryClient.getQueryState(queryKey);
+          if (state) consumedAtRef.current = state.dataUpdatedAt;
+
           if (serializeDraft(draftRef.current) === snapshot) {
             setStatus({ kind: "saved", at: outcome.savedAt });
             break;
@@ -241,7 +312,7 @@ export function AnalysisProvider({
         inFlightRef.current = false;
       }
     },
-    [saveRevision],
+    [saveRevision, queryClient, queryKey],
   );
 
   // Debounced autosave. A conflict or load failure stops further writes so the
@@ -272,8 +343,16 @@ export function AnalysisProvider({
     return () => clearTimeout(timer);
   }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
 
+  // Explicit reload is a real loading boundary: the workspace stops being
+  // editable and stops autosaving until the new server copy has arrived.
   const reload = useCallback(() => {
     blockedRef.current = false;
+    setLoaded(null);
+    setLockVersion(null);
+    setSavedSnapshot(null);
+    savedSnapshotRef.current = null;
+    setStatus({ kind: "loading" });
+    setLoadEpoch(Date.now());
     void revisionQuery.refetch();
   }, [revisionQuery]);
 
@@ -282,8 +361,8 @@ export function AnalysisProvider({
     void runSave(loaded.revisionId);
   }, [loaded, runSave]);
 
-  // A saved analysis is only editable once its saved copy is in hand. Until
-  // then the blank placeholder must not be editable, and a failed load must
+  // A saved analysis is only editable once a fresh server copy is in hand.
+  // Until then the placeholder must not be editable, and a failed load must
   // never leave an editable blank workspace that looks like the contract.
   const canEdit = persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true;
 
