@@ -54,7 +54,9 @@ afterEach(() => {
 describe("ARC identity header (Phase 7B)", () => {
   it("offers a single Sign in affordance when signed out", async () => {
     await renderAt("/");
-    const header = await screen.findByRole("banner");
+    const header = (
+      await screen.findByRole("link", { name: "Ayden's Revenue Compass home" })
+    ).closest("header") as HTMLElement;
     expect(within(header).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
     expect(within(header).queryByText("My Contracts")).not.toBeInTheDocument();
     expect(within(header).queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument();
@@ -66,7 +68,9 @@ describe("ARC identity header (Phase 7B)", () => {
   it("shows My Contracts and an account menu with email, settings and sign out", async () => {
     authState.user = { id: "11111111-1111-4111-8111-111111111111", email: "ayden@example.test" };
     await renderAt("/");
-    const header = await screen.findByRole("banner");
+    const header = (
+      await screen.findByRole("link", { name: "Ayden's Revenue Compass home" })
+    ).closest("header") as HTMLElement;
 
     expect(await within(header).findByRole("link", { name: "My Contracts" })).toHaveAttribute(
       "href",
