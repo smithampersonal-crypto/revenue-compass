@@ -97,9 +97,7 @@ describe("ARC identity header (Phase 7B)", () => {
 
   it("renders passwordless sign-in options only", async () => {
     await renderAt("/auth");
-    expect(
-      await screen.findByRole("button", { name: "Continue with Google" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
     expect(screen.getByLabelText("Email address")).toHaveAttribute("type", "email");
     expect(screen.getByRole("button", { name: "Send magic link" })).toBeInTheDocument();
     expect(document.querySelector('input[type="password"]')).toBeNull();

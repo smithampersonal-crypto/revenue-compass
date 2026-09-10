@@ -8,14 +8,16 @@ import { supabase } from "@/integrations/supabase/client";
  * independently verify the caller. The server always re-validates the token;
  * the browser never asserts identity on its own.
  */
-export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
-  let token: string | undefined;
-  try {
-    const { data } = await supabase.auth.getSession();
-    token = data.session?.access_token;
-  } catch {
-    token = undefined;
-  }
+export const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
+  async ({ next }) => {
+    let token: string | undefined;
+    try {
+      const { data } = await supabase.auth.getSession();
+      token = data.session?.access_token;
+    } catch {
+      token = undefined;
+    }
 
-  return next(token ? { headers: { Authorization: `Bearer ${token}` } } : {});
-});
+    return next(token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+  },
+);
