@@ -83,7 +83,10 @@ export function AccountMenu() {
             aria-label="Account"
             className="absolute right-0 z-50 mt-2 w-60 rounded-md border border-border bg-card p-1 shadow-lg"
           >
-            <p className="truncate px-3 py-2 text-xs text-muted-foreground" title={session.email ?? ""}>
+            <p
+              className="truncate px-3 py-2 text-xs text-muted-foreground"
+              title={session.email ?? ""}
+            >
               {session.email ?? "Signed in"}
             </p>
             <Link

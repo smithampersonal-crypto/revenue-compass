@@ -12,7 +12,6 @@ const DESCRIPTION =
   "Sign in to Ayden's Revenue Compass with Google or an email magic link to keep your ASC 606 contract analyses.";
 
 export const Route = createFileRoute("/auth/")({
-  ssr: false,
   validateSearch: (search: Record<string, unknown>): { next?: string } =>
     typeof search["next"] === "string" ? { next: search["next"] } : {},
   head: () => ({

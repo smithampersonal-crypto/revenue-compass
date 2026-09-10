@@ -11,6 +11,7 @@
 /** Where a signed-in visitor lands when no safe destination was supplied. */
 export const DEFAULT_SIGNED_IN_PATH = "/workspace";
 
+// eslint-disable-next-line no-control-regex -- control characters are exactly what we reject
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 const LEADING_SCHEME = /^\/?[a-z][a-z0-9+.-]*:/i;
 
