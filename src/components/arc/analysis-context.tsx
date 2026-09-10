@@ -250,7 +250,20 @@ export function AnalysisProvider({
     if (!persistenceEnabled || !loaded || loaded.readOnly || blockedRef.current) return;
     if (savedSnapshot === null) return;
     const snapshot = serializeDraft(draft);
-    if (snapshot === savedSnapshot) return;
+    if (snapshot === savedSnapshot) {
+      // Edits were reverted back to the server-accepted copy: nothing is
+      // outstanding, so an "Unsaved changes" or "Save failed" state (and its
+      // retry action) must clear. A conflict is deliberately never cleared
+      // this way — the server may hold a genuinely newer version.
+      if (!inFlightRef.current) {
+        setStatus((current) =>
+          current.kind === "unsaved" || current.kind === "error"
+            ? { kind: "saved", at: lastSavedAtRef.current }
+            : current,
+        );
+      }
+      return;
+    }
 
     setStatus((current) => (current.kind === "saving" ? current : { kind: "unsaved" }));
     const timer = setTimeout(() => {
