@@ -37,6 +37,13 @@ export interface AnalysisPersistence {
   status: SaveStatus;
   /** Saved-analysis metadata, once loaded. */
   revision: LoadedRevisionDto | null;
+  /**
+   * The newest lock version the server has accepted for this revision. It is
+   * initialized from the loaded revision and advances only on an accepted
+   * save; a conflict or a failed save never advances it. Finalization (7D)
+   * must use this value, not `revision.lockVersion`.
+   */
+  lockVersion: number | null;
   /** Finalized / superseded revisions open read-only. */
   readOnly: boolean;
   /** Reloads the saved copy, discarding unsaved local edits. */
@@ -114,6 +121,10 @@ export function AnalysisProvider({
 
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
+  /** Authoritative server-accepted lock version, exposed to consumers. */
+  const [lockVersion, setLockVersion] = useState<number | null>(null);
+  /** Time of the last accepted save, reused when a reverted draft returns to Saved. */
+  const lastSavedAtRef = useRef<string | null>(null);
   const savedSnapshotRef = useRef<string | null>(null);
   /**
    * The last server-accepted snapshot, held as state so it is committed in the
@@ -133,6 +144,8 @@ export function AnalysisProvider({
   useEffect(() => {
     if (!loaded) return;
     lockVersionRef.current = loaded.lockVersion;
+    setLockVersion(loaded.lockVersion);
+    lastSavedAtRef.current = null;
     savedSnapshotRef.current = serializeDraft(loaded.draft);
     setSavedSnapshot(savedSnapshotRef.current);
     blockedRef.current = loaded.readOnly;
@@ -177,7 +190,13 @@ export function AnalysisProvider({
           if (blockedRef.current) break;
           const payload = draftRef.current;
           const snapshot = serializeDraft(payload);
-          if (snapshot === savedSnapshotRef.current) break;
+          if (snapshot === savedSnapshotRef.current) {
+            // The draft was reverted to the server-accepted copy mid-flight.
+            setStatus((current) =>
+              current.kind === "saving" ? { kind: "saved", at: lastSavedAtRef.current } : current,
+            );
+            break;
+          }
 
           setStatus({ kind: "saving" });
           let outcome;
@@ -207,6 +226,8 @@ export function AnalysisProvider({
           }
 
           lockVersionRef.current = outcome.lockVersion;
+          setLockVersion(outcome.lockVersion);
+          lastSavedAtRef.current = outcome.savedAt;
           savedSnapshotRef.current = snapshot;
           setSavedSnapshot(snapshot);
 
@@ -229,7 +250,20 @@ export function AnalysisProvider({
     if (!persistenceEnabled || !loaded || loaded.readOnly || blockedRef.current) return;
     if (savedSnapshot === null) return;
     const snapshot = serializeDraft(draft);
-    if (snapshot === savedSnapshot) return;
+    if (snapshot === savedSnapshot) {
+      // Edits were reverted back to the server-accepted copy: nothing is
+      // outstanding, so an "Unsaved changes" or "Save failed" state (and its
+      // retry action) must clear. A conflict is deliberately never cleared
+      // this way — the server may hold a genuinely newer version.
+      if (!inFlightRef.current) {
+        setStatus((current) =>
+          current.kind === "unsaved" || current.kind === "error"
+            ? { kind: "saved", at: lastSavedAtRef.current }
+            : current,
+        );
+      }
+      return;
+    }
 
     setStatus((current) => (current.kind === "saving" ? current : { kind: "unsaved" }));
     const timer = setTimeout(() => {
@@ -270,11 +304,12 @@ export function AnalysisProvider({
       enabled: persistenceEnabled,
       status,
       revision: loaded,
+      lockVersion: loaded ? (lockVersion ?? loaded.lockVersion) : null,
       readOnly: Boolean(loaded?.readOnly),
       reload,
       retrySave,
     }),
-    [persistenceEnabled, status, loaded, reload, retrySave],
+    [persistenceEnabled, status, loaded, lockVersion, reload, retrySave],
   );
 
   const resetAnalysis = useCallback(() => {

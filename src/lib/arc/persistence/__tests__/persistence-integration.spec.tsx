@@ -289,6 +289,255 @@ describe("save failure and conflict are distinct", () => {
   });
 });
 
+describe("analysis identity isolation", () => {
+  /**
+   * Mirrors the /analysis layout: the analysis identity keys the provider, so
+   * a new identity mounts isolated draft, lock and save state.
+   */
+  function Workspace({
+    sample,
+    contractId,
+    revisionId,
+  }: {
+    sample?: string | undefined;
+    contractId?: string | undefined;
+    revisionId?: string | undefined;
+  }) {
+    const identity = `sample:${sample ?? ""}|contract:${contractId ?? ""}|revision:${revisionId ?? ""}`;
+    return (
+      <AnalysisProvider
+        key={identity}
+        sample={sample}
+        contractId={contractId}
+        revisionId={revisionId}
+      >
+        <SaveStatusIndicator />
+        <Probe />
+      </AnalysisProvider>
+    );
+  }
+
+  function renderIdentity(props: Parameters<typeof Workspace>[0]) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const utils = render(
+      <QueryClientProvider client={client}>
+        <Workspace {...props} />
+      </QueryClientProvider>,
+    );
+    return {
+      ...utils,
+      goTo: (next: Parameters<typeof Workspace>[0]) =>
+        utils.rerender(
+          <QueryClientProvider client={client}>
+            <Workspace {...next} />
+          </QueryClientProvider>,
+        ),
+    };
+  }
+
+  const REVISION_B = "44444444-4444-4444-8444-444444444444";
+
+  it("never lets an in-flight save for revision A touch revision B", async () => {
+    load.mockImplementation((args: { data: { revisionId?: string } }) =>
+      args.data.revisionId === REVISION_B
+        ? Promise.resolve(
+            loadedRevision({ revisionId: REVISION_B, lockVersion: 7, draft: draftNamed("Bsaved") }),
+          )
+        : Promise.resolve(loadedRevision()),
+    );
+
+    let resolveA: ((value: SaveDraftResult) => void) | undefined;
+    save.mockImplementationOnce(
+      () =>
+        new Promise<SaveDraftResult>((resolve) => {
+          resolveA = resolve;
+        }),
+    );
+
+    const { goTo } = renderIdentity({ contractId: CONTRACT_ID, revisionId: REVISION_ID });
+    await screen.findByText("Saved");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect((save.mock.calls[0]?.[0] as { data: { revisionId: string } }).data.revisionId).toBe(
+      REVISION_ID,
+    );
+
+    // Route identity changes to revision B before A's save resolves.
+    goTo({ contractId: CONTRACT_ID, revisionId: REVISION_B });
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("Bsaved"));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveA?.({ ok: true, lockVersion: 2, savedAt: new Date().toISOString() });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    // No further save happened at all, and certainly none carrying B's draft.
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("name")).toHaveTextContent("Bsaved");
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+  });
+
+  it("does not retain the previous identity's draft when switching sample/manual/contract", async () => {
+    load.mockResolvedValue(loadedRevision());
+    const { goTo } = renderIdentity({ sample: "redwood" });
+    await screen.findByTestId("name");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    expect(screen.getByTestId("name")).toHaveTextContent("B");
+
+    goTo({});
+    expect(screen.getByTestId("name")).toHaveTextContent("");
+
+    goTo({ contractId: CONTRACT_ID });
+    await waitFor(() => expect(screen.getByTestId("name")).toHaveTextContent("A"));
+  });
+
+  it("preserves the draft while the identity is unchanged", async () => {
+    load.mockResolvedValue(loadedRevision());
+    const { goTo } = renderIdentity({ contractId: CONTRACT_ID });
+    await screen.findByText("Saved");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    goTo({ contractId: CONTRACT_ID });
+    expect(screen.getByTestId("name")).toHaveTextContent("B");
+  });
+});
+
+describe("authoritative lock version", () => {
+  function LockProbe() {
+    const { persistence } = useAnalysis();
+    return <p data-testid="lock">{String(persistence.lockVersion)}</p>;
+  }
+
+  it("advances only on accepted saves", async () => {
+    load.mockResolvedValue(loadedRevision());
+    save
+      .mockResolvedValueOnce({ ok: true, lockVersion: 2, savedAt: new Date().toISOString() })
+      .mockResolvedValueOnce({ ok: true, lockVersion: 3, savedAt: new Date().toISOString() });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={undefined}>
+          <SaveStatusIndicator />
+          <LockProbe />
+          <Probe />
+        </AnalysisProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("Saved");
+    expect(screen.getByTestId("lock")).toHaveTextContent("1");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    await waitFor(() => expect(screen.getByTestId("lock")).toHaveTextContent("2"), {
+      timeout: 3000,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "edit C" }));
+    await waitFor(() => expect(screen.getByTestId("lock")).toHaveTextContent("3"), {
+      timeout: 3000,
+    });
+  });
+
+  it("does not advance on a conflict", async () => {
+    load.mockResolvedValue(loadedRevision());
+    save.mockResolvedValue({ ok: false, conflict: true } satisfies SaveDraftResult);
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={undefined}>
+          <SaveStatusIndicator />
+          <LockProbe />
+          <Probe />
+        </AnalysisProvider>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("Saved");
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    expect(await screen.findByText("A newer saved version exists")).toBeInTheDocument();
+    expect(screen.getByTestId("lock")).toHaveTextContent("1");
+  });
+});
+
+describe("reverted edits return to Saved", () => {
+  function RevertProbe() {
+    const { draft, setDraft } = useAnalysis();
+    return (
+      <div>
+        <p data-testid="name">{draft.contract.customerName}</p>
+        <button
+          type="button"
+          onClick={() =>
+            setDraft((previous) => ({
+              ...previous,
+              contract: { ...previous.contract, customerName: "B" },
+            }))
+          }
+        >
+          edit B
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setDraft((previous) => ({
+              ...previous,
+              contract: { ...previous.contract, customerName: "A" },
+            }))
+          }
+        >
+          restore A
+        </button>
+      </div>
+    );
+  }
+
+  function renderRevert() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={undefined}>
+          <SaveStatusIndicator />
+          <RevertProbe />
+        </AnalysisProvider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("reverting before the debounce elapses sends no save and reports Saved", async () => {
+    load.mockResolvedValue(loadedRevision());
+    renderRevert();
+    await screen.findByText("Saved");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "restore A" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+  });
+
+  it("restoring the saved copy after a failed save clears Save failed and Retry", async () => {
+    load.mockResolvedValue(loadedRevision());
+    save.mockRejectedValue(new Error("Your latest edits could not be saved."));
+    renderRevert();
+    await screen.findByText("Saved");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit B" }));
+    expect(await screen.findByText("Save failed")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "restore A" }));
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry save" })).not.toBeInTheDocument();
+  });
+});
+
 describe("finalized and superseded revisions", () => {
   for (const status of ["finalized", "superseded"] as const) {
     it(`opens a ${status} revision read-only and rejects every mutation`, async () => {

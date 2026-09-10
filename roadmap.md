@@ -19,10 +19,8 @@
       (SIGNED_OUT and A→B identity change purge private cached data), dedicated
       duplicate-revision constraint test. Guest/sample use stays available without
       signing in. Google/social login is a future enhancement, not recruiter-ready v1.
-      **Accepted.** Open item for the project owner: run a live
-      magic-link round trip once Supabase's development email quota resets
-      (`over_email_send_rate_limit` is an infrastructure quota, not an ARC defect;
-      custom SMTP is deferred to 7F).
+      **Accepted**, including the live magic-link round trip. Custom SMTP remains
+      deferred to 7F.
 - [x] 7C Persistence in the workspace: canonical persistence envelope
       (`arc.workflow.v1`) with Zod validation, caller-scoped workspace server
       functions (list/create customer, contract, analysis, seed draft revision),
