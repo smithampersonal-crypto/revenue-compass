@@ -142,7 +142,9 @@ describe("save status wording", () => {
     expect(describeSaveStatus({ kind: "saved", at: null }).label).toBe("Saved");
     expect(describeSaveStatus({ kind: "unsaved" }).tone).toBe("pending");
     expect(describeSaveStatus({ kind: "saving" }).label).toBe("Saving\u2026");
-    expect(describeSaveStatus({ kind: "load-error", message: "gone" }).label).toBe("Could not open");
+    expect(describeSaveStatus({ kind: "load-error", message: "gone" }).label).toBe(
+      "Could not open",
+    );
   });
 
   it("offers retry for an ordinary save failure and reload only for a conflict", () => {

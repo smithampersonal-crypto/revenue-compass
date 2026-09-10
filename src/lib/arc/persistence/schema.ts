@@ -243,8 +243,7 @@ export function validateDraftForPersistence(
 }
 
 export type CanonicalInputsParseResult =
-  | { ok: true; schemaVersion: string; draft: WorkflowDraft }
-  | { ok: false; reason: string };
+  { ok: true; schemaVersion: string; draft: WorkflowDraft } | { ok: false; reason: string };
 
 /**
  * Validates a stored envelope.
