@@ -9,7 +9,7 @@ import { buildAuthCallbackUrl } from "@/lib/auth/session.functions";
 
 const TITLE = "Sign in — Ayden's Revenue Compass";
 const DESCRIPTION =
-  "Sign in to Ayden's Revenue Compass with Google or an email magic link to keep your ASC 606 contract analyses.";
+  "Sign in to Ayden's Revenue Compass with a secure email link to keep your ASC 606 contract analyses.";
 
 export const Route = createFileRoute("/auth/")({
   validateSearch: (search: Record<string, unknown>): { next?: string } =>
@@ -31,7 +31,7 @@ function SignInPage() {
   const { next } = Route.useSearch();
   const session = useSupabaseSession();
   const [email, setEmail] = useState("");
-  const [pending, setPending] = useState<"google" | "email" | null>(null);
+  const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,41 +43,32 @@ function SignInPage() {
     }
   }, [session.status, destination]);
 
-  const startGoogle = async () => {
-    setError(null);
-    setNotice(null);
-    setPending("google");
-    try {
-      const { callbackUrl } = await buildAuthCallbackUrl({ data: { next: destination } });
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: callbackUrl },
-      });
-      if (oauthError) throw oauthError;
-    } catch {
-      setError("Google sign-in couldn't be started. Please try again.");
-      setPending(null);
-    }
-  };
-
   const sendMagicLink = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setNotice(null);
-    setPending("email");
+    setPending(true);
     try {
       const { callbackUrl } = await buildAuthCallbackUrl({ data: { next: destination } });
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: { emailRedirectTo: callbackUrl },
       });
-      if (otpError) throw otpError;
+      if (otpError) {
+        // Non-sensitive diagnostics only (e.g. over_email_send_rate_limit);
+        // never raw auth responses, tokens or keys.
+        console.warn(
+          "magic link request failed",
+          (otpError as { code?: string }).code ?? "unknown",
+        );
+        throw otpError;
+      }
       // Neutral copy: never discloses whether an account already existed.
-      setNotice("If that email address can receive mail, a sign-in link is on its way.");
+      setNotice("Check your email for a sign-in link.");
     } catch {
       setError("That sign-in link couldn't be sent. Please check the address and try again.");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   };
 
@@ -86,25 +77,10 @@ function SignInPage() {
       <main className="mx-auto w-full max-w-md px-4 py-12 sm:px-6 sm:py-16">
         <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Sign in to ARC</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Sign in to keep your ASC 606 analyses. No password required.
+          Enter your email to receive a secure sign-in link. No password required.
         </p>
 
-        <div className="mt-8 space-y-6 rounded-lg border border-border bg-card p-6">
-          <button
-            type="button"
-            onClick={startGoogle}
-            disabled={pending !== null}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-          >
-            {pending === "google" ? "Opening Google…" : "Continue with Google"}
-          </button>
-
-          <div className="flex items-center gap-3 text-xs uppercase text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
+        <div className="mt-8 rounded-lg border border-border bg-card p-6">
           <form className="space-y-3" onSubmit={sendMagicLink}>
             <label htmlFor="auth-email" className="block text-sm font-medium text-foreground">
               Email address
@@ -121,20 +97,20 @@ function SignInPage() {
             />
             <button
               type="submit"
-              disabled={pending !== null}
+              disabled={pending}
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
             >
-              {pending === "email" ? "Sending…" : "Send magic link"}
+              {pending ? "Sending…" : "Send magic link"}
             </button>
           </form>
 
           {notice ? (
-            <p role="status" className="text-sm text-muted-foreground">
+            <p role="status" className="mt-4 text-sm text-muted-foreground">
               {notice}
             </p>
           ) : null}
           {error ? (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="mt-4 text-sm text-destructive">
               {error}
             </p>
           ) : null}

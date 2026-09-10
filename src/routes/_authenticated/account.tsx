@@ -34,7 +34,7 @@ function AccountPage() {
           </div>
           <div>
             <dt className="text-muted-foreground">Sign-in method</dt>
-            <dd className="text-foreground">Google or email link — ARC never stores a password.</dd>
+            <dd className="text-foreground">Email sign-in link — ARC never stores a password.</dd>
           </div>
         </dl>
       </main>

@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { createAuthStateHandler } from "../lib/auth/auth-cache";
 
 function NotFoundComponent() {
   return (
@@ -126,14 +127,16 @@ function RootComponent() {
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
+    const handleAuthState = createAuthStateHandler({
+      queryClient,
+      invalidateRouter: () => void router.invalidate(),
+    });
     void (async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
-        const { data } = supabase.auth.onAuthStateChange((event) => {
-          if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-          void router.invalidate();
-          if (event !== "SIGNED_OUT") void queryClient.invalidateQueries();
-        });
+        const { data } = supabase.auth.onAuthStateChange((event, session) =>
+          handleAuthState(event, session),
+        );
         unsubscribe = () => data.subscription.unsubscribe();
       } catch {
         // Supabase is not configured in this environment; ARC stays anonymous.
