@@ -190,7 +190,13 @@ export function AnalysisProvider({
           if (blockedRef.current) break;
           const payload = draftRef.current;
           const snapshot = serializeDraft(payload);
-          if (snapshot === savedSnapshotRef.current) break;
+          if (snapshot === savedSnapshotRef.current) {
+            // The draft was reverted to the server-accepted copy mid-flight.
+            setStatus((current) =>
+              current.kind === "saving" ? { kind: "saved", at: lastSavedAtRef.current } : current,
+            );
+            break;
+          }
 
           setStatus({ kind: "saving" });
           let outcome;
