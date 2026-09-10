@@ -110,8 +110,7 @@ function renderWorkspace(options: { sample?: string; contractId?: string } = {})
 function savedName(): string {
   const calls = save.mock.calls;
   const last = calls[calls.length - 1]?.[0] as
-    | { data: { draft: WorkflowDraft; expectedLockVersion: number } }
-    | undefined;
+    { data: { draft: WorkflowDraft; expectedLockVersion: number } } | undefined;
   return last?.data.draft.contract.customerName ?? "";
 }
 
