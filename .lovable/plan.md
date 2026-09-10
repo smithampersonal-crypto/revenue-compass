@@ -8,7 +8,7 @@ The document's file layout assumes a plain Supabase/TanStack setup. Three adjust
 
 - Reuse the existing `src/integrations/supabase/*` clients (browser client, `client.server.ts` service-role client, `auth-middleware.ts` caller-scoped client) instead of creating `src/lib/supabase/server.ts` / `admin.server.ts`. Generated types stay in `src/integrations/supabase/types.ts`.
 - Server functions live in client-safe module paths (`src/lib/arc/persistence/*.functions.ts`), not `src/server/`, which is blocked from client bundles. Service-role imports happen inside handlers via `await import(...)`.
-- Google sign-in goes through the Lovable auth broker (`lovable.auth.signInWithOAuth("google")`), not raw `signInWithOAuth`. Magic link uses Supabase directly. No passwords.
+- ARC recruiter-ready v1 uses Supabase email magic-link authentication only. No passwords and no social/OAuth login. Google/social login is deferred to future scope.
 - Migrations are applied through the migration tool (source-controlled under `supabase/migrations/`); the dashboard is never the schema source.
 
 Everything else — constraints, RLS, transactional functions, 9-hour guest expiry, one-canonical-renderer rule, samples never autosaving — is implemented as written.

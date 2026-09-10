@@ -10,7 +10,7 @@
       ownership parents, pointer/supersession lineage triggers, lifecycle-shape check
       constraints, analyses row lock in finalization, adversarial privilege tests
       (`supabase/tests/phase7_privileges.sql`), service-role leakage test.
-      **Awaiting review — do not start 7B until reviewed.**
+      Accepted.
 - [x] 7B Identity: `/auth` sign-in (email magic link only — no passwords, no social
       login), `/auth/callback`, server-built callback URLs with ARC-local redirect
       validation (`ARC_SITE_URL` sets the deployed origin), verified-identity server
