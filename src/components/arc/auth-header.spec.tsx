@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
@@ -111,12 +111,59 @@ describe("ARC identity header (Phase 7B)", () => {
     );
   });
 
-  it("renders passwordless sign-in options only", async () => {
+  it("offers magic-link sign-in only — no password, no Google", async () => {
     await renderAt("/auth");
-    expect(await screen.findByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Email address")).toHaveAttribute("type", "email");
+    expect(await screen.findByLabelText("Email address")).toHaveAttribute("type", "email");
     expect(screen.getByRole("button", { name: "Send magic link" })).toBeInTheDocument();
     expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: /google/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/google/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/create an account|sign up/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continue without signing in" })).toHaveAttribute(
+      "href",
+      "/analysis",
+    );
+  });
+
+  it("confirms a magic-link request neutrally", async () => {
+    otpCalls.length = 0;
+    await renderAt("/auth");
+    const input = (await screen.findByLabelText("Email address")) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "someone@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send magic link" }));
+
+    expect(await screen.findByText("Check your email for a sign-in link.")).toBeInTheDocument();
+    expect(otpCalls).toEqual([{ email: "someone@example.test" }]);
+    expect(screen.queryByText(/already (has|have) an account|no account found/i)).toBeNull();
+  });
+
+  it("shows a friendly ARC error when the callback cannot complete", async () => {
+    await renderAt("/auth/callback");
+    expect(await screen.findByText("That sign-in link didn't work")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/auth");
+  });
+
+  it("keeps the authenticated header across a remount (session survives refresh)", async () => {
+    authState.user = { id: "11111111-1111-4111-8111-111111111111", email: "ayden@example.test" };
+    const first = await renderAt("/");
+    expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument();
+    cleanup();
+    void first;
+
+    await renderAt("/");
+    expect(await screen.findByRole("button", { name: "Account menu" })).toBeInTheDocument();
+  });
+
+  it("drops the authenticated header after sign out", async () => {
+    authState.user = { id: "11111111-1111-4111-8111-111111111111", email: "ayden@example.test" };
+    await renderAt("/");
+    const trigger = await screen.findByRole("button", { name: "Account menu" });
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument(),
+    );
+    expect(await screen.findByRole("link", { name: "Sign in" })).toBeInTheDocument();
   });
 });
