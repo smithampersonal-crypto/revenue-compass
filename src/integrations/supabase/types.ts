@@ -225,6 +225,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      arc_create_contract_with_draft: {
+        Args: {
+          p_canonical_inputs: Json
+          p_contract_number: string
+          p_customer_id: string
+          p_schema_version: string
+          p_title: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          revision_id: string
+        }[]
+      }
       arc_finalize_revision: {
         Args: {
           p_engine_outputs: Json
