@@ -57,7 +57,7 @@ describe("ARC identity header (Phase 7B)", () => {
     const header = (
       await screen.findByRole("link", { name: "Ayden's Revenue Compass home" })
     ).closest("header") as HTMLElement;
-    expect(within(header).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(await within(header).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
     expect(within(header).queryByText("My Contracts")).not.toBeInTheDocument();
     expect(within(header).queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument();
     // The primary navigation itself stays unchanged.
