@@ -12,7 +12,12 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { ARC_WORKFLOW_SCHEMA_VERSION, parseCanonicalInputs, toCanonicalInputs } from "./schema";
+import {
+  ARC_WORKFLOW_SCHEMA_VERSION,
+  parseCanonicalInputs,
+  toCanonicalInputs,
+  validateDraftForPersistence,
+} from "./schema";
 
 export type RevisionStatus = "draft" | "finalized" | "superseded";
 
