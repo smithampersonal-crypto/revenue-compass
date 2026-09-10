@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { DEFAULT_SIGNED_IN_PATH, sanitizeLocalPath } from "@/lib/arc/redirect";
 
 export const Route = createFileRoute("/auth/callback")({
-  ssr: false,
   validateSearch: (search: Record<string, unknown>): { next?: string } =>
     typeof search["next"] === "string" ? { next: search["next"] } : {},
   head: () => ({
