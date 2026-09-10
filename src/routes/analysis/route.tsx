@@ -4,6 +4,7 @@ import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
+import { SaveStatusIndicator } from "@/components/arc/SaveStatusIndicator";
 import { Notice } from "@/components/asc606-workflow/fields";
 
 const TITLE = "ASC 606 Analysis — Ayden's Revenue Compass";
@@ -11,8 +12,13 @@ const DESCRIPTION =
   "Work through the ASC 606 five-step revenue recognition model for a SaaS contract and review deterministic allocation, revenue, contract balance and journal output.";
 
 export const Route = createFileRoute("/analysis")({
-  validateSearch: (search: Record<string, unknown>): { sample?: string } =>
-    typeof search["sample"] === "string" ? { sample: search["sample"] } : {},
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { sample?: string; contract?: string; revision?: string } => ({
+    ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
+    ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
+    ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: TITLE },
@@ -27,17 +33,17 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisLayout() {
-  const { sample } = Route.useSearch();
+  const { sample, contract, revision } = Route.useSearch();
 
   return (
-    <AnalysisProvider sample={sample}>
+    <AnalysisProvider sample={sample} contractId={contract} revisionId={revision}>
       <AnalysisWorkspace />
     </AnalysisProvider>
   );
 }
 
 function AnalysisWorkspace() {
-  const { unknownSample } = useAnalysis();
+  const { unknownSample, persistence } = useAnalysis();
 
   return (
     <PublicAppShell>
@@ -55,10 +61,14 @@ function AnalysisWorkspace() {
             allocation, revenue recognition and reconciliation amounts are produced by the
             deterministic ASC 606 engine and are read-only.
           </p>
-          <Notice>
-            This workspace holds one in-memory analysis. Nothing is saved: refreshing the page
-            clears all entered data.
-          </Notice>
+          {persistence.enabled ? (
+            <SaveStatusIndicator />
+          ) : (
+            <Notice>
+              This workspace holds one in-memory analysis. Nothing is saved: refreshing the page
+              clears all entered data.
+            </Notice>
+          )}
           {unknownSample ? (
             <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
           ) : null}
