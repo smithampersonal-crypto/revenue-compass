@@ -11,15 +11,18 @@
       constraints, analyses row lock in finalization, adversarial privilege tests
       (`supabase/tests/phase7_privileges.sql`), service-role leakage test.
       **Awaiting review — do not start 7B until reviewed.**
-- [x] 7B Identity: `/auth` sign-in (Google + email magic link), `/auth/callback`,
-      server-built callback URLs with ARC-local redirect validation, verified-identity
-      server function, `_authenticated` gate, `/workspace` + `/account`, session-aware
-      header/account menu, bearer function middleware, dedicated duplicate-revision
-      constraint test. Google broker NOT used: this project is an external
-      (user-managed) Supabase backend, so ARC uses direct Supabase Google OAuth.
-      **Awaiting review — do not start 7C.** Open item for the project owner: enable the
-      Google provider + redirect URLs in the Supabase dashboard, then run a live
-      Google/magic-link round trip.
+- [x] 7B Identity: `/auth` sign-in (email magic link only — no passwords, no social
+      login), `/auth/callback`, server-built callback URLs with ARC-local redirect
+      validation (`ARC_SITE_URL` sets the deployed origin), verified-identity server
+      function, `_authenticated` gate, `/workspace` + `/account`, session-aware
+      header/account menu, bearer function middleware, root auth-state cache isolation
+      (SIGNED_OUT and A→B identity change purge private cached data), dedicated
+      duplicate-revision constraint test. Guest/sample use stays available without
+      signing in. Google/social login is a future enhancement, not recruiter-ready v1.
+      **Awaiting review — do not start 7C.** Open item for the project owner: run a live
+      magic-link round trip once Supabase's development email quota resets
+      (`over_email_send_rate_limit` is an infrastructure quota, not an ARC defect;
+      custom SMTP is deferred to 7F).
 - [ ] 7C Persistence in the workspace (DTOs, workspace/revision server functions,
       autosave, lock-version conflicts).
 - [ ] 7D Finalization snapshot + Review & Finalize lifecycle + revision history
