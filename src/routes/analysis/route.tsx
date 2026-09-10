@@ -13,13 +13,23 @@ const DESCRIPTION =
   "Work through the ASC 606 five-step revenue recognition model for a SaaS contract and review deterministic allocation, revenue, contract balance and journal output.";
 
 export const Route = createFileRoute("/analysis")({
+  // An ambiguous URL that names both an ephemeral sample and a saved contract
+  // is normalized to the sample: samples are never saved, so the saved
+  // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { sample?: string; contract?: string; revision?: string } => ({
-    ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
-    ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
-    ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
-  }),
+  ): { sample?: string; contract?: string; revision?: string } => {
+    if (typeof search["sample"] === "string") return { sample: search["sample"] };
+    return {
+      ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
+      ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
+    };
+  },
+  beforeLoad: ({ search }) => {
+    if (search.sample && (search.contract || search.revision)) {
+      throw redirect({ to: "/analysis", search: { sample: search.sample } });
+    }
+  },
   head: () => ({
     meta: [
       { title: TITLE },
