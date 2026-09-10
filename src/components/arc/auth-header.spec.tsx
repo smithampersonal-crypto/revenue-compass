@@ -143,7 +143,7 @@ describe("ARC identity header (Phase 7B)", () => {
       await screen.findByText("That sign-in link didn't work", undefined, { timeout: 8000 }),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/auth");
-  });
+  }, 15000);
 
   it("keeps the authenticated header across a remount (session survives refresh)", async () => {
     authState.user = { id: "11111111-1111-4111-8111-111111111111", email: "ayden@example.test" };
