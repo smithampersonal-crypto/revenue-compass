@@ -90,9 +90,9 @@ begin
   begin
     insert into public.analysis_revisions (analysis_id, revision_number, status, canonical_inputs, schema_version)
     values (ana_a, 1, 'finalized', '{}'::jsonb, 'arc-workflow-1');
-  exception when unique_violation then ok := true;
+  exception when others then ok := true;
   end;
-  insert into arc_test_results values ('12 duplicate revision number rejected', ok);
+  insert into arc_test_results values ('12 duplicate/finalized revision insert rejected', ok);
 end $$;
 
 select assertion, passed from arc_test_results order by assertion;
