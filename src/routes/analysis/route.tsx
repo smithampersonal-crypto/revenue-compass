@@ -44,8 +44,21 @@ export const Route = createFileRoute("/analysis")({
 function AnalysisLayout() {
   const { sample, contract, revision } = Route.useSearch();
 
+  // The analysis identity — sample, contract and revision — keys the provider,
+  // so switching to a different analysis mounts a fresh persistence state with
+  // isolated draft, lock and save refs. An in-flight save belonging to the
+  // previous revision can therefore never read or write the new one's state.
+  // Navigating between parent areas keeps the same identity and preserves the
+  // draft.
+  const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
+
   return (
-    <AnalysisProvider sample={sample} contractId={contract} revisionId={revision}>
+    <AnalysisProvider
+      key={identity}
+      sample={sample}
+      contractId={contract}
+      revisionId={revision}
+    >
       <AnalysisWorkspace />
     </AnalysisProvider>
   );
