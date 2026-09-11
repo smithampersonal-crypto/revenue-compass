@@ -257,11 +257,11 @@ describe("explicit save of a guest analysis", () => {
   });
 
   it("locks the workspace while the migration is pending", async () => {
-    let release: null | (() => void) = null;
+    const release: { fn: (() => void) | null } = { fn: null };
     migrate.mockImplementation(
       () =>
         new Promise((resolve) => {
-          release = () =>
+          release.fn = () =>
             resolve({
               ok: true,
               customerId: "c1",
@@ -280,7 +280,7 @@ describe("explicit save of a guest analysis", () => {
     // An attempted edit cannot change the analysis being saved.
     fireEvent.click(screen.getByRole("button", { name: "edit" }));
     expect(screen.getByTestId("name")).toHaveTextContent("Northwind");
-    release?.();
+    release.fn?.();
     await waitFor(() => expect(navigate).toHaveBeenCalled());
   });
 
