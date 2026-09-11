@@ -162,11 +162,14 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
  */
 export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contractTitle: string }) => ({
+  .inputValidator((input: { contractTitle: string; expectedLockVersion: number }) => ({
     contractTitle: z
       .string()
       .max(300)
       .parse(input?.contractTitle ?? ""),
+    // The browser supplies only the version of the temporary workspace it has
+    // seen accepted; the credential and the draft itself stay server-side.
+    expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
   }))
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { secure, token } = await requestCookieContext();
@@ -180,8 +183,13 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
           return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token", args as never);
         },
       },
-      { token, contractTitle: data.contractTitle },
+      {
+        token,
+        contractTitle: data.contractTitle,
+        expectedLockVersion: data.expectedLockVersion,
+      },
     );
+
 
     if (result.ok) await setCookieHeader(clearGuestCookie(secure));
     return result;
