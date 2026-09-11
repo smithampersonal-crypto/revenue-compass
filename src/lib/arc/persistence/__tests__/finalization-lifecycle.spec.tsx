@@ -14,6 +14,8 @@ import { AnalysisProvider } from "@/components/arc/analysis-context";
 import { RevisionLifecyclePanel } from "@/components/arc/RevisionLifecyclePanel";
 import { createDemoDraftIfKnown } from "@/lib/demo-scenarios";
 
+import { ARC_ENGINE_VERSION, buildFinalizationSnapshot } from "../snapshot";
+
 vi.mock("@tanstack/react-start", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useServerFn: (fn: unknown) => fn };
@@ -164,5 +166,82 @@ describe("finalization conflict and ambiguity reload authoritative state", () =>
 
     await waitFor(() => expect(screen.getByText(/Billing incomplete/)).toBeInTheDocument());
     expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("successful lifecycle paths", () => {
+  it("reloads the immutable finalized revision after a successful finalize", async () => {
+    finalize.mockResolvedValue({ ok: true, revisionId: REVISION_ID });
+    load.mockResolvedValueOnce(savedDraft()).mockResolvedValue(finalizedRevision());
+    history.mockResolvedValue({
+      revisions: [{ revisionId: REVISION_ID, status: "finalized", isCurrentFinalized: true }],
+    });
+    renderPanel();
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    await confirmFinalize();
+
+    await waitFor(() => expect(screen.getByText(/now read-only/i)).toBeInTheDocument());
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
+    // The reloaded authoritative revision is immutable: no Finalize action.
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /finalize analysis/i })).toBeNull(),
+    );
+  });
+
+  it("opens the returned draft after continuing from the current finalized revision", async () => {
+    const NEXT = "66666666-6666-4666-8666-666666666666";
+    load.mockResolvedValue(finalizedRevision());
+    history.mockResolvedValue({
+      revisions: [
+        { revisionId: REVISION_ID, revisionNumber: 2, status: "finalized", isCurrentFinalized: true },
+      ],
+    });
+    startNew.mockResolvedValue({ revisionId: NEXT, created: true });
+    renderPanel();
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /start a new revision/i }));
+
+    await waitFor(() =>
+      expect(startNew).toHaveBeenCalledWith({
+        data: { contractId: CONTRACT_ID, sourceRevisionId: REVISION_ID },
+      }),
+    );
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/analysis/review",
+        search: { contract: CONTRACT_ID, revision: NEXT },
+      }),
+    );
+  });
+
+  it("offers no new-revision action on a superseded revision", async () => {
+    load.mockResolvedValue(finalizedRevision("superseded"));
+    history.mockResolvedValue({
+      revisions: [
+        { revisionId: "77777777-7777-4777-8777-777777777777", revisionNumber: 3, status: "finalized", isCurrentFinalized: true },
+        { revisionId: REVISION_ID, revisionNumber: 2, status: "superseded" },
+      ],
+    });
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText(/view-only/i)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /start a new revision/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /finalize analysis/i })).toBeNull();
+  });
+
+  it("keeps the exact contract and revision identity on a history View link", async () => {
+    const OTHER = "88888888-8888-4888-8888-888888888888";
+    history.mockResolvedValue({
+      revisions: [
+        { revisionId: REVISION_ID, revisionNumber: 2, status: "draft" },
+        { revisionId: OTHER, revisionNumber: 1, status: "superseded" },
+      ],
+    });
+    renderPanel();
+
+    const link = await screen.findByRole("link", { name: "View" });
+    expect(link.getAttribute("data-contract")).toBe(CONTRACT_ID);
+    expect(link.getAttribute("data-revision")).toBe(OTHER);
   });
 });
