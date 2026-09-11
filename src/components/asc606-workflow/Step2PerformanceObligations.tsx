@@ -45,9 +45,6 @@ export function Step2PerformanceObligations({
       ),
     });
 
-  // Warnings are produced by the pure workflow validation layer; React only
-  // displays them at the point where the judgment is made.
-  const warnings = validateWorkflow(draft).warningsByStep["2b"];
 
   return (
     <Section
