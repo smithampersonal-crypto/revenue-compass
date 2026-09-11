@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit || tsc --noEmit",
+    "db:start": "supabase start",
+    "db:test": "bash scripts/run-sql-suites.sh",
+    "audit:bundle": "bash scripts/audit-bundle.sh",
+    "verify": "bun run test && bun run typecheck && bun run lint && bun run build && bun run audit:bundle"
   },
   "overrides": {
     "rolldown": "1.2.1"
