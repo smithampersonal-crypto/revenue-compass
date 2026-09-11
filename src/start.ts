@@ -2,6 +2,7 @@ import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/r
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "./lib/auth/attach-supabase-auth";
+import { noStoreMiddleware } from "./lib/auth/no-store";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
