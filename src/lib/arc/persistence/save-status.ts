@@ -104,6 +104,14 @@ export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
         tone: "warning",
         action: "reload",
       };
+    case "guest-expired":
+      return {
+        label: "Temporary workspace expired",
+        detail:
+          "A temporary workspace lasts nine hours, and this one has ended, so saving has stopped. Your work is still on screen — start a new analysis to continue.",
+        tone: "warning",
+        action: "none",
+      };
     case "error":
       return {
         label: "Save failed",
