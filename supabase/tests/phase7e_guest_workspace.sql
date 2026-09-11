@@ -135,14 +135,64 @@ begin
          exists (select 1 from public.guest_workspaces
                  where id = guest_ok and status = 'migrated' and migrated_user_id = owner_id);
 
-  -- 17 A retired workspace cannot be migrated twice.
+  -- 17 A retired workspace never migrates a second time: the committed result
+  -- is returned again, so a lost response is recoverable without duplicates.
+  select * into res2 from public.arc_migrate_guest_workspace_by_token(
+    hash_ok, owner_id, 1, 'Guest Co', 'Second contract', null);
+  insert into arc_test_results values (
+    '17 migrated workspace returns the original result idempotently',
+    res2.idempotent and res2.customer_id = res.customer_id and res2.contract_id = res.contract_id
+      and res2.analysis_id = res.analysis_id and res2.revision_id = res.revision_id);
+  insert into arc_test_results
+  select '18 no duplicate chain created by the retry',
+         (select count(*) from public.contracts where customer_id = res.customer_id) = 1
+     and (select count(*) from public.analyses where contract_id = res.contract_id) = 1
+     and (select count(*) from public.analysis_revisions where analysis_id = res.analysis_id) = 1
+     and not exists (select 1 from public.contracts where title = 'Second contract');
+
+  -- 19 A different account may never claim a migrated workspace.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (other_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-guest-other@example.test', '', now(), now(), now());
   failed := false;
   begin
-    select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_ok, owner_id, 1, 'Guest Co', 'Second contract', null);
+    select * into res2 from public.arc_migrate_guest_workspace_by_token(
+      hash_ok, other_id, 1, 'Guest Co', 'Stolen contract', null);
   exception when others then failed := true; end;
-  insert into arc_test_results values ('17 migrated workspace cannot migrate again', failed);
+  insert into arc_test_results values ('19 another account cannot claim a migrated workspace', failed);
+
+  -- 20/21 A stale expected lock version (a second tab that saved again)
+  -- creates nothing at all.
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, lock_version, expires_at)
+  values (hash_locked, draft, 'arc.workflow.v1', 4, now() + interval '9 hours')
+  returning id into guest_locked;
+  failed := false;
+  begin
+    select * into res2 from public.arc_migrate_guest_workspace_by_token(
+      hash_locked, owner_id, 3, 'Guest Co', 'Stale contract', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('20 stale expected lock version rejected', failed);
+  insert into arc_test_results
+  select '21 nothing created by the stale attempt',
+         not exists (select 1 from public.contracts where title in ('Stale contract', 'Stolen contract'))
+     and (select status from public.guest_workspaces where id = guest_locked) = 'active';
+
+  -- 22 The matching lock version migrates once and records its provenance.
+  select * into res2 from public.arc_migrate_guest_workspace_by_token(
+    hash_locked, owner_id, 4, 'Guest Co', 'Locked contract', 'G-2');
+  insert into arc_test_results
+  select '22 matching lock version migrates and records provenance',
+         not res2.idempotent
+     and exists (select 1 from public.guest_workspaces
+                 where id = guest_locked and status = 'migrated'
+                   and migrated_user_id = owner_id
+                   and migrated_customer_id = res2.customer_id
+                   and migrated_contract_id = res2.contract_id
+                   and migrated_analysis_id = res2.analysis_id
+                   and migrated_revision_id = res2.revision_id);
 end $$;
+
 
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where not passed) as failures, count(*) as total from arc_test_results;
