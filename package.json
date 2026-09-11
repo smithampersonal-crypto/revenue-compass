@@ -16,7 +16,8 @@
     "db:test": "bash scripts/run-sql-suites.sh",
     "audit:bundle": "bash scripts/audit-bundle.sh",
     "verify": "bun run test && bun run typecheck && bun run lint && bun run build && bun run audit:bundle",
-    "db:stop": "bunx --bun supabase stop --no-backup"
+    "db:stop": "bunx --bun supabase stop --no-backup",
+    "db:test:gate-proof": "bash scripts/gate-proof.sh"
   },
   "overrides": {
     "rolldown": "1.2.1"
