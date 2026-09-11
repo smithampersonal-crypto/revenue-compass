@@ -267,7 +267,11 @@ export type Database = {
         }[]
       }
       arc_start_amendment_revision: {
-        Args: { p_contract_id: string; p_owner_user_id: string }
+        Args: {
+          p_contract_id: string
+          p_expected_source_revision_id: string
+          p_owner_user_id: string
+        }
         Returns: {
           created: boolean
           revision_id: string

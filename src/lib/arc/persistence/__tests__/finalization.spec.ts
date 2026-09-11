@@ -11,6 +11,7 @@ import { createDemoDraftIfKnown } from "@/lib/demo-scenarios";
 import {
   ARC_ENGINE_VERSION,
   buildFinalizationSnapshot,
+  readEngineOutputsSnapshot,
   readReconciliationSnapshot,
 } from "../snapshot";
 import { describeRevisionStatus, finalizeGate } from "../revision-history";
@@ -176,5 +177,58 @@ describe("revision status descriptions", () => {
     expect(describeRevisionStatus("finalized").label).toBe("Finalized");
     expect(describeRevisionStatus("superseded").label).toBe("Superseded");
     expect(describeRevisionStatus("superseded").detail).toContain("remains viewable");
+  });
+});
+
+
+describe("frozen snapshot decoding fails closed", () => {
+  function recorded() {
+    const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown("horizon")!);
+    if (!outcome.ok) throw new Error("fixture must be finalizable");
+    return JSON.parse(JSON.stringify(outcome.engineOutputs)) as Record<string, unknown>;
+  }
+
+  const metadata = {
+    engineVersion: ARC_ENGINE_VERSION,
+    schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+  };
+
+  it("accepts a genuine recording together with matching row metadata", () => {
+    expect(readEngineOutputsSnapshot(recorded(), metadata)).not.toBeNull();
+  });
+
+  it("rejects a recording whose row metadata disagrees", () => {
+    expect(
+      readEngineOutputsSnapshot(recorded(), { ...metadata, engineVersion: "arc.engine.vX" }),
+    ).toBeNull();
+    expect(
+      readEngineOutputsSnapshot(recorded(), { ...metadata, schemaVersion: "arc.workflow.vX" }),
+    ).toBeNull();
+  });
+
+  it("rejects a superficially valid but internally malformed recording", () => {
+    // A shallow validator sees objects for workflow, balances and journals and
+    // would accept this; the nested shapes the renderers read are broken.
+    const shallow = recorded();
+    const workflow = shallow["workflow"] as Record<string, unknown>;
+    workflow["workflowValidation"] = { issues: "not-an-array", blocking: [], warnings: [] };
+    expect(readEngineOutputsSnapshot(shallow, metadata)).toBeNull();
+
+    const badSchedule = recorded();
+    const wf = badSchedule["workflow"] as Record<string, unknown>;
+    wf["revenueSchedule"] = { totalCents: "1,000" };
+    expect(readEngineOutputsSnapshot(badSchedule, metadata)).toBeNull();
+
+    const badJournals = recorded();
+    (badJournals["journals"] as Record<string, unknown>)["analysis"] = { entries: [] };
+    expect(readEngineOutputsSnapshot(badJournals, metadata)).toBeNull();
+  });
+
+  it("rejects a reconciliation snapshot with malformed totals", () => {
+    const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown("horizon")!);
+    if (!outcome.ok) throw new Error("fixture must be finalizable");
+    const value = JSON.parse(JSON.stringify(outcome.reconciliation)) as Record<string, unknown>;
+    (value["totals"] as Record<string, unknown>)["revenueCents"] = "1000";
+    expect(readReconciliationSnapshot(value, metadata)).toBeNull();
   });
 });

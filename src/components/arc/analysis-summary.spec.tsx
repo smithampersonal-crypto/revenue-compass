@@ -243,3 +243,30 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
     expect(screen.getAllByRole("button", { name: /^Reset (Analysis|Sample)$/ })).toHaveLength(1);
   });
 });
+
+describe("persisted revision labels", () => {
+  const draft = createEmptyDraft();
+
+  function labelFor(status: "draft" | "finalized" | "superseded", revisionNumber: number) {
+    return buildAnalysisSummary({
+      draft,
+      result: analyzeWorkflow(draft),
+      origin: "manual",
+      scenario: null,
+      persisted: { status, revisionNumber },
+    }).originLabel;
+  }
+
+  it("labels a saved draft, a finalized revision and a superseded revision", () => {
+    expect(labelFor("draft", 1)).toBe("Draft Analysis · Saved");
+    expect(labelFor("finalized", 2)).toBe("Finalized Analysis · Revision 2");
+    expect(labelFor("superseded", 1)).toBe("Superseded Analysis · Revision 1");
+  });
+
+  it("leaves an unsaved analysis and a sample labelled by provenance", () => {
+    expect(summaryFor(draft).originLabel).toBe("Draft Analysis");
+    expect(summaryFor(createDemoDraft("redwood"), "sample").originLabel).toBe(
+      "Sample Analysis — Fictional Contract",
+    );
+  });
+});

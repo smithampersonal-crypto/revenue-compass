@@ -18,8 +18,18 @@ const TONE_CLASS = {
  * from the workspace context and never invokes an accounting engine.
  */
 export function AnalysisSummary() {
-  const { draft, result, origin, loadedSample, resetAnalysis, canEdit } = useAnalysis();
-  const summary = buildAnalysisSummary({ draft, result, origin, scenario: loadedSample });
+  const { draft, result, origin, loadedSample, resetAnalysis, canEdit, persistence } = useAnalysis();
+  const revision = persistence.revision;
+  const summary = buildAnalysisSummary({
+    draft,
+    result,
+    origin,
+    scenario: loadedSample,
+    persisted: revision
+      ? { status: revision.status, revisionNumber: revision.revisionNumber }
+      : null,
+  });
+
 
   return (
     <section

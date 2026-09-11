@@ -104,6 +104,19 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 /** Approved autosave debounce. */
 const AUTOSAVE_DELAY_MS = 750;
 
+/**
+ * Inert placeholder used only when a historical recording cannot be read. It
+ * is derived from an empty draft, never from the historical draft, so no
+ * current engine ever sees historical inputs. Every output area is suppressed
+ * in that state; this only keeps the context shape stable.
+ */
+let placeholder: ArcWorkpaper | null = null;
+function placeholderWorkpaper(): ArcWorkpaper {
+  placeholder ??= buildWorkpaper(createEmptyDraft());
+  return placeholder;
+}
+
+
 export function AnalysisProvider({
   sample,
   contractId,
@@ -125,8 +138,9 @@ export function AnalysisProvider({
     () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
   );
 
-  /** Live deterministic engine run for the editable draft. */
-  const liveWorkpaper = useMemo(() => buildWorkpaper(draft), [draft]);
+  // The live engines run only for an editable manual / sample / draft
+  // analysis. A historical revision never reaches them — see `workpaper`.
+
 
   const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
   const unknownSample = sample !== undefined && loadedSample === null;
@@ -401,8 +415,9 @@ export function AnalysisProvider({
 
   /**
    * A finalized or superseded revision is presented from its recorded engine
-   * outputs. The current engine is never rerun for it: if the recording is
-   * missing or unusable the workspace fails closed.
+   * outputs. The current engines are never invoked against a historical draft:
+   * if the recording is missing or unusable the workspace fails closed and
+   * still does not recalculate.
    */
   const recorded = loaded && loaded.readOnly ? (loaded.snapshot?.engineOutputs ?? null) : null;
   const historicalActive = Boolean(loaded && loaded.readOnly);
@@ -411,18 +426,20 @@ export function AnalysisProvider({
       ? "The recorded snapshot for this revision is missing or unreadable, so its results cannot be shown. It is never recalculated with the current engine."
       : null;
 
-  const workpaper = useMemo<ArcWorkpaper>(
-    () =>
-      recorded
+  const workpaper = useMemo<ArcWorkpaper>(() => {
+    if (historicalActive) {
+      return recorded
         ? {
             workflow: recorded.workflow,
             balances: recorded.balances,
             journals: recorded.journals,
           }
-        : liveWorkpaper,
-    [recorded, liveWorkpaper],
-  );
+        : placeholderWorkpaper();
+    }
+    return buildWorkpaper(draft);
+  }, [historicalActive, recorded, draft]);
   const result = workpaper.workflow;
+
 
   const historical = useMemo<HistoricalPresentation>(
     () => ({

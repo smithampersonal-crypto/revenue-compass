@@ -287,7 +287,7 @@ export function readReconciliationSnapshot(
   ) {
     return null;
   }
-  if (!isObject(value["step1Conclusion"])) return null;
+  if (typeof value["step1Conclusion"] !== "string") return null;
   for (const key of ["core", "lifecycle", "variableConsideration", "modification", "balances"]) {
     const nested = value[key];
     if (nested !== null && !isObject(nested)) return null;
@@ -315,7 +315,7 @@ function validWorkflow(value: unknown): boolean {
   ) {
     return false;
   }
-  if (!isObject(value["step1Conclusion"])) return false;
+  if (typeof value["step1Conclusion"] !== "string") return false;
   if (typeof value["finalized"] !== "boolean") return false;
   if (value["blockedReason"] !== null && typeof value["blockedReason"] !== "string") return false;
   if (!isArray(value["adapterErrors"])) return false;
