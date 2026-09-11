@@ -472,4 +472,3 @@ describe("store failures are never mistaken for ordinary outcomes", () => {
     ).rejects.toThrow("save down");
   });
 });
-

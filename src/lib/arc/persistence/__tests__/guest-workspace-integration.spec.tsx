@@ -257,7 +257,7 @@ describe("explicit save of a guest analysis", () => {
   });
 
   it("locks the workspace while the migration is pending", async () => {
-    let release: (() => void) | null = null;
+    let release: null | (() => void) = null;
     migrate.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -304,4 +304,3 @@ describe("explicit save of a guest analysis", () => {
     );
   });
 });
-
