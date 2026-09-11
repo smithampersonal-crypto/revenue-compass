@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useAnalysis } from "@/components/arc/analysis-context";
+import { FinalizedSnapshotView } from "@/components/arc/FinalizedSnapshotView";
 import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
+import { RevisionLifecyclePanel } from "@/components/arc/RevisionLifecyclePanel";
 
 export const Route = createFileRoute("/analysis/review")({
   head: () => ({
