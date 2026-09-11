@@ -12,10 +12,11 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit || tsc --noEmit",
-    "db:start": "supabase start",
+    "db:start": "bunx --bun supabase start",
     "db:test": "bash scripts/run-sql-suites.sh",
     "audit:bundle": "bash scripts/audit-bundle.sh",
-    "verify": "bun run test && bun run typecheck && bun run lint && bun run build && bun run audit:bundle"
+    "verify": "bun run test && bun run typecheck && bun run lint && bun run build && bun run audit:bundle",
+    "db:stop": "bunx --bun supabase stop --no-backup"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -94,6 +95,7 @@
     "jsdom": "^30.0.1",
     "nitro": "3.0.260603-beta",
     "prettier": "^3.7.3",
+    "supabase": "2.34.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5",

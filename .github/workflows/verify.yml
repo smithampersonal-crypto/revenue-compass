@@ -1,8 +1,9 @@
 name: Verify
 
 # Reproducible ARC verification: application tests, types, lint, production
-# build, and the Phase 7 database suites against a local Supabase stack.
-# Nothing here needs a production service-role secret.
+# build, client-bundle secret audit, and the Phase 7 database suites against a
+# local Supabase stack started with the project-pinned CLI.
+# No production secret of any kind is used here.
 
 on:
   push:
@@ -12,7 +13,7 @@ on:
 
 jobs:
   app:
-    name: Tests, types, lint, build
+    name: Tests, types, lint, build, bundle audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,27 +21,21 @@ jobs:
         with:
           bun-version: 1.2.21
       - run: bun install --frozen-lockfile
-      - run: bun run test
-      - run: bun run typecheck
-      - run: bun run lint
-      - run: bun run build
+      - run: bun run verify
 
   database:
     name: Phase 7 database suites
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 2.34.3
-      - run: supabase start
-      - name: Run every SQL suite
-        run: |
-          set -euo pipefail
-          for suite in supabase/tests/*.sql; do
-            echo "== $suite"
-            psql "$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')" \
-              -v ON_ERROR_STOP=1 -f "$suite"
-          done
+          bun-version: 1.2.21
+      # Project-pinned Supabase CLI (devDependency), identical to local runs.
+      - run: bun install --frozen-lockfile
+      - run: bun run db:start
+      # Same source-controlled runner as `bun run db:test` locally. Any false
+      # assertion raises in SQL, so psql exits non-zero and this job fails.
+      - run: bun run db:test
       - if: always()
-        run: supabase stop --no-backup
+        run: bunx --bun supabase stop --no-backup

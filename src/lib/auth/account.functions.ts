@@ -64,16 +64,44 @@ export const deleteAccount = createServerFn({ method: "POST" })
           const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
           if (deleteError) throw new Error("auth deletion failed", { cause: deleteError });
         },
-        countRemaining: async (userId) => {
+        // A failed verification query must never read as "count = 0, verified".
+        verifyRemoval: async ({ userId, guestTokenHash: hash }) => {
           const customers = await supabaseAdmin
             .from("customers")
             .select("id", { count: "exact", head: true })
             .eq("owner_user_id", userId);
-          const guestRows = await supabaseAdmin
+          if (customers.error) {
+            throw new Error("post-condition query failed (customers)", { cause: customers.error });
+          }
+
+          const migratedGuests = await supabaseAdmin
             .from("guest_workspaces")
             .select("id", { count: "exact", head: true })
             .eq("migrated_user_id", userId);
-          return { customers: customers.count ?? 0, guestRows: guestRows.count ?? 0 };
+          if (migratedGuests.error) {
+            throw new Error("post-condition query failed (migrated guest rows)", {
+              cause: migratedGuests.error,
+            });
+          }
+
+          let browserGuests = 0;
+          if (hash) {
+            const byHash = await supabaseAdmin
+              .from("guest_workspaces")
+              .select("id", { count: "exact", head: true })
+              .eq("token_hash", hash);
+            if (byHash.error) {
+              throw new Error("post-condition query failed (current browser guest row)", {
+                cause: byHash.error,
+              });
+            }
+            browserGuests = byHash.count ?? 0;
+          }
+
+          return {
+            customers: customers.count ?? 0,
+            guestRows: (migratedGuests.count ?? 0) + browserGuests,
+          };
         },
       },
       { confirmation: data.confirmation },
