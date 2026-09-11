@@ -52,7 +52,7 @@ begin
 
   insert into arc_dup_results values (
     '01 duplicate (analysis_id, revision_number) rejected by unique constraint',
-    ok and err_state = '23505',
+    coalesce(ok and err_state = '23505', false),
     coalesce(err_state, 'no error') || ' / ' || coalesce(err_constraint, 'unnamed'));
 
   -- A distinct revision_number on the same analysis is still accepted, proving
