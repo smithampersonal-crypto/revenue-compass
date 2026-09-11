@@ -56,13 +56,21 @@ function AnalysisLayout() {
   const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
 
   return (
-    <AnalysisProvider key={identity} sample={sample} contractId={contract} revisionId={revision}>
-      <AnalysisWorkspace />
+    // Bare /analysis (no sample, no contract) resumes or starts the visitor's
+    // temporary nine-hour guest workspace.
+    <AnalysisProvider
+      key={identity}
+      sample={sample}
+      contractId={contract}
+      revisionId={revision}
+      guest={!sample && !contract}
+    >
+      <AnalysisWorkspace autoOpenSave={save === "1"} />
     </AnalysisProvider>
   );
 }
 
-function AnalysisWorkspace() {
+function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
   const { unknownSample, persistence, canEdit, historical } = useAnalysis();
 
   return (
