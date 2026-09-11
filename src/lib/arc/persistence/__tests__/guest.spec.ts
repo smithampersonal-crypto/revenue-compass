@@ -286,7 +286,7 @@ describe("migrateGuestWorkspaceHandler", () => {
           return { data: migrated, error: null };
         },
       },
-      { token: "tok", contractTitle: "Northwind — enterprise" },
+      { token: "raw-credential-xyz", contractTitle: "Northwind — enterprise" },
     );
 
     expect(result).toEqual({
@@ -299,13 +299,13 @@ describe("migrateGuestWorkspaceHandler", () => {
     // Customer name and contract number come from the draft; the browser never
     // supplies a workspace id, and the raw credential is never passed on.
     expect(calls[0]).toEqual({
-      p_token_hash: await hashGuestToken("tok"),
+      p_token_hash: await hashGuestToken("raw-credential-xyz"),
       p_owner_user_id: "user-7",
       p_customer_name: "Northwind Systems",
       p_contract_title: "Northwind — enterprise",
       p_contract_number: "C-1001",
     });
-    expect(JSON.stringify(calls[0])).not.toContain("tok");
+    expect(JSON.stringify(calls[0])).not.toContain("raw-credential-xyz");
   });
 
   it("blocks a blank Step 1 customer name before anything is created", async () => {
