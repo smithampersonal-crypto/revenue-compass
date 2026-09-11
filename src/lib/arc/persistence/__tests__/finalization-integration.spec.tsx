@@ -17,8 +17,15 @@ import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
 import { createDemoDraftIfKnown } from "@/lib/demo-scenarios";
 import { formatCents } from "@/lib/asc606";
 
-import { buildFinalizationSnapshot, type ArcEngineOutputsSnapshot } from "../snapshot";
+import {
+  ARC_ENGINE_VERSION,
+  buildFinalizationSnapshot,
+  readEngineOutputsSnapshot,
+  type ArcEngineOutputsSnapshot,
+} from "../snapshot";
+import { ARC_WORKFLOW_SCHEMA_VERSION } from "../schema";
 import type { LoadedRevisionDto } from "../revisions.functions";
+
 
 vi.mock("@tanstack/react-start", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
