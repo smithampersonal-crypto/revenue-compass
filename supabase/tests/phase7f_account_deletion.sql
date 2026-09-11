@@ -3,7 +3,7 @@
 -- Every row must report passed = true.
 begin;
 
-create temporary table arc_test_results (assertion text, passed boolean) on commit drop;
+create temporary table arc_test_results (assertion text, passed boolean not null) on commit drop;
 
 -- 01-06 Both Phase 7F routines are service-role only.
 insert into arc_test_results values (
@@ -39,7 +39,10 @@ declare
   hash_browser  text := repeat('2', 64);
   hash_other    text := repeat('3', 64);
   hash_expired  text := repeat('4', 64);
+  hash_late     text := repeat('5', 64);
   customer_id uuid; contract_id uuid; analysis_id uuid; revision_id uuid;
+  late_customer uuid; late_contract uuid; late_analysis uuid; late_revision uuid;
+  late_idempotent boolean;
   purged integer; removed integer; failed boolean;
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Deletion Co"}}'::jsonb;
 begin
@@ -89,6 +92,16 @@ begin
   select '09 another user''s guest row is untouched',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
 
+  -- A legitimate migration can land AFTER the purge and before auth deletion.
+  -- That late row must disappear through the migrated_user_id cascade, never
+  -- survive as an anonymous copy of the deleted person's contract.
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (hash_late, draft, 'arc.workflow.v1', now() + interval '9 hours');
+  select m.customer_id, m.contract_id, m.analysis_id, m.revision_id, m.idempotent
+    into late_customer, late_contract, late_analysis, late_revision, late_idempotent
+  from public.arc_migrate_guest_workspace_by_token(
+         hash_late, owner_id, 1, 'Late Co', 'Late contract', null) m;
+
   -- 10-13 Deleting the auth identity removes the whole owned chain, finalized
   -- revisions included.
   delete from auth.users where id = owner_id;
@@ -117,10 +130,21 @@ begin
   insert into arc_test_results
   select '17 unexpired rows survive cleanup',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
+
+  -- 18-19 The post-purge migration: cascade, not orphan.
+  insert into arc_test_results
+  select '18 a guest migrated after the purge is cascade-deleted, not orphaned',
+         not exists (select 1 from public.guest_workspaces where token_hash = hash_late);
+  insert into arc_test_results
+  select '19 the persistent chain created after the purge is removed too',
+         not exists (select 1 from public.customers where id = late_customer)
+         and not exists (select 1 from public.contracts where id = late_contract)
+         and not exists (select 1 from public.analyses where id = late_analysis)
+         and not exists (select 1 from public.analysis_revisions where id = late_revision);
 end $$;
 
 select assertion, passed from arc_test_results order by assertion;
-select count(*) filter (where not passed) as failures, count(*) as total from arc_test_results;
+select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 
 -- CI gate: a false assertion must make psql exit non-zero.
 do $gate$
@@ -130,7 +154,7 @@ declare
 begin
   select count(*), string_agg(assertion, '; ' order by assertion)
     into v_failed, v_names
-  from arc_test_results where not passed;
+  from arc_test_results where passed is not true;
   if v_failed > 0 then
     raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
   end if;

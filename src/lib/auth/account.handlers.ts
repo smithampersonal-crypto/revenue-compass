@@ -35,12 +35,42 @@ export type AccountDeletionResult =
   { ok: true; guestCookieCleared: true } | { ok: false; reason: string };
 
 const CONFIRM_MESSAGE = `Type ${DELETE_CONFIRMATION} to confirm that you want to delete your account.`;
-/** Only valid before anything destructive has run. */
+/**
+ * Only ever valid for a state provably BEFORE any destructive operation has
+ * been initiated. Once a purge or deletion request has left, an error is an
+ * unknown outcome, not proof that nothing happened.
+ */
 export const NOTHING_REMOVED_MESSAGE =
   "Your account could not be deleted. Nothing has been removed — please try again.";
 /** Used once a destructive step may already have taken effect. */
 export const UNCONFIRMED_MESSAGE =
   "Account deletion could not be fully confirmed. Some temporary data may already have been removed. Please try again, or contact support.";
+
+/**
+ * Any failure after the delete request has been sent — including transport and
+ * serialization errors — is an unknown outcome.
+ */
+export function messageForRequestFailure(): string {
+  return UNCONFIRMED_MESSAGE;
+}
+
+/**
+ * Proof-of-absence helper for post-condition queries. A missing or non-numeric
+ * count is never evidence of zero rows.
+ */
+export function requireExactCount(
+  result: { error?: unknown; count?: number | null },
+  label: string,
+): number {
+  if (result.error) {
+    throw new Error(`post-condition query failed (${label})`, { cause: result.error });
+  }
+  const count = result.count;
+  if (typeof count !== "number" || !Number.isFinite(count) || count < 0) {
+    throw new Error(`post-condition count unavailable (${label})`);
+  }
+  return count;
+}
 
 export async function deleteAccountHandler(
   deps: AccountDeletionDeps,
@@ -57,8 +87,9 @@ export async function deleteAccountHandler(
   try {
     await deps.purgeGuestData({ userId: deps.userId, guestTokenHash: deps.guestTokenHash });
   } catch {
-    // Nothing destructive has succeeded yet.
-    return { ok: false, reason: NOTHING_REMOVED_MESSAGE };
+    // The purge is itself destructive: a failed or lost response is an unknown
+    // outcome, never proof that no row was removed.
+    return { ok: false, reason: UNCONFIRMED_MESSAGE };
   }
 
   try {

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { readFileSync } from "node:fs";
+
 import {
   deleteAccountHandler,
   DELETE_CONFIRMATION,
+  messageForRequestFailure,
   NOTHING_REMOVED_MESSAGE,
+  requireExactCount,
   UNCONFIRMED_MESSAGE,
   type AccountDeletionDeps,
 } from "../account.handlers";
@@ -56,15 +60,22 @@ describe("account deletion handler", () => {
     expect(purged[0]?.userId).toBe("verified-id");
   });
 
-  it("says nothing was removed only when the purge itself failed first", async () => {
+  it("never claims nothing was removed once the destructive purge was attempted", async () => {
     const { deps, calls } = depsFor({
       purgeGuestData: async () => {
         throw new Error("purge boom");
       },
     });
     const result = await deleteAccountHandler(deps, { confirmation: DELETE_CONFIRMATION });
-    expect(result).toEqual({ ok: false, reason: NOTHING_REMOVED_MESSAGE });
+    expect(result).toEqual({ ok: false, reason: UNCONFIRMED_MESSAGE });
+    if (result.ok) throw new Error("unreachable");
+    expect(result.reason).not.toContain("Nothing has been removed");
     expect(calls).toEqual([]);
+  });
+
+  it("reserves the nothing-removed wording for states before any destructive step", () => {
+    expect(NOTHING_REMOVED_MESSAGE).toContain("Nothing has been removed");
+    expect(messageForRequestFailure()).toBe(UNCONFIRMED_MESSAGE);
   });
 
   it("does not claim nothing was removed when the purge succeeded but auth deletion failed", async () => {
@@ -128,5 +139,36 @@ describe("account deletion handler", () => {
     const result = await deleteAccountHandler(deps, { confirmation: DELETE_CONFIRMATION });
     expect(result.ok).toBe(true);
     expect(otherUsersRows.has("other-user-hash")).toBe(true);
+  });
+});
+
+describe("post-condition counts", () => {
+  it("treats a null count as unavailable, never as proof of zero rows", () => {
+    expect(() => requireExactCount({ count: null }, "customers")).toThrow(/unavailable/);
+    expect(() => requireExactCount({}, "customers")).toThrow(/unavailable/);
+    expect(() => requireExactCount({ error: { message: "boom" }, count: 0 }, "customers")).toThrow(
+      /post-condition query failed/,
+    );
+    expect(requireExactCount({ count: 0, error: null }, "customers")).toBe(0);
+  });
+
+  it("cannot report success when a post-condition count is null", async () => {
+    const { deps } = depsFor({
+      verifyRemoval: async () => ({
+        customers: requireExactCount({ count: null }, "customers"),
+        guestRows: 0,
+      }),
+    });
+    const result = await deleteAccountHandler(deps, { confirmation: DELETE_CONFIRMATION });
+    expect(result).toEqual({ ok: false, reason: UNCONFIRMED_MESSAGE });
+  });
+});
+
+describe("account page error wording", () => {
+  const source = readFileSync("src/routes/_authenticated/account.tsx", "utf8");
+
+  it("never tells the user nothing was removed after the request was sent", () => {
+    expect(source).not.toContain("Nothing has been removed");
+    expect(source).toContain("messageForRequestFailure()");
   });
 });

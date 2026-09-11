@@ -4,7 +4,7 @@
 -- Runs inside a rolled-back transaction with synthetic auth users only.
 begin;
 
-create temporary table arc_dup_results (assertion text, passed boolean, detail text) on commit drop;
+create temporary table arc_dup_results (assertion text, passed boolean not null, detail text) on commit drop;
 
 do $$
 declare
@@ -52,7 +52,7 @@ begin
 
   insert into arc_dup_results values (
     '01 duplicate (analysis_id, revision_number) rejected by unique constraint',
-    ok and err_state = '23505',
+    coalesce(ok and err_state = '23505', false),
     coalesce(err_state, 'no error') || ' / ' || coalesce(err_constraint, 'unnamed'));
 
   -- A distinct revision_number on the same analysis is still accepted, proving
@@ -77,7 +77,7 @@ declare
 begin
   select count(*), string_agg(assertion, '; ' order by assertion)
     into v_failed, v_names
-  from arc_dup_results where not passed;
+  from arc_dup_results where passed is not true;
   if v_failed > 0 then
     raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
   end if;

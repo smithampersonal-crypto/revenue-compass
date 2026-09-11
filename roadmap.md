@@ -18,7 +18,7 @@
       header/account menu, bearer function middleware, root auth-state cache isolation
       (SIGNED_OUT and A→B identity change purge private cached data), dedicated
       duplicate-revision constraint test. Guest/sample use stays available without
-      signing in. Google/social login is a future enhancement, not recruiter-ready v1.
+      signing in. Magic link is ARC's authentication model; Google/social sign-in is not planned.
       **Accepted**, including the live magic-link round trip. Custom SMTP remains
       deferred to 7F.
 - [x] 7C Persistence in the workspace: canonical persistence envelope
