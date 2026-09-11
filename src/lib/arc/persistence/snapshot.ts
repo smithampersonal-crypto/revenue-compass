@@ -228,43 +228,219 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
   };
 }
 
-/**
- * Reads a stored reconciliation snapshot back defensively. A snapshot written
- * by an earlier engine is returned exactly as recorded; it is never rebuilt.
- */
-export function readReconciliationSnapshot(value: unknown): ArcReconciliationSnapshot | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Partial<ArcReconciliationSnapshot>;
-  if (typeof candidate.engineVersion !== "string" || typeof candidate.schemaVersion !== "string") {
-    return null;
-  }
-  if (!candidate.totals || typeof candidate.totals !== "object") return null;
-  return candidate as ArcReconciliationSnapshot;
+/** Metadata the stored row itself carries, used to detect a rewritten row. */
+export interface SnapshotMetadata {
+  engineVersion: string;
+  schemaVersion: string;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNullableNumber(value: unknown): boolean {
+  return value === null || isNumber(value);
+}
+
+function isNullableBoolean(value: unknown): boolean {
+  return value === null || typeof value === "boolean";
+}
+
+function matchesMetadata(value: Record<string, unknown>, expected?: SnapshotMetadata): boolean {
+  if (typeof value["engineVersion"] !== "string") return false;
+  if (typeof value["schemaVersion"] !== "string") return false;
+  if (!expected) return true;
+  return (
+    value["engineVersion"] === expected.engineVersion &&
+    value["schemaVersion"] === expected.schemaVersion
+  );
 }
 
 /**
- * Reads recorded engine outputs back defensively. Returns null when the
- * recording is missing or structurally unusable; the caller must then fail
- * closed rather than recalculate the inputs with the current engine.
+ * Reads a stored reconciliation snapshot back defensively. A snapshot written
+ * by an earlier engine is returned exactly as recorded; it is never rebuilt.
+ * When the row's own metadata is supplied it must agree with the snapshot's.
  */
-export function readEngineOutputsSnapshot(value: unknown): ArcEngineOutputsSnapshot | null {
+export function readReconciliationSnapshot(
+  value: unknown,
+  expected?: SnapshotMetadata,
+): ArcReconciliationSnapshot | null {
   if (!isObject(value)) return null;
-  if (typeof value["engineVersion"] !== "string") return null;
-  if (typeof value["schemaVersion"] !== "string") return null;
-  if (!isObject(value["workflow"]) || !isObject(value["balances"])) return null;
+  if (!matchesMetadata(value, expected)) return null;
 
-  const journals = value["journals"];
-  if (!isObject(journals)) return null;
-  const kind = journals["kind"];
-  if (kind !== "ordinary" && kind !== "grouped") return null;
-  if (!isObject(journals["analysis"])) return null;
+  const totals = value["totals"];
+  if (!isObject(totals)) return null;
+  if (
+    !isNullableNumber(totals["transactionPriceCents"]) ||
+    !isNullableNumber(totals["allocatedCents"]) ||
+    !isNullableNumber(totals["revenueCents"]) ||
+    !isNumber(totals["unscheduledRevenueCents"]) ||
+    !isNullableNumber(totals["lifecycleConsiderationCents"])
+  ) {
+    return null;
+  }
+  if (!isObject(value["step1Conclusion"])) return null;
+  for (const key of ["core", "lifecycle", "variableConsideration", "modification", "balances"]) {
+    const nested = value[key];
+    if (nested !== null && !isObject(nested)) return null;
+  }
+  if (
+    !isNullableBoolean(value["groupedBalancesReconciled"]) ||
+    !isNullableBoolean(value["journalsReconciled"]) ||
+    !isNullableBoolean(value["groupedJournalsReconciled"])
+  ) {
+    return null;
+  }
 
+  return value as unknown as ArcReconciliationSnapshot;
+}
+
+/** Every nested field the canonical workflow renderers read. */
+function validWorkflow(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  const validation = value["workflowValidation"];
+  if (!isObject(validation)) return false;
+  if (
+    !isArray(validation["issues"]) ||
+    !isArray(validation["blocking"]) ||
+    !isArray(validation["warnings"])
+  ) {
+    return false;
+  }
+  if (!isObject(value["step1Conclusion"])) return false;
+  if (typeof value["finalized"] !== "boolean") return false;
+  if (value["blockedReason"] !== null && typeof value["blockedReason"] !== "string") return false;
+  if (!isArray(value["adapterErrors"])) return false;
+  if (value["engineValidation"] !== null && !isObject(value["engineValidation"])) return false;
+
+  const analysis = value["analysis"];
+  if (analysis !== null) {
+    if (!isObject(analysis)) return false;
+    if (!isObject(analysis["totals"]) || !isObject(analysis["reconciliation"])) return false;
+    if (!isNumber((analysis["totals"] as Record<string, unknown>)["transactionPriceCents"])) {
+      return false;
+    }
+  }
+
+  for (const key of ["lifecycle", "variableConsideration", "modification"]) {
+    const nested = value[key];
+    if (nested !== null && !isObject(nested)) return false;
+  }
+
+  const allocation = value["allocation"];
+  if (allocation !== null && !isArray(allocation)) return false;
+
+  const schedule = value["revenueSchedule"];
+  if (schedule !== null) {
+    if (!isObject(schedule)) return false;
+    if (!isNumber(schedule["totalCents"])) return false;
+  }
+
+  if (!isArray(value["revenueSources"]) || !isArray(value["contractGroups"])) return false;
+  if (!isNumber(value["unscheduledRevenueCents"])) return false;
+  if (!isNullableNumber(value["lifecycleConsiderationCents"])) return false;
+  return true;
+}
+
+function validBalanceAnalysis(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  if (!isObject(value["validation"])) return false;
+  const reconciliation = value["reconciliation"];
+  if (!isObject(reconciliation)) return false;
+  if (!isNullableBoolean(reconciliation["reconciled"])) return false;
+  const billing = value["billingSchedule"];
+  const monthly = value["monthly"];
+  if (billing !== null && !isArray(billing)) return false;
+  if (monthly !== null && !isArray(monthly)) return false;
+  return true;
+}
+
+function validBalances(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  if (typeof value["finalized"] !== "boolean") return false;
+  const validation = value["validation"];
+  if (!isObject(validation) || !isArray(validation["blocking"])) return false;
+  if (value["analysis"] !== null && !validBalanceAnalysis(value["analysis"])) return false;
+  if (!isArray(value["groupInputs"])) return false;
+
+  const grouped = value["grouped"];
+  if (grouped !== null) {
+    if (!isObject(grouped)) return false;
+    if (!isNullableBoolean(grouped["reconciled"])) return false;
+    const groups = grouped["groups"];
+    if (!isArray(groups)) return false;
+    for (const group of groups) {
+      if (!isObject(group)) return false;
+      if (typeof group["groupId"] !== "string" || typeof group["label"] !== "string") return false;
+      if (!validBalanceAnalysis(group["analysis"])) return false;
+    }
+  }
+  return true;
+}
+
+function validJournalAnalysis(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  if (!isObject(value["validation"])) return false;
+  const reconciliation = value["reconciliation"];
+  if (!isObject(reconciliation)) return false;
+  if (!isNullableBoolean(reconciliation["reconciled"])) return false;
+  const entries = value["entries"];
+  const ledger = value["ledgerByMonth"];
+  if (entries !== null && !isArray(entries)) return false;
+  if (ledger !== null && !isArray(ledger)) return false;
+  return true;
+}
+
+function validJournals(value: unknown): boolean {
+  if (!isObject(value)) return false;
+  const kind = value["kind"];
+  if (kind === "ordinary") return validJournalAnalysis(value["analysis"]);
+  if (kind !== "grouped") return false;
+
+  const analysis = value["analysis"];
+  if (!isObject(analysis)) return false;
+  if (!isNullableBoolean(analysis["reconciled"])) return false;
+  if (analysis["entries"] !== null && !isArray(analysis["entries"])) return false;
+  const groups = analysis["groups"];
+  if (!isArray(groups)) return false;
+  for (const group of groups) {
+    if (!isObject(group)) return false;
+    if (typeof group["groupId"] !== "string" || typeof group["label"] !== "string") return false;
+    if (!validJournalAnalysis(group["analysis"])) return false;
+  }
+  return true;
+}
+
+/**
+ * Reads recorded engine outputs back defensively, validating every nested
+ * shape the canonical historical renderers consume and, when the stored row's
+ * own metadata is supplied, that the row and the snapshot agree on the engine
+ * and schema versions.
+ *
+ * Returns null when the recording is missing, structurally unusable or
+ * inconsistent with its row; the caller must then fail closed rather than
+ * recalculate the inputs with the current engine.
+ */
+export function readEngineOutputsSnapshot(
+  value: unknown,
+  expected?: SnapshotMetadata,
+): ArcEngineOutputsSnapshot | null {
+  if (!isObject(value)) return null;
+  if (!matchesMetadata(value, expected)) return null;
+  if (!validWorkflow(value["workflow"])) return null;
+  if (!validBalances(value["balances"])) return null;
+  if (!validJournals(value["journals"])) return null;
   return value as unknown as ArcEngineOutputsSnapshot;
 }
+
 
 /**
  * Client-side readiness only: whether the whole workpaper — five-step
