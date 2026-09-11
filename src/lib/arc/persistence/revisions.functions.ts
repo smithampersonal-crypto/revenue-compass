@@ -362,43 +362,33 @@ export type StartRevisionResult = {
  *
  * ARC v1 does not branch from a superseded revision: only the analysis's
  * current finalized revision may be continued, and the caller must name it.
- * The new draft records `supersedes_revision_id = <that finalized revision>`;
- * because browsers are not granted that column, the row is created by the
- * narrowly scoped, service-role-only `arc_start_amendment_revision`
- * transaction, which re-checks ownership itself.
+ * The provenance decision itself is not made here — the narrowly scoped,
+ * service-role-only `arc_start_amendment_revision` transaction re-checks
+ * ownership, the existing-draft case and the expected source revision under a
+ * single lock, and records `supersedes_revision_id = <that exact source>`.
  */
 export const startNewRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contractId: string; sourceRevisionId?: string }) => ({
+  .inputValidator((input: { contractId: string; sourceRevisionId: string }) => ({
     contractId: uuid.parse(input?.contractId),
-    sourceRevisionId: input?.sourceRevisionId ? uuid.parse(input.sourceRevisionId) : undefined,
+    sourceRevisionId: uuid.parse(input?.sourceRevisionId),
   }))
   .handler(async ({ data, context }): Promise<StartRevisionResult> => {
-    // Caller-scoped read: RLS decides whether this contract is theirs at all.
-    const { data: analysis, error: analysisError } = await context.supabase
-      .from("analyses")
-      .select("id, current_finalized_revision_id")
-      .eq("contract_id", data.contractId)
+    // Caller-scoped read: RLS decides whether this contract is theirs at all,
+    // and the finalized inputs must still be readable by the current engine
+    // before they are seeded into an editable draft. The authoritative
+    // provenance check happens inside the transaction below.
+    const { data: source, error: sourceError } = await context.supabase
+      .from("analysis_revisions")
+      .select("canonical_inputs, schema_version, status")
+      .eq("id", data.sourceRevisionId)
       .maybeSingle();
-    if (analysisError || !analysis)
-      throw new Error("That contract was not found in your workspace.");
-    if (!analysis.current_finalized_revision_id) {
-      throw new Error("This analysis has no finalized revision to continue from.");
-    }
-    if (data.sourceRevisionId && data.sourceRevisionId !== analysis.current_finalized_revision_id) {
+    if (sourceError || !source) throw new Error("The finalized revision could not be read.");
+    if (source.status !== "finalized") {
       throw new Error(
         "Only the current finalized revision can be continued. A superseded revision stays view-only.",
       );
     }
-
-    // The finalized inputs must still be readable by the current engine before
-    // they are seeded into an editable draft.
-    const { data: source, error: sourceError } = await context.supabase
-      .from("analysis_revisions")
-      .select("canonical_inputs, schema_version")
-      .eq("id", analysis.current_finalized_revision_id)
-      .maybeSingle();
-    if (sourceError || !source) throw new Error("The finalized revision could not be read.");
     const parsed = parseCanonicalInputs(source.canonical_inputs, source.schema_version);
     if (!parsed.ok) throw new Error(parsed.reason);
 
@@ -406,7 +396,13 @@ export const startNewRevision = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabaseAdmin.rpc("arc_start_amendment_revision", {
       p_owner_user_id: context.userId,
       p_contract_id: data.contractId,
+      p_expected_source_revision_id: data.sourceRevisionId,
     });
+    if (error?.code === "40001") {
+      throw new Error(
+        "This analysis changed since this page loaded, so no new revision was started. Reload and try again.",
+      );
+    }
     const created = Array.isArray(rows) ? rows[0] : rows;
     if (error || !created) throw new Error("A new revision could not be started.");
 
@@ -414,4 +410,5 @@ export const startNewRevision = createServerFn({ method: "POST" })
       revisionId: (created as { revision_id: string }).revision_id,
       created: Boolean((created as { created: boolean }).created),
     };
+
   });
