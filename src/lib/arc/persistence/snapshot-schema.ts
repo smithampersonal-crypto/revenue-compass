@@ -115,15 +115,33 @@ const differenceReconciliation = z
 
 /* ------------------------------------------------------- workflow output -- */
 
-const workflowIssue = z.object({ id: text, step: text, severity, message: text }).passthrough();
+/** The workflow step keys the historical step presentation indexes by. */
+const workflowStepId = z.enum(["1", "2a", "2b", "3", "4", "5", "mod"]);
+
+const workflowIssue = z
+  .object({ id: text, step: workflowStepId, severity, message: text })
+  .passthrough();
+
+/** Every step key must be present: the renderers index all seven directly. */
+const issuesByStep = z
+  .object({
+    "1": z.array(workflowIssue),
+    "2a": z.array(workflowIssue),
+    "2b": z.array(workflowIssue),
+    "3": z.array(workflowIssue),
+    "4": z.array(workflowIssue),
+    "5": z.array(workflowIssue),
+    mod: z.array(workflowIssue),
+  })
+  .passthrough();
 
 const workflowValidation = z
   .object({
     issues: z.array(workflowIssue),
     blocking: z.array(workflowIssue),
     warnings: z.array(workflowIssue),
-    blockingByStep: z.record(z.array(workflowIssue)),
-    warningsByStep: z.record(z.array(workflowIssue)),
+    blockingByStep: issuesByStep,
+    warningsByStep: issuesByStep,
   })
   .passthrough();
 
