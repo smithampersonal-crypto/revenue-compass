@@ -53,6 +53,8 @@ export interface GuestStore {
     tokenHash: string;
     expectedLockVersion: number;
     canonical: unknown;
+    /** Written with the draft, so the stored payload is never self-describing-stale. */
+    schemaVersion: string;
   }): Promise<GuestSaveRow | null>;
 }
 
@@ -106,18 +108,24 @@ export async function resumeOrCreateGuestHandler(
     // Authorization checks expiry on every load, whatever cleanup has run.
     if (row && row.status === "active" && !isGuestExpired(row.expires_at, now)) {
       const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
-      if (parsed.ok) {
-        return {
-          workspace: {
-            draft: parsed.draft,
-            lockVersion: row.lock_version,
-            expiresAt: row.expires_at,
-            schemaVersion: row.schema_version,
-          },
-          issuedToken: null,
-          resumed: true,
-        };
+      // Fail closed: an active workspace whose stored analysis cannot be read
+      // is a load error, never a reason to start a second workspace. The
+      // original row and its credential stay exactly as they are.
+      if (!parsed.ok) {
+        throw new Error(
+          "This temporary workspace could not be opened. Nothing was changed — please try again.",
+        );
       }
+      return {
+        workspace: {
+          draft: parsed.draft,
+          lockVersion: row.lock_version,
+          expiresAt: row.expires_at,
+          schemaVersion: row.schema_version,
+        },
+        issuedToken: null,
+        resumed: true,
+      };
     }
   }
 
@@ -170,6 +178,8 @@ export async function saveGuestDraftHandler(
     tokenHash,
     expectedLockVersion: input.expectedLockVersion,
     canonical: toCanonicalInputs(validated.draft) as unknown,
+    // Draft, schema version and lock version always move together.
+    schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
   });
   // Same optimistic-lock contract as an owned draft revision (7C).
   if (!saved) return { ok: false, reason: "conflict" };
