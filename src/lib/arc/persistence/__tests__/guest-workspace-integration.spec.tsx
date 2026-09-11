@@ -198,4 +198,110 @@ describe("explicit save of a guest analysis", () => {
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByTestId("mode")).toHaveTextContent("guest");
   });
+
+  it("sends the authoritative expected lock version with the migration", async () => {
+    migrate.mockResolvedValue({
+      ok: true,
+      customerId: "c1",
+      contractId: "contract-1",
+      analysisId: "a1",
+      revisionId: "rev-1",
+      recovered: false,
+    });
+    renderGuest({ autoOpen: true });
+    await screen.findByDisplayValue("Northwind");
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
+    expect(migrate.mock.calls[0]![0].data.expectedLockVersion).toBe(1);
+  });
+
+  it("never migrates or leaves for sign-in while an edit is still unsaved", async () => {
+    session = { status: "signed-out", email: null, userId: null };
+    renderGuest();
+    await screen.findByText("Northwind");
+
+    // Edit B, then click before the 750 ms debounce has elapsed.
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+    fireEvent.click(screen.getByRole("button", { name: /Save this analysis|Saving your latest/ }));
+    expect(navigate).not.toHaveBeenCalled();
+
+    // Only once B is server-accepted may the sign-in round trip start.
+    await waitFor(() => expect(saveGuest).toHaveBeenCalledTimes(1));
+    expect(saveGuest.mock.calls[0]![0].data.draft.contract.customerName).toBe("Edited");
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({ to: "/auth", search: { next: "/analysis?save=1" } }),
+    );
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
+  it("saves the pending edit first, then migrates that exact version", async () => {
+    saveGuest.mockResolvedValue({ ok: true, lockVersion: 2, savedAt: new Date().toISOString() });
+    migrate.mockResolvedValue({
+      ok: true,
+      customerId: "c1",
+      contractId: "contract-1",
+      analysisId: "a1",
+      revisionId: "rev-1",
+      recovered: false,
+    });
+    renderGuest({ autoOpen: true });
+    await screen.findByDisplayValue("Northwind");
+
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    expect(migrate).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    // The migration describes the draft the accepted lock version protects.
+    expect(migrate.mock.calls[0]![0].data.expectedLockVersion).toBe(2);
+  });
+
+  it("locks the workspace while the migration is pending", async () => {
+    let release: (() => void) | null = null;
+    migrate.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () =>
+            resolve({
+              ok: true,
+              customerId: "c1",
+              contractId: "contract-1",
+              analysisId: "a1",
+              revisionId: "rev-1",
+              recovered: false,
+            });
+        }),
+    );
+    renderGuest({ autoOpen: true });
+    await screen.findByDisplayValue("Northwind");
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
+
+    // An attempted edit cannot change the analysis being saved.
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+    expect(screen.getByTestId("name")).toHaveTextContent("Northwind");
+    release?.();
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+  });
+
+  it("recovers a committed migration whose response was lost", async () => {
+    migrate.mockResolvedValue({
+      ok: true,
+      customerId: "c1",
+      contractId: "contract-1",
+      analysisId: "a1",
+      revisionId: "rev-1",
+      recovered: true,
+    });
+    renderGuest({ autoOpen: true });
+    await screen.findByDisplayValue("Northwind");
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/analysis",
+        search: { contract: "contract-1", revision: "rev-1" },
+      }),
+    );
+  });
 });
+

@@ -31,7 +31,11 @@ if (typeof document !== "undefined") {
         lockVersion: 2,
         savedAt: new Date().toISOString(),
       }),
-      migrateGuestWorkspace: async () => ({ ok: false as const, reason: "not available in tests" }),
+      migrateGuestWorkspace: async () => ({
+        ok: false as const,
+        code: "failed" as const,
+        reason: "not available in tests",
+      }),
     };
   });
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { migrateGuestWorkspace } from "@/lib/arc/persistence/guest.functions";
 import { suggestedContractTitle, validateMigrationRequest } from "@/lib/arc/persistence/guest";
@@ -14,6 +14,9 @@ const BUTTON =
 const PRIMARY =
   "min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
+/** What the accountant asked for, once the visible draft is safely saved. */
+type PendingIntent = "sign-in" | "open" | "migrate";
+
 /**
  * Phase 7E — explicit "Save this analysis" for a temporary guest workspace.
  *
@@ -21,6 +24,11 @@ const PRIMARY =
  * workspace on its own. The guest credential lives only in an HttpOnly cookie,
  * so nothing here handles or forwards a token — not through the sign-in round
  * trip, and not in the URL.
+ *
+ * Nothing leaves this workspace, and no migration starts, until the exact
+ * visible draft is server-accepted: a debounced or in-flight edit is flushed
+ * first, so the analysis that is saved to the account is the analysis on
+ * screen.
  */
 export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const { persistence, draft } = useAnalysis();
@@ -33,6 +41,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const [touched, setTouched] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [intent, setIntent] = useState<PendingIntent | null>(null);
 
   const customerName = draft.contract.customerName.trim();
   const suggestion = suggestedContractTitle({
@@ -46,33 +55,43 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
     if (!touched) setTitle(suggestion);
   }, [suggestion, touched]);
 
-  if (persistence.mode !== "guest") return null;
+  const status = persistence.status.kind;
+  const lockVersion = persistence.lockVersion;
+  /** The one condition under which the account save may proceed. */
+  const exactlySaved = status === "saved" && lockVersion !== null;
+  const setFinalizing = persistence.setFinalizing;
 
-  const check = validateMigrationRequest({ customerName, contractTitle: title });
-  const expired = persistence.status.kind === "guest-expired";
+  const titleRef = useRef(title);
+  titleRef.current = title;
 
-  const startSave = () => {
-    if (session.status !== "signed-in") {
-      // Preserve the intent to save across the magic-link round trip, using
-      // only a local path — never the guest credential.
-      void navigate({ to: "/auth", search: { next: "/analysis?save=1" } });
+  const runMigration = useCallback(async () => {
+    if (lockVersion === null) return;
+    const request = validateMigrationRequest({
+      customerName,
+      contractTitle: titleRef.current,
+    });
+    if (!request.ok) {
+      setError(request.reason);
       return;
     }
-    setOpen(true);
-  };
-
-  const submit = async () => {
-    if (!check.ok || pending) return;
     setPending(true);
     setError(null);
+    // Lock the whole workspace until the outcome is known, so the visible
+    // draft cannot change underneath the transaction in this tab. Another
+    // tab is still defended by the expected lock version in the database.
+    setFinalizing(true);
     try {
-      const result = await migrate({ data: { contractTitle: title } });
+      const result = await migrate({
+        data: { contractTitle: request.contractTitle, expectedLockVersion: lockVersion },
+      });
       if (!result.ok) {
         // Nothing partial was created: the temporary workspace is still
         // complete and authoritative.
         setError(result.reason);
         return;
       }
+      // Reached only with a committed (or idempotently recovered) result, so
+      // the credential is retired and the exact saved revision opens.
       await navigate({
         to: "/analysis",
         search: { contract: result.contractId, revision: result.revisionId },
@@ -83,7 +102,59 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
       );
     } finally {
       setPending(false);
+      setFinalizing(false);
     }
+  }, [customerName, lockVersion, migrate, navigate, setFinalizing]);
+
+  const goToSignIn = useCallback(() => {
+    // Preserve the intent to save across the magic-link round trip, using
+    // only a local path — never the guest credential.
+    void navigate({ to: "/auth", search: { next: "/analysis?save=1" } });
+  }, [navigate]);
+
+  // A queued intent runs only once the server has accepted the visible draft.
+  // A failed or conflicted save keeps the existing Retry / Reload flows and
+  // never silently proceeds.
+  useEffect(() => {
+    if (intent === null) return;
+    if (status === "saving" || status === "unsaved") return;
+    if (!exactlySaved) {
+      setIntent(null);
+      return;
+    }
+    setIntent(null);
+    if (intent === "sign-in") goToSignIn();
+    else if (intent === "open") setOpen(true);
+    else void runMigration();
+  }, [intent, status, exactlySaved, goToSignIn, runMigration]);
+
+  if (persistence.mode !== "guest") return null;
+
+  const check = validateMigrationRequest({ customerName, contractTitle: title });
+  const expired = persistence.status.kind === "guest-expired";
+  const waiting = intent !== null;
+
+  /** Flushes a debounced or in-flight edit, then continues with `next`. */
+  const withSavedDraft = (next: PendingIntent) => {
+    setError(null);
+    if (exactlySaved) {
+      if (next === "sign-in") goToSignIn();
+      else if (next === "open") setOpen(true);
+      else void runMigration();
+      return;
+    }
+    setIntent(next);
+    // Skips the remaining debounce: the visible draft is written now.
+    persistence.retrySave();
+  };
+
+  const startSave = () => {
+    withSavedDraft(session.status !== "signed-in" ? "sign-in" : "open");
+  };
+
+  const submit = () => {
+    if (!check.ok || pending || waiting) return;
+    withSavedDraft("migrate");
   };
 
   return (
@@ -102,8 +173,13 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
           </p>
         </div>
         {open ? null : (
-          <button type="button" className={PRIMARY} onClick={startSave} disabled={expired}>
-            Save this analysis
+          <button
+            type="button"
+            className={PRIMARY}
+            onClick={startSave}
+            disabled={expired || waiting || pending}
+          >
+            {waiting ? "Saving your latest edits…" : "Save this analysis"}
           </button>
         )}
       </div>
@@ -113,7 +189,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
           className="space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
-            void submit();
+            submit();
           }}
         >
           <div className="space-y-1">
@@ -127,6 +203,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
                 setTouched(true);
                 setTitle(event.target.value);
               }}
+              disabled={pending}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="text-sm text-muted-foreground">
@@ -140,16 +217,21 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
 
           {check.ok ? null : <Notice tone="warning">{check.reason}</Notice>}
           {error ? <Notice tone="warning">{error}</Notice> : null}
+          {waiting ? <Notice>Saving your latest edits before this analysis is saved.</Notice> : null}
 
           <div className="flex flex-wrap gap-2">
-            <button type="submit" className={PRIMARY} disabled={!check.ok || pending}>
+            <button
+              type="submit"
+              className={PRIMARY}
+              disabled={!check.ok || pending || waiting || expired}
+            >
               {pending ? "Saving…" : "Save to my account"}
             </button>
             <button
               type="button"
               className={BUTTON}
               onClick={() => setOpen(false)}
-              disabled={pending}
+              disabled={pending || waiting}
             >
               Cancel
             </button>

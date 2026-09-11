@@ -188,6 +188,10 @@ export type Database = {
           expires_at: string
           id: string
           lock_version: number
+          migrated_analysis_id: string | null
+          migrated_contract_id: string | null
+          migrated_customer_id: string | null
+          migrated_revision_id: string | null
           migrated_user_id: string | null
           schema_version: string
           status: Database["public"]["Enums"]["arc_guest_workspace_status"]
@@ -200,6 +204,10 @@ export type Database = {
           expires_at: string
           id?: string
           lock_version?: number
+          migrated_analysis_id?: string | null
+          migrated_contract_id?: string | null
+          migrated_customer_id?: string | null
+          migrated_revision_id?: string | null
           migrated_user_id?: string | null
           schema_version: string
           status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
@@ -212,13 +220,46 @@ export type Database = {
           expires_at?: string
           id?: string
           lock_version?: number
+          migrated_analysis_id?: string | null
+          migrated_contract_id?: string | null
+          migrated_customer_id?: string | null
+          migrated_revision_id?: string | null
           migrated_user_id?: string | null
           schema_version?: string
           status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
           token_hash?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "guest_workspaces_migrated_analysis_id_fkey"
+            columns: ["migrated_analysis_id"]
+            isOneToOne: false
+            referencedRelation: "analyses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_workspaces_migrated_contract_id_fkey"
+            columns: ["migrated_contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_workspaces_migrated_customer_id_fkey"
+            columns: ["migrated_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_workspaces_migrated_revision_id_fkey"
+            columns: ["migrated_revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -271,6 +312,7 @@ export type Database = {
           p_contract_number: string
           p_contract_title: string
           p_customer_name: string
+          p_expected_lock_version: number
           p_owner_user_id: string
           p_token_hash: string
         }
@@ -278,6 +320,7 @@ export type Database = {
           analysis_id: string
           contract_id: string
           customer_id: string
+          idempotent: boolean
           revision_id: string
         }[]
       }

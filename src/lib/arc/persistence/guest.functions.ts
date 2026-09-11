@@ -59,30 +59,42 @@ async function setCookieHeader(value: string) {
   setResponseHeader("Set-Cookie", value);
 }
 
-/** Service-role store. Never reachable from the browser. */
+/**
+ * Service-role store. Never reachable from the browser.
+ *
+ * Database, network and PostgREST errors are never swallowed: they throw, so
+ * the workspace shows a load/save error and keeps its existing credential.
+ * "No row" and "no row matched the lock" stay ordinary results.
+ */
 async function guestStore(): Promise<GuestStore> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const columns = "id, draft_json, schema_version, lock_version, status, expires_at";
+  const fail = (operation: string, error: { message?: string }): never => {
+    throw new Error(`The temporary workspace store is unavailable (${operation}).`, {
+      cause: error,
+    });
+  };
   return {
-    findActiveByHash: async (tokenHash) => {
-      const { data } = await supabaseAdmin
+    findByHash: async (tokenHash) => {
+      const { data, error } = await supabaseAdmin
         .from("guest_workspaces")
         .select(columns)
         .eq("token_hash", tokenHash)
-        .eq("status", "active")
         .maybeSingle();
+      if (error) fail("lookup", error);
       return (data as never) ?? null;
     },
     insert: async (row) => {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("guest_workspaces")
         .insert(row as never)
         .select(columns)
         .maybeSingle();
+      if (error) fail("create", error);
       return (data as never) ?? null;
     },
     updateDraft: async ({ tokenHash, expectedLockVersion, canonical }) => {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from("guest_workspaces")
         .update({
           draft_json: canonical as never,
@@ -94,10 +106,13 @@ async function guestStore(): Promise<GuestStore> {
         .gt("expires_at", new Date().toISOString())
         .select("lock_version, updated_at")
         .maybeSingle();
+      // A database error is not a lock conflict; only a clean zero-row update is.
+      if (error) fail("save", error);
       return (data as never) ?? null;
     },
   };
 }
+
 
 /**
  * Opens the visitor's temporary workspace: resumes the one their credential
@@ -147,11 +162,14 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
  */
 export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contractTitle: string }) => ({
+  .inputValidator((input: { contractTitle: string; expectedLockVersion: number }) => ({
     contractTitle: z
       .string()
       .max(300)
       .parse(input?.contractTitle ?? ""),
+    // The browser supplies only the version of the temporary workspace it has
+    // seen accepted; the credential and the draft itself stay server-side.
+    expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
   }))
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { secure, token } = await requestCookieContext();
@@ -165,8 +183,13 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
           return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token", args as never);
         },
       },
-      { token, contractTitle: data.contractTitle },
+      {
+        token,
+        contractTitle: data.contractTitle,
+        expectedLockVersion: data.expectedLockVersion,
+      },
     );
+
 
     if (result.ok) await setCookieHeader(clearGuestCookie(secure));
     return result;

@@ -36,17 +36,17 @@ where n.nspname = 'public' and c.relname = 'guest_workspaces';
 insert into arc_test_results values (
   '04 anon cannot execute arc_migrate_guest_workspace_by_token',
   not has_function_privilege('anon',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 insert into arc_test_results values (
   '05 authenticated cannot execute arc_migrate_guest_workspace_by_token',
   not has_function_privilege('authenticated',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 insert into arc_test_results values (
   '06 service_role can execute arc_migrate_guest_workspace_by_token',
   has_function_privilege('service_role',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 
 do $$
@@ -54,8 +54,11 @@ declare
   owner_id uuid := '00000000-0000-4000-8000-0000000007e1';
   hash_ok text := repeat('a', 64);
   hash_expired text := repeat('b', 64);
-  guest_ok uuid; guest_expired uuid;
-  res record; failed boolean;
+  hash_locked text := repeat('d', 64);
+  other_id uuid := '00000000-0000-4000-8000-0000000007e2';
+  guest_ok uuid; guest_expired uuid; guest_locked uuid;
+  res record; res2 record; failed boolean;
+
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Guest Co"}}'::jsonb;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -83,7 +86,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_expired, owner_id, 'Guest Co', 'Expired contract', null);
+      hash_expired, owner_id, 1, 'Guest Co', 'Expired contract', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('08 expired guest workspace cannot migrate', failed);
 
@@ -91,7 +94,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      repeat('c', 64), owner_id, 'Guest Co', 'Unknown contract', null);
+      repeat('c', 64), owner_id, 1, 'Guest Co', 'Unknown contract', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('09 unknown credential cannot migrate', failed);
 
@@ -99,7 +102,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_ok, owner_id, 'Guest Co', '   ', null);
+      hash_ok, owner_id, 1, 'Guest Co', '   ', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('10 blank contract title rejected', failed);
   insert into arc_test_results
@@ -108,7 +111,7 @@ begin
 
   -- 12 The successful path is one transaction producing the whole chain.
   select * into res from public.arc_migrate_guest_workspace_by_token(
-    hash_ok, owner_id, 'Guest Co', 'Guest contract', 'G-1');
+    hash_ok, owner_id, 1, 'Guest Co', 'Guest contract', 'G-1');
 
   insert into arc_test_results
   select '12 customer created for the caller',
@@ -135,14 +138,64 @@ begin
          exists (select 1 from public.guest_workspaces
                  where id = guest_ok and status = 'migrated' and migrated_user_id = owner_id);
 
-  -- 17 A retired workspace cannot be migrated twice.
+  -- 17 A retired workspace never migrates a second time: the committed result
+  -- is returned again, so a lost response is recoverable without duplicates.
+  select * into res2 from public.arc_migrate_guest_workspace_by_token(
+    hash_ok, owner_id, 1, 'Guest Co', 'Second contract', null);
+  insert into arc_test_results values (
+    '17 migrated workspace returns the original result idempotently',
+    res2.idempotent and res2.customer_id = res.customer_id and res2.contract_id = res.contract_id
+      and res2.analysis_id = res.analysis_id and res2.revision_id = res.revision_id);
+  insert into arc_test_results
+  select '18 no duplicate chain created by the retry',
+         (select count(*) from public.contracts where customer_id = res.customer_id) = 1
+     and (select count(*) from public.analyses where contract_id = res.contract_id) = 1
+     and (select count(*) from public.analysis_revisions where analysis_id = res.analysis_id) = 1
+     and not exists (select 1 from public.contracts where title = 'Second contract');
+
+  -- 19 A different account may never claim a migrated workspace.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (other_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-guest-other@example.test', '', now(), now(), now());
   failed := false;
   begin
-    select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_ok, owner_id, 'Guest Co', 'Second contract', null);
+    select * into res2 from public.arc_migrate_guest_workspace_by_token(
+      hash_ok, other_id, 1, 'Guest Co', 'Stolen contract', null);
   exception when others then failed := true; end;
-  insert into arc_test_results values ('17 migrated workspace cannot migrate again', failed);
+  insert into arc_test_results values ('19 another account cannot claim a migrated workspace', failed);
+
+  -- 20/21 A stale expected lock version (a second tab that saved again)
+  -- creates nothing at all.
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, lock_version, expires_at)
+  values (hash_locked, draft, 'arc.workflow.v1', 4, now() + interval '9 hours')
+  returning id into guest_locked;
+  failed := false;
+  begin
+    select * into res2 from public.arc_migrate_guest_workspace_by_token(
+      hash_locked, owner_id, 3, 'Guest Co', 'Stale contract', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('20 stale expected lock version rejected', failed);
+  insert into arc_test_results
+  select '21 nothing created by the stale attempt',
+         not exists (select 1 from public.contracts where title in ('Stale contract', 'Stolen contract'))
+     and (select status from public.guest_workspaces where id = guest_locked) = 'active';
+
+  -- 22 The matching lock version migrates once and records its provenance.
+  select * into res2 from public.arc_migrate_guest_workspace_by_token(
+    hash_locked, owner_id, 4, 'Guest Co', 'Locked contract', 'G-2');
+  insert into arc_test_results
+  select '22 matching lock version migrates and records provenance',
+         not res2.idempotent
+     and exists (select 1 from public.guest_workspaces
+                 where id = guest_locked and status = 'migrated'
+                   and migrated_user_id = owner_id
+                   and migrated_customer_id = res2.customer_id
+                   and migrated_contract_id = res2.contract_id
+                   and migrated_analysis_id = res2.analysis_id
+                   and migrated_revision_id = res2.revision_id);
 end $$;
+
 
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where not passed) as failures, count(*) as total from arc_test_results;

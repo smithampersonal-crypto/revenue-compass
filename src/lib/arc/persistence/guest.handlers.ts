@@ -42,7 +42,7 @@ export interface GuestSaveRow {
 
 /** The narrow, server-only store surface. Guest rows are never client-visible. */
 export interface GuestStore {
-  findActiveByHash(tokenHash: string): Promise<GuestRow | null>;
+  findByHash(tokenHash: string): Promise<GuestRow | null>;
   insert(row: {
     token_hash: string;
     draft_json: unknown;
@@ -102,7 +102,7 @@ export async function resumeOrCreateGuestHandler(
   const now = deps.now();
 
   if (input.token) {
-    const row = await deps.store.findActiveByHash(await hashGuestToken(input.token));
+    const row = await deps.store.findByHash(await hashGuestToken(input.token));
     // Authorization checks expiry on every load, whatever cleanup has run.
     if (row && row.status === "active" && !isGuestExpired(row.expires_at, now)) {
       const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
@@ -161,7 +161,7 @@ export async function saveGuestDraftHandler(
   if (!validated.ok) throw new Error(validated.reason);
 
   const tokenHash = await hashGuestToken(input.token);
-  const row = await deps.store.findActiveByHash(tokenHash);
+  const row = await deps.store.findByHash(tokenHash);
   if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
     return { ok: false, reason: "expired" };
   }
@@ -186,65 +186,87 @@ export type GuestMigrationResult =
       contractId: string;
       analysisId: string;
       revisionId: string;
+      /**
+       * True when the transaction had already committed on an earlier attempt
+       * whose response was lost: the same rows are returned, never new ones.
+       */
+      recovered: boolean;
     }
-  | { ok: false; reason: string };
+  | { ok: false; code: "expired" | "conflict" | "invalid" | "failed"; reason: string };
+
+const EXPIRED_MESSAGE = "This temporary workspace has expired, so there is nothing to save.";
+const FAILED_MESSAGE =
+  "This analysis could not be saved to your account, so nothing was created. Your work is still here — please try again.";
+const CONFLICT_MESSAGE =
+  "This analysis changed after you confirmed the save, so nothing was created. Reopen the save and try again.";
 
 export async function migrateGuestWorkspaceHandler(
   deps: GuestMigrationDeps,
-  input: { token: string | null; contractTitle: string },
+  input: { token: string | null; contractTitle: string; expectedLockVersion: number },
 ): Promise<GuestMigrationResult> {
-  if (!input.token) {
-    return {
-      ok: false,
-      reason: "This temporary workspace has expired, so there is nothing to save.",
-    };
+  if (!input.token) return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
+  if (!Number.isInteger(input.expectedLockVersion) || input.expectedLockVersion < 1) {
+    return { ok: false, code: "conflict", reason: CONFLICT_MESSAGE };
   }
 
   const tokenHash = await hashGuestToken(input.token);
-  const row = await deps.store.findActiveByHash(tokenHash);
-  if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
-    return {
-      ok: false,
-      reason: "This temporary workspace has expired, so there is nothing to save.",
-    };
+  const row = await deps.store.findByHash(tokenHash);
+
+  // A already-migrated workspace is not "expired": the retry path below has to
+  // reach the transaction so it can return the committed result.
+  const recoverable = row?.status === "migrated";
+  if (!recoverable) {
+    if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
+      return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
+    }
+    // The migration must describe exactly the canonical draft the expected
+    // lock version protects.
+    if (row.lock_version !== input.expectedLockVersion) {
+      return { ok: false, code: "conflict", reason: CONFLICT_MESSAGE };
+    }
   }
 
   // The saved customer and contract number come from the analysis itself; the
   // accountant supplies only the contract name.
-  const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
-  if (!parsed.ok) return { ok: false, reason: parsed.reason };
+  const parsed = parseCanonicalInputs(row!.draft_json, row!.schema_version);
+  if (!parsed.ok) return { ok: false, code: "invalid", reason: parsed.reason };
 
   const checked = validateMigrationRequest({
     customerName: parsed.draft.contract.customerName,
     contractTitle: input.contractTitle,
     contractNumber: parsed.draft.contract.contractNumber,
   });
-  if (!checked.ok) return { ok: false, reason: checked.reason };
+  if (!checked.ok) return { ok: false, code: "invalid", reason: checked.reason };
 
   // One trusted transaction: guest → customer → contract → analysis →
-  // revision 1. It is keyed by the credential hash, never by a browser-
-  // supplied workspace id. If it fails, nothing partial exists and the guest
-  // workspace stays active and authoritative.
+  // revision 1, under the guest row lock and the expected lock version. It is
+  // keyed by the credential hash, never by a browser-supplied workspace id.
   const { data, error } = await deps.migrateTransaction({
     p_token_hash: tokenHash,
     p_owner_user_id: deps.userId,
+    p_expected_lock_version: input.expectedLockVersion,
     p_customer_name: checked.customerName,
     p_contract_title: checked.contractTitle,
     p_contract_number: checked.contractNumber,
   });
 
   const created = (Array.isArray(data) ? data[0] : data) as
-    | { customer_id: string; contract_id: string; analysis_id: string; revision_id: string }
+    | {
+        customer_id: string;
+        contract_id: string;
+        analysis_id: string;
+        revision_id: string;
+        idempotent?: boolean;
+      }
     | null
     | undefined;
 
-  if (error || !created) {
-    return {
-      ok: false,
-      reason:
-        "This analysis could not be saved to your account, so nothing was created. Your work is still here — please try again.",
-    };
+  if (error) {
+    return error.code === "40001"
+      ? { ok: false, code: "conflict", reason: CONFLICT_MESSAGE }
+      : { ok: false, code: "failed", reason: FAILED_MESSAGE };
   }
+  if (!created) return { ok: false, code: "failed", reason: FAILED_MESSAGE };
 
   return {
     ok: true,
@@ -252,5 +274,7 @@ export async function migrateGuestWorkspaceHandler(
     contractId: created.contract_id,
     analysisId: created.analysis_id,
     revisionId: created.revision_id,
+    recovered: created.idempotent === true,
   };
 }
+
