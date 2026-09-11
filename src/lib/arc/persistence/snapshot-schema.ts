@@ -79,7 +79,23 @@ const validationOutcome = z
   })
   .passthrough();
 
-const revenueSource = z.object({ id: text, name: text, sourceType: text }).passthrough();
+const revenueSource = z
+  .object({
+    id: text,
+    name: text,
+    sourceType: text,
+    // Optional provenance the historical renderers read when present; typed so
+    // a malformed recording cannot reach a renderer as an arbitrary value.
+    originalPoId: text.optional(),
+    materialRightPoId: text.optional(),
+    usageComponentId: text.optional(),
+    modificationPoId: text.optional(),
+    modificationId: text.optional(),
+    segmentId: text.optional(),
+    groupId: text.optional(),
+    effectiveDate: text.optional(),
+  })
+  .passthrough();
 
 const coreReconciliation = z
   .object({
