@@ -277,4 +277,3 @@ export async function migrateGuestWorkspaceHandler(
     recovered: created.idempotent === true,
   };
 }
-

@@ -217,7 +217,9 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
 
           {check.ok ? null : <Notice tone="warning">{check.reason}</Notice>}
           {error ? <Notice tone="warning">{error}</Notice> : null}
-          {waiting ? <Notice>Saving your latest edits before this analysis is saved.</Notice> : null}
+          {waiting ? (
+            <Notice>Saving your latest edits before this analysis is saved.</Notice>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <button

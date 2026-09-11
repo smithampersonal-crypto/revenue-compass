@@ -113,7 +113,6 @@ async function guestStore(): Promise<GuestStore> {
   };
 }
 
-
 /**
  * Opens the visitor's temporary workspace: resumes the one their credential
  * names when it is still valid, otherwise starts a fresh 9-hour workspace and
@@ -189,7 +188,6 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
         expectedLockVersion: data.expectedLockVersion,
       },
     );
-
 
     if (result.ok) await setCookieHeader(clearGuestCookie(secure));
     return result;

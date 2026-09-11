@@ -152,14 +152,30 @@
       the temporary workspace stays active and authoritative, and the
       credential is cleared only after the transaction succeeds.
 
-      Verification: 592 tests across 55 files, typecheck and build clean,
-      ESLint 0 errors (8 pre-existing warnings). New database suite
-      `phase7e_guest_workspace.sql` green 17/17 (no anon/authenticated table
-      or RPC privileges, RLS enabled, duplicate-hash rejection, expiry,
-      blank-title rejection, atomic chain, retirement, no re-migration);
-      earlier Phase 7 suites unchanged and last green at 7D acceptance.
+      Acceptance patch: saving to an account can only start from an exactly
+      server-saved draft — a debounced or in-flight edit is flushed first and
+      neither the magic-link round trip nor the migration proceeds until the
+      server has accepted it. Migration carries the authoritative expected
+      lock version, which the database checks under the guest row lock, so a
+      second tab that saved again creates nothing. A committed migration whose
+      response was lost is idempotently recoverable from provenance recorded
+      on the guest row (same customer/contract/analysis/revision, no
+      duplicates); another account is refused. The workspace is locked while
+      the migration is pending. Store failures now throw instead of being read
+      as "expired" or "conflict", so a lookup error never mints a replacement
+      credential.
+
+      Verification: 602 tests across 55 files, typecheck clean, ESLint 0
+      errors (8 pre-existing warnings). Database suite
+      `phase7e_guest_workspace.sql` extended to 22 assertions and green (no
+      anon/authenticated table or RPC privileges, RLS enabled, duplicate-hash
+      rejection, expiry, blank-title rejection, atomic chain, retirement,
+      idempotent recovery with no duplicate chain, foreign-owner rejection,
+      stale-lock rejection creating nothing, provenance recorded); earlier
+      Phase 7 suites unchanged and last green at 7D acceptance.
       No `src/lib/asc606*` or sample-fixture change.
       **Awaiting review — do not start 7F.**
+
 - [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
       end-to-end regression, completion report.
 
