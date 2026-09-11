@@ -130,9 +130,36 @@
       privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
       2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
       sample-fixture change.
-      **Awaiting review — do not start 7E.**
+      **Accepted.**
 
-- [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
+- [x] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
+
+      Bare `/analysis` resumes or opens a temporary workspace through
+      server-only functions. Authorization is a 48-byte random credential
+      carried in an HttpOnly cookie (`Secure`, `SameSite=Lax`, `Path=/`,
+      `Max-Age=32400`); only its SHA-256 hash is stored, and the workspace id
+      is never an authorization credential. Expiry is checked on every load
+      and save; guest autosave uses the same optimistic lock-version
+      behaviour as 7C. Samples stay fixture-backed and never autosave.
+
+      Saving to an account is explicit: the panel takes customer name and
+      contract number from the Step 1 draft, requires a contract title,
+      blocks on a blank customer name, and preserves save intent through the
+      magic-link round trip via `/analysis?save=1` without ever putting the
+      credential in a URL. Guest → customer → contract → analysis →
+      revision 1 is one trusted transaction
+      (`arc_migrate_guest_workspace_by_token`, service-role only); on failure
+      the temporary workspace stays active and authoritative, and the
+      credential is cleared only after the transaction succeeds.
+
+      Verification: 592 tests across 55 files, typecheck and build clean,
+      ESLint 0 errors (8 pre-existing warnings). New database suite
+      `phase7e_guest_workspace.sql` green 17/17 (no anon/authenticated table
+      or RPC privileges, RLS enabled, duplicate-hash rejection, expiry,
+      blank-title rejection, atomic chain, retirement, no re-migration);
+      earlier Phase 7 suites unchanged and last green at 7D acceptance.
+      No `src/lib/asc606*` or sample-fixture change.
+      **Awaiting review — do not start 7F.**
 - [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
       end-to-end regression, completion report.
 
