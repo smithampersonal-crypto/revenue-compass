@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { readFileSync } from "node:fs";
+
 import {
   deleteAccountHandler,
   DELETE_CONFIRMATION,
+  messageForRequestFailure,
   NOTHING_REMOVED_MESSAGE,
+  requireExactCount,
   UNCONFIRMED_MESSAGE,
   type AccountDeletionDeps,
 } from "../account.handlers";
