@@ -280,6 +280,7 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_expire_guest_workspaces: { Args: never; Returns: number }
       arc_finalize_revision: {
         Args: {
           p_engine_outputs: Json
