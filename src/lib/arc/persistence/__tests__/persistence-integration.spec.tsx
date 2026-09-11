@@ -48,6 +48,7 @@ function loadedRevision(overrides: Partial<LoadedRevisionDto> = {}): LoadedRevis
     revisionId: REVISION_ID,
     revisionNumber: 1,
     status: "draft",
+    snapshot: null,
     lockVersion: 1,
     schemaVersion: "arc.workflow.v1",
     readOnly: false,

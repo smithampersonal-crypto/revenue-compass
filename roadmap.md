@@ -42,8 +42,21 @@
       real loading boundary, and the read-only wrapper only re-enables controls
       it disabled itself. **Awaiting review — do not start 7D.**
 
-- [ ] 7D Finalization snapshot + Review & Finalize lifecycle + revision history
-      (Superseded shown explicitly).
+- [x] 7D Finalization snapshot + Review & Finalize lifecycle + revision history.
+      Server-side snapshot builder (`ARC_ENGINE_VERSION = arc.engine.v1`) reruns the
+      existing workflow, balance and journal engines on the authoritative persisted
+      draft — the browser never supplies engine output and no accounting arithmetic
+      was added in React, SQL or persistence code. `finalizeRevision` verifies the
+      caller through RLS, checks the authoritative `persistence.lockVersion`, and
+      commits through the trusted transactional `arc_finalize_revision`
+      (supersession + pointer update atomic); a stale lock returns a conflict, an
+      incomplete analysis returns engine-reported blocking issues. Finalized and
+      superseded revisions load read-only and render from the recorded
+      reconciliation snapshot only — never recalculated — with an explicit notice
+      when the recording engine version differs from the current one. Revision
+      history lists Draft / Finalized / Superseded with current-finalized marking
+      and per-revision viewing; `startNewRevision` continues from the finalized
+      snapshot as a fresh draft. **Awaiting review — do not start 7E.**
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
 - [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
       end-to-end regression, completion report.
