@@ -219,12 +219,45 @@
       (`scripts/run-sql-suites.sh` against a local Supabase database) and
       `.github/workflows/verify.yml` with a pinned Supabase CLI — CI uses local
       infrastructure and no production service-role secret.
-      Verification: 610 tests across 56 files, typecheck clean, ESLint 0 errors
+      Final acceptance patch:
+      • Deletion completion is provable. Every post-condition query error is
+        checked explicitly — an unreadable count is never read as zero. Outcome
+        language is exact: "nothing has been removed" only before any
+        destructive step, otherwise "deletion could not be fully confirmed".
+        `guest_workspaces.migrated_user_id` is now `ON DELETE CASCADE` (the
+        other `migrated_*_id` provenance keys stay `ON DELETE SET NULL`), so a
+        workspace migrated after the purge disappears with the identity instead
+        of becoming anonymous.
+      • Every SQL suite now raises before rollback when any assertion is false,
+        so `psql`, `bun run db:test` and CI all fail. `bun run db:test:gate-proof`
+        runs a deliberately false assertion and succeeds only when the runner
+        fails; proven against the project database (raised `P0001`).
+      • Supabase CLI pinned as an exact dev dependency (`2.34.3`); `db:start`,
+        `db:test` and CI all use the project-pinned CLI and the same runner.
+      • `noStoreMiddleware` applies `Cache-Control: no-store, no-cache,
+        must-revalidate, private` to every server-function response, ahead of
+        the handler and without disturbing CSRF/auth middleware.
+      • `src/lib/arc/__tests__/phase7-acceptance.spec.ts` is the source-controlled
+        Phase 7 gate: samples are fixture-only, guest lifetime is nine hours to
+        the boundary, guest saves move draft/schema/lock together, finalized and
+        superseded snapshots read back verbatim, a foreign engine version fails
+        closed, a new revision copies canonical input, documents stay Phase 8.
+      Verification: 630 tests across 58 files, typecheck clean, ESLint 0 errors
       (8 pre-existing warnings), production build OK, bundle audit clean (no
       service-role env name, secret value, `service_role` JWT payload or admin
-      client module in any client asset). New suite
-      `phase7f_account_deletion.sql`: 17/17 green against the project database in
-      a rolled-back transaction. No `src/lib/asc606*` or sample-fixture change.
+      client module in any client asset). `phase7f_account_deletion.sql`
+      (19 assertions incl. cascade and post-purge migration) green against the
+      project database in a rolled-back transaction; the gate proof raised as
+      designed. The remaining Phase 7 suites run through the same pinned-CLI
+      runner (`bun run db:test`) — this sandbox has no local Postgres/Docker, so
+      they were last executed at 7E acceptance and now additionally carry the
+      failure gate. Hosted browser acceptance against the development project is
+      still outstanding: the hosted preview responds `401` behind editor gating
+      from this environment, so hosted `Set-Cookie`/Network/Storage/Console
+      evidence must be captured in a signed-in browser session. The exact HTTPS
+      cookie contract (`__Host-arc_guest; Secure; HttpOnly; SameSite=Lax;
+      Path=/; Max-Age=32400`, no `Domain`) is covered by a source-controlled
+      regression. No `src/lib/asc606*` or sample-fixture change.
       Production prerequisite outside the codebase: custom SMTP for the
       magic-link sender.
 
