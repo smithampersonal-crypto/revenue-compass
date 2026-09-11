@@ -20,6 +20,8 @@ import { buildWorkpaper, type ArcWorkpaper } from "@/lib/arc/persistence/snapsho
 import { createDemoDraftIfKnown, getDemoScenario, isDemoScenarioId } from "@/lib/demo-scenarios";
 import { loadContractAnalysis, saveDraftRevision } from "@/lib/arc/persistence/revisions.functions";
 import type { LoadedRevisionDto } from "@/lib/arc/persistence/revisions.functions";
+import { resumeGuestWorkspace, saveGuestDraft } from "@/lib/arc/persistence/guest.functions";
+import type { GuestWorkspaceDto } from "@/lib/arc/persistence/guest.functions";
 import type { DemoScenario } from "@/lib/demo-scenarios";
 import { serializeDraft } from "@/lib/arc/persistence/schema";
 import type { SaveStatus } from "@/lib/arc/persistence/save-status";
@@ -31,12 +33,24 @@ import type { SaveStatus } from "@/lib/arc/persistence/save-status";
  */
 export type AnalysisOrigin = "manual" | "sample" | "ai";
 
+/**
+ * Where the open analysis is stored.
+ *  - `sample`   fixture only; never autosaved.
+ *  - `guest`    temporary 9-hour server-side workspace, authorized by an
+ *               HttpOnly credential the browser cannot read.
+ *  - `contract` a saved, owned contract revision.
+ */
+export type AnalysisBackingStore = "sample" | "guest" | "contract";
+
 export interface AnalysisPersistence {
-  /** True when this workspace is backed by a saved, owned contract. */
+  /** True when edits are saved server-side (guest workspace or saved contract). */
   enabled: boolean;
+  mode: AnalysisBackingStore;
   status: SaveStatus;
   /** Saved-analysis metadata, once a fresh server load has been adopted. */
   revision: LoadedRevisionDto | null;
+  /** Guest only: when this temporary workspace stops working. */
+  guestExpiresAt: string | null;
   /**
    * The newest lock version the server has accepted for this revision. It is
    * initialized from the adopted fresh load and advances only on an accepted
@@ -116,6 +130,47 @@ function placeholderWorkpaper(): ArcWorkpaper {
   return placeholder;
 }
 
+/** The adopted server copy, normalized across the two backing stores. */
+type LoadedAnalysis =
+  | {
+      kind: "contract";
+      draft: WorkflowDraft;
+      lockVersion: number;
+      readOnly: boolean;
+      revision: LoadedRevisionDto;
+      guestExpiresAt: null;
+    }
+  | {
+      kind: "guest";
+      draft: WorkflowDraft;
+      lockVersion: number;
+      readOnly: false;
+      revision: null;
+      guestExpiresAt: string;
+    };
+
+function normalizeLoaded(data: LoadedRevisionDto | GuestWorkspaceDto): LoadedAnalysis {
+  if ("kind" in data && data.kind === "guest") {
+    return {
+      kind: "guest",
+      draft: data.draft,
+      lockVersion: data.lockVersion,
+      readOnly: false,
+      revision: null,
+      guestExpiresAt: data.expiresAt,
+    };
+  }
+  const revision = data as LoadedRevisionDto;
+  return {
+    kind: "contract",
+    draft: revision.draft,
+    lockVersion: revision.lockVersion,
+    readOnly: revision.readOnly,
+    revision,
+    guestExpiresAt: null,
+  };
+}
+
 export function AnalysisProvider({
   sample,
   contractId,
@@ -128,8 +183,10 @@ export function AnalysisProvider({
   children: ReactNode;
 }) {
   // Samples are always ephemeral fixtures and are never autosaved, so a sample
-  // in the URL disables persistence entirely.
-  const persistenceEnabled = Boolean(contractId) && !sample;
+  // in the URL disables persistence entirely. Bare /analysis is backed by a
+  // temporary guest workspace; a contract id opens the saved analysis.
+  const mode: AnalysisBackingStore = sample ? "sample" : contractId ? "contract" : "guest";
+  const persistenceEnabled = mode !== "sample";
 
   // Initial state only: later user edits are never overwritten by a rerender,
   // and navigating between parent areas never remounts this provider.
@@ -145,11 +202,13 @@ export function AnalysisProvider({
 
   const loadRevision = useServerFn(loadContractAnalysis);
   const saveRevision = useServerFn(saveDraftRevision);
+  const resumeGuest = useServerFn(resumeGuestWorkspace);
+  const saveGuest = useServerFn(saveGuestDraft);
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
-    () => ["arc-analysis-revision", contractId ?? null, revisionId ?? null] as const,
-    [contractId, revisionId],
+    () => ["arc-analysis-revision", mode, contractId ?? null, revisionId ?? null] as const,
+    [mode, contractId, revisionId],
   );
 
   /**
@@ -168,18 +227,20 @@ export function AnalysisProvider({
     refetchOnMount: "always",
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
-    queryFn: () =>
-      loadRevision({
-        data: { contractId: contractId!, ...(revisionId ? { revisionId } : {}) },
-      }),
+    queryFn: (): Promise<LoadedRevisionDto | GuestWorkspaceDto> =>
+      mode === "guest"
+        ? resumeGuest({ data: undefined as never })
+        : loadRevision({
+            data: { contractId: contractId!, ...(revisionId ? { revisionId } : {}) },
+          }),
   });
 
   /**
-   * The adopted, freshly loaded revision. Cached query data is never adopted:
+   * The adopted, freshly loaded workspace. Cached query data is never adopted:
    * a persistent revision only becomes editable and authoritative after the
    * current identity's own load has completed successfully.
    */
-  const [loaded, setLoaded] = useState<LoadedRevisionDto | null>(null);
+  const [loaded, setLoaded] = useState<LoadedAnalysis | null>(null);
 
   const [status, setStatus] = useState<SaveStatus>({ kind: "off" });
   const lockVersionRef = useRef<number>(0);
@@ -203,7 +264,7 @@ export function AnalysisProvider({
   draftRef.current = draft;
   /** `dataUpdatedAt` of the response already adopted (or deliberately skipped). */
   const consumedAtRef = useRef<number>(0);
-  const loadedRef = useRef<LoadedRevisionDto | null>(null);
+  const loadedRef = useRef<LoadedAnalysis | null>(null);
   loadedRef.current = loaded;
 
   // Adopt a fresh server response as the authoritative draft. A response that
@@ -218,12 +279,14 @@ export function AnalysisProvider({
     if (updatedAt === consumedAtRef.current) return;
     consumedAtRef.current = updatedAt;
 
+    const next = normalizeLoaded(data);
+
     // A background refetch must never silently discard local work.
     const current = loadedRef.current;
     if (current && savedSnapshotRef.current !== null) {
       const dirty = serializeDraft(draftRef.current) !== savedSnapshotRef.current;
       if (dirty) {
-        if (data.lockVersion !== lockVersionRef.current) {
+        if (next.lockVersion !== lockVersionRef.current) {
           blockedRef.current = true;
           setStatus({ kind: "conflict" });
         }
@@ -231,16 +294,16 @@ export function AnalysisProvider({
       }
     }
 
-    lockVersionRef.current = data.lockVersion;
-    setLockVersion(data.lockVersion);
+    lockVersionRef.current = next.lockVersion;
+    setLockVersion(next.lockVersion);
     lastSavedAtRef.current = null;
-    savedSnapshotRef.current = serializeDraft(data.draft);
+    savedSnapshotRef.current = serializeDraft(next.draft);
     setSavedSnapshot(savedSnapshotRef.current);
-    blockedRef.current = data.readOnly;
-    draftRef.current = data.draft;
-    setDraftState(data.draft);
-    setLoaded(data);
-    setStatus(data.readOnly ? { kind: "read-only" } : { kind: "saved", at: null });
+    blockedRef.current = next.readOnly;
+    draftRef.current = next.draft;
+    setDraftState(next.draft);
+    setLoaded(next);
+    setStatus(next.readOnly ? { kind: "read-only" } : { kind: "saved", at: null });
   }, [
     persistenceEnabled,
     revisionQuery.data,
@@ -283,9 +346,12 @@ export function AnalysisProvider({
    * a save is in flight, the newer draft is saved immediately afterwards with
    * the lock version the accepted save returned, and the UI never claims
    * "Saved" while newer local edits exist.
+   *
+   * The guest workspace uses the same optimistic-lock sequencing; only the
+   * transport differs, and the guest credential stays in the HttpOnly cookie.
    */
   const runSave = useCallback(
-    async (revision: string) => {
+    async (target: LoadedAnalysis) => {
       if (inFlightRef.current) return;
       inFlightRef.current = true;
       try {
@@ -304,13 +370,18 @@ export function AnalysisProvider({
           setStatus({ kind: "saving" });
           let outcome;
           try {
-            outcome = await saveRevision({
-              data: {
-                revisionId: revision,
-                expectedLockVersion: lockVersionRef.current,
-                draft: payload,
-              },
-            });
+            outcome =
+              target.kind === "guest"
+                ? await saveGuest({
+                    data: { expectedLockVersion: lockVersionRef.current, draft: payload },
+                  })
+                : await saveRevision({
+                    data: {
+                      revisionId: target.revision.revisionId,
+                      expectedLockVersion: lockVersionRef.current,
+                      draft: payload,
+                    },
+                  });
           } catch (error) {
             setStatus({
               kind: "error",
@@ -324,7 +395,11 @@ export function AnalysisProvider({
 
           if (!outcome.ok) {
             blockedRef.current = true;
-            setStatus({ kind: "conflict" });
+            setStatus(
+              "reason" in outcome && outcome.reason === "expired"
+                ? { kind: "guest-expired" }
+                : { kind: "conflict" },
+            );
             break;
           }
 
@@ -336,8 +411,10 @@ export function AnalysisProvider({
 
           // Keep React Query's cache coherent with what the server accepted so
           // a later remount can never resurrect the pre-save draft or lock.
-          queryClient.setQueryData(queryKey, (previous: LoadedRevisionDto | undefined) =>
-            previous ? { ...previous, draft: payload, lockVersion: outcome.lockVersion } : previous,
+          queryClient.setQueryData(
+            queryKey,
+            (previous: LoadedRevisionDto | GuestWorkspaceDto | undefined) =>
+              previous ? { ...previous, draft: payload, lockVersion: outcome.lockVersion } : previous,
           );
           const state = queryClient.getQueryState(queryKey);
           if (state) consumedAtRef.current = state.dataUpdatedAt;
@@ -352,7 +429,7 @@ export function AnalysisProvider({
         inFlightRef.current = false;
       }
     },
-    [saveRevision, queryClient, queryKey],
+    [saveRevision, saveGuest, queryClient, queryKey],
   );
 
   // Debounced autosave. A conflict or load failure stops further writes so the
@@ -378,7 +455,7 @@ export function AnalysisProvider({
 
     setStatus((current) => (current.kind === "saving" ? current : { kind: "unsaved" }));
     const timer = setTimeout(() => {
-      void runSave(loaded.revisionId);
+      void runSave(loaded);
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
@@ -398,7 +475,7 @@ export function AnalysisProvider({
 
   const retrySave = useCallback(() => {
     if (!loaded || loaded.readOnly || blockedRef.current) return;
-    void runSave(loaded.revisionId);
+    void runSave(loaded);
   }, [loaded, runSave]);
 
   /** True from confirmation until the finalization request resolves. */
@@ -417,8 +494,9 @@ export function AnalysisProvider({
    * if the recording is missing or unusable the workspace fails closed and
    * still does not recalculate.
    */
-  const recorded = loaded && loaded.readOnly ? (loaded.snapshot?.engineOutputs ?? null) : null;
-  const historicalActive = Boolean(loaded && loaded.readOnly);
+  const revision = loaded?.kind === "contract" ? loaded.revision : null;
+  const recorded = revision && revision.readOnly ? (revision.snapshot?.engineOutputs ?? null) : null;
+  const historicalActive = Boolean(revision && revision.readOnly);
   const historicalError =
     historicalActive && !recorded
       ? "The recorded snapshot for this revision is missing or unreadable, so its results cannot be shown. It is never recalculated with the current engine."
@@ -442,12 +520,14 @@ export function AnalysisProvider({
     () => ({
       active: historicalActive,
       status:
-        loaded && loaded.status !== "draft" ? (loaded.status as "finalized" | "superseded") : null,
-      engineVersion: loaded?.snapshot?.engineVersion ?? null,
-      engineVersionMatchesCurrent: loaded?.snapshot?.engineVersionMatchesCurrent ?? true,
+        revision && revision.status !== "draft"
+          ? (revision.status as "finalized" | "superseded")
+          : null,
+      engineVersion: revision?.snapshot?.engineVersion ?? null,
+      engineVersionMatchesCurrent: revision?.snapshot?.engineVersionMatchesCurrent ?? true,
       error: historicalError,
     }),
-    [historicalActive, historicalError, loaded],
+    [historicalActive, historicalError, revision],
   );
 
   const setDraft = useCallback<AnalysisContextValue["setDraft"]>(
@@ -465,8 +545,10 @@ export function AnalysisProvider({
   const persistence = useMemo<AnalysisPersistence>(
     () => ({
       enabled: persistenceEnabled,
+      mode,
       status,
-      revision: loaded,
+      revision,
+      guestExpiresAt: loaded?.guestExpiresAt ?? null,
       lockVersion: loaded ? (lockVersion ?? loaded.lockVersion) : null,
       readOnly: Boolean(loaded?.readOnly),
       reload,
@@ -474,7 +556,7 @@ export function AnalysisProvider({
       finalizing,
       setFinalizing,
     }),
-    [persistenceEnabled, status, loaded, lockVersion, reload, retrySave, finalizing],
+    [persistenceEnabled, mode, status, loaded, revision, lockVersion, reload, retrySave, finalizing],
   );
 
   const resetAnalysis = useCallback(() => {
