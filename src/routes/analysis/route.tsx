@@ -3,6 +3,7 @@ import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
+import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { ReadOnlyInputs } from "@/components/arc/ReadOnlyInputs";
 import { SaveStatusIndicator } from "@/components/arc/SaveStatusIndicator";
