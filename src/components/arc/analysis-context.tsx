@@ -125,8 +125,9 @@ export function AnalysisProvider({
     () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
   );
 
-  /** Live deterministic engine run for the editable draft. */
-  const liveWorkpaper = useMemo(() => buildWorkpaper(draft), [draft]);
+  // The live engines run only for an editable manual / sample / draft
+  // analysis. A historical revision never reaches them — see `workpaper`.
+
 
   const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
   const unknownSample = sample !== undefined && loadedSample === null;
