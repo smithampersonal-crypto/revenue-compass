@@ -79,7 +79,23 @@ const validationOutcome = z
   })
   .passthrough();
 
-const revenueSource = z.object({ id: text, name: text, sourceType: text }).passthrough();
+const revenueSource = z
+  .object({
+    id: text,
+    name: text,
+    sourceType: text,
+    // Optional provenance the historical renderers read when present; typed so
+    // a malformed recording cannot reach a renderer as an arbitrary value.
+    originalPoId: text.optional(),
+    materialRightPoId: text.optional(),
+    usageComponentId: text.optional(),
+    modificationPoId: text.optional(),
+    modificationId: text.optional(),
+    segmentId: text.optional(),
+    groupId: text.optional(),
+    effectiveDate: text.optional(),
+  })
+  .passthrough();
 
 const coreReconciliation = z
   .object({
@@ -99,15 +115,33 @@ const differenceReconciliation = z
 
 /* ------------------------------------------------------- workflow output -- */
 
-const workflowIssue = z.object({ id: text, step: text, severity, message: text }).passthrough();
+/** The workflow step keys the historical step presentation indexes by. */
+const workflowStepId = z.enum(["1", "2a", "2b", "3", "4", "5", "mod"]);
+
+const workflowIssue = z
+  .object({ id: text, step: workflowStepId, severity, message: text })
+  .passthrough();
+
+/** Every step key must be present: the renderers index all seven directly. */
+const issuesByStep = z
+  .object({
+    "1": z.array(workflowIssue),
+    "2a": z.array(workflowIssue),
+    "2b": z.array(workflowIssue),
+    "3": z.array(workflowIssue),
+    "4": z.array(workflowIssue),
+    "5": z.array(workflowIssue),
+    mod: z.array(workflowIssue),
+  })
+  .passthrough();
 
 const workflowValidation = z
   .object({
     issues: z.array(workflowIssue),
     blocking: z.array(workflowIssue),
     warnings: z.array(workflowIssue),
-    blockingByStep: z.record(z.array(workflowIssue)),
-    warningsByStep: z.record(z.array(workflowIssue)),
+    blockingByStep: issuesByStep,
+    warningsByStep: issuesByStep,
   })
   .passthrough();
 
@@ -296,18 +330,24 @@ const contractPresentationGroup = z
 const modificationAnalysis = z
   .object({
     validation: validationOutcome,
-    event: z.object({ id: text, modificationDate: text }).passthrough().nullable(),
+    event: z
+      .object({ id: text, modificationDate: text, scopeChangeDescription: text })
+      .passthrough()
+      .nullable(),
     historicalCutoffDate: nullableText,
     classification: z
       .object({
         treatment: text,
         label: text,
+        separateContractTestPassed: z.boolean(),
         separateContractCriteria: z.array(
           z.object({ id: text, label: text, passed: z.boolean(), detail: text }).passthrough(),
         ),
         separateContractFailures: z.array(text),
         rationale: text,
-        mixedAllocationPolicy: nullableText,
+        mixedAllocationPolicy: z
+          .enum(["updated_total_transaction_price", "updated_remaining_transaction_price"])
+          .nullable(),
         mixedAllocationPolicyRationale: nullableText,
         approvedAndEnforceable: z.boolean(),
         approvalRationale: nullableText,
@@ -547,7 +587,12 @@ const journalEntry = z
     id: text,
     date: text,
     month: text,
-    eventType: text,
+    eventType: z.enum([
+      "revenue_recognition",
+      "unconditional_right",
+      "invoice_reclassification",
+      "cash_collection",
+    ]),
     sourceId: nullableText,
     description: text,
     lines: z.array(journalLine),

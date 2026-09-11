@@ -6,10 +6,10 @@ import {
   nextId,
   nextSeq,
   PO_CLASSIFICATION_LABELS,
-  validateWorkflow,
   type PerformanceObligationKind,
   type PoDraft,
   type WorkflowDraft,
+  type WorkflowIssue,
 } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, IssueList, Notice, Section } from "./fields";
@@ -19,9 +19,16 @@ const CLASSIFICATIONS: PoClassification[] = ["single_distinct", "bundle_not_dist
 export function Step2PerformanceObligations({
   draft,
   onChange,
+  warnings = [],
 }: {
   draft: WorkflowDraft;
   onChange: (draft: WorkflowDraft) => void;
+  /**
+   * Authoritative Step 2B warnings supplied by the analysis page. Live for an
+   * editable draft, recorded for a finalized or superseded revision; this
+   * component is presentation/input-only and never validates the workflow.
+   */
+  warnings?: WorkflowIssue[];
 }) {
   const pos = draft.performanceObligations;
   const setPos = (performanceObligations: PoDraft[]) =>
@@ -37,10 +44,6 @@ export function Step2PerformanceObligations({
         p.performanceObligationId === id ? { ...p, performanceObligationId: null } : p,
       ),
     });
-
-  // Warnings are produced by the pure workflow validation layer; React only
-  // displays them at the point where the judgment is made.
-  const warnings = validateWorkflow(draft).warningsByStep["2b"];
 
   return (
     <Section

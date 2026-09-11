@@ -324,6 +324,30 @@ const MALFORMED: [string, Mutation][] = [
       o.balances.analysis!.reconciliation = { reconciled: "yes" } as never;
     },
   ],
+  [
+    "workflow validation missing the Step 2A blocking key",
+    (o) => {
+      delete (o.workflow.workflowValidation.blockingByStep as unknown as Record<string, unknown>)[
+        "2a"
+      ];
+    },
+  ],
+  [
+    "workflow validation missing the Step 2B warning key",
+    (o) => {
+      delete (o.workflow.workflowValidation.warningsByStep as unknown as Record<string, unknown>)[
+        "2b"
+      ];
+    },
+  ],
+  [
+    "a journal entry whose event type is not a known event",
+    (o) => {
+      if (o.journals.kind !== "ordinary") throw new Error("fixture must be ordinary");
+      const entry = o.journals.analysis.entries![0] as unknown as Record<string, unknown>;
+      entry["eventType"] = "made_up_event";
+    },
+  ],
 ];
 
 describe("structurally unusable recordings fail closed", () => {
@@ -399,5 +423,67 @@ describe("pending finalization locks the draft", () => {
       screen.getByText("edit").click();
     });
     expect(screen.getByTestId("customer").textContent).toBe("A");
+  });
+});
+
+/**
+ * The contract-modification recording has its own renderer-dereferenced fields.
+ * Meridian is the grouped modification workpaper, so its genuine recording also
+ * proves the tightened decoder still accepts a supported grouped case.
+ */
+const MERIDIAN = createDemoDraftIfKnown("meridian")!;
+
+function meridianOutputs(): ArcEngineOutputsSnapshot {
+  const outcome = buildFinalizationSnapshot(MERIDIAN);
+  if (!outcome.ok) throw new Error("the meridian fixture must be finalizable");
+  return JSON.parse(JSON.stringify(outcome.engineOutputs)) as ArcEngineOutputsSnapshot;
+}
+
+const MALFORMED_MODIFICATION: [string, Mutation][] = [
+  [
+    "a modification classification without its separate-contract conclusion",
+    (o) => {
+      const c = o.workflow.modification!.classification as unknown as Record<string, unknown>;
+      delete c["separateContractTestPassed"];
+    },
+  ],
+  [
+    "a modification classification with an unknown mixed-allocation policy",
+    (o) => {
+      const c = o.workflow.modification!.classification as unknown as Record<string, unknown>;
+      c["mixedAllocationPolicy"] = "some_other_policy";
+    },
+  ],
+  [
+    "a modification event without its scope-change description",
+    (o) => {
+      const e = o.workflow.modification!.event as unknown as Record<string, unknown>;
+      delete e["scopeChangeDescription"];
+    },
+  ],
+];
+
+describe("unusable modification recordings fail closed", () => {
+  it.each(MALFORMED_MODIFICATION)("rejects %s", async (_name, mutate) => {
+    const outputs = meridianOutputs();
+    mutate(outputs);
+    expect(readEngineOutputsSnapshot(outputs, META)).toBeNull();
+
+    load.mockResolvedValue(historicalRevision(null));
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("historical-error")).toBeInTheDocument());
+    expect(workpaperSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({ contract: expect.objectContaining({ customerName: "Meridian" }) }),
+    );
+  });
+});
+
+describe("the tightened decoder still accepts genuine supported workpapers", () => {
+  it.each(["horizon", "stellar", "meridian"] as const)("accepts the %s recording", (id) => {
+    const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown(id)!);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const recorded = JSON.parse(JSON.stringify(outcome.engineOutputs)) as ArcEngineOutputsSnapshot;
+    expect(readEngineOutputsSnapshot(recorded, META)).not.toBeNull();
   });
 });
