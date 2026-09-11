@@ -1,39 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const setResponseHeader = vi.fn();
-
-vi.mock("@tanstack/react-start/server", () => ({
-  setResponseHeader: (name: string, value: string) => setResponseHeader(name, value),
-}));
-
-import { applyNoStore, NO_STORE_VALUE } from "../no-store";
+import { applyNoStore, isPrivateRpcRequest, NO_STORE_VALUE } from "../no-store";
 
 describe("private RPC cache policy", () => {
-  beforeEach(() => setResponseHeader.mockClear());
-
-  it("marks an authenticated RPC response no-store before the handler runs", async () => {
-    const order: string[] = [];
-    setResponseHeader.mockImplementation(() => order.push("header"));
-    const result = await applyNoStore(async () => {
-      order.push("handler");
-      return { customers: [] };
-    });
-    expect(result).toEqual({ customers: [] });
-    expect(order).toEqual(["header", "handler"]);
-    expect(setResponseHeader).toHaveBeenCalledWith("Cache-Control", NO_STORE_VALUE);
-  });
-
-  it("marks a guest-workspace RPC response no-store too", async () => {
-    await applyNoStore(async () => ({ kind: "guest" as const }));
-    expect(setResponseHeader).toHaveBeenCalledWith("Cache-Control", NO_STORE_VALUE);
+  it("marks an authenticated RPC response no-store", () => {
+    const response = applyNoStore(new Response(JSON.stringify({ customers: [] })));
+    expect(response.headers.get("Cache-Control")).toBe(NO_STORE_VALUE);
     expect(NO_STORE_VALUE).toContain("no-store");
     expect(NO_STORE_VALUE).toContain("private");
   });
 
-  it("is registered for every server function", async () => {
+  it("recognises authenticated and guest server-function requests", () => {
+    expect(isPrivateRpcRequest("http://localhost:8080/_serverFn/listCustomers")).toBe(true);
+    expect(isPrivateRpcRequest("http://localhost:8080/_serverFn/guestLoad")).toBe(true);
+    expect(isPrivateRpcRequest("http://localhost:8080/analysis")).toBe(false);
+  });
+
+  it("is registered for every server-function request", async () => {
     const source = await import("node:fs/promises").then((fs) =>
       fs.readFile(new URL("../../../start.ts", import.meta.url), "utf8"),
     );
-    expect(source).toMatch(/functionMiddleware:\s*\[[^\]]*noStoreMiddleware/s);
+    expect(source).toMatch(/requestMiddleware:\s*\[[^\]]*noStoreMiddleware/s);
   });
 });
