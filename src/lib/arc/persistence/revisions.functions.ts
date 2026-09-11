@@ -137,17 +137,29 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
 
     // A finalized snapshot is returned exactly as recorded. It is never
     // recomputed here, so a later engine change cannot silently rewrite it.
-    const snapshot: RevisionSnapshotDto | null =
-      revision.status === "draft"
-        ? null
-        : {
-            engineVersion: revision.engine_version ?? "",
-            schemaVersion: revision.schema_version,
-            finalizedAt: revision.finalized_at,
-            engineVersionMatchesCurrent: revision.engine_version === ARC_ENGINE_VERSION,
-            reconciliation: readReconciliationSnapshot(revision.reconciliation_snapshot),
-            engineOutputs: readEngineOutputsSnapshot(revision.engine_outputs),
-          };
+    // The row's own engine/schema metadata must agree with the snapshot's, and
+    // every nested shape the historical renderers read is validated; anything
+    // else is reported as no usable recording so the workspace fails closed.
+    let snapshot: RevisionSnapshotDto | null = null;
+    if (revision.status !== "draft") {
+      const metadata = {
+        engineVersion: revision.engine_version ?? "",
+        schemaVersion: revision.schema_version,
+      };
+      const reconciliation = readReconciliationSnapshot(revision.reconciliation_snapshot, metadata);
+      const engineOutputs = readEngineOutputsSnapshot(revision.engine_outputs, metadata);
+      snapshot = {
+        engineVersion: metadata.engineVersion,
+        schemaVersion: metadata.schemaVersion,
+        finalizedAt: revision.finalized_at,
+        engineVersionMatchesCurrent: revision.engine_version === ARC_ENGINE_VERSION,
+        reconciliation,
+        // Both recordings must be usable and consistent with the row: a
+        // mismatch anywhere means the recording cannot be trusted at all.
+        engineOutputs: reconciliation && engineOutputs ? engineOutputs : null,
+      };
+    }
+
 
     return {
       contractId: contract.id,
