@@ -6,6 +6,7 @@ import { useState } from "react";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAccount, DELETE_CONFIRMATION } from "@/lib/auth/account.functions";
+import { messageForRequestFailure } from "@/lib/auth/account.handlers";
 import { getVerifiedIdentity } from "@/lib/auth/session.functions";
 
 export const Route = createFileRoute("/_authenticated/account")({
@@ -52,7 +53,9 @@ function AccountPage() {
       await supabase.auth.signOut();
       await navigate({ to: "/", replace: true });
     } catch {
-      setError("Your account could not be deleted. Nothing has been removed — please try again.");
+      // The request already left this browser: a transport or serialization
+      // failure is an unknown outcome, not proof that nothing was removed.
+      setError(messageForRequestFailure());
       setPending(false);
     }
   };
