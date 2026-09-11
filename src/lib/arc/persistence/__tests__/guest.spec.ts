@@ -176,6 +176,26 @@ describe("resumeOrCreateGuestHandler", () => {
     expect(JSON.stringify(recorder.inserted)).not.toContain("minted");
   });
 
+  it("fails closed when an active workspace cannot be read, creating nothing", async () => {
+    const corrupt = storeFor(rowFor({ draft_json: { nonsense: true } }));
+    await expect(
+      resumeOrCreateGuestHandler(
+        { store: corrupt.store, now: () => NOW, newToken: () => "must-not-be-issued" },
+        { token: "tok" },
+      ),
+    ).rejects.toThrow(/could not be opened/i);
+    expect(corrupt.inserted).toHaveLength(0);
+
+    const unsupported = storeFor(rowFor({ schema_version: "arc.workflow.v999" }));
+    await expect(
+      resumeOrCreateGuestHandler(
+        { store: unsupported.store, now: () => NOW, newToken: () => "must-not-be-issued" },
+        { token: "tok" },
+      ),
+    ).rejects.toThrow(/could not be opened/i);
+    expect(unsupported.inserted).toHaveLength(0);
+  });
+
   it("never resumes an expired workspace, even when the row still exists", async () => {
     const expired = rowFor({ expires_at: new Date(NOW.getTime() - 1000).toISOString() });
     const recorder = storeFor(expired);
@@ -198,7 +218,13 @@ describe("saveGuestDraftHandler", () => {
       { token: "tok", expectedLockVersion: 3, draft: draftFor("Northwind Systems") },
     );
     expect(result).toEqual({ ok: true, lockVersion: 4, savedAt: NOW.toISOString() });
-    expect(recorder.updates[0]).toMatchObject({ expectedLockVersion: 3 });
+    // Draft, schema version and lock version always move together.
+    expect(recorder.updates[0]).toMatchObject({
+      expectedLockVersion: 3,
+      schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+    });
+    const update = recorder.updates[0] as { canonical: { schemaVersion?: string } };
+    expect(update.canonical).toBeTruthy();
   });
 
   it("reports a conflict when the lock version no longer matches", async () => {
