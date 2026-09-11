@@ -66,7 +66,7 @@ function storeFor(row: GuestRow | null): Recorder {
     updates: [],
     lookups: [],
     store: {
-      findActiveByHash: async (hash) => {
+      findByHash: async (hash) => {
         recorder.lookups.push(hash);
         return row;
       },

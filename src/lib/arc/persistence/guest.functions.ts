@@ -64,7 +64,7 @@ async function guestStore(): Promise<GuestStore> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const columns = "id, draft_json, schema_version, lock_version, status, expires_at";
   return {
-    findActiveByHash: async (tokenHash) => {
+    findByHash: async (tokenHash) => {
       const { data } = await supabaseAdmin
         .from("guest_workspaces")
         .select(columns)

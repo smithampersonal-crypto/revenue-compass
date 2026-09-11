@@ -42,7 +42,7 @@ export interface GuestSaveRow {
 
 /** The narrow, server-only store surface. Guest rows are never client-visible. */
 export interface GuestStore {
-  findActiveByHash(tokenHash: string): Promise<GuestRow | null>;
+  findByHash(tokenHash: string): Promise<GuestRow | null>;
   insert(row: {
     token_hash: string;
     draft_json: unknown;
@@ -102,7 +102,7 @@ export async function resumeOrCreateGuestHandler(
   const now = deps.now();
 
   if (input.token) {
-    const row = await deps.store.findActiveByHash(await hashGuestToken(input.token));
+    const row = await deps.store.findByHash(await hashGuestToken(input.token));
     // Authorization checks expiry on every load, whatever cleanup has run.
     if (row && row.status === "active" && !isGuestExpired(row.expires_at, now)) {
       const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
@@ -161,7 +161,7 @@ export async function saveGuestDraftHandler(
   if (!validated.ok) throw new Error(validated.reason);
 
   const tokenHash = await hashGuestToken(input.token);
-  const row = await deps.store.findActiveByHash(tokenHash);
+  const row = await deps.store.findByHash(tokenHash);
   if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
     return { ok: false, reason: "expired" };
   }
@@ -210,7 +210,7 @@ export async function migrateGuestWorkspaceHandler(
   }
 
   const tokenHash = await hashGuestToken(input.token);
-  const row = await deps.store.findActiveByHash(tokenHash);
+  const row = await deps.store.findByHash(tokenHash);
 
   // A already-migrated workspace is not "expired": the retry path below has to
   // reach the transaction so it can return the committed result.
