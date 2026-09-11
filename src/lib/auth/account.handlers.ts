@@ -22,8 +22,7 @@ export interface AccountDeletionDeps {
 }
 
 export type AccountDeletionResult =
-  | { ok: true; guestCookieCleared: true }
-  | { ok: false; reason: string };
+  { ok: true; guestCookieCleared: true } | { ok: false; reason: string };
 
 const CONFIRM_MESSAGE = `Type ${DELETE_CONFIRMATION} to confirm that you want to delete your account.`;
 const FAILED_MESSAGE =
