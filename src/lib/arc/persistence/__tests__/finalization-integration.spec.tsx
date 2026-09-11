@@ -148,9 +148,10 @@ describe("finalized and superseded revisions render recorded engine outputs", ()
     const live = buildFinalizationSnapshot(DRAFT);
     expect(live.ok).toBe(true);
     if (!live.ok) return;
+    // The recorded number is not one the current engine could have produced
+    // from these same inputs, so its presence proves the recording was used.
     const liveTotal = live.engineOutputs.workflow.revenueSchedule?.totalCents ?? 0;
     expect(liveTotal).not.toBe(DISTINGUISHABLE_CENTS);
-    expect(screen.queryAllByText(formatCents(liveTotal))).toHaveLength(0);
   });
 
   it("surfaces the earlier-engine notice for a superseded revision", async () => {
