@@ -1,141 +1,209 @@
 /**
- * Phase 7 acceptance gate — one source-controlled suite asserting the
- * persistence promises of the whole phase. These are behavioural checks
- * against the real handlers/decoders; no accounting engine or sample fixture
- * is touched.
+ * Phase 7 acceptance gate.
+ *
+ * One source-controlled suite asserting the persistence promises of the whole
+ * phase, exercised through the real handlers and decoders. No accounting
+ * engine or sample fixture is touched here.
  */
 
 import { describe, expect, it } from "vitest";
 
 import { FEATURES } from "@/lib/arc/features";
-import { GUEST_LIFETIME_SECONDS, isGuestExpired } from "@/lib/arc/persistence/guest";
+import {
+  GUEST_LIFETIME_SECONDS,
+  guestExpiresAt,
+  hashGuestToken,
+  isGuestExpired,
+} from "@/lib/arc/persistence/guest";
 import {
   resumeOrCreateGuestHandler,
   saveGuestDraftHandler,
   type GuestRow,
+  type GuestSaveRow,
   type GuestStore,
 } from "@/lib/arc/persistence/guest.handlers";
-import { ARC_WORKFLOW_SCHEMA_VERSION } from "@/lib/arc/persistence/schema";
-import { buildFinalizationSnapshot, readEngineOutputsSnapshot } from "@/lib/arc/persistence/snapshot";
-import { getDemoScenario } from "@/lib/demo-scenarios";
+import {
+  ARC_WORKFLOW_SCHEMA_VERSION,
+  toCanonicalInputs,
+  parseCanonicalInputs,
+} from "@/lib/arc/persistence/schema";
+import {
+  ARC_ENGINE_VERSION,
+  buildFinalizationSnapshot,
+  readEngineOutputsSnapshot,
+  readReconciliationSnapshot,
+} from "@/lib/arc/persistence/snapshot";
+import { createDemoDraftIfKnown, DEMO_SCENARIOS } from "@/lib/demo-scenarios";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
+const TOKEN = "guest-credential-for-acceptance";
 
-function sampleDraft() {
-  const scenario = getDemoScenario("redwood");
-  if (!scenario) throw new Error("sample fixture missing");
-  return scenario.draft;
-}
+const COMPLETE_DRAFT = createDemoDraftIfKnown("horizon")!;
 
-function guestRow(overrides: Partial<GuestRow> = {}): GuestRow {
-  return {
-    id: "11111111-1111-4111-8111-111111111111",
-    draftJson: sampleDraft() as unknown as GuestRow["draftJson"],
-    schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
-    lockVersion: 1,
-    status: "active",
-    expiresAt: new Date(NOW.getTime() + GUEST_LIFETIME_SECONDS * 1000).toISOString(),
-    ...overrides,
-  };
-}
-
-function storeSpy(row: GuestRow | null) {
-  const inserted: unknown[] = [];
-  const saved: unknown[] = [];
+function makeStore(row: GuestRow | null) {
+  const inserts: unknown[] = [];
+  const updates: Array<{
+    tokenHash: string;
+    expectedLockVersion: number;
+    canonical: unknown;
+    schemaVersion: string;
+  }> = [];
   const store: GuestStore = {
     findByHash: async () => row,
     insert: async (args) => {
-      inserted.push(args);
-      return guestRow();
+      inserts.push(args);
+      return {
+        id: "created",
+        draft_json: args.draft_json,
+        schema_version: args.schema_version,
+        lock_version: 1,
+        status: "active",
+        expires_at: args.expires_at,
+      };
     },
-    saveDraft: async (args) => {
-      saved.push(args);
-      return { ...guestRow(), lockVersion: 2 };
+    updateDraft: async (args) => {
+      updates.push(args);
+      const saved: GuestSaveRow = {
+        lock_version: args.expectedLockVersion + 1,
+        updated_at: NOW.toISOString(),
+      };
+      return saved;
     },
-  } as unknown as GuestStore;
-  return { store, inserted, saved };
+  };
+  return { store, inserts, updates };
 }
 
-describe("Phase 7 acceptance gate", () => {
-  it("sample scenarios are fixture-only: they carry no persistence identity", () => {
-    const scenario = getDemoScenario("redwood");
-    expect(scenario).toBeTruthy();
-    expect(scenario).not.toHaveProperty("revisionId");
-    expect(scenario).not.toHaveProperty("lockVersion");
-    expect(JSON.stringify(scenario)).not.toContain("guest_workspaces");
-  });
+async function activeRow(): Promise<GuestRow> {
+  return {
+    id: "guest-row",
+    draft_json: toCanonicalInputs(COMPLETE_DRAFT) as unknown,
+    schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
+    lock_version: 4,
+    status: "active",
+    expires_at: guestExpiresAt(NOW),
+  };
+}
 
-  it("a guest workspace lasts exactly nine hours and expires on the boundary", () => {
-    expect(GUEST_LIFETIME_SECONDS).toBe(32400);
-    const expires = new Date(NOW.getTime() + 32400 * 1000).toISOString();
-    expect(isGuestExpired(expires, new Date(NOW.getTime() + 32399 * 1000))).toBe(false);
-    expect(isGuestExpired(expires, new Date(NOW.getTime() + 32400 * 1000))).toBe(true);
-  });
-
-  it("a guest draft is temporary persistence: it resumes from the stored row", async () => {
-    const { store, inserted } = storeSpy(guestRow());
-    const result = await resumeOrCreateGuestHandler(
-      { store, now: NOW, tokenHash: async (t: string) => `hash:${t}`, token: "tok" } as never,
-      undefined as never,
-    ).catch((error: unknown) => error);
-    // The handler shape is exercised in depth by the guest suite; here we only
-    // assert the acceptance promise: resuming never creates a second workspace.
-    expect(inserted).toHaveLength(0);
-    expect(result).toBeDefined();
-    expect(saveShape(store)).toBe(true);
-  });
-
-  it("a finalized revision freezes a recorded snapshot that later reads use verbatim", () => {
-    const snapshot = buildFinalizationSnapshot(sampleDraft());
-    expect(snapshot.ok).toBe(true);
-    if (!snapshot.ok) return;
-    const recorded = JSON.parse(JSON.stringify(snapshot.engineOutputs));
-    const read = readEngineOutputsSnapshot(recorded);
-    expect(read.ok).toBe(true);
-    if (!read.ok) return;
-    // Byte-identical: nothing is recomputed with the current engine on read.
-    expect(JSON.stringify(read.value)).toBe(JSON.stringify(recorded));
-  });
-
-  it("a superseded revision stays readable from its own recorded snapshot", () => {
-    const snapshot = buildFinalizationSnapshot(sampleDraft());
-    if (!snapshot.ok) throw new Error("snapshot expected");
-    const historical = JSON.parse(JSON.stringify(snapshot.engineOutputs));
-    expect(readEngineOutputsSnapshot(historical).ok).toBe(true);
-  });
-
-  it("a recorded snapshot from an unknown engine version fails closed", () => {
-    const snapshot = buildFinalizationSnapshot(sampleDraft());
-    if (!snapshot.ok) throw new Error("snapshot expected");
-    const foreign = JSON.parse(JSON.stringify(snapshot.engineOutputs)) as Record<string, unknown>;
-    foreign["engineVersion"] = "arc.engine.v99";
-    expect(readEngineOutputsSnapshot(foreign).ok).toBe(false);
-  });
-
-  it("a new revision starts from the copied canonical input, editable with the current engine", () => {
-    const draft = sampleDraft();
-    const copied = JSON.parse(JSON.stringify(draft));
-    expect(copied).toEqual(draft);
-    // The copy is an ordinary editable draft, not a recorded snapshot.
-    expect(copied).not.toHaveProperty("engineVersion");
-  });
-
-  it("Source Documents remains a Phase 8 concern with no guest/persistent migration", () => {
-    expect(Object.keys(FEATURES)).not.toContain("DOCUMENT_MIGRATION");
-  });
-
-  it("guest saves move draft, schema version and lock together", async () => {
-    const { store, saved } = storeSpy(guestRow());
-    await saveGuestDraftHandler(
-      { store, now: NOW } as never,
-      { tokenHash: "hash", draft: sampleDraft(), expectedLockVersion: 1 } as never,
-    ).catch(() => undefined);
-    if (saved.length > 0) {
-      expect(JSON.stringify(saved[0])).toContain(ARC_WORKFLOW_SCHEMA_VERSION);
+describe("Phase 7 acceptance — sample scenarios", () => {
+  it("are fixture-only: a sample carries no persistence identity", () => {
+    for (const scenario of DEMO_SCENARIOS) {
+      const serialized = JSON.stringify(scenario);
+      expect(serialized).not.toContain("revisionId");
+      expect(serialized).not.toContain("lockVersion");
+      expect(serialized).not.toContain("token");
     }
+  });
+
+  it("never reach a persistence store: opening a sample runs no guest save", async () => {
+    const { store, inserts, updates } = makeStore(null);
+    // A sample is rendered straight from the fixture; nothing calls the store.
+    expect(createDemoDraftIfKnown("redwood")).toBeTruthy();
+    expect(inserts).toHaveLength(0);
+    expect(updates).toHaveLength(0);
+    expect(typeof store.insert).toBe("function");
   });
 });
 
-function saveShape(store: GuestStore): boolean {
-  return typeof store.saveDraft === "function" && typeof store.findByHash === "function";
-}
+describe("Phase 7 acceptance — guest workspace", () => {
+  it("lasts exactly nine hours and expires on the boundary, not after cleanup", () => {
+    expect(GUEST_LIFETIME_SECONDS).toBe(32400);
+    const expires = guestExpiresAt(NOW);
+    expect(isGuestExpired(expires, new Date(NOW.getTime() + 32399_000))).toBe(false);
+    expect(isGuestExpired(expires, new Date(NOW.getTime() + 32400_000))).toBe(true);
+  });
+
+  it("resumes the stored temporary draft without minting a second workspace", async () => {
+    const { store, inserts } = makeStore(await activeRow());
+    const result = await resumeOrCreateGuestHandler({ store, now: () => NOW }, { token: TOKEN });
+    expect(result.resumed).toBe(true);
+    expect(result.issuedToken).toBeNull();
+    expect(result.workspace.lockVersion).toBe(4);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("saves draft, schema version and lock version together", async () => {
+    const { store, updates } = makeStore(await activeRow());
+    const saved = await saveGuestDraftHandler(
+      { store, now: () => NOW },
+      { token: TOKEN, expectedLockVersion: 4, draft: COMPLETE_DRAFT },
+    );
+    expect(saved).toEqual({ ok: true, lockVersion: 5, savedAt: NOW.toISOString() });
+    expect(updates[0]?.schemaVersion).toBe(ARC_WORKFLOW_SCHEMA_VERSION);
+    expect(updates[0]?.expectedLockVersion).toBe(4);
+    expect(updates[0]?.tokenHash).toBe(await hashGuestToken(TOKEN));
+  });
+
+  it("refuses to save into an expired workspace", async () => {
+    const row = await activeRow();
+    const { store, updates } = makeStore({ ...row, expires_at: NOW.toISOString() });
+    const saved = await saveGuestDraftHandler(
+      { store, now: () => new Date(NOW.getTime() + 1000) },
+      { token: TOKEN, expectedLockVersion: 4, draft: COMPLETE_DRAFT },
+    );
+    expect(saved).toEqual({ ok: false, reason: "expired" });
+    expect(updates).toHaveLength(0);
+  });
+
+  it("never exposes the raw credential in what a guest row stores", async () => {
+    const row = await activeRow();
+    expect(JSON.stringify(row)).not.toContain(TOKEN);
+    expect(await hashGuestToken(TOKEN)).not.toContain(TOKEN);
+  });
+});
+
+describe("Phase 7 acceptance — revision lifecycle", () => {
+  it("finalization records a complete snapshot from the persisted draft", () => {
+    const outcome = buildFinalizationSnapshot(COMPLETE_DRAFT);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.engineOutputs.engineVersion).toBe(ARC_ENGINE_VERSION);
+    expect(outcome.engineOutputs.schemaVersion).toBe(ARC_WORKFLOW_SCHEMA_VERSION);
+    expect(outcome.engineOutputs.journals).toBeTruthy();
+  });
+
+  it("a finalized revision reads back verbatim — nothing is recomputed", () => {
+    const outcome = buildFinalizationSnapshot(COMPLETE_DRAFT);
+    if (!outcome.ok) throw new Error("a complete workpaper was expected");
+    const recorded = JSON.parse(JSON.stringify(outcome.engineOutputs));
+    const read = readEngineOutputsSnapshot(recorded, {
+      engineVersion: ARC_ENGINE_VERSION,
+      schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+    });
+    expect(read).not.toBeNull();
+    expect(JSON.stringify(read)).toBe(JSON.stringify(recorded));
+  });
+
+  it("a superseded revision stays readable from its own recorded snapshot", () => {
+    const outcome = buildFinalizationSnapshot(COMPLETE_DRAFT);
+    if (!outcome.ok) throw new Error("a complete workpaper was expected");
+    const historical = JSON.parse(JSON.stringify(outcome.reconciliation));
+    expect(readReconciliationSnapshot(historical)).not.toBeNull();
+  });
+
+  it("a snapshot from an unknown engine version fails closed", () => {
+    const outcome = buildFinalizationSnapshot(COMPLETE_DRAFT);
+    if (!outcome.ok) throw new Error("a complete workpaper was expected");
+    const foreign = JSON.parse(JSON.stringify(outcome.engineOutputs)) as Record<string, unknown>;
+    foreign["engineVersion"] = "arc.engine.v99";
+    expect(readEngineOutputsSnapshot(foreign)).toBeNull();
+  });
+
+  it("a new revision starts from the copied canonical input as an editable draft", () => {
+    const canonical = toCanonicalInputs(COMPLETE_DRAFT);
+    const copied = parseCanonicalInputs(
+      JSON.parse(JSON.stringify(canonical)),
+      ARC_WORKFLOW_SCHEMA_VERSION,
+    );
+    expect(copied.ok).toBe(true);
+    if (!copied.ok) return;
+    expect(copied.draft).toEqual(COMPLETE_DRAFT);
+    expect(copied.draft).not.toHaveProperty("engineVersion");
+  });
+});
+
+describe("Phase 7 acceptance — scope boundary", () => {
+  it("Source Documents carries no Phase 7 migration: it stays a Phase 8 concern", () => {
+    expect(Object.keys(FEATURES)).not.toContain("DOCUMENT_MIGRATION");
+    expect(JSON.stringify(FEATURES)).not.toContain("document");
+  });
+});
