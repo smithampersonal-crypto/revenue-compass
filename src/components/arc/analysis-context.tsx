@@ -104,6 +104,19 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 /** Approved autosave debounce. */
 const AUTOSAVE_DELAY_MS = 750;
 
+/**
+ * Inert placeholder used only when a historical recording cannot be read. It
+ * is derived from an empty draft, never from the historical draft, so no
+ * current engine ever sees historical inputs. Every output area is suppressed
+ * in that state; this only keeps the context shape stable.
+ */
+let placeholder: ArcWorkpaper | null = null;
+function placeholderWorkpaper(): ArcWorkpaper {
+  placeholder ??= buildWorkpaper(createEmptyDraft());
+  return placeholder;
+}
+
+
 export function AnalysisProvider({
   sample,
   contractId,
