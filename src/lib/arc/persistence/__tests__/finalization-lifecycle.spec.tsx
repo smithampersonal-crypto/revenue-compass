@@ -101,7 +101,28 @@ async function confirmFinalize() {
   await user.click(confirm);
 }
 
+function finalizedRevision(status: "finalized" | "superseded" = "finalized") {
+  const outcome = buildFinalizationSnapshot(DRAFT);
+  if (!outcome.ok) throw new Error("the horizon fixture must be finalizable");
+  return {
+    ...savedDraft(),
+    revisionNumber: 2,
+    status,
+    readOnly: true,
+    lockVersion: 4,
+    snapshot: {
+      engineVersion: ARC_ENGINE_VERSION,
+      schemaVersion: "arc.workflow.v1",
+      finalizedAt: "2026-01-01T00:00:00.000Z",
+      engineVersionMatchesCurrent: true,
+      reconciliation: outcome.reconciliation,
+      engineOutputs: outcome.engineOutputs,
+    },
+  };
+}
+
 beforeEach(() => {
+  navigate.mockReset();
   load.mockReset().mockResolvedValue(savedDraft());
   save.mockReset().mockResolvedValue({ ok: true, lockVersion: 4, savedAt: "2026-01-01" });
   finalize.mockReset();
@@ -110,6 +131,7 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ revisions: [{ revisionId: REVISION_ID, status: "draft" }] });
 });
+
 
 describe("finalization conflict and ambiguity reload authoritative state", () => {
   it("reloads the authoritative revision on a stale-lock conflict", async () => {
