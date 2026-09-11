@@ -56,15 +56,22 @@ describe("account deletion handler", () => {
     expect(purged[0]?.userId).toBe("verified-id");
   });
 
-  it("says nothing was removed only when the purge itself failed first", async () => {
+  it("never claims nothing was removed once the destructive purge was attempted", async () => {
     const { deps, calls } = depsFor({
       purgeGuestData: async () => {
         throw new Error("purge boom");
       },
     });
     const result = await deleteAccountHandler(deps, { confirmation: DELETE_CONFIRMATION });
-    expect(result).toEqual({ ok: false, reason: NOTHING_REMOVED_MESSAGE });
+    expect(result).toEqual({ ok: false, reason: UNCONFIRMED_MESSAGE });
+    if (result.ok) throw new Error("unreachable");
+    expect(result.reason).not.toContain("Nothing has been removed");
     expect(calls).toEqual([]);
+  });
+
+  it("reserves the nothing-removed wording for states before any destructive step", () => {
+    expect(NOTHING_REMOVED_MESSAGE).toContain("Nothing has been removed");
+    expect(messageForRequestFailure()).toBe(UNCONFIRMED_MESSAGE);
   });
 
   it("does not claim nothing was removed when the purge succeeded but auth deletion failed", async () => {
