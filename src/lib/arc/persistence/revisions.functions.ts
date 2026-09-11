@@ -88,9 +88,12 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
     if (analysisError || !analysis)
       throw new Error("That contract's analysis could not be opened.");
 
+    const revisionColumns =
+      "id, revision_number, status, lock_version, canonical_inputs, schema_version, engine_version, finalized_at, reconciliation_snapshot";
+
     let query = context.supabase
       .from("analysis_revisions")
-      .select("id, revision_number, status, lock_version, canonical_inputs, schema_version")
+      .select(revisionColumns)
       .eq("analysis_id", analysis.id);
 
     if (data.revisionId) {
