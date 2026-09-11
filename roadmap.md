@@ -242,13 +242,19 @@
         the boundary, guest saves move draft/schema/lock together, finalized and
         superseded snapshots read back verbatim, a foreign engine version fails
         closed, a new revision copies canonical input, documents stay Phase 8.
-      Verification: 630 tests across 58 files, typecheck clean, ESLint 0 errors
+      Verification: 634 tests across 58 files, typecheck clean, ESLint 0 errors
       (8 pre-existing warnings), production build OK, bundle audit clean (no
       service-role env name, secret value, `service_role` JWT payload or admin
-      client module in any client asset). `phase7f_account_deletion.sql`
-      (19 assertions incl. cascade and post-purge migration) green against the
-      project database in a rolled-back transaction; the gate proof raised as
-      designed. The remaining Phase 7 suites run through the same pinned-CLI
+      client module in any client asset). Post-condition counts fail closed: a
+      NULL/absent count throws rather than reading as zero, and any unknown
+      outcome after the delete request uses the unconfirmed wording — "Nothing
+      has been removed" survives only before any destructive step. Every SQL
+      suite gates on `passed IS NOT TRUE` over `boolean not null` result
+      columns, so FALSE and NULL both fail CI.
+      `phase7f_account_deletion.sql` (19 assertions incl. the
+      `migrated_user_id` cascade and the post-purge migration chain) ran 19/19
+      green against the project database in a rolled-back transaction, and a
+      deliberate NULL assertion raised `ARC SQL suite failed` as designed. The remaining Phase 7 suites run through the same pinned-CLI
       runner (`bun run db:test`) — this sandbox has no local Postgres/Docker, so
       they were last executed at 7E acceptance and now additionally carry the
       failure gate. Hosted browser acceptance against the development project is
