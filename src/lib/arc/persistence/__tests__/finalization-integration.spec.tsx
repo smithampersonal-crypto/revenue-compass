@@ -245,6 +245,104 @@ describe("finalized and superseded revisions render recorded engine outputs", ()
   });
 });
 
+/**
+ * Each mutation is a recording the shallow structural checks would once have
+ * accepted, and every one of them is dereferenced by a canonical renderer. The
+ * server decoder must reject them, and the workspace must show the explicit
+ * unusable-snapshot state without recalculating and without crashing.
+ */
+const META = {
+  engineVersion: ARC_ENGINE_VERSION,
+  schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+};
+
+type Mutation = (outputs: ArcEngineOutputsSnapshot) => void;
+
+const MALFORMED: [string, Mutation][] = [
+  [
+    "a revenue schedule with a total but no monthly rows",
+    (o) => {
+      delete (o.workflow.revenueSchedule as unknown as Record<string, unknown>)["byMonth"];
+    },
+  ],
+  [
+    "a monthly revenue row without its per-obligation split",
+    (o) => {
+      const row = o.workflow.revenueSchedule!.byMonth[0] as unknown as Record<string, unknown>;
+      delete row["perPo"];
+    },
+  ],
+  [
+    "variable consideration without its components",
+    (o) => {
+      o.workflow.variableConsideration = { reconciliation: {}, totals: {} } as never;
+    },
+  ],
+  [
+    "a material-right lifecycle without its rights",
+    (o) => {
+      o.workflow.lifecycle = { validation: {}, reconciliation: {}, totals: {} } as never;
+    },
+  ],
+  [
+    "grouped balances whose combined monthly rows are the wrong type",
+    (o) => {
+      o.balances.grouped = {
+        groups: [],
+        combinedMonthly: "not-an-array",
+        combinedTransactionPriceCents: 0,
+        combinedRevenueCents: null,
+        reconciled: true,
+      } as never;
+    },
+  ],
+  [
+    "a journal entry without its lines",
+    (o) => {
+      if (o.journals.kind !== "ordinary") throw new Error("fixture must be ordinary");
+      const entry = o.journals.analysis.entries![0] as unknown as Record<string, unknown>;
+      delete entry["lines"];
+    },
+  ],
+  [
+    "a journal line whose debit is not a number",
+    (o) => {
+      if (o.journals.kind !== "ordinary") throw new Error("fixture must be ordinary");
+      const line = o.journals.analysis.entries![0]!.lines[0] as unknown as Record<string, unknown>;
+      line["debitCents"] = "1200";
+    },
+  ],
+  [
+    "a malformed nested reconciliation",
+    (o) => {
+      o.balances.analysis!.reconciliation = { reconciled: "yes" } as never;
+    },
+  ],
+];
+
+describe("structurally unusable recordings fail closed", () => {
+  it.each(MALFORMED)("rejects %s", async (_name, mutate) => {
+    const outputs = recordedOutputs();
+    mutate(outputs);
+    // The server decoder refuses the recording…
+    const decoded = readEngineOutputsSnapshot(outputs, META);
+    expect(decoded).toBeNull();
+
+    // …and the workspace shows the explicit unusable-snapshot state.
+    load.mockResolvedValue(historicalRevision(decoded));
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("historical-error")).toBeInTheDocument());
+    for (const [called] of workpaperSpy.mock.calls) {
+      expect((called as typeof DRAFT).contract.customerName).not.toBe(DRAFT.contract.customerName);
+    }
+  });
+
+  it("accepts the genuine recording it was derived from", () => {
+    expect(readEngineOutputsSnapshot(recordedOutputs(), META)).not.toBeNull();
+  });
+});
+
+
 describe("pending finalization locks the draft", () => {
   function Locking() {
     const { persistence, canEdit, draft, setDraft } = useAnalysis();
