@@ -130,6 +130,17 @@ begin
   insert into arc_test_results
   select '17 unexpired rows survive cleanup',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
+
+  -- 18-19 The post-purge migration: cascade, not orphan.
+  insert into arc_test_results
+  select '18 a guest migrated after the purge is cascade-deleted, not orphaned',
+         not exists (select 1 from public.guest_workspaces where token_hash = hash_late);
+  insert into arc_test_results
+  select '19 the persistent chain created after the purge is removed too',
+         not exists (select 1 from public.customers where id = late_customer)
+         and not exists (select 1 from public.contracts where id = late_contract)
+         and not exists (select 1 from public.analyses where id = late_analysis)
+         and not exists (select 1 from public.analysis_revisions where id = late_revision);
 end $$;
 
 select assertion, passed from arc_test_results order by assertion;
