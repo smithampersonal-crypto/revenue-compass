@@ -20,14 +20,51 @@ import {
 } from "./schema";
 import {
   ARC_ENGINE_VERSION,
-  buildFinalizationSnapshot,
   readEngineOutputsSnapshot,
   readReconciliationSnapshot,
   type ArcEngineOutputsSnapshot,
   type ArcReconciliationSnapshot,
 } from "./snapshot";
+import {
+  finalizeRevisionHandler,
+  startNewRevisionHandler,
+  type FinalizeRevisionResult,
+  type RevisionReader,
+  type StartRevisionResult,
+} from "./revisions.handlers";
 
 export type RevisionStatus = "draft" | "finalized" | "superseded";
+
+/**
+ * The caller-scoped reader the lifecycle handlers use. Every read here runs as
+ * the signed-in user, so RLS decides what is visible.
+ */
+function revisionReader(supabase: unknown): RevisionReader {
+  const client = supabase as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (
+          column: string,
+          value: string,
+        ) => { maybeSingle: () => Promise<{ data: never; error: never }> };
+      };
+    };
+  };
+  return {
+    readRevisionForFinalization: (revisionId) =>
+      client
+        .from("analysis_revisions")
+        .select("id, status, lock_version, canonical_inputs, schema_version")
+        .eq("id", revisionId)
+        .maybeSingle(),
+    readSourceRevision: (revisionId) =>
+      client
+        .from("analysis_revisions")
+        .select("canonical_inputs, schema_version, status")
+        .eq("id", revisionId)
+        .maybeSingle(),
+  };
+}
 
 /**
  * Phase 7D — the stored finalized snapshot, returned exactly as recorded.
@@ -227,22 +264,19 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
  * Phase 7D — finalization, revision history and amendment.
  * ---------------------------------------------------------------------- */
 
-export type FinalizeRevisionResult =
-  | { ok: true; revisionId: string }
-  | { ok: false; reason: "conflict" }
-  | { ok: false; reason: "blocked"; issues: string[] };
+export type { FinalizeRevisionResult } from "./revisions.handlers";
 
 /**
  * Finalizes an owned draft revision.
  *
  * The browser supplies only the revision id and the lock version it believes
  * is current. The authoritative `WorkflowDraft` is read back from the database
- * and the deterministic engines are rerun here, on the server, to build the
- * snapshot. Browser-computed engine output is never accepted.
+ * and the deterministic engines are rerun on the server to build the snapshot;
+ * browser-computed engine output is never accepted.
  *
- * The write itself is the trusted `arc_finalize_revision` transaction: it
- * re-checks ownership and the lock version, flips the previous current
- * finalized revision to superseded and repoints the analysis, all atomically.
+ * The write itself is the trusted `arc_finalize_revision` transaction. The
+ * whole decision lives in `finalizeRevisionHandler`, which this wrapper calls
+ * with the caller-scoped reader and the service-role transaction.
  */
 export const finalizeRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -251,48 +285,21 @@ export const finalizeRevision = createServerFn({ method: "POST" })
     expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
   }))
   .handler(async ({ data, context }): Promise<FinalizeRevisionResult> => {
-    // Caller-scoped read: RLS decides whether this revision is theirs at all.
-    const { data: revision, error } = await context.supabase
-      .from("analysis_revisions")
-      .select("id, status, lock_version, canonical_inputs, schema_version")
-      .eq("id", data.revisionId)
-      .maybeSingle();
-    if (error) throw new Error("That revision could not be finalized.");
-    if (!revision) throw new Error("That revision was not found in your workspace.");
-    if (revision.status !== "draft") {
-      throw new Error("That revision is already finalized.");
-    }
-    if (revision.lock_version !== data.expectedLockVersion) {
-      return { ok: false, reason: "conflict" };
-    }
-
-    const parsed = parseCanonicalInputs(revision.canonical_inputs, revision.schema_version);
-    if (!parsed.ok) throw new Error(parsed.reason);
-
-    const snapshot = buildFinalizationSnapshot(parsed.draft);
-    if (!snapshot.ok) return { ok: false, reason: "blocked", issues: snapshot.issues };
-
-    // The trusted transaction is service-role only; the caller was verified
-    // above and their identity is passed in for the function's own ownership
-    // check. Loaded inside the handler so it never enters a client bundle.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error: rpcError } = await supabaseAdmin.rpc("arc_finalize_revision", {
-      p_owner_user_id: context.userId,
-      p_revision_id: data.revisionId,
-      p_expected_lock_version: data.expectedLockVersion,
-      p_engine_outputs: snapshot.engineOutputs as unknown as never,
-      p_reconciliation_snapshot: snapshot.reconciliation as unknown as never,
-      p_schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
-      p_engine_version: ARC_ENGINE_VERSION,
-    });
-
-    if (rpcError) {
-      // 40001 is the function's optimistic-lock failure.
-      if (rpcError.code === "40001") return { ok: false, reason: "conflict" };
-      throw new Error("That revision could not be finalized.");
-    }
-
-    return { ok: true, revisionId: data.revisionId };
+    return finalizeRevisionHandler(
+      {
+        reader: revisionReader(context.supabase),
+        userId: context.userId,
+        finalizeTransaction: async (args) => {
+          // The trusted transaction is service-role only; the caller was
+          // verified by the middleware and their identity is passed in for the
+          // function's own ownership check. Loaded inside the handler so it
+          // never enters a client bundle.
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          return supabaseAdmin.rpc("arc_finalize_revision", args as never);
+        },
+      },
+      data,
+    );
   });
 
 export interface RevisionHistoryEntryDto {
@@ -349,11 +356,7 @@ export const listRevisionHistory = createServerFn({ method: "POST" })
     };
   });
 
-export type StartRevisionResult = {
-  revisionId: string;
-  /** False when an active draft already existed and was opened instead. */
-  created: boolean;
-};
+export type { StartRevisionResult } from "./revisions.handlers";
 
 /**
  * Starts (or reopens) the editable draft that continues the analysis's current
@@ -373,40 +376,15 @@ export const startNewRevision = createServerFn({ method: "POST" })
     sourceRevisionId: uuid.parse(input?.sourceRevisionId),
   }))
   .handler(async ({ data, context }): Promise<StartRevisionResult> => {
-    // Caller-scoped read: RLS decides whether this contract is theirs at all,
-    // and the finalized inputs must still be readable by the current engine
-    // before they are seeded into an editable draft. The authoritative
-    // provenance check happens inside the transaction below.
-    const { data: source, error: sourceError } = await context.supabase
-      .from("analysis_revisions")
-      .select("canonical_inputs, schema_version, status")
-      .eq("id", data.sourceRevisionId)
-      .maybeSingle();
-    if (sourceError || !source) throw new Error("The finalized revision could not be read.");
-    if (source.status !== "finalized") {
-      throw new Error(
-        "Only the current finalized revision can be continued. A superseded revision stays view-only.",
-      );
-    }
-    const parsed = parseCanonicalInputs(source.canonical_inputs, source.schema_version);
-    if (!parsed.ok) throw new Error(parsed.reason);
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin.rpc("arc_start_amendment_revision", {
-      p_owner_user_id: context.userId,
-      p_contract_id: data.contractId,
-      p_expected_source_revision_id: data.sourceRevisionId,
-    });
-    if (error?.code === "40001") {
-      throw new Error(
-        "This analysis changed since this page loaded, so no new revision was started. Reload and try again.",
-      );
-    }
-    const created = Array.isArray(rows) ? rows[0] : rows;
-    if (error || !created) throw new Error("A new revision could not be started.");
-
-    return {
-      revisionId: (created as { revision_id: string }).revision_id,
-      created: Boolean((created as { created: boolean }).created),
-    };
+    return startNewRevisionHandler(
+      {
+        reader: revisionReader(context.supabase),
+        userId: context.userId,
+        amendmentTransaction: async (args) => {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          return supabaseAdmin.rpc("arc_start_amendment_revision", args as never);
+        },
+      },
+      data,
+    );
   });
