@@ -483,9 +483,7 @@ describe("the tightened decoder still accepts genuine supported workpapers", () 
     const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown(id)!);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
-    const recorded = JSON.parse(
-      JSON.stringify(outcome.engineOutputs),
-    ) as ArcEngineOutputsSnapshot;
+    const recorded = JSON.parse(JSON.stringify(outcome.engineOutputs)) as ArcEngineOutputsSnapshot;
     expect(readEngineOutputsSnapshot(recorded, META)).not.toBeNull();
   });
 });

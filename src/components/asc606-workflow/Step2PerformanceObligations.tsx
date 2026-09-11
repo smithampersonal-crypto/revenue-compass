@@ -45,7 +45,6 @@ export function Step2PerformanceObligations({
       ),
     });
 
-
   return (
     <Section
       title="Performance Obligations"
