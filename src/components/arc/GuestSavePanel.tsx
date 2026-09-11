@@ -42,6 +42,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [intent, setIntent] = useState<PendingIntent | null>(null);
+  /**
+   * The save was sent but its answer never arrived, so the outcome is unknown:
+   * it may well have committed. ARC never claims a rollback here.
+   */
+  const [unknownOutcome, setUnknownOutcome] = useState(false);
 
   const customerName = draft.contract.customerName.trim();
   const suggestion = suggestedContractTitle({
@@ -76,6 +81,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
     }
     setPending(true);
     setError(null);
+    let unknown = false;
     // Lock the whole workspace until the outcome is known, so the visible
     // draft cannot change underneath the transaction in this tab. Another
     // tab is still defended by the expected lock version in the database.
@@ -85,24 +91,32 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
         data: { contractTitle: request.contractTitle, expectedLockVersion: lockVersion },
       });
       if (!result.ok) {
-        // Nothing partial was created: the temporary workspace is still
-        // complete and authoritative.
+        // A confirmed answer from the server: nothing partial was created and
+        // the temporary workspace is still complete and authoritative.
+        setUnknownOutcome(false);
         setError(result.reason);
         return;
       }
       // Reached only with a committed (or idempotently recovered) result, so
       // the credential is retired and the exact saved revision opens.
+      setUnknownOutcome(false);
       await navigate({
         to: "/analysis",
         search: { contract: result.contractId, revision: result.revisionId },
       });
     } catch {
+      // No answer arrived. The save may already have completed, so ARC keeps
+      // this analysis locked and offers a retry that either finishes the save
+      // or reopens the one it already created — never a duplicate.
+      unknown = true;
+      setUnknownOutcome(true);
       setError(
-        "This analysis could not be saved to your account, so nothing was created. Your work is still here — please try again.",
+        "We did not hear back, so we cannot tell whether this analysis was saved. Nothing here has been changed and it cannot be edited until we know. Try again to finish the save or open the saved copy.",
       );
     } finally {
       setPending(false);
-      setFinalizing(false);
+      // An unknown outcome keeps the analysis locked against edits.
+      setFinalizing(unknown);
     }
   }, [customerName, lockVersion, migrate, navigate, setFinalizing]);
 
@@ -222,21 +236,36 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              className={PRIMARY}
-              disabled={!check.ok || pending || waiting || expired}
-            >
-              {pending ? "Saving…" : "Save to my account"}
-            </button>
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => setOpen(false)}
-              disabled={pending || waiting}
-            >
-              Cancel
-            </button>
+            {unknownOutcome ? (
+              // The same analysis, the same expected version, the same intent:
+              // this either finishes the save or reopens the saved copy.
+              <button
+                type="button"
+                className={PRIMARY}
+                onClick={() => void runMigration()}
+                disabled={pending}
+              >
+                {pending ? "Checking…" : "Try again"}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  className={PRIMARY}
+                  disabled={!check.ok || pending || waiting || expired}
+                >
+                  {pending ? "Saving…" : "Save to my account"}
+                </button>
+                <button
+                  type="button"
+                  className={BUTTON}
+                  onClick={() => setOpen(false)}
+                  disabled={pending || waiting}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         </form>
       ) : null}

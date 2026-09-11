@@ -93,11 +93,12 @@ async function guestStore(): Promise<GuestStore> {
       if (error) fail("create", error);
       return (data as never) ?? null;
     },
-    updateDraft: async ({ tokenHash, expectedLockVersion, canonical }) => {
+    updateDraft: async ({ tokenHash, expectedLockVersion, canonical, schemaVersion }) => {
       const { data, error } = await supabaseAdmin
         .from("guest_workspaces")
         .update({
           draft_json: canonical as never,
+          schema_version: schemaVersion,
           lock_version: expectedLockVersion + 1,
         })
         .eq("token_hash", tokenHash)
