@@ -28,7 +28,6 @@ import {
 import { ARC_WORKFLOW_SCHEMA_VERSION } from "./schema";
 import { isDecodableEngineOutputs, isDecodableReconciliation } from "./snapshot-schema";
 
-
 /**
  * Version of the deterministic engine composition recorded with every
  * finalized snapshot. Bump it when engine behaviour changes so historical
@@ -288,7 +287,6 @@ export function readEngineOutputsSnapshot(
   if (!isDecodableEngineOutputs(value, value["engineVersion"] as string)) return null;
   return value as unknown as ArcEngineOutputsSnapshot;
 }
-
 
 /**
  * Client-side readiness only: whether the whole workpaper — five-step

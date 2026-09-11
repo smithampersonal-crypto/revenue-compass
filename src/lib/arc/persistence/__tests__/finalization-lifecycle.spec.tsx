@@ -48,7 +48,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   };
 });
 
-
 const load = vi.fn();
 const save = vi.fn();
 const finalize = vi.fn();
@@ -134,7 +133,6 @@ beforeEach(() => {
     .mockResolvedValue({ revisions: [{ revisionId: REVISION_ID, status: "draft" }] });
 });
 
-
 describe("finalization conflict and ambiguity reload authoritative state", () => {
   it("reloads the authoritative revision on a stale-lock conflict", async () => {
     finalize.mockResolvedValue({ ok: false, reason: "conflict" });
@@ -193,7 +191,12 @@ describe("successful lifecycle paths", () => {
     load.mockResolvedValue(finalizedRevision());
     history.mockResolvedValue({
       revisions: [
-        { revisionId: REVISION_ID, revisionNumber: 2, status: "finalized", isCurrentFinalized: true },
+        {
+          revisionId: REVISION_ID,
+          revisionNumber: 2,
+          status: "finalized",
+          isCurrentFinalized: true,
+        },
       ],
     });
     startNew.mockResolvedValue({ revisionId: NEXT, created: true });
@@ -219,7 +222,12 @@ describe("successful lifecycle paths", () => {
     load.mockResolvedValue(finalizedRevision("superseded"));
     history.mockResolvedValue({
       revisions: [
-        { revisionId: "77777777-7777-4777-8777-777777777777", revisionNumber: 3, status: "finalized", isCurrentFinalized: true },
+        {
+          revisionId: "77777777-7777-4777-8777-777777777777",
+          revisionNumber: 3,
+          status: "finalized",
+          isCurrentFinalized: true,
+        },
         { revisionId: REVISION_ID, revisionNumber: 2, status: "superseded" },
       ],
     });

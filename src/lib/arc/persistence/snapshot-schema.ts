@@ -79,9 +79,7 @@ const validationOutcome = z
   })
   .passthrough();
 
-const revenueSource = z
-  .object({ id: text, name: text, sourceType: text })
-  .passthrough();
+const revenueSource = z.object({ id: text, name: text, sourceType: text }).passthrough();
 
 const coreReconciliation = z
   .object({
@@ -101,9 +99,7 @@ const differenceReconciliation = z
 
 /* ------------------------------------------------------- workflow output -- */
 
-const workflowIssue = z
-  .object({ id: text, step: text, severity, message: text })
-  .passthrough();
+const workflowIssue = z.object({ id: text, step: text, severity, message: text }).passthrough();
 
 const workflowValidation = z
   .object({
@@ -307,9 +303,7 @@ const modificationAnalysis = z
         treatment: text,
         label: text,
         separateContractCriteria: z.array(
-          z
-            .object({ id: text, label: text, passed: z.boolean(), detail: text })
-            .passthrough(),
+          z.object({ id: text, label: text, passed: z.boolean(), detail: text }).passthrough(),
         ),
         separateContractFailures: z.array(text),
         rationale: text,
@@ -513,16 +507,12 @@ const balancesSnapshot = z
     analysis: contractBalanceAnalysis.nullable(),
     engineInput: z.object({}).passthrough().nullable(),
     groupInputs: z.array(
-      z
-        .object({ groupId: text, label: text, input: z.object({}).passthrough() })
-        .passthrough(),
+      z.object({ groupId: text, label: text, input: z.object({}).passthrough() }).passthrough(),
     ),
     grouped: z
       .object({
         groups: z.array(
-          z
-            .object({ groupId: text, label: text, analysis: contractBalanceAnalysis })
-            .passthrough(),
+          z.object({ groupId: text, label: text, analysis: contractBalanceAnalysis }).passthrough(),
         ),
         combinedMonthly: z.array(monthlyBalanceRow).nullable(),
         combinedTransactionPriceCents: cents,
@@ -612,9 +602,7 @@ const groupedJournalAnalysis = z
     groups: z.array(
       z.object({ groupId: text, label: text, analysis: journalAnalysis }).passthrough(),
     ),
-    entries: z
-      .array(journalEntry.and(z.object({ groupId: text, groupLabel: text })))
-      .nullable(),
+    entries: z.array(journalEntry.and(z.object({ groupId: text, groupLabel: text }))).nullable(),
     reconciled: nullableBool,
   })
   .passthrough();

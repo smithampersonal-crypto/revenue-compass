@@ -66,7 +66,11 @@ describe("finalizeRevisionHandler", () => {
     const read = vi.fn(reader().readRevisionForFinalization);
     const rpc = vi.fn(async () => ({ data: null, error: null }));
     await finalizeRevisionHandler(
-      { reader: reader({ readRevisionForFinalization: read }), userId: USER_ID, finalizeTransaction: rpc },
+      {
+        reader: reader({ readRevisionForFinalization: read }),
+        userId: USER_ID,
+        finalizeTransaction: rpc,
+      },
       { revisionId: REVISION_ID, expectedLockVersion: 3 },
     );
     expect(read).toHaveBeenCalledWith(REVISION_ID);
@@ -74,7 +78,10 @@ describe("finalizeRevisionHandler", () => {
     const server = buildFinalizationSnapshot(COMPLETE);
     expect(server.ok).toBe(true);
     if (!server.ok) return;
-    const args = rpc.mock.calls[0]![0] as Record<string, unknown>;
+    const args = (rpc.mock.calls as unknown as Record<string, unknown>[][])[0]![0] as Record<
+      string,
+      unknown
+    >;
     expect(args["p_engine_outputs"]).toEqual(server.engineOutputs);
     expect(args["p_reconciliation_snapshot"]).toEqual(server.reconciliation);
     expect(args["p_schema_version"]).toBe(ARC_WORKFLOW_SCHEMA_VERSION);
@@ -123,7 +130,9 @@ describe("finalizeRevisionHandler", () => {
     await expect(
       finalizeRevisionHandler(
         {
-          reader: reader({ readRevisionForFinalization: async () => ({ data: null, error: null }) }),
+          reader: reader({
+            readRevisionForFinalization: async () => ({ data: null, error: null }),
+          }),
           userId: USER_ID,
           finalizeTransaction: vi.fn(async () => ({ data: null, error: null })),
         },
@@ -167,7 +176,7 @@ describe("startNewRevisionHandler", () => {
       { reader: reader(), userId: USER_ID, amendmentTransaction: rpc },
       { contractId: CONTRACT_ID, sourceRevisionId: SOURCE_ID },
     );
-    expect(rpc.mock.calls[0]![0]).toEqual({
+    expect((rpc.mock.calls as unknown as Record<string, unknown>[][])[0]![0]).toEqual({
       p_owner_user_id: USER_ID,
       p_contract_id: CONTRACT_ID,
       p_expected_source_revision_id: SOURCE_ID,

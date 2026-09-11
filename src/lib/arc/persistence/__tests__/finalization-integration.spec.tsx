@@ -26,7 +26,6 @@ import {
 import { ARC_WORKFLOW_SCHEMA_VERSION } from "../schema";
 import type { LoadedRevisionDto } from "../revisions.functions";
 
-
 vi.mock("@tanstack/react-start", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useServerFn: (fn: unknown) => fn };
@@ -348,7 +347,6 @@ describe("structurally unusable recordings fail closed", () => {
     expect(readEngineOutputsSnapshot(recordedOutputs(), META)).not.toBeNull();
   });
 });
-
 
 describe("pending finalization locks the draft", () => {
   function Locking() {

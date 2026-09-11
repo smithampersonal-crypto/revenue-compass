@@ -66,7 +66,6 @@ function revisionReader(supabase: unknown): RevisionReader {
   };
 }
 
-
 /**
  * Phase 7D — the stored finalized snapshot, returned exactly as recorded.
  * `engineVersionMatchesCurrent` is false when the snapshot was produced by an
@@ -303,7 +302,6 @@ export const finalizeRevision = createServerFn({ method: "POST" })
     );
   });
 
-
 export interface RevisionHistoryEntryDto {
   revisionId: string;
   revisionNumber: number;
@@ -390,4 +388,3 @@ export const startNewRevision = createServerFn({ method: "POST" })
       data,
     );
   });
-
