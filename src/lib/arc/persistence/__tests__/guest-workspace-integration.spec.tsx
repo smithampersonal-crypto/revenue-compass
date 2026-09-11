@@ -184,7 +184,7 @@ describe("explicit save of a guest analysis", () => {
     resume.mockResolvedValue(guestWorkspace(""));
     renderGuest({ autoOpen: true });
     await screen.findByTestId("mode");
-    expect(await screen.findByText(/Step 1/)).toBeInTheDocument();
+    expect(await screen.findByText(/Add the customer name in Step 1/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save to my account" })).toBeDisabled();
   });
 
