@@ -67,12 +67,28 @@
       Review — through the same canonical components; a missing or unusable
       recording fails closed rather than recalculating. Finalization asks for
       confirmation ("Finalize analysis") and locks the whole workspace while the
-      request is pending, returning safely to the editable draft on conflict or
-      failure. Only the current finalized revision offers a new revision; it is
-      created by the service-role-only `arc_start_amendment_revision`
-      transaction, which seeds the draft from that revision, records
-      `supersedes_revision_id`, reuses an existing active draft, and the UI then
-      navigates to the returned draft. **Awaiting review — do not start 7E.**
+      request is pending. Only the current finalized revision offers a new
+      revision; it is created by the service-role-only
+      `arc_start_amendment_revision` transaction, which seeds the draft from
+      that revision, records `supersedes_revision_id`, reuses an existing active
+      draft, and the UI then navigates to the returned draft.
+
+      7D final acceptance patch: a finalized or superseded revision never
+      passes its historical draft through the current workflow, balance or
+      journal engines — recorded outputs only, and an unusable recording still
+      does not recalculate. A finalization stale-lock conflict or transport
+      error no longer restores the stale local draft as editable: both
+      re-establish authoritative server state through an explicit reload, while
+      a deterministic blocked result keeps the same saved draft open. Amendment
+      provenance is decided inside the database transaction — the expected
+      source revision is checked against `current_finalized_revision_id` under
+      the same `FOR UPDATE` lock. Frozen-snapshot decoding validates every
+      nested shape the historical renderers read and requires the stored row's
+      `engine_version` / `schema_version` to match the snapshot's. Persisted
+      summary labels read Draft Analysis · Saved / Finalized Analysis ·
+      Revision N / Superseded Analysis · Revision N.
+      **Awaiting review — do not start 7E.**
+
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
 - [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
       end-to-end regression, completion report.
