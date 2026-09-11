@@ -1,6 +1,5 @@
-import { analyzeGroupedJournalEntries, analyzeJournalEntries } from "@/lib/asc606-journals";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
-import { analyzeContractBalanceWorkflow } from "@/lib/asc606-workflow";
+import type { ArcJournalSnapshot } from "@/lib/arc/persistence/snapshot";
 
 import { GroupedJournalReconciliation } from "@/components/asc606-workflow/GroupedJournalReconciliation";
 import { JournalEntryOutputs } from "@/components/asc606-workflow/JournalEntryOutputs";
@@ -10,31 +9,27 @@ import { Notice, Section } from "@/components/asc606-workflow/fields";
  * Journal Entries parent area. Ordinary contracts produce one journal set;
  * grouped Phase 5C contracts each produce their own. No combined journal is
  * created and nothing is netted across contracts.
+ *
+ * The journal output is supplied by AnalysisProvider: the live engine run for
+ * an editable analysis, the recorded snapshot for a finalized or superseded
+ * revision.
  */
 export function JournalEntriesView({
   draft,
   result,
+  journals,
 }: {
   draft: WorkflowDraft;
   result: WorkflowAnalysisResult;
+  journals: ArcJournalSnapshot | null;
 }) {
-  const balances = analyzeContractBalanceWorkflow(draft);
-
   const sourceNames = new Map<string, string>([
     ...draft.performanceObligations.map((po) => [po.id, po.name || po.id] as const),
     ...result.revenueSources.map((source) => [source.id, source.name] as const),
   ]);
 
-  const grouped =
-    balances.finalized && balances.grouped
-      ? analyzeGroupedJournalEntries(balances.groupInputs)
-      : null;
-  const ordinary =
-    balances.finalized && !balances.grouped && balances.engineInput
-      ? analyzeJournalEntries(balances.engineInput)
-      : null;
-
-  if (grouped) {
+  if (journals?.kind === "grouped") {
+    const grouped = journals.analysis;
     return (
       <div className="space-y-6">
         {grouped.groups.map((group) => (
@@ -50,8 +45,8 @@ export function JournalEntriesView({
     );
   }
 
-  if (ordinary) {
-    return <JournalEntryOutputs analysis={ordinary} poNames={sourceNames} />;
+  if (journals?.kind === "ordinary") {
+    return <JournalEntryOutputs analysis={journals.analysis} poNames={sourceNames} />;
   }
 
   return (

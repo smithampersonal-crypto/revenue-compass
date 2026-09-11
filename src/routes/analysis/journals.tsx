@@ -26,6 +26,6 @@ export const Route = createFileRoute("/analysis/journals")({
 });
 
 function JournalEntriesArea() {
-  const { draft, result } = useAnalysis();
-  return <JournalEntriesView draft={draft} result={result} />;
+  const { draft, result, workpaper } = useAnalysis();
+  return <JournalEntriesView draft={draft} result={result} journals={workpaper.journals} />;
 }

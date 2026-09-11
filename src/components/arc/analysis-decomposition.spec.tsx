@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
 import { QueryClient } from "@tanstack/react-query";
+import { buildWorkpaper } from "@/lib/arc/persistence/snapshot";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -145,7 +146,10 @@ describe("Phase 3 — supporting engine output", () => {
 
   it("keeps variable-consideration reconciliation in Review & Finalize", () => {
     const draft = case7Draft();
-    render(<ReviewFinalizeView draft={draft} result={analyzeWorkflow(draft)} />);
+    const wp = buildWorkpaper(draft);
+    render(
+      <ReviewFinalizeView result={wp.workflow} balances={wp.balances} journals={wp.journals} />,
+    );
     expect(
       screen.getByText("Variable-consideration reconciliation (engine output)"),
     ).toBeInTheDocument();
@@ -201,7 +205,12 @@ describe("Phase 3 — Contract Balances", () => {
   it("renders exactly one billing schedule for an ordinary contract", async () => {
     const draft = createDemoDraft("horizon");
     render(
-      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+      <ContractBalancesView
+        draft={draft}
+        result={analyzeWorkflow(draft)}
+        balances={analyzeContractBalanceWorkflow(draft)}
+        onChange={() => {}}
+      />,
     );
     expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(1);
   });
@@ -211,7 +220,12 @@ describe("Phase 3 — Contract Balances", () => {
     const balances = analyzeContractBalanceWorkflow(draft);
     expect(balances.grouped).not.toBeNull();
     render(
-      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+      <ContractBalancesView
+        draft={draft}
+        result={analyzeWorkflow(draft)}
+        balances={analyzeContractBalanceWorkflow(draft)}
+        onChange={() => {}}
+      />,
     );
     expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(
       balances.grouped!.groups.length,
@@ -231,6 +245,7 @@ describe("Phase 3 — Contract Balances", () => {
       <ContractBalancesView
         draft={blocked}
         result={analyzeWorkflow(blocked)}
+        balances={balances}
         onChange={() => {}}
       />,
     );
@@ -240,7 +255,12 @@ describe("Phase 3 — Contract Balances", () => {
   it("exposes no finalization terminology when the workpaper is blocked", () => {
     const draft = createEmptyDraft();
     const { container } = render(
-      <ContractBalancesView draft={draft} result={analyzeWorkflow(draft)} onChange={() => {}} />,
+      <ContractBalancesView
+        draft={draft}
+        result={analyzeWorkflow(draft)}
+        balances={analyzeContractBalanceWorkflow(draft)}
+        onChange={() => {}}
+      />,
     );
     expect(container.textContent ?? "").not.toMatch(/finalized/i);
   });
@@ -282,8 +302,9 @@ describe("Phase 3 — Review & Finalize", () => {
 
   it("never exposes legacy finalized-analysis wording for a blocked draft", () => {
     const draft = createEmptyDraft();
+    const wp = buildWorkpaper(draft);
     const { container } = render(
-      <ReviewFinalizeView draft={draft} result={analyzeWorkflow(draft)} />,
+      <ReviewFinalizeView result={wp.workflow} balances={wp.balances} journals={wp.journals} />,
     );
     expect(container.textContent ?? "").not.toMatch(/finalized/i);
   });

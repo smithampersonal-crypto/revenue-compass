@@ -12,11 +12,11 @@ import {
 } from "react";
 
 import {
-  analyzeWorkflow,
   createEmptyDraft,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
+import { buildWorkpaper, type ArcWorkpaper } from "@/lib/arc/persistence/snapshot";
 import { createDemoDraftIfKnown, getDemoScenario, isDemoScenarioId } from "@/lib/demo-scenarios";
 import { loadContractAnalysis, saveDraftRevision } from "@/lib/arc/persistence/revisions.functions";
 import type { LoadedRevisionDto } from "@/lib/arc/persistence/revisions.functions";
@@ -50,14 +50,41 @@ export interface AnalysisPersistence {
   reload: () => void;
   /** Retries an ordinary failed save, keeping local edits. */
   retrySave: () => void;
+  /**
+   * True from the moment the accountant confirms finalization until the server
+   * answers. The whole workspace is non-editable while it is true, so nothing
+   * can change the draft the server is finalizing.
+   */
+  finalizing: boolean;
+  setFinalizing: (value: boolean) => void;
+}
+
+/**
+ * A finalized or superseded revision presented from its recorded snapshot.
+ * `error` is set when the recording is missing or unusable: the workspace then
+ * fails closed instead of recalculating the inputs with the current engine.
+ */
+export interface HistoricalPresentation {
+  active: boolean;
+  status: "finalized" | "superseded" | null;
+  engineVersion: string | null;
+  engineVersionMatchesCurrent: boolean;
+  error: string | null;
 }
 
 export interface AnalysisContextValue {
   /** The single authoritative in-memory analysis draft. */
   draft: WorkflowDraft;
   setDraft: (updater: WorkflowDraft | ((previous: WorkflowDraft) => WorkflowDraft)) => void;
-  /** Deterministic engine output for the current draft. */
+  /**
+   * Deterministic engine output presented by the workspace. For an editable,
+   * manual, sample or draft analysis this is the live engine run; for a
+   * finalized or superseded revision it is the recorded snapshot.
+   */
   result: WorkflowAnalysisResult;
+  /** Every engine output the workspace presents, from the same source. */
+  workpaper: ArcWorkpaper;
+  historical: HistoricalPresentation;
   /**
    * False for finalized / superseded revisions and while a saved analysis is
    * loading or failed to load. Every accounting input must respect it.
@@ -98,7 +125,8 @@ export function AnalysisProvider({
     () => createDemoDraftIfKnown(sample) ?? createEmptyDraft(),
   );
 
-  const result = useMemo(() => analyzeWorkflow(draft), [draft]);
+  /** Live deterministic engine run for the editable draft. */
+  const liveWorkpaper = useMemo(() => buildWorkpaper(draft), [draft]);
 
   const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
   const unknownSample = sample !== undefined && loadedSample === null;
@@ -361,10 +389,52 @@ export function AnalysisProvider({
     void runSave(loaded.revisionId);
   }, [loaded, runSave]);
 
+  /** True from confirmation until the finalization request resolves. */
+  const [finalizing, setFinalizing] = useState(false);
+
   // A saved analysis is only editable once a fresh server copy is in hand.
   // Until then the placeholder must not be editable, and a failed load must
   // never leave an editable blank workspace that looks like the contract.
-  const canEdit = persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true;
+  // While a finalization is pending the workspace is non-editable everywhere,
+  // so no navigation path can change the draft the server is finalizing.
+  const canEdit = !finalizing && (persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true);
+
+  /**
+   * A finalized or superseded revision is presented from its recorded engine
+   * outputs. The current engine is never rerun for it: if the recording is
+   * missing or unusable the workspace fails closed.
+   */
+  const recorded = loaded && loaded.readOnly ? (loaded.snapshot?.engineOutputs ?? null) : null;
+  const historicalActive = Boolean(loaded && loaded.readOnly);
+  const historicalError =
+    historicalActive && !recorded
+      ? "The recorded snapshot for this revision is missing or unreadable, so its results cannot be shown. It is never recalculated with the current engine."
+      : null;
+
+  const workpaper = useMemo<ArcWorkpaper>(
+    () =>
+      recorded
+        ? {
+            workflow: recorded.workflow,
+            balances: recorded.balances,
+            journals: recorded.journals,
+          }
+        : liveWorkpaper,
+    [recorded, liveWorkpaper],
+  );
+  const result = workpaper.workflow;
+
+  const historical = useMemo<HistoricalPresentation>(
+    () => ({
+      active: historicalActive,
+      status:
+        loaded && loaded.status !== "draft" ? (loaded.status as "finalized" | "superseded") : null,
+      engineVersion: loaded?.snapshot?.engineVersion ?? null,
+      engineVersionMatchesCurrent: loaded?.snapshot?.engineVersionMatchesCurrent ?? true,
+      error: historicalError,
+    }),
+    [historicalActive, historicalError, loaded],
+  );
 
   const setDraft = useCallback<AnalysisContextValue["setDraft"]>(
     (updater) => {
@@ -387,8 +457,10 @@ export function AnalysisProvider({
       readOnly: Boolean(loaded?.readOnly),
       reload,
       retrySave,
+      finalizing,
+      setFinalizing,
     }),
-    [persistenceEnabled, status, loaded, lockVersion, reload, retrySave],
+    [persistenceEnabled, status, loaded, lockVersion, reload, retrySave, finalizing],
   );
 
   const resetAnalysis = useCallback(() => {
@@ -401,6 +473,8 @@ export function AnalysisProvider({
       draft,
       setDraft,
       result,
+      workpaper,
+      historical,
       canEdit,
       origin: loadedSample ? "sample" : "manual",
       sample,
@@ -415,6 +489,8 @@ export function AnalysisProvider({
       draft,
       setDraft,
       result,
+      workpaper,
+      historical,
       canEdit,
       loadedSample,
       unknownSample,

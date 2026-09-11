@@ -28,11 +28,12 @@ export const Route = createFileRoute("/analysis/review")({
 });
 
 function ReviewFinalizeArea() {
-  const { draft, result, persistence } = useAnalysis();
+  const { result, workpaper, persistence } = useAnalysis();
   const revision = persistence.revision;
 
-  // A finalized or superseded revision is presented from its recorded
-  // snapshot, never from a fresh engine run.
+  // Snapshot metadata for a finalized or superseded revision. The review
+  // output itself comes from the same authoritative workpaper as every other
+  // parent area: recorded for a historical revision, live for a draft.
   const recorded =
     revision && revision.status !== "draft" && revision.snapshot
       ? {
@@ -51,9 +52,12 @@ function ReviewFinalizeArea() {
           revisionNumber={recorded.revisionNumber}
           snapshot={recorded.snapshot}
         />
-      ) : (
-        <ReviewFinalizeView draft={draft} result={result} />
-      )}
+      ) : null}
+      <ReviewFinalizeView
+        result={result}
+        balances={workpaper.balances}
+        journals={workpaper.journals}
+      />
     </div>
   );
 }

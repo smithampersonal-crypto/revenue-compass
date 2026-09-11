@@ -1,7 +1,6 @@
 import { formatCents } from "@/lib/asc606";
-import { analyzeGroupedJournalEntries, analyzeJournalEntries } from "@/lib/asc606-journals";
-import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
-import { analyzeContractBalanceWorkflow } from "@/lib/asc606-workflow";
+import type { ContractBalanceWorkflowResult, WorkflowAnalysisResult } from "@/lib/asc606-workflow";
+import type { ArcJournalSnapshot } from "@/lib/arc/persistence/snapshot";
 
 import { CoreReconciliation } from "@/components/asc606-workflow/CoreReconciliation";
 import { MaterialRightReconciliation } from "@/components/asc606-workflow/MaterialRightLifecycleOutputs";
@@ -13,27 +12,25 @@ import { analysisStatus } from "./analysis-status";
 
 /**
  * Review & Finalize aggregates status, validation and reconciliation from
- * every engine so an accountant can see in one place whether the draft and its
- * outputs reconcile. Detailed schedules stay in their own parent areas. This
- * phase does not implement an immutable finalized state.
+ * every engine so an accountant can see in one place whether the analysis and
+ * its outputs reconcile. Detailed schedules stay in their own parent areas.
+ *
+ * All engine output is supplied by AnalysisProvider: the live engine run for
+ * an editable analysis, the recorded snapshot for a finalized or superseded
+ * revision. Nothing here is recalculated.
  */
 export function ReviewFinalizeView({
-  draft,
   result,
+  balances,
+  journals,
 }: {
-  draft: WorkflowDraft;
   result: WorkflowAnalysisResult;
+  balances: ContractBalanceWorkflowResult;
+  journals: ArcJournalSnapshot | null;
 }) {
   const status = analysisStatus(result);
-  const balances = analyzeContractBalanceWorkflow(draft);
-  const grouped =
-    balances.finalized && balances.grouped
-      ? analyzeGroupedJournalEntries(balances.groupInputs)
-      : null;
-  const ordinaryJournals =
-    balances.finalized && !balances.grouped && balances.engineInput
-      ? analyzeJournalEntries(balances.engineInput)
-      : null;
+  const grouped = journals?.kind === "grouped" ? journals.analysis : null;
+  const ordinaryJournals = journals?.kind === "ordinary" ? journals.analysis : null;
   const modification = result.modification;
 
   return (

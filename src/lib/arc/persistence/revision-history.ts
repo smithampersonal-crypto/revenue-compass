@@ -50,8 +50,15 @@ export function finalizeGate(input: {
   status: SaveStatus;
   revisionStatus: RevisionStatus | null;
   engineFinalized: boolean;
+  /** The whole workpaper — balances and journals included — is complete. */
+  workpaperComplete: boolean;
   lockVersion: number | null;
+  /** True while a finalization request is already in flight. */
+  finalizing?: boolean;
 }): FinalizeGate {
+  if (input.finalizing) {
+    return { canFinalize: false, reason: "This revision is being finalized." };
+  }
   if (!input.persistenceEnabled) {
     return {
       canFinalize: false,
@@ -71,6 +78,13 @@ export function finalizeGate(input: {
     return {
       canFinalize: false,
       reason: "The ASC 606 analysis still has outstanding items, so it cannot be finalized yet.",
+    };
+  }
+  if (!input.workpaperComplete) {
+    return {
+      canFinalize: false,
+      reason:
+        "The Billing & Contract Balances workpaper and its journal entries must be complete and reconciled before this revision can be finalized.",
     };
   }
   return { canFinalize: true };

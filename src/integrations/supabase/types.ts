@@ -266,6 +266,13 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_start_amendment_revision: {
+        Args: { p_contract_id: string; p_owner_user_id: string }
+        Returns: {
+          created: boolean
+          revision_id: string
+        }[]
+      }
     }
     Enums: {
       arc_contract_status: "active" | "archived"

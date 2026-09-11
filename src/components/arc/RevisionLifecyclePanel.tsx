@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
@@ -9,6 +9,7 @@ import {
   startNewRevision,
 } from "@/lib/arc/persistence/revisions.functions";
 import { describeRevisionStatus, finalizeGate } from "@/lib/arc/persistence/revision-history";
+import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
 import { useAnalysis } from "./analysis-context";
@@ -27,10 +28,12 @@ const SECONDARY_CLASS =
  * lock version. All accounting is done by the server from the persisted draft.
  */
 export function RevisionLifecyclePanel() {
-  const { persistence, result } = useAnalysis();
+  const { persistence, result, workpaper } = useAnalysis();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [message, setMessage] = useState<string | null>(null);
   const [blockingIssues, setBlockingIssues] = useState<string[]>([]);
+  const [confirming, setConfirming] = useState(false);
 
   const finalize = useServerFn(finalizeRevision);
   const fetchHistory = useServerFn(listRevisionHistory);
@@ -45,15 +48,29 @@ export function RevisionLifecyclePanel() {
     queryFn: () => fetchHistory({ data: { contractId: contractId! } }),
   });
 
+  // ARC v1 does not branch from history: only the current finalized revision
+  // can be continued. A superseded revision stays view-only.
+  const currentFinalizedId =
+    history.data?.revisions.find((entry) => entry.isCurrentFinalized)?.revisionId ?? null;
+  const canStartNewRevision =
+    Boolean(revision) &&
+    revision!.status === "finalized" &&
+    revision!.revisionId === currentFinalizedId;
+
   const finalizeMutation = useMutation({
-    mutationFn: () =>
-      finalize({
+    mutationFn: () => {
+      // The whole workspace is locked from here until the server answers, so
+      // nothing can change the draft that is being finalized.
+      persistence.setFinalizing(true);
+      return finalize({
         data: {
           revisionId: revision!.revisionId,
           expectedLockVersion: persistence.lockVersion!,
         },
-      }),
+      });
+    },
     onSuccess: async (outcome) => {
+      setConfirming(false);
       if (outcome.ok) {
         setBlockingIssues([]);
         setMessage("This revision is finalized. It is now read-only.");
@@ -64,7 +81,7 @@ export function RevisionLifecyclePanel() {
       if (outcome.reason === "conflict") {
         setBlockingIssues([]);
         setMessage(
-          "The saved analysis changed since this page loaded, so nothing was finalized. Reload the saved version and try again.",
+          "The saved analysis changed since this page loaded, so nothing was finalized. Your saved draft is unchanged and editable.",
         );
         return;
       }
@@ -72,16 +89,36 @@ export function RevisionLifecyclePanel() {
       setMessage("The server re-ran the engines on the saved analysis and it is not complete.");
     },
     onError: (error: unknown) => {
+      setConfirming(false);
       setBlockingIssues([]);
       setMessage(error instanceof Error ? error.message : "That revision could not be finalized.");
     },
+    // On success the reload replaces the revision; on failure the saved draft
+    // is returned to exactly as it was, still editable.
+    onSettled: () => persistence.setFinalizing(false),
   });
 
   const newRevisionMutation = useMutation({
-    mutationFn: () => newRevision({ data: { contractId: contractId! } }),
-    onSuccess: async () => {
-      setMessage("A new draft revision was started from the finalized snapshot.");
+    mutationFn: () =>
+      newRevision({
+        data: {
+          contractId: contractId!,
+          // Provenance is explicit: only the current finalized revision may be
+          // continued, and the server records it as the superseded source.
+          ...(currentFinalizedId ? { sourceRevisionId: currentFinalizedId } : {}),
+        },
+      }),
+    onSuccess: async (outcome) => {
+      setMessage(
+        outcome.created
+          ? "A new draft revision was started from the finalized snapshot."
+          : "An editable draft revision already existed, so it was opened.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      await navigate({
+        to: "/analysis/review",
+        search: { contract: contractId!, revision: outcome.revisionId },
+      });
     },
     onError: (error: unknown) => {
       setMessage(error instanceof Error ? error.message : "A new revision could not be started.");
@@ -107,7 +144,11 @@ export function RevisionLifecyclePanel() {
     status: persistence.status,
     revisionStatus: revision?.status ?? null,
     engineFinalized: result.finalized,
+    // The same complete-workpaper readiness the server enforces, so an
+    // obviously incomplete billing workpaper never offers an enabled button.
+    workpaperComplete: isWorkpaperComplete(workpaper),
     lockVersion: persistence.lockVersion,
+    finalizing: persistence.finalizing,
   });
 
   const currentStatus = revision ? describeRevisionStatus(revision.status) : null;
@@ -128,28 +169,62 @@ export function RevisionLifecyclePanel() {
         <p className="text-sm text-muted-foreground">Opening the saved analysis…</p>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {revision?.status === "draft" ? (
-          <button
-            type="button"
-            className={BUTTON_CLASS}
-            disabled={!gate.canFinalize || finalizeMutation.isPending}
-            onClick={() => finalizeMutation.mutate()}
-          >
-            {finalizeMutation.isPending ? "Finalizing…" : "Finalize this revision"}
-          </button>
-        ) : null}
-        {revision && revision.status !== "draft" ? (
-          <button
-            type="button"
-            className={SECONDARY_CLASS}
-            disabled={newRevisionMutation.isPending}
-            onClick={() => newRevisionMutation.mutate()}
-          >
-            {newRevisionMutation.isPending ? "Starting…" : "Start a new revision"}
-          </button>
-        ) : null}
-      </div>
+      {confirming ? (
+        <div className="space-y-3 rounded-md border border-border p-3">
+          <p className="text-sm font-semibold text-foreground">
+            Finalizing makes this revision immutable.
+          </p>
+          <p className="text-sm text-muted-foreground">Future changes require a new revision.</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={BUTTON_CLASS}
+              disabled={!gate.canFinalize || finalizeMutation.isPending}
+              onClick={() => finalizeMutation.mutate()}
+            >
+              {finalizeMutation.isPending ? "Finalizing…" : "Finalize analysis"}
+            </button>
+            <button
+              type="button"
+              className={SECONDARY_CLASS}
+              disabled={finalizeMutation.isPending}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {revision?.status === "draft" ? (
+            <button
+              type="button"
+              className={BUTTON_CLASS}
+              disabled={!gate.canFinalize}
+              onClick={() => setConfirming(true)}
+            >
+              Finalize analysis
+            </button>
+          ) : null}
+          {canStartNewRevision ? (
+            <button
+              type="button"
+              className={SECONDARY_CLASS}
+              disabled={newRevisionMutation.isPending}
+              onClick={() => newRevisionMutation.mutate()}
+            >
+              {newRevisionMutation.isPending ? "Starting…" : "Start a new revision"}
+            </button>
+          ) : null}
+        </div>
+      )}
+
+      {revision && revision.status === "superseded" ? (
+        <Notice>
+          This superseded revision is view-only. Continue from the current finalized revision to
+          make further changes.
+        </Notice>
+      ) : null}
 
       {!gate.canFinalize && revision?.status === "draft" ? <Notice>{gate.reason}</Notice> : null}
 

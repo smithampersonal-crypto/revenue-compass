@@ -1,5 +1,8 @@
-import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
-import { analyzeContractBalanceWorkflow } from "@/lib/asc606-workflow";
+import type {
+  ContractBalanceWorkflowResult,
+  WorkflowAnalysisResult,
+  WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalances";
 import { CombinedContractBalances } from "@/components/asc606-workflow/CombinedContractBalances";
@@ -17,14 +20,20 @@ import { Notice, Section } from "@/components/asc606-workflow/fields";
 export function ContractBalancesView({
   draft,
   result,
+  balances,
   onChange,
 }: {
   draft: WorkflowDraft;
   /** Authoritative five-step analysis from AnalysisProvider. */
   result: WorkflowAnalysisResult;
+  /**
+   * Authoritative balance output from AnalysisProvider: the live engine run
+   * for an editable analysis, the recorded snapshot for a finalized or
+   * superseded revision.
+   */
+  balances: ContractBalanceWorkflowResult;
   onChange: (draft: WorkflowDraft) => void;
 }) {
-  const balances = analyzeContractBalanceWorkflow(draft);
   // Presentation-only selection: distinguishes "the five-step draft is not yet
   // complete" from "the billing workpaper itself is incomplete". No accounting.
   const revenueComplete = result.finalized;
