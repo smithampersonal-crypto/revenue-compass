@@ -324,6 +324,30 @@ const MALFORMED: [string, Mutation][] = [
       o.balances.analysis!.reconciliation = { reconciled: "yes" } as never;
     },
   ],
+  [
+    "workflow validation missing the Step 2A blocking key",
+    (o) => {
+      delete (o.workflow.workflowValidation.blockingByStep as unknown as Record<string, unknown>)[
+        "2a"
+      ];
+    },
+  ],
+  [
+    "workflow validation missing the Step 2B warning key",
+    (o) => {
+      delete (o.workflow.workflowValidation.warningsByStep as unknown as Record<string, unknown>)[
+        "2b"
+      ];
+    },
+  ],
+  [
+    "a journal entry whose event type is not a known event",
+    (o) => {
+      if (o.journals.kind !== "ordinary") throw new Error("fixture must be ordinary");
+      const entry = o.journals.analysis.entries![0] as unknown as Record<string, unknown>;
+      entry["eventType"] = "made_up_event";
+    },
+  ],
 ];
 
 describe("structurally unusable recordings fail closed", () => {
