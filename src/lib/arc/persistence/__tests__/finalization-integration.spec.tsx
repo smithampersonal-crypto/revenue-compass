@@ -73,7 +73,10 @@ function recordedOutputs(): ArcEngineOutputsSnapshot {
   if (balanceAnalysis) balanceAnalysis.reconciliation.totalRevenueCents = REVIEW_CENTS;
   if (outputs.journals.kind === "ordinary") {
     const line = outputs.journals.analysis.entries?.[0]?.lines?.[0];
-    if (line) line.amountCents = JOURNAL_CENTS;
+    if (line) {
+      if (line.debitCents > 0) line.debitCents = JOURNAL_CENTS;
+      else line.creditCents = JOURNAL_CENTS;
+    }
   }
   return outputs;
 }
