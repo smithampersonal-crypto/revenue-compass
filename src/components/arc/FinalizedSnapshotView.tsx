@@ -36,7 +36,9 @@ export function FinalizedSnapshotView({
             <tr>
               <td className={td}>Finalized at</td>
               <td className={td}>
-                {snapshot.finalizedAt ? new Date(snapshot.finalizedAt).toLocaleString() : "Not recorded"}
+                {snapshot.finalizedAt
+                  ? new Date(snapshot.finalizedAt).toLocaleString()
+                  : "Not recorded"}
               </td>
             </tr>
             <tr>
@@ -53,8 +55,8 @@ export function FinalizedSnapshotView({
         {!snapshot.engineVersionMatchesCurrent ? (
           <Notice tone="warning">
             This snapshot was produced by an earlier version of the deterministic engine. It is
-            preserved exactly as finalized. To see the current engine&apos;s conclusions, start a new
-            revision.
+            preserved exactly as finalized. To see the current engine&apos;s conclusions, start a
+            new revision.
           </Notice>
         ) : null}
       </Section>
@@ -62,9 +64,7 @@ export function FinalizedSnapshotView({
       {reconciliation ? (
         <RecordedReconciliation reconciliation={reconciliation} />
       ) : (
-        <Notice tone="warning">
-          No reconciliation snapshot was recorded with this revision.
-        </Notice>
+        <Notice tone="warning">No reconciliation snapshot was recorded with this revision.</Notice>
       )}
     </div>
   );
@@ -80,11 +80,7 @@ function money(value: number | null | undefined): string {
   return value === null || value === undefined ? "Not recorded" : formatCents(value);
 }
 
-function RecordedReconciliation({
-  reconciliation,
-}: {
-  reconciliation: ArcReconciliationSnapshot;
-}) {
+function RecordedReconciliation({ reconciliation }: { reconciliation: ArcReconciliationSnapshot }) {
   const core = reconciliation.core as { reconciled?: boolean | null } | null;
   const lifecycle = reconciliation.lifecycle as { reconciled?: boolean | null } | null;
   const vc = reconciliation.variableConsideration as { reconciled?: boolean | null } | null;

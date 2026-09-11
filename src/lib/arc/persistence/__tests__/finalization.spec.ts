@@ -40,7 +40,9 @@ describe("finalization snapshot", () => {
     expect(outcome.reconciliation.totals.transactionPriceCents).toBe(
       engine.analysis?.totals.transactionPriceCents ?? null,
     );
-    expect(outcome.reconciliation.totals.revenueCents).toBe(engine.revenueSchedule?.totalCents ?? null);
+    expect(outcome.reconciliation.totals.revenueCents).toBe(
+      engine.revenueSchedule?.totalCents ?? null,
+    );
     expect(outcome.reconciliation.core).toEqual(engine.analysis?.reconciliation ?? null);
   });
 
@@ -79,9 +81,9 @@ describe("finalize gate", () => {
   });
 
   it("blocks while edits are unsaved or the lock version is unknown", () => {
-    expect(
-      finalizeGate({ ...base, status: { kind: "saving" } as SaveStatus }).canFinalize,
-    ).toBe(false);
+    expect(finalizeGate({ ...base, status: { kind: "saving" } as SaveStatus }).canFinalize).toBe(
+      false,
+    );
     expect(finalizeGate({ ...base, lockVersion: null }).canFinalize).toBe(false);
   });
 

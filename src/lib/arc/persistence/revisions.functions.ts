@@ -301,7 +301,8 @@ export const listRevisionHistory = createServerFn({ method: "POST" })
       .select("id, current_finalized_revision_id")
       .eq("contract_id", data.contractId)
       .maybeSingle();
-    if (analysisError || !analysis) throw new Error("That contract was not found in your workspace.");
+    if (analysisError || !analysis)
+      throw new Error("That contract was not found in your workspace.");
 
     const { data: rows, error } = await context.supabase
       .from("analysis_revisions")
@@ -345,7 +346,8 @@ export const startNewRevision = createServerFn({ method: "POST" })
       .select("id, current_finalized_revision_id")
       .eq("contract_id", data.contractId)
       .maybeSingle();
-    if (analysisError || !analysis) throw new Error("That contract was not found in your workspace.");
+    if (analysisError || !analysis)
+      throw new Error("That contract was not found in your workspace.");
     if (!analysis.current_finalized_revision_id) {
       throw new Error("This analysis has no finalized revision to continue from.");
     }

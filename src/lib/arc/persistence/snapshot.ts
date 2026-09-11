@@ -62,8 +62,7 @@ export interface ArcReconciliationSnapshot {
   core: NonNullable<WorkflowAnalysisResult["analysis"]>["reconciliation"] | null;
   lifecycle: NonNullable<WorkflowAnalysisResult["lifecycle"]>["reconciliation"] | null;
   variableConsideration:
-    | NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"]
-    | null;
+    NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"] | null;
   modification: NonNullable<WorkflowAnalysisResult["modification"]>["reconciliation"] | null;
   balances: NonNullable<ContractBalanceWorkflowResult["analysis"]>["reconciliation"] | null;
   groupedBalancesReconciled: boolean | null;
@@ -98,13 +97,16 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
     ];
     return {
       ok: false,
-      issues: issues.length > 0 ? issues : [workflow.blockedReason ?? "The analysis is not complete."],
+      issues:
+        issues.length > 0 ? issues : [workflow.blockedReason ?? "The analysis is not complete."],
     };
   }
 
   const balances = analyzeContractBalanceWorkflow(draft);
   const groupedJournals =
-    balances.finalized && balances.grouped ? analyzeGroupedJournalEntries(balances.groupInputs) : null;
+    balances.finalized && balances.grouped
+      ? analyzeGroupedJournalEntries(balances.groupInputs)
+      : null;
   const journals =
     balances.finalized && !balances.grouped && balances.engineInput
       ? analyzeJournalEntries(balances.engineInput)

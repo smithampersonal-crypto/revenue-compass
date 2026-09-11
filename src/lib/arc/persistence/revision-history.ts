@@ -38,9 +38,7 @@ export function describeRevisionStatus(status: RevisionStatus): RevisionStatusDe
   }
 }
 
-export type FinalizeGate =
-  | { canFinalize: true }
-  | { canFinalize: false; reason: string };
+export type FinalizeGate = { canFinalize: true } | { canFinalize: false; reason: string };
 
 /**
  * Finalization is offered only for a saved draft whose current in-memory work

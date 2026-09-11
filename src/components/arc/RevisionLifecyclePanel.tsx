@@ -151,9 +151,7 @@ export function RevisionLifecyclePanel() {
         ) : null}
       </div>
 
-      {!gate.canFinalize && revision?.status === "draft" ? (
-        <Notice>{gate.reason}</Notice>
-      ) : null}
+      {!gate.canFinalize && revision?.status === "draft" ? <Notice>{gate.reason}</Notice> : null}
 
       {message ? <Notice>{message}</Notice> : null}
 

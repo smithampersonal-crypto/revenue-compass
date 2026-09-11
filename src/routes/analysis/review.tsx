@@ -35,7 +35,11 @@ function ReviewFinalizeArea() {
   // snapshot, never from a fresh engine run.
   const recorded =
     revision && revision.status !== "draft" && revision.snapshot
-      ? { status: revision.status, revisionNumber: revision.revisionNumber, snapshot: revision.snapshot }
+      ? {
+          status: revision.status,
+          revisionNumber: revision.revisionNumber,
+          snapshot: revision.snapshot,
+        }
       : null;
 
   return (
