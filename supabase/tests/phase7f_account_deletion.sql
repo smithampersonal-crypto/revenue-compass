@@ -39,7 +39,10 @@ declare
   hash_browser  text := repeat('2', 64);
   hash_other    text := repeat('3', 64);
   hash_expired  text := repeat('4', 64);
+  hash_late     text := repeat('5', 64);
   customer_id uuid; contract_id uuid; analysis_id uuid; revision_id uuid;
+  late_customer uuid; late_contract uuid; late_analysis uuid; late_revision uuid;
+  late_idempotent boolean;
   purged integer; removed integer; failed boolean;
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Deletion Co"}}'::jsonb;
 begin
@@ -88,6 +91,16 @@ begin
   insert into arc_test_results
   select '09 another user''s guest row is untouched',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
+
+  -- A legitimate migration can land AFTER the purge and before auth deletion.
+  -- That late row must disappear through the migrated_user_id cascade, never
+  -- survive as an anonymous copy of the deleted person's contract.
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (hash_late, draft, 'arc.workflow.v1', now() + interval '9 hours');
+  select m.customer_id, m.contract_id, m.analysis_id, m.revision_id, m.idempotent
+    into late_customer, late_contract, late_analysis, late_revision, late_idempotent
+  from public.arc_migrate_guest_workspace_by_token(
+         hash_late, owner_id, 1, 'Late Co', 'Late contract', null) m;
 
   -- 10-13 Deleting the auth identity removes the whole owned chain, finalized
   -- revisions included.
