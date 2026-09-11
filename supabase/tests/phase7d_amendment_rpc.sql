@@ -9,7 +9,7 @@ do $$
 declare
   user_a uuid := '00000000-0000-4000-8000-00000000020a';
   user_b uuid := '00000000-0000-4000-8000-00000000020b';
-  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; rev3 uuid;
+  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid;
   res record; again record; ok boolean; new_rev record;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
@@ -31,7 +31,7 @@ begin
   begin
     select * into res from public.arc_start_amendment_revision(user_a, cont, rev1);
   exception when others then ok := true; end;
-  insert into arc_test_results values ('01 active draft is returned or non-finalized source rejected',
+  insert into arc_test_results values ('01 active draft returned or non-finalized source rejected',
     ok or res.created = false);
 
   perform public.arc_finalize_revision(user_a, rev1, 1,
