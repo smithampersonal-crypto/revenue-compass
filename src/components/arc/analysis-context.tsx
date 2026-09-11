@@ -402,8 +402,9 @@ export function AnalysisProvider({
 
   /**
    * A finalized or superseded revision is presented from its recorded engine
-   * outputs. The current engine is never rerun for it: if the recording is
-   * missing or unusable the workspace fails closed.
+   * outputs. The current engines are never invoked against a historical draft:
+   * if the recording is missing or unusable the workspace fails closed and
+   * still does not recalculate.
    */
   const recorded = loaded && loaded.readOnly ? (loaded.snapshot?.engineOutputs ?? null) : null;
   const historicalActive = Boolean(loaded && loaded.readOnly);
@@ -412,18 +413,20 @@ export function AnalysisProvider({
       ? "The recorded snapshot for this revision is missing or unreadable, so its results cannot be shown. It is never recalculated with the current engine."
       : null;
 
-  const workpaper = useMemo<ArcWorkpaper>(
-    () =>
-      recorded
+  const workpaper = useMemo<ArcWorkpaper>(() => {
+    if (historicalActive) {
+      return recorded
         ? {
             workflow: recorded.workflow,
             balances: recorded.balances,
             journals: recorded.journals,
           }
-        : liveWorkpaper,
-    [recorded, liveWorkpaper],
-  );
+        : placeholderWorkpaper();
+    }
+    return buildWorkpaper(draft);
+  }, [historicalActive, recorded, draft]);
   const result = workpaper.workflow;
+
 
   const historical = useMemo<HistoricalPresentation>(
     () => ({
