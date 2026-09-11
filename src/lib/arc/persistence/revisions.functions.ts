@@ -18,6 +18,12 @@ import {
   toCanonicalInputs,
   validateDraftForPersistence,
 } from "./schema";
+import {
+  ARC_ENGINE_VERSION,
+  buildFinalizationSnapshot,
+  readReconciliationSnapshot,
+  type ArcReconciliationSnapshot,
+} from "./snapshot";
 
 export type RevisionStatus = "draft" | "finalized" | "superseded";
 
