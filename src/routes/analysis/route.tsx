@@ -45,7 +45,7 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisLayout() {
-  const { sample, contract, revision } = Route.useSearch();
+  const { sample, contract, revision, save } = Route.useSearch();
 
   // The analysis identity — sample, contract and revision — keys the provider,
   // so switching to a different analysis mounts a fresh persistence state with
