@@ -28,5 +28,7 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => ({
   requestMiddleware: [errorMiddleware, csrfMiddleware],
-  functionMiddleware: [attachSupabaseAuth],
+  // `noStoreMiddleware` keeps every private RPC response out of shared and
+  // browser caches; `attachSupabaseAuth` supplies the bearer token client-side.
+  functionMiddleware: [attachSupabaseAuth, noStoreMiddleware],
 }));
