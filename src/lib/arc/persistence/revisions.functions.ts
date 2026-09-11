@@ -21,6 +21,20 @@ import {
 
 export type RevisionStatus = "draft" | "finalized" | "superseded";
 
+/**
+ * Phase 7D — the stored finalized snapshot, returned exactly as recorded.
+ * `engineVersionMatchesCurrent` is false when the snapshot was produced by an
+ * earlier engine; the snapshot is still shown as recorded and is never
+ * recalculated.
+ */
+export interface RevisionSnapshotDto {
+  engineVersion: string;
+  schemaVersion: string;
+  finalizedAt: string | null;
+  engineVersionMatchesCurrent: boolean;
+  reconciliation: ArcReconciliationSnapshot | null;
+}
+
 export interface LoadedRevisionDto {
   contractId: string;
   contractTitle: string;
@@ -35,6 +49,8 @@ export interface LoadedRevisionDto {
   /** Finalized and superseded revisions are opened read-only. */
   readOnly: boolean;
   draft: WorkflowDraft;
+  /** Present only for finalized and superseded revisions. */
+  snapshot: RevisionSnapshotDto | null;
 }
 
 const uuid = z.string().uuid();
