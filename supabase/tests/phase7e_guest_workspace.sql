@@ -194,6 +194,37 @@ begin
                    and migrated_contract_id = res2.contract_id
                    and migrated_analysis_id = res2.analysis_id
                    and migrated_revision_id = res2.revision_id);
+
+  -- 23/24/25 Cleanup marks only genuinely expired active rows, and never
+  -- decides access: authorization is expires_at, checked on every load/save.
+  -- Physical deletion of long-expired rows is deliberately deferred to a
+  -- Phase 7F / operations retention job; nothing here removes rows.
+  insert into arc_test_results
+  select '23 an unexpired workspace is active before cleanup',
+         (select status from public.guest_workspaces where id = guest_ok2) = 'active';
+  perform public.arc_expire_guest_workspaces();
+  insert into arc_test_results
+  select '24 cleanup expires only rows past their expiry',
+         (select status from public.guest_workspaces where id = guest_expired) = 'expired'
+     and (select status from public.guest_workspaces where id = guest_ok2) = 'active';
+  insert into arc_test_results
+  select '25 cleanup retains the rows rather than deleting them',
+         exists (select 1 from public.guest_workspaces where id = guest_expired);
+
+  -- 26/27 Provenance never blocks deletion of the saved chain it points at.
+  delete from public.analysis_revisions where analysis_id = res2.analysis_id;
+  delete from public.analyses where id = res2.analysis_id;
+  delete from public.contracts where id = res2.contract_id;
+  delete from public.customers where id = res2.customer_id;
+  insert into arc_test_results
+  select '26 the persistent chain can be deleted with a migrated guest row present',
+         not exists (select 1 from public.customers where id = res2.customer_id);
+  insert into arc_test_results
+  select '27 migrated provenance is cleared rather than blocking deletion',
+         exists (select 1 from public.guest_workspaces
+                 where id = guest_locked and migrated_customer_id is null
+                   and migrated_contract_id is null and migrated_analysis_id is null
+                   and migrated_revision_id is null);
 end $$;
 
 
