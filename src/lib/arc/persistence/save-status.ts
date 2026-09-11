@@ -19,6 +19,8 @@ export type SaveStatus =
   | { kind: "unsaved" }
   | { kind: "saving" }
   | { kind: "conflict" }
+  /** Phase 7E: the 9-hour temporary guest workspace is no longer authorized. */
+  | { kind: "guest-expired" }
   | { kind: "error"; message: string };
 
 export type SaveStatusTone = "neutral" | "pending" | "ok" | "warning";
@@ -101,6 +103,14 @@ export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
           "This analysis was changed in another session, so saving has stopped. Your edits here are kept in the browser. Reload the saved version before continuing so no work is overwritten.",
         tone: "warning",
         action: "reload",
+      };
+    case "guest-expired":
+      return {
+        label: "Temporary workspace expired",
+        detail:
+          "A temporary workspace lasts nine hours, and this one has ended, so saving has stopped. Your work is still on screen — start a new analysis to continue.",
+        tone: "warning",
+        action: "none",
       };
     case "error":
       return {

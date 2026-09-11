@@ -1,0 +1,150 @@
+-- ARC Phase 7E — guest workspace access and token-hash migration assertions.
+-- Runs inside a rolled-back transaction with synthetic auth users only.
+-- Every row must report passed = true.
+begin;
+
+create temporary table arc_test_results (assertion text, passed boolean) on commit drop;
+
+-- 01/02 Guest rows are server-only: no direct Data API access for visitors or
+-- signed-in users.
+insert into arc_test_results values (
+  '01 anon has no table privileges on guest_workspaces',
+  not (
+    has_table_privilege('anon', 'public.guest_workspaces', 'select')
+    or has_table_privilege('anon', 'public.guest_workspaces', 'insert')
+    or has_table_privilege('anon', 'public.guest_workspaces', 'update')
+    or has_table_privilege('anon', 'public.guest_workspaces', 'delete')
+  )
+);
+insert into arc_test_results values (
+  '02 authenticated has no table privileges on guest_workspaces',
+  not (
+    has_table_privilege('authenticated', 'public.guest_workspaces', 'select')
+    or has_table_privilege('authenticated', 'public.guest_workspaces', 'insert')
+    or has_table_privilege('authenticated', 'public.guest_workspaces', 'update')
+    or has_table_privilege('authenticated', 'public.guest_workspaces', 'delete')
+  )
+);
+
+-- 03 RLS stays on, so even a stray grant would not open the table up.
+insert into arc_test_results
+select '03 row level security enabled on guest_workspaces', c.relrowsecurity
+from pg_class c join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname = 'guest_workspaces';
+
+-- 04/05/06 The migration transaction is service-role only.
+insert into arc_test_results values (
+  '04 anon cannot execute arc_migrate_guest_workspace_by_token',
+  not has_function_privilege('anon',
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+);
+insert into arc_test_results values (
+  '05 authenticated cannot execute arc_migrate_guest_workspace_by_token',
+  not has_function_privilege('authenticated',
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+);
+insert into arc_test_results values (
+  '06 service_role can execute arc_migrate_guest_workspace_by_token',
+  has_function_privilege('service_role',
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+);
+
+do $$
+declare
+  owner_id uuid := '00000000-0000-4000-8000-0000000007e1';
+  hash_ok text := repeat('a', 64);
+  hash_expired text := repeat('b', 64);
+  guest_ok uuid; guest_expired uuid;
+  res record; failed boolean;
+  draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Guest Co"}}'::jsonb;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (owner_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-guest-owner@example.test', '', now(), now(), now());
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (hash_ok, draft, 'arc.workflow.v1', now() + interval '9 hours')
+  returning id into guest_ok;
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (hash_expired, draft, 'arc.workflow.v1', now() - interval '1 minute')
+  returning id into guest_expired;
+
+  -- 07 The credential hash is unique.
+  failed := false;
+  begin
+    insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+    values (hash_ok, draft, 'arc.workflow.v1', now() + interval '9 hours');
+  exception when unique_violation then failed := true; end;
+  insert into arc_test_results values ('07 duplicate token hash rejected', failed);
+
+  -- 08 An expired workspace cannot be migrated, whatever cleanup has run.
+  failed := false;
+  begin
+    select * into res from public.arc_migrate_guest_workspace_by_token(
+      hash_expired, owner_id, 'Guest Co', 'Expired contract', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('08 expired guest workspace cannot migrate', failed);
+
+  -- 09 An unknown credential creates nothing.
+  failed := false;
+  begin
+    select * into res from public.arc_migrate_guest_workspace_by_token(
+      repeat('c', 64), owner_id, 'Guest Co', 'Unknown contract', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('09 unknown credential cannot migrate', failed);
+
+  -- 10 A blank contract title is rejected before anything is created.
+  failed := false;
+  begin
+    select * into res from public.arc_migrate_guest_workspace_by_token(
+      hash_ok, owner_id, 'Guest Co', '   ', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('10 blank contract title rejected', failed);
+  insert into arc_test_results
+  select '11 nothing created by the rejected attempts',
+         not exists (select 1 from public.contracts where title in ('Unknown contract', 'Expired contract'));
+
+  -- 12 The successful path is one transaction producing the whole chain.
+  select * into res from public.arc_migrate_guest_workspace_by_token(
+    hash_ok, owner_id, 'Guest Co', 'Guest contract', 'G-1');
+
+  insert into arc_test_results
+  select '12 customer created for the caller',
+         exists (select 1 from public.customers
+                 where id = res.customer_id and owner_user_id = owner_id and name = 'Guest Co');
+  insert into arc_test_results
+  select '13 contract created with the supplied title and drafted number',
+         exists (select 1 from public.contracts
+                 where id = res.contract_id and customer_id = res.customer_id
+                   and title = 'Guest contract' and contract_number = 'G-1');
+  insert into arc_test_results
+  select '14 analysis created for the contract',
+         exists (select 1 from public.analyses
+                 where id = res.analysis_id and contract_id = res.contract_id);
+  insert into arc_test_results
+  select '15 revision 1 is a draft carrying the guest inputs',
+         exists (select 1 from public.analysis_revisions
+                 where id = res.revision_id and analysis_id = res.analysis_id
+                   and revision_number = 1 and status = 'draft'
+                   and canonical_inputs = draft
+                   and engine_outputs is null and finalized_at is null);
+  insert into arc_test_results
+  select '16 guest workspace is retired as migrated',
+         exists (select 1 from public.guest_workspaces
+                 where id = guest_ok and status = 'migrated' and migrated_user_id = owner_id);
+
+  -- 17 A retired workspace cannot be migrated twice.
+  failed := false;
+  begin
+    select * into res from public.arc_migrate_guest_workspace_by_token(
+      hash_ok, owner_id, 'Guest Co', 'Second contract', null);
+  exception when others then failed := true; end;
+  insert into arc_test_results values ('17 migrated workspace cannot migrate again', failed);
+end $$;
+
+select assertion, passed from arc_test_results order by assertion;
+select count(*) filter (where not passed) as failures, count(*) as total from arc_test_results;
+
+rollback;

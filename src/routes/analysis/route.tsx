@@ -3,6 +3,7 @@ import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
+import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { ReadOnlyInputs } from "@/components/arc/ReadOnlyInputs";
 import { SaveStatusIndicator } from "@/components/arc/SaveStatusIndicator";
@@ -18,10 +19,13 @@ export const Route = createFileRoute("/analysis")({
   // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { sample?: string; contract?: string; revision?: string } => ({
+  ): { sample?: string; contract?: string; revision?: string; save?: string } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
+    // Carries only the intent to save a temporary workspace after signing in.
+    // The guest credential is never in the URL.
+    ...(typeof search["save"] === "string" ? { save: search["save"] } : {}),
   }),
   beforeLoad: ({ search }) => {
     if (search.sample && (search.contract || search.revision)) {
@@ -42,7 +46,7 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisLayout() {
-  const { sample, contract, revision } = Route.useSearch();
+  const { sample, contract, revision, save } = Route.useSearch();
 
   // The analysis identity — sample, contract and revision — keys the provider,
   // so switching to a different analysis mounts a fresh persistence state with
@@ -53,13 +57,21 @@ function AnalysisLayout() {
   const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
 
   return (
-    <AnalysisProvider key={identity} sample={sample} contractId={contract} revisionId={revision}>
-      <AnalysisWorkspace />
+    // Bare /analysis (no sample, no contract) resumes or starts the visitor's
+    // temporary nine-hour guest workspace.
+    <AnalysisProvider
+      key={identity}
+      sample={sample}
+      contractId={contract}
+      revisionId={revision}
+      guest={!sample && !contract}
+    >
+      <AnalysisWorkspace autoOpenSave={save === "1"} />
     </AnalysisProvider>
   );
 }
 
-function AnalysisWorkspace() {
+function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
   const { unknownSample, persistence, canEdit, historical } = useAnalysis();
 
   return (
@@ -115,6 +127,8 @@ function AnalysisWorkspace() {
         ) : (
           <>
             <AnalysisSummary />
+
+            <GuestSavePanel autoOpen={autoOpenSave} />
 
             <AnalysisNavigation />
 
