@@ -202,3 +202,183 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
 
     return { ok: true, lockVersion: updated.lock_version, savedAt: updated.updated_at };
   });
+
+/* -------------------------------------------------------------------------
+ * Phase 7D — finalization, revision history and amendment.
+ * ---------------------------------------------------------------------- */
+
+export type FinalizeRevisionResult =
+  | { ok: true; revisionId: string }
+  | { ok: false; reason: "conflict" }
+  | { ok: false; reason: "blocked"; issues: string[] };
+
+/**
+ * Finalizes an owned draft revision.
+ *
+ * The browser supplies only the revision id and the lock version it believes
+ * is current. The authoritative `WorkflowDraft` is read back from the database
+ * and the deterministic engines are rerun here, on the server, to build the
+ * snapshot. Browser-computed engine output is never accepted.
+ *
+ * The write itself is the trusted `arc_finalize_revision` transaction: it
+ * re-checks ownership and the lock version, flips the previous current
+ * finalized revision to superseded and repoints the analysis, all atomically.
+ */
+export const finalizeRevision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { revisionId: string; expectedLockVersion: number }) => ({
+    revisionId: uuid.parse(input?.revisionId),
+    expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
+  }))
+  .handler(async ({ data, context }): Promise<FinalizeRevisionResult> => {
+    // Caller-scoped read: RLS decides whether this revision is theirs at all.
+    const { data: revision, error } = await context.supabase
+      .from("analysis_revisions")
+      .select("id, status, lock_version, canonical_inputs, schema_version")
+      .eq("id", data.revisionId)
+      .maybeSingle();
+    if (error) throw new Error("That revision could not be finalized.");
+    if (!revision) throw new Error("That revision was not found in your workspace.");
+    if (revision.status !== "draft") {
+      throw new Error("That revision is already finalized.");
+    }
+    if (revision.lock_version !== data.expectedLockVersion) {
+      return { ok: false, reason: "conflict" };
+    }
+
+    const parsed = parseCanonicalInputs(revision.canonical_inputs, revision.schema_version);
+    if (!parsed.ok) throw new Error(parsed.reason);
+
+    const snapshot = buildFinalizationSnapshot(parsed.draft);
+    if (!snapshot.ok) return { ok: false, reason: "blocked", issues: snapshot.issues };
+
+    // The trusted transaction is service-role only; the caller was verified
+    // above and their identity is passed in for the function's own ownership
+    // check. Loaded inside the handler so it never enters a client bundle.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: rpcError } = await supabaseAdmin.rpc("arc_finalize_revision", {
+      p_owner_user_id: context.userId,
+      p_revision_id: data.revisionId,
+      p_expected_lock_version: data.expectedLockVersion,
+      p_engine_outputs: snapshot.engineOutputs as unknown as never,
+      p_reconciliation_snapshot: snapshot.reconciliation as unknown as never,
+      p_schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
+      p_engine_version: ARC_ENGINE_VERSION,
+    });
+
+    if (rpcError) {
+      // 40001 is the function's optimistic-lock failure.
+      if (rpcError.code === "40001") return { ok: false, reason: "conflict" };
+      throw new Error("That revision could not be finalized.");
+    }
+
+    return { ok: true, revisionId: data.revisionId };
+  });
+
+export interface RevisionHistoryEntryDto {
+  revisionId: string;
+  revisionNumber: number;
+  status: RevisionStatus;
+  engineVersion: string | null;
+  schemaVersion: string;
+  finalizedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
+  supersedesRevisionId: string | null;
+  /** True for the analysis's current finalized revision. */
+  isCurrentFinalized: boolean;
+}
+
+/** Full Draft / Finalized / Superseded history for an owned contract. */
+export const listRevisionHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { contractId: string }) => ({
+    contractId: uuid.parse(input?.contractId),
+  }))
+  .handler(async ({ data, context }): Promise<{ revisions: RevisionHistoryEntryDto[] }> => {
+    const { data: analysis, error: analysisError } = await context.supabase
+      .from("analyses")
+      .select("id, current_finalized_revision_id")
+      .eq("contract_id", data.contractId)
+      .maybeSingle();
+    if (analysisError || !analysis) throw new Error("That contract was not found in your workspace.");
+
+    const { data: rows, error } = await context.supabase
+      .from("analysis_revisions")
+      .select(
+        "id, revision_number, status, engine_version, schema_version, finalized_at, updated_at, created_at, supersedes_revision_id",
+      )
+      .eq("analysis_id", analysis.id)
+      .order("revision_number", { ascending: false });
+    if (error) throw new Error("The revision history could not be loaded.");
+
+    return {
+      revisions: (rows ?? []).map((row) => ({
+        revisionId: row.id,
+        revisionNumber: row.revision_number,
+        status: row.status,
+        engineVersion: row.engine_version,
+        schemaVersion: row.schema_version,
+        finalizedAt: row.finalized_at,
+        updatedAt: row.updated_at,
+        createdAt: row.created_at,
+        supersedesRevisionId: row.supersedes_revision_id,
+        isCurrentFinalized: row.id === analysis.current_finalized_revision_id,
+      })),
+    };
+  });
+
+/**
+ * Starts a new editable draft revision from the analysis's current finalized
+ * revision, so a finalized snapshot is never reopened for editing. The insert
+ * is caller-scoped; the database enforces one active draft per analysis and
+ * that a new revision may only be created as an empty draft.
+ */
+export const startNewRevision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { contractId: string }) => ({
+    contractId: uuid.parse(input?.contractId),
+  }))
+  .handler(async ({ data, context }): Promise<{ revisionId: string }> => {
+    const { data: analysis, error: analysisError } = await context.supabase
+      .from("analyses")
+      .select("id, current_finalized_revision_id")
+      .eq("contract_id", data.contractId)
+      .maybeSingle();
+    if (analysisError || !analysis) throw new Error("That contract was not found in your workspace.");
+    if (!analysis.current_finalized_revision_id) {
+      throw new Error("This analysis has no finalized revision to continue from.");
+    }
+
+    const { data: existingDraft } = await context.supabase
+      .from("analysis_revisions")
+      .select("id")
+      .eq("analysis_id", analysis.id)
+      .eq("status", "draft")
+      .maybeSingle();
+    if (existingDraft) return { revisionId: existingDraft.id };
+
+    const { data: source, error: sourceError } = await context.supabase
+      .from("analysis_revisions")
+      .select("revision_number, canonical_inputs, schema_version")
+      .eq("id", analysis.current_finalized_revision_id)
+      .maybeSingle();
+    if (sourceError || !source) throw new Error("The finalized revision could not be read.");
+
+    const parsed = parseCanonicalInputs(source.canonical_inputs, source.schema_version);
+    if (!parsed.ok) throw new Error(parsed.reason);
+
+    const { data: created, error } = await context.supabase
+      .from("analysis_revisions")
+      .insert({
+        analysis_id: analysis.id,
+        revision_number: source.revision_number + 1,
+        canonical_inputs: toCanonicalInputs(parsed.draft) as unknown as never,
+        schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
+      })
+      .select("id")
+      .single();
+    if (error || !created) throw new Error("A new revision could not be started.");
+
+    return { revisionId: created.id };
+  });
