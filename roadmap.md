@@ -165,14 +165,30 @@
       as "expired" or "conflict", so a lookup error never mints a replacement
       credential.
 
-      Verification: 602 tests across 55 files, typecheck clean, ESLint 0
-      errors (8 pre-existing warnings). Database suite
-      `phase7e_guest_workspace.sql` extended to 22 assertions and green (no
-      anon/authenticated table or RPC privileges, RLS enabled, duplicate-hash
-      rejection, expiry, blank-title rejection, atomic chain, retirement,
-      idempotent recovery with no duplicate chain, foreign-owner rejection,
-      stale-lock rejection creating nothing, provenance recorded); earlier
-      Phase 7 suites unchanged and last green at 7D acceptance.
+      Data-lifecycle patch: an active, unexpired workspace whose stored
+      analysis cannot be parsed now fails closed as a load error — no second
+      row, no replacement credential, the original stays reachable. Every
+      accepted guest save writes draft, schema version and lock version in one
+      optimistic update. `arc_expire_guest_workspaces()` marks past-expiry
+      active rows expired; authorization still reads `expires_at` on every
+      load and save, so cleanup timing never widens or narrows access.
+      Physical deletion of long-expired rows is deliberately deferred to
+      7F / operations retention — rows are marked, not removed. A lost
+      migration response is reported as an unknown outcome, never a rollback:
+      the workspace stays locked and a retry with the same expected lock and
+      intent either completes the save or idempotently returns the already
+      created contract/revision. Migration provenance foreign keys are now
+      `ON DELETE SET NULL`, so deleting a saved customer/contract/analysis/
+      revision is never blocked by a temporary-workspace row.
+
+      Verification: 604 tests across 55 files, typecheck clean, ESLint 0
+      errors (8 pre-existing warnings), build OK. Database suite
+      `phase7e_guest_workspace.sql` keeps all 22 prior assertions and adds
+      23–27 (cleanup expires only past-expiry rows and retains them;
+      persistent chain deletable with a migrated guest row present; provenance
+      cleared rather than blocking); verified against the project database in
+      a rolled-back transaction. Earlier Phase 7 suites unchanged and last
+      green at 7D acceptance.
       No `src/lib/asc606*` or sample-fixture change.
       **Awaiting review — do not start 7F.**
 

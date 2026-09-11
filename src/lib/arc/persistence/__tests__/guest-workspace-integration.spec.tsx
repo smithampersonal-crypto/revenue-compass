@@ -284,6 +284,47 @@ describe("explicit save of a guest analysis", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalled());
   });
 
+  it("treats a lost migration response as unknown, then recovers it on retry", async () => {
+    migrate.mockRejectedValueOnce(new Error("network"));
+    renderGuest({ autoOpen: true });
+    await screen.findByDisplayValue("Northwind");
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
+
+    // Never a claim that nothing was created.
+    const notice = await screen.findByText(/cannot tell whether this analysis was saved/i);
+    expect(notice.textContent).not.toMatch(/nothing was created/i);
+    expect(navigate).not.toHaveBeenCalled();
+
+    // The analysis stays locked while the outcome is unknown.
+    fireEvent.click(screen.getByRole("button", { name: "edit" }));
+    expect(screen.getByTestId("name")).toHaveTextContent("Northwind");
+
+    migrate.mockResolvedValue({
+      ok: true,
+      customerId: "c1",
+      contractId: "contract-1",
+      analysisId: "a1",
+      revisionId: "rev-1",
+      recovered: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/analysis",
+        search: { contract: "contract-1", revision: "rev-1" },
+      }),
+    );
+    // The retry reuses the same expected version and intent, so the database
+    // returns the already-created rows rather than a duplicate chain.
+    expect(migrate.mock.calls[1]![0].data.expectedLockVersion).toBe(
+      migrate.mock.calls[0]![0].data.expectedLockVersion,
+    );
+    expect(migrate.mock.calls[1]![0].data.contractTitle).toBe(
+      migrate.mock.calls[0]![0].data.contractTitle,
+    );
+  });
+
   it("recovers a committed migration whose response was lost", async () => {
     migrate.mockResolvedValue({
       ok: true,
