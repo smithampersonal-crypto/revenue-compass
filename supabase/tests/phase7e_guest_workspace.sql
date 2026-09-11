@@ -36,17 +36,17 @@ where n.nspname = 'public' and c.relname = 'guest_workspaces';
 insert into arc_test_results values (
   '04 anon cannot execute arc_migrate_guest_workspace_by_token',
   not has_function_privilege('anon',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 insert into arc_test_results values (
   '05 authenticated cannot execute arc_migrate_guest_workspace_by_token',
   not has_function_privilege('authenticated',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 insert into arc_test_results values (
   '06 service_role can execute arc_migrate_guest_workspace_by_token',
   has_function_privilege('service_role',
-    'public.arc_migrate_guest_workspace_by_token(text,uuid,text,text,text)', 'execute')
+    'public.arc_migrate_guest_workspace_by_token(text,uuid,integer,text,text,text)', 'execute')
 );
 
 do $$
@@ -83,7 +83,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_expired, owner_id, 'Guest Co', 'Expired contract', null);
+      hash_expired, owner_id, 1, 'Guest Co', 'Expired contract', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('08 expired guest workspace cannot migrate', failed);
 
@@ -91,7 +91,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      repeat('c', 64), owner_id, 'Guest Co', 'Unknown contract', null);
+      repeat('c', 64), owner_id, 1, 'Guest Co', 'Unknown contract', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('09 unknown credential cannot migrate', failed);
 
@@ -99,7 +99,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_ok, owner_id, 'Guest Co', '   ', null);
+      hash_ok, owner_id, 1, 'Guest Co', '   ', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('10 blank contract title rejected', failed);
   insert into arc_test_results
@@ -108,7 +108,7 @@ begin
 
   -- 12 The successful path is one transaction producing the whole chain.
   select * into res from public.arc_migrate_guest_workspace_by_token(
-    hash_ok, owner_id, 'Guest Co', 'Guest contract', 'G-1');
+    hash_ok, owner_id, 1, 'Guest Co', 'Guest contract', 'G-1');
 
   insert into arc_test_results
   select '12 customer created for the caller',
@@ -139,7 +139,7 @@ begin
   failed := false;
   begin
     select * into res from public.arc_migrate_guest_workspace_by_token(
-      hash_ok, owner_id, 'Guest Co', 'Second contract', null);
+      hash_ok, owner_id, 1, 'Guest Co', 'Second contract', null);
   exception when others then failed := true; end;
   insert into arc_test_results values ('17 migrated workspace cannot migrate again', failed);
 end $$;
