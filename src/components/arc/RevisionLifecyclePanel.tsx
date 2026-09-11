@@ -142,7 +142,6 @@ export function RevisionLifecyclePanel() {
     },
   });
 
-
   if (!persistence.enabled) {
     return (
       <Section

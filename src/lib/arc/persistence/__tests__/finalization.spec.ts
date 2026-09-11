@@ -180,7 +180,6 @@ describe("revision status descriptions", () => {
   });
 });
 
-
 describe("frozen snapshot decoding fails closed", () => {
   function recorded() {
     const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown("horizon")!);

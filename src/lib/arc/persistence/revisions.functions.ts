@@ -160,7 +160,6 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       };
     }
 
-
     return {
       contractId: contract.id,
       contractTitle: contract.title,
@@ -410,5 +409,4 @@ export const startNewRevision = createServerFn({ method: "POST" })
       revisionId: (created as { revision_id: string }).revision_id,
       created: Boolean((created as { created: boolean }).created),
     };
-
   });

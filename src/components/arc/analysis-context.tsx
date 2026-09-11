@@ -116,7 +116,6 @@ function placeholderWorkpaper(): ArcWorkpaper {
   return placeholder;
 }
 
-
 export function AnalysisProvider({
   sample,
   contractId,
@@ -140,7 +139,6 @@ export function AnalysisProvider({
 
   // The live engines run only for an editable manual / sample / draft
   // analysis. A historical revision never reaches them — see `workpaper`.
-
 
   const loadedSample = isDemoScenarioId(sample) ? getDemoScenario(sample) : null;
   const unknownSample = sample !== undefined && loadedSample === null;
@@ -439,7 +437,6 @@ export function AnalysisProvider({
     return buildWorkpaper(draft);
   }, [historicalActive, recorded, draft]);
   const result = workpaper.workflow;
-
 
   const historical = useMemo<HistoricalPresentation>(
     () => ({

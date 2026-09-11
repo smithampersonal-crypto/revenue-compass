@@ -441,7 +441,6 @@ export function readEngineOutputsSnapshot(
   return value as unknown as ArcEngineOutputsSnapshot;
 }
 
-
 /**
  * Client-side readiness only: whether the whole workpaper — five-step
  * analysis, contract balances and the applicable journal output — is complete
