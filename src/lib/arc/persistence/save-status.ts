@@ -19,6 +19,8 @@ export type SaveStatus =
   | { kind: "unsaved" }
   | { kind: "saving" }
   | { kind: "conflict" }
+  /** Phase 7E: the 9-hour temporary guest workspace is no longer authorized. */
+  | { kind: "guest-expired" }
   | { kind: "error"; message: string };
 
 export type SaveStatusTone = "neutral" | "pending" | "ok" | "warning";
