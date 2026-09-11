@@ -21,7 +21,9 @@ import {
 import {
   ARC_ENGINE_VERSION,
   buildFinalizationSnapshot,
+  readEngineOutputsSnapshot,
   readReconciliationSnapshot,
+  type ArcEngineOutputsSnapshot,
   type ArcReconciliationSnapshot,
 } from "./snapshot";
 
@@ -39,6 +41,12 @@ export interface RevisionSnapshotDto {
   finalizedAt: string | null;
   engineVersionMatchesCurrent: boolean;
   reconciliation: ArcReconciliationSnapshot | null;
+  /**
+   * The recorded engine outputs, exactly as stored. Null when the recording is
+   * missing or structurally unusable — the workspace then fails closed instead
+   * of recalculating the inputs with the current engine.
+   */
+  engineOutputs: ArcEngineOutputsSnapshot | null;
 }
 
 export interface LoadedRevisionDto {
@@ -89,7 +97,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       throw new Error("That contract's analysis could not be opened.");
 
     const revisionColumns =
-      "id, revision_number, status, lock_version, canonical_inputs, schema_version, engine_version, finalized_at, reconciliation_snapshot";
+      "id, revision_number, status, lock_version, canonical_inputs, schema_version, engine_version, finalized_at, reconciliation_snapshot, engine_outputs";
 
     let query = context.supabase
       .from("analysis_revisions")
@@ -138,6 +146,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
             finalizedAt: revision.finalized_at,
             engineVersionMatchesCurrent: revision.engine_version === ARC_ENGINE_VERSION,
             reconciliation: readReconciliationSnapshot(revision.reconciliation_snapshot),
+            engineOutputs: readEngineOutputsSnapshot(revision.engine_outputs),
           };
 
     return {
@@ -329,18 +338,31 @@ export const listRevisionHistory = createServerFn({ method: "POST" })
     };
   });
 
+export type StartRevisionResult = {
+  revisionId: string;
+  /** False when an active draft already existed and was opened instead. */
+  created: boolean;
+};
+
 /**
- * Starts a new editable draft revision from the analysis's current finalized
- * revision, so a finalized snapshot is never reopened for editing. The insert
- * is caller-scoped; the database enforces one active draft per analysis and
- * that a new revision may only be created as an empty draft.
+ * Starts (or reopens) the editable draft that continues the analysis's current
+ * finalized revision, so a finalized snapshot is never reopened for editing.
+ *
+ * ARC v1 does not branch from a superseded revision: only the analysis's
+ * current finalized revision may be continued, and the caller must name it.
+ * The new draft records `supersedes_revision_id = <that finalized revision>`;
+ * because browsers are not granted that column, the row is created by the
+ * narrowly scoped, service-role-only `arc_start_amendment_revision`
+ * transaction, which re-checks ownership itself.
  */
 export const startNewRevision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contractId: string }) => ({
+  .inputValidator((input: { contractId: string; sourceRevisionId?: string }) => ({
     contractId: uuid.parse(input?.contractId),
+    sourceRevisionId: input?.sourceRevisionId ? uuid.parse(input.sourceRevisionId) : undefined,
   }))
-  .handler(async ({ data, context }): Promise<{ revisionId: string }> => {
+  .handler(async ({ data, context }): Promise<StartRevisionResult> => {
+    // Caller-scoped read: RLS decides whether this contract is theirs at all.
     const { data: analysis, error: analysisError } = await context.supabase
       .from("analyses")
       .select("id, current_finalized_revision_id")
@@ -351,36 +373,33 @@ export const startNewRevision = createServerFn({ method: "POST" })
     if (!analysis.current_finalized_revision_id) {
       throw new Error("This analysis has no finalized revision to continue from.");
     }
+    if (data.sourceRevisionId && data.sourceRevisionId !== analysis.current_finalized_revision_id) {
+      throw new Error(
+        "Only the current finalized revision can be continued. A superseded revision stays view-only.",
+      );
+    }
 
-    const { data: existingDraft } = await context.supabase
-      .from("analysis_revisions")
-      .select("id")
-      .eq("analysis_id", analysis.id)
-      .eq("status", "draft")
-      .maybeSingle();
-    if (existingDraft) return { revisionId: existingDraft.id };
-
+    // The finalized inputs must still be readable by the current engine before
+    // they are seeded into an editable draft.
     const { data: source, error: sourceError } = await context.supabase
       .from("analysis_revisions")
-      .select("revision_number, canonical_inputs, schema_version")
+      .select("canonical_inputs, schema_version")
       .eq("id", analysis.current_finalized_revision_id)
       .maybeSingle();
     if (sourceError || !source) throw new Error("The finalized revision could not be read.");
-
     const parsed = parseCanonicalInputs(source.canonical_inputs, source.schema_version);
     if (!parsed.ok) throw new Error(parsed.reason);
 
-    const { data: created, error } = await context.supabase
-      .from("analysis_revisions")
-      .insert({
-        analysis_id: analysis.id,
-        revision_number: source.revision_number + 1,
-        canonical_inputs: toCanonicalInputs(parsed.draft) as unknown as never,
-        schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
-      })
-      .select("id")
-      .single();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin.rpc("arc_start_amendment_revision", {
+      p_owner_user_id: context.userId,
+      p_contract_id: data.contractId,
+    });
+    const created = Array.isArray(rows) ? rows[0] : rows;
     if (error || !created) throw new Error("A new revision could not be started.");
 
-    return { revisionId: created.id };
+    return {
+      revisionId: (created as { revision_id: string }).revision_id,
+      created: Boolean((created as { created: boolean }).created),
+    };
   });

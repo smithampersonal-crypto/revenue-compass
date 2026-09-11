@@ -60,7 +60,7 @@ function AnalysisLayout() {
 }
 
 function AnalysisWorkspace() {
-  const { unknownSample, persistence, canEdit } = useAnalysis();
+  const { unknownSample, persistence, canEdit, historical } = useAnalysis();
 
   return (
     <PublicAppShell>
@@ -89,15 +89,40 @@ function AnalysisWorkspace() {
           {unknownSample ? (
             <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
           ) : null}
+          {persistence.finalizing ? (
+            <Notice>
+              This revision is being finalized. The workspace is locked until the server answers,
+              so nothing can change the analysis being recorded.
+            </Notice>
+          ) : null}
+          {historical.active && !historical.error ? (
+            <Notice>
+              You are viewing the recorded results of a {historical.status} revision. Everything
+              shown is exactly as recorded
+              {historical.engineVersion ? ` by engine ${historical.engineVersion}` : ""}
+              {historical.engineVersionMatchesCurrent
+                ? ""
+                : ", which is an earlier engine version than the one in use today"}
+              . Nothing is recalculated.
+            </Notice>
+          ) : null}
         </header>
 
-        <AnalysisSummary />
+        {historical.error ? (
+          // Fail closed: a missing or unusable recording is never replaced by a
+          // fresh run of the current engine against the same inputs.
+          <Notice tone="warning">{historical.error}</Notice>
+        ) : (
+          <>
+            <AnalysisSummary />
 
-        <AnalysisNavigation />
+            <AnalysisNavigation />
 
-        <ReadOnlyInputs active={!canEdit}>
-          <Outlet />
-        </ReadOnlyInputs>
+            <ReadOnlyInputs active={!canEdit}>
+              <Outlet />
+            </ReadOnlyInputs>
+          </>
+        )}
       </main>
     </PublicAppShell>
   );

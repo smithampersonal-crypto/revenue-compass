@@ -64,6 +64,7 @@ describe("finalize gate", () => {
     status: SAVED,
     revisionStatus: "draft" as const,
     engineFinalized: true,
+    workpaperComplete: true,
     lockVersion: 3,
   };
 
@@ -89,6 +90,14 @@ describe("finalize gate", () => {
 
   it("blocks an incomplete analysis", () => {
     expect(finalizeGate({ ...base, engineFinalized: false }).canFinalize).toBe(false);
+  });
+
+  it("blocks an incomplete billing workpaper even when the five steps are complete", () => {
+    expect(finalizeGate({ ...base, workpaperComplete: false }).canFinalize).toBe(false);
+  });
+
+  it("blocks while a finalization request is already in flight", () => {
+    expect(finalizeGate({ ...base, finalizing: true }).canFinalize).toBe(false);
   });
 });
 
