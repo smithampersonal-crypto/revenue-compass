@@ -270,10 +270,11 @@ describe("migrateGuestWorkspaceHandler", () => {
       contract_id: "contract-1",
       analysis_id: "analysis-1",
       revision_id: "rev-1",
+      idempotent: false,
     },
   ];
 
-  it("runs one trusted transaction keyed by the credential hash", async () => {
+  it("runs one trusted transaction keyed by the credential hash and the expected lock", async () => {
     const recorder = storeFor(rowFor());
     const calls: Record<string, unknown>[] = [];
     const result = await migrateGuestWorkspaceHandler(
@@ -286,7 +287,11 @@ describe("migrateGuestWorkspaceHandler", () => {
           return { data: migrated, error: null };
         },
       },
-      { token: "raw-credential-xyz", contractTitle: "Northwind — enterprise" },
+      {
+        token: "raw-credential-xyz",
+        contractTitle: "Northwind — enterprise",
+        expectedLockVersion: 3,
+      },
     );
 
     expect(result).toEqual({
@@ -295,17 +300,74 @@ describe("migrateGuestWorkspaceHandler", () => {
       contractId: "contract-1",
       analysisId: "analysis-1",
       revisionId: "rev-1",
+      recovered: false,
     });
-    // Customer name and contract number come from the draft; the browser never
-    // supplies a workspace id, and the raw credential is never passed on.
+    // Customer name and contract number come from the draft the expected lock
+    // version protects; the browser never supplies a workspace id, and the raw
+    // credential is never passed on.
     expect(calls[0]).toEqual({
       p_token_hash: await hashGuestToken("raw-credential-xyz"),
       p_owner_user_id: "user-7",
+      p_expected_lock_version: 3,
       p_customer_name: "Northwind Systems",
       p_contract_title: "Northwind — enterprise",
       p_contract_number: "C-1001",
     });
     expect(JSON.stringify(calls[0])).not.toContain("raw-credential-xyz");
+  });
+
+  it("creates nothing when the temporary workspace moved on in another tab", async () => {
+    const recorder = storeFor(rowFor({ lock_version: 4 }));
+    let called = false;
+    const result = await migrateGuestWorkspaceHandler(
+      {
+        store: recorder.store,
+        now: () => NOW,
+        userId: "user-7",
+        migrateTransaction: async () => {
+          called = true;
+          return { data: migrated, error: null };
+        },
+      },
+      { token: "tok", contractTitle: "Northwind", expectedLockVersion: 3 },
+    );
+    expect(called).toBe(false);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("conflict");
+  });
+
+  it("reports a database lock conflict as a conflict, not a failure", async () => {
+    const recorder = storeFor(rowFor());
+    const result = await migrateGuestWorkspaceHandler(
+      {
+        store: recorder.store,
+        now: () => NOW,
+        userId: "user-7",
+        migrateTransaction: async () => ({ data: null, error: { message: "x", code: "40001" } }),
+      },
+      { token: "tok", contractTitle: "Northwind", expectedLockVersion: 3 },
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("conflict");
+  });
+
+  it("recovers the same saved revision when a committed response was lost", async () => {
+    // The credential still exists in the browser and the row is already
+    // migrated: the retry must return the original rows, not create more.
+    const recorder = storeFor(rowFor({ status: "migrated" }));
+    const result = await migrateGuestWorkspaceHandler(
+      {
+        store: recorder.store,
+        now: () => NOW,
+        userId: "user-7",
+        migrateTransaction: async () => ({
+          data: [{ ...migrated[0]!, idempotent: true }],
+          error: null,
+        }),
+      },
+      { token: "tok", contractTitle: "Northwind", expectedLockVersion: 3 },
+    );
+    expect(result).toMatchObject({ ok: true, revisionId: "rev-1", recovered: true });
   });
 
   it("blocks a blank Step 1 customer name before anything is created", async () => {
@@ -321,7 +383,7 @@ describe("migrateGuestWorkspaceHandler", () => {
           return { data: migrated, error: null };
         },
       },
-      { token: "tok", contractTitle: "Anything" },
+      { token: "tok", contractTitle: "Anything", expectedLockVersion: 3 },
     );
     expect(result.ok).toBe(false);
     expect(called).toBe(false);
@@ -336,7 +398,7 @@ describe("migrateGuestWorkspaceHandler", () => {
         userId: "user-7",
         migrateTransaction: async () => ({ data: null, error: { message: "boom" } }),
       },
-      { token: "tok", contractTitle: "Northwind" },
+      { token: "tok", contractTitle: "Northwind", expectedLockVersion: 3 },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain("nothing was created");
@@ -351,10 +413,63 @@ describe("migrateGuestWorkspaceHandler", () => {
       migrateTransaction: async () => ({ data: migrated, error: null }),
     };
     expect(
-      (await migrateGuestWorkspaceHandler(deps, { token: "tok", contractTitle: "X" })).ok,
+      (
+        await migrateGuestWorkspaceHandler(deps, {
+          token: "tok",
+          contractTitle: "X",
+          expectedLockVersion: 3,
+        })
+      ).ok,
     ).toBe(false);
-    expect((await migrateGuestWorkspaceHandler(deps, { token: null, contractTitle: "X" })).ok).toBe(
-      false,
-    );
+    expect(
+      (
+        await migrateGuestWorkspaceHandler(deps, {
+          token: null,
+          contractTitle: "X",
+          expectedLockVersion: 3,
+        })
+      ).ok,
+    ).toBe(false);
   });
 });
+
+describe("store failures are never mistaken for ordinary outcomes", () => {
+  const failing = (message: string): GuestStore => ({
+    findByHash: async () => {
+      throw new Error(message);
+    },
+    insert: async () => {
+      throw new Error(message);
+    },
+    updateDraft: async () => {
+      throw new Error(message);
+    },
+  });
+
+  it("does not mint a replacement workspace when the lookup errors", async () => {
+    const store = failing("lookup down");
+    let inserted = false;
+    const guarded: GuestStore = {
+      ...store,
+      insert: async (row) => {
+        inserted = true;
+        return rowFor({ ...row });
+      },
+    };
+    await expect(
+      resumeOrCreateGuestHandler({ store: guarded, now: () => NOW }, { token: "tok" }),
+    ).rejects.toThrow("lookup down");
+    expect(inserted).toBe(false);
+  });
+
+  it("does not report a save-store error as a lock conflict", async () => {
+    const store: GuestStore = { ...failing("save down"), findByHash: async () => rowFor() };
+    await expect(
+      saveGuestDraftHandler(
+        { store, now: () => NOW },
+        { token: "tok", expectedLockVersion: 3, draft: createEmptyDraft() },
+      ),
+    ).rejects.toThrow("save down");
+  });
+});
+
