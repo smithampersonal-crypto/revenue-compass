@@ -58,11 +58,14 @@ export interface ArcReconciliationSnapshot {
     unscheduledRevenueCents: number;
     lifecycleConsiderationCents: number | null;
   };
-  core: unknown | null;
-  lifecycle: unknown | null;
-  variableConsideration: unknown | null;
-  modification: unknown | null;
-  balances: unknown | null;
+  // Engine-reported reconciliation objects, copied verbatim from the engines.
+  core: NonNullable<WorkflowAnalysisResult["analysis"]>["reconciliation"] | null;
+  lifecycle: NonNullable<WorkflowAnalysisResult["lifecycle"]>["reconciliation"] | null;
+  variableConsideration:
+    | NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"]
+    | null;
+  modification: NonNullable<WorkflowAnalysisResult["modification"]>["reconciliation"] | null;
+  balances: NonNullable<ContractBalanceWorkflowResult["analysis"]>["reconciliation"] | null;
   groupedBalancesReconciled: boolean | null;
   journalsReconciled: boolean | null;
   groupedJournalsReconciled: boolean | null;
