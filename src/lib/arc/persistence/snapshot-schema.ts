@@ -330,18 +330,24 @@ const contractPresentationGroup = z
 const modificationAnalysis = z
   .object({
     validation: validationOutcome,
-    event: z.object({ id: text, modificationDate: text }).passthrough().nullable(),
+    event: z
+      .object({ id: text, modificationDate: text, scopeChangeDescription: text })
+      .passthrough()
+      .nullable(),
     historicalCutoffDate: nullableText,
     classification: z
       .object({
         treatment: text,
         label: text,
+        separateContractTestPassed: z.boolean(),
         separateContractCriteria: z.array(
           z.object({ id: text, label: text, passed: z.boolean(), detail: text }).passthrough(),
         ),
         separateContractFailures: z.array(text),
         rationale: text,
-        mixedAllocationPolicy: nullableText,
+        mixedAllocationPolicy: z
+          .enum(["updated_total_transaction_price", "updated_remaining_transaction_price"])
+          .nullable(),
         mixedAllocationPolicyRationale: nullableText,
         approvedAndEnforceable: z.boolean(),
         approvalRationale: nullableText,
