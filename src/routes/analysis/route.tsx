@@ -128,6 +128,8 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
           <>
             <AnalysisSummary />
 
+            <GuestSavePanel autoOpen={autoOpenSave} />
+
             <AnalysisNavigation />
 
             <ReadOnlyInputs active={!canEdit}>
