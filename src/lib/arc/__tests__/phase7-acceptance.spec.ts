@@ -94,13 +94,22 @@ describe("Phase 7 acceptance — sample scenarios", () => {
     }
   });
 
-  it("never reach a persistence store: opening a sample runs no guest save", async () => {
-    const { store, inserts, updates } = makeStore(null);
-    // A sample is rendered straight from the fixture; nothing calls the store.
+  // "A sample never reaches persistence" is proven by rendering and editing a
+  // sample and asserting the persistence functions are never invoked. That
+  // lives in the integration suites; this gate records the explicit reliance
+  // so the proof cannot quietly disappear.
+  it("never reach persistence — proven by the rendering integration suites", () => {
+    const guest = readFileSync(
+      "src/lib/arc/persistence/__tests__/guest-workspace-integration.spec.tsx",
+      "utf8",
+    );
+    const persistent = readFileSync(
+      "src/lib/arc/persistence/__tests__/persistence-integration.spec.tsx",
+      "utf8",
+    );
+    expect(guest).toContain("never autosaves a sample");
+    expect(persistent).toContain("never autosaves a sample, even when a contract is also named");
     expect(createDemoDraftIfKnown("redwood")).toBeTruthy();
-    expect(inserts).toHaveLength(0);
-    expect(updates).toHaveLength(0);
-    expect(typeof store.insert).toBe("function");
   });
 });
 
@@ -202,8 +211,15 @@ describe("Phase 7 acceptance — revision lifecycle", () => {
 });
 
 describe("Phase 7 acceptance — scope boundary", () => {
-  it("Source Documents carries no Phase 7 migration: it stays a Phase 8 concern", () => {
-    expect(Object.keys(FEATURES)).not.toContain("DOCUMENT_MIGRATION");
-    expect(JSON.stringify(FEATURES)).not.toContain("document");
+  it("Source Documents stores nothing: no intake, no upload, no persistence import", () => {
+    const route = readFileSync("src/routes/analysis/documents.tsx", "utf8");
+    // No way in: no file input, no upload control, no storage call.
+    expect(route).not.toMatch(/type="file"|<input|upload|storage\.from/i);
+    // And no persistence surface is reachable from the documents area.
+    expect(route).not.toMatch(/persistence\/(guest|workspace|revisions)/);
+    expect(route).toContain("Document intake is not part of the current release");
+    // The area itself stays behind its feature gate.
+    expect(route).toContain("FEATURES.SOURCE_DOCUMENTS");
+    expect(FEATURES.SOURCE_DOCUMENTS).toBe(false);
   });
 });
