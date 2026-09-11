@@ -54,8 +54,11 @@ declare
   owner_id uuid := '00000000-0000-4000-8000-0000000007e1';
   hash_ok text := repeat('a', 64);
   hash_expired text := repeat('b', 64);
-  guest_ok uuid; guest_expired uuid;
-  res record; failed boolean;
+  hash_locked text := repeat('d', 64);
+  other_id uuid := '00000000-0000-4000-8000-0000000007e2';
+  guest_ok uuid; guest_expired uuid; guest_locked uuid;
+  res record; res2 record; failed boolean;
+
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Guest Co"}}'::jsonb;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
