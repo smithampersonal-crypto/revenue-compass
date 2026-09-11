@@ -236,21 +236,36 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              className={PRIMARY}
-              disabled={!check.ok || pending || waiting || expired}
-            >
-              {pending ? "Saving…" : "Save to my account"}
-            </button>
-            <button
-              type="button"
-              className={BUTTON}
-              onClick={() => setOpen(false)}
-              disabled={pending || waiting}
-            >
-              Cancel
-            </button>
+            {unknownOutcome ? (
+              // The same analysis, the same expected version, the same intent:
+              // this either finishes the save or reopens the saved copy.
+              <button
+                type="button"
+                className={PRIMARY}
+                onClick={() => void runMigration()}
+                disabled={pending}
+              >
+                {pending ? "Checking…" : "Try again"}
+              </button>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  className={PRIMARY}
+                  disabled={!check.ok || pending || waiting || expired}
+                >
+                  {pending ? "Saving…" : "Save to my account"}
+                </button>
+                <button
+                  type="button"
+                  className={BUTTON}
+                  onClick={() => setOpen(false)}
+                  disabled={pending || waiting}
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         </form>
       ) : null}
