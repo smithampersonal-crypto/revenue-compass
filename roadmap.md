@@ -40,7 +40,7 @@
       load succeeds), background refetches never silently replace local work,
       the query cache is updated with each accepted save, explicit reload is a
       real loading boundary, and the read-only wrapper only re-enables controls
-      it disabled itself. **Awaiting review — do not start 7D.**
+      it disabled itself. **Accepted.**
 
 - [x] 7D Finalization snapshot + Review & Finalize lifecycle + revision history.
       Server-side snapshot builder (`ARC_ENGINE_VERSION = arc.engine.v1`) reruns the
@@ -56,7 +56,23 @@
       when the recording engine version differs from the current one. Revision
       history lists Draft / Finalized / Superseded with current-finalized marking
       and per-revision viewing; `startNewRevision` continues from the finalized
-      snapshot as a fresh draft. **Awaiting review — do not start 7E.**
+      snapshot as a fresh draft.
+
+      7D remediation: finalization requires the complete workpaper (five steps,
+      contract balances and the applicable reconciled ordinary or grouped
+      journals), and a successful snapshot structurally always carries journal
+      output. The saved workspace renders finalized and superseded revisions
+      from the recorded `engine_outputs` in every parent area — ASC 606
+      Analysis, Revenue Schedule, Contract Balances, Journal Entries and
+      Review — through the same canonical components; a missing or unusable
+      recording fails closed rather than recalculating. Finalization asks for
+      confirmation ("Finalize analysis") and locks the whole workspace while the
+      request is pending, returning safely to the editable draft on conflict or
+      failure. Only the current finalized revision offers a new revision; it is
+      created by the service-role-only `arc_start_amendment_revision`
+      transaction, which seeds the draft from that revision, records
+      `supersedes_revision_id`, reuses an existing active draft, and the UI then
+      navigates to the returned draft. **Awaiting review — do not start 7E.**
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
 - [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
       end-to-end regression, completion report.
