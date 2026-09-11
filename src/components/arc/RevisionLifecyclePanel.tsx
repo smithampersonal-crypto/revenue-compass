@@ -81,20 +81,36 @@ export function RevisionLifecyclePanel() {
       if (outcome.reason === "conflict") {
         setBlockingIssues([]);
         setMessage(
-          "The saved analysis changed since this page loaded, so nothing was finalized. Your saved draft is unchanged and editable.",
+          "The saved analysis changed since this page loaded, so nothing was finalized. The authoritative saved version is being reloaded.",
         );
+        // Finalization only starts from a fully saved draft, so there is no
+        // local work to preserve. The stale local copy must not be handed back
+        // as an editable Saved draft: reload and reopen whatever the server
+        // actually holds — a fresh draft, or the immutable snapshot if it was
+        // finalized elsewhere.
+        await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+        persistence.reload();
         return;
       }
+      // A deterministic blocked result performed no write at all, so the same
+      // saved draft stays open and editable.
       setBlockingIssues(outcome.issues);
       setMessage("The server re-ran the engines on the saved analysis and it is not complete.");
     },
-    onError: (error: unknown) => {
+    onError: async (error: unknown) => {
       setConfirming(false);
       setBlockingIssues([]);
-      setMessage(error instanceof Error ? error.message : "That revision could not be finalized.");
+      // The request failed in transport, so whether the database committed is
+      // unknown. Treat the commit as ambiguous and re-establish authoritative
+      // server state before anything can be edited again.
+      setMessage(
+        error instanceof Error && error.message
+          ? `${error.message} The saved analysis is being reloaded to confirm its current state.`
+          : "The finalization result is unknown. The saved analysis is being reloaded to confirm its current state.",
+      );
+      await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      persistence.reload();
     },
-    // On success the reload replaces the revision; on failure the saved draft
-    // is returned to exactly as it was, still editable.
     onSettled: () => persistence.setFinalizing(false),
   });
 
@@ -103,9 +119,10 @@ export function RevisionLifecyclePanel() {
       newRevision({
         data: {
           contractId: contractId!,
-          // Provenance is explicit: only the current finalized revision may be
-          // continued, and the server records it as the superseded source.
-          ...(currentFinalizedId ? { sourceRevisionId: currentFinalizedId } : {}),
+          // Provenance is explicit and re-checked inside the database
+          // transaction: only the current finalized revision may be continued,
+          // and the server records it as the superseded source.
+          sourceRevisionId: currentFinalizedId!,
         },
       }),
     onSuccess: async (outcome) => {
@@ -124,6 +141,7 @@ export function RevisionLifecyclePanel() {
       setMessage(error instanceof Error ? error.message : "A new revision could not be started.");
     },
   });
+
 
   if (!persistence.enabled) {
     return (
