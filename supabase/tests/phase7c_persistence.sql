@@ -155,4 +155,18 @@ end $$;
 
 select assertion, passed from arc_test_results order by assertion;
 
+-- CI gate: a false assertion must make psql exit non-zero.
+do $gate$
+declare
+  v_failed integer;
+  v_names text;
+begin
+  select count(*), string_agg(assertion, '; ' order by assertion)
+    into v_failed, v_names
+  from arc_test_results where not passed;
+  if v_failed > 0 then
+    raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
+  end if;
+end $gate$;
+
 rollback;
