@@ -280,6 +280,7 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_delete_expired_guest_workspaces: { Args: never; Returns: number }
       arc_expire_guest_workspaces: { Args: never; Returns: number }
       arc_finalize_revision: {
         Args: {
@@ -324,6 +325,10 @@ export type Database = {
           idempotent: boolean
           revision_id: string
         }[]
+      }
+      arc_purge_user_guest_data: {
+        Args: { p_guest_token_hash: string; p_user_id: string }
+        Returns: number
       }
       arc_start_amendment_revision: {
         Args: {
