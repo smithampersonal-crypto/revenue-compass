@@ -6,7 +6,7 @@
  * accounting engine behaviour is exercised or changed.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
@@ -28,6 +28,18 @@ vi.mock("@tanstack/react-start", async (importOriginal) => {
 const load = vi.fn();
 const save = vi.fn();
 
+const workpaperSpy = vi.fn();
+vi.mock("@/lib/arc/persistence/snapshot", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../snapshot")>();
+  return {
+    ...actual,
+    buildWorkpaper: (draft: unknown) => {
+      workpaperSpy(draft);
+      return actual.buildWorkpaper(draft as never);
+    },
+  };
+});
+
 vi.mock("@/lib/arc/persistence/revisions.functions", () => ({
   loadContractAnalysis: (args: unknown) => load(args),
   saveDraftRevision: (args: unknown) => save(args),
@@ -44,6 +56,10 @@ const DRAFT = createDemoDraftIfKnown("horizon")!;
  * this recorded number.
  */
 const DISTINGUISHABLE_CENTS = 123_456_789;
+/** Separately distinguishable recorded values per canonical output area. */
+const BALANCE_CENTS = 987_654_321;
+const REVIEW_CENTS = 456_789_123;
+const JOURNAL_CENTS = 321_987_654;
 
 function recordedOutputs(): ArcEngineOutputsSnapshot {
   const outcome = buildFinalizationSnapshot(DRAFT);
@@ -51,6 +67,13 @@ function recordedOutputs(): ArcEngineOutputsSnapshot {
   const outputs = JSON.parse(JSON.stringify(outcome.engineOutputs)) as ArcEngineOutputsSnapshot;
   if (outputs.workflow.revenueSchedule) {
     outputs.workflow.revenueSchedule.totalCents = DISTINGUISHABLE_CENTS;
+  }
+  const balanceAnalysis = outputs.balances.analysis;
+  if (balanceAnalysis?.monthly?.[0]) balanceAnalysis.monthly[0].revenueCents = BALANCE_CENTS;
+  if (balanceAnalysis) balanceAnalysis.reconciliation.totalRevenueCents = REVIEW_CENTS;
+  if (outputs.journals.kind === "ordinary") {
+    const line = outputs.journals.analysis.entries?.[0]?.lines?.[0];
+    if (line) line.amountCents = JOURNAL_CENTS;
   }
   return outputs;
 }
@@ -102,19 +125,27 @@ function Workspace() {
         edit
       </button>
       <p data-testid="customer">{draft.contract.customerName}</p>
-      <RevenueScheduleView draft={draft} result={result} />
-      <ContractBalancesView
-        draft={draft}
-        result={result}
-        balances={workpaper.balances}
-        onChange={setDraft}
-      />
-      <JournalEntriesView draft={draft} result={result} journals={workpaper.journals} />
-      <ReviewFinalizeView
-        result={result}
-        balances={workpaper.balances}
-        journals={workpaper.journals}
-      />
+      <section data-testid="area-schedule">
+        <RevenueScheduleView draft={draft} result={result} />
+      </section>
+      <section data-testid="area-balances">
+        <ContractBalancesView
+          draft={draft}
+          result={result}
+          balances={workpaper.balances}
+          onChange={setDraft}
+        />
+      </section>
+      <section data-testid="area-journals">
+        <JournalEntriesView draft={draft} result={result} journals={workpaper.journals} />
+      </section>
+      <section data-testid="area-review">
+        <ReviewFinalizeView
+          result={result}
+          balances={workpaper.balances}
+          journals={workpaper.journals}
+        />
+      </section>
     </div>
   );
 }
@@ -131,6 +162,7 @@ function renderWorkspace() {
 }
 
 beforeEach(() => {
+  workpaperSpy.mockReset();
   load.mockReset();
   save.mockReset();
   save.mockResolvedValue({ ok: true, lockVersion: 5, savedAt: new Date().toISOString() });
@@ -152,6 +184,46 @@ describe("finalized and superseded revisions render recorded engine outputs", ()
     // from these same inputs, so its presence proves the recording was used.
     const liveTotal = live.engineOutputs.workflow.revenueSchedule?.totalCents ?? 0;
     expect(liveTotal).not.toBe(DISTINGUISHABLE_CENTS);
+  });
+
+  it("shows separately distinguishable recorded values in every canonical area", async () => {
+    load.mockResolvedValue(historicalRevision(recordedOutputs()));
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("can-edit").textContent).toBe("false"));
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("area-schedule")).getAllByText(formatCents(DISTINGUISHABLE_CENTS))
+          .length,
+      ).toBeGreaterThan(0),
+    );
+    expect(
+      within(screen.getByTestId("area-balances")).getAllByText(formatCents(BALANCE_CENTS)).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(screen.getByTestId("area-journals")).getAllByText(formatCents(JOURNAL_CENTS)).length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(screen.getByTestId("area-review")).getAllByText(formatCents(REVIEW_CENTS)).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("never runs the current engines against the historical draft", async () => {
+    load.mockResolvedValue(historicalRevision(recordedOutputs()));
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("can-edit").textContent).toBe("false"));
+    for (const [called] of workpaperSpy.mock.calls) {
+      expect((called as typeof DRAFT).contract.customerName).not.toBe(DRAFT.contract.customerName);
+    }
+  });
+
+  it("does not fall back to the current engines when the recording is unusable", async () => {
+    load.mockResolvedValue(historicalRevision(null));
+    renderWorkspace();
+    await waitFor(() => expect(screen.getByTestId("historical-error")).toBeInTheDocument());
+    for (const [called] of workpaperSpy.mock.calls) {
+      expect((called as typeof DRAFT).contract.customerName).not.toBe(DRAFT.contract.customerName);
+    }
   });
 
   it("surfaces the earlier-engine notice for a superseded revision", async () => {
