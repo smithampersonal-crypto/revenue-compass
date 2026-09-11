@@ -566,8 +566,8 @@ export function Step3TransactionPrice({
       ) : null}
 
       <Notice>
-        Significant financing components, noncash consideration, consideration payable to a customer
-        and contract modifications are not implemented.
+        Significant financing components, noncash consideration and consideration payable to a
+        customer are not implemented. Contract modifications are entered under Additional topics.
       </Notice>
     </Section>
   );

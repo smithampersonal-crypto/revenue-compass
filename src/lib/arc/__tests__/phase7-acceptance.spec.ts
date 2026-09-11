@@ -6,6 +6,8 @@
  * engine or sample fixture is touched here.
  */
 
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { FEATURES } from "@/lib/arc/features";
