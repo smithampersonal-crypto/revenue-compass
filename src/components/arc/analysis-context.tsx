@@ -36,11 +36,12 @@ export type AnalysisOrigin = "manual" | "sample" | "ai";
 /**
  * Where the open analysis is stored.
  *  - `sample`   fixture only; never autosaved.
+ *  - `memory`   in-memory only; nothing is stored anywhere.
  *  - `guest`    temporary 9-hour server-side workspace, authorized by an
  *               HttpOnly credential the browser cannot read.
  *  - `contract` a saved, owned contract revision.
  */
-export type AnalysisBackingStore = "sample" | "guest" | "contract";
+export type AnalysisBackingStore = "sample" | "memory" | "guest" | "contract";
 
 export interface AnalysisPersistence {
   /** True when edits are saved server-side (guest workspace or saved contract). */
