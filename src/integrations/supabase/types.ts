@@ -266,6 +266,21 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_migrate_guest_workspace_by_token: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_customer_name: string
+          p_owner_user_id: string
+          p_token_hash: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
+          revision_id: string
+        }[]
+      }
       arc_start_amendment_revision: {
         Args: {
           p_contract_id: string
