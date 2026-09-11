@@ -112,7 +112,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
     if (!revision && !data.revisionId && analysis.current_finalized_revision_id) {
       const fallback = await context.supabase
         .from("analysis_revisions")
-        .select("id, revision_number, status, lock_version, canonical_inputs, schema_version")
+        .select(revisionColumns)
         .eq("id", analysis.current_finalized_revision_id)
         .maybeSingle();
       revision = fallback.data;
