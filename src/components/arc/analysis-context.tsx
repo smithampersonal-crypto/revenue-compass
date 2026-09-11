@@ -424,7 +424,9 @@ export function AnalysisProvider({
           queryClient.setQueryData(
             queryKey,
             (previous: LoadedRevisionDto | GuestWorkspaceDto | undefined) =>
-              previous ? { ...previous, draft: payload, lockVersion: outcome.lockVersion } : previous,
+              previous
+                ? { ...previous, draft: payload, lockVersion: outcome.lockVersion }
+                : previous,
           );
           const state = queryClient.getQueryState(queryKey);
           if (state) consumedAtRef.current = state.dataUpdatedAt;
@@ -505,7 +507,8 @@ export function AnalysisProvider({
    * still does not recalculate.
    */
   const revision = loaded?.kind === "contract" ? loaded.revision : null;
-  const recorded = revision && revision.readOnly ? (revision.snapshot?.engineOutputs ?? null) : null;
+  const recorded =
+    revision && revision.readOnly ? (revision.snapshot?.engineOutputs ?? null) : null;
   const historicalActive = Boolean(revision && revision.readOnly);
   const historicalError =
     historicalActive && !recorded
@@ -566,7 +569,17 @@ export function AnalysisProvider({
       finalizing,
       setFinalizing,
     }),
-    [persistenceEnabled, mode, status, loaded, revision, lockVersion, reload, retrySave, finalizing],
+    [
+      persistenceEnabled,
+      mode,
+      status,
+      loaded,
+      revision,
+      lockVersion,
+      reload,
+      retrySave,
+      finalizing,
+    ],
   );
 
   const resetAnalysis = useCallback(() => {

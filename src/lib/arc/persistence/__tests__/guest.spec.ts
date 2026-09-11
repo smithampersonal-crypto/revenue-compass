@@ -309,9 +309,7 @@ describe("migrateGuestWorkspaceHandler", () => {
   });
 
   it("blocks a blank Step 1 customer name before anything is created", async () => {
-    const recorder = storeFor(
-      rowFor({ draft_json: toCanonicalInputs(draftFor("")) as unknown }),
-    );
+    const recorder = storeFor(rowFor({ draft_json: toCanonicalInputs(draftFor("")) as unknown }));
     let called = false;
     const result = await migrateGuestWorkspaceHandler(
       {
@@ -352,9 +350,9 @@ describe("migrateGuestWorkspaceHandler", () => {
       userId: "user-7",
       migrateTransaction: async () => ({ data: migrated, error: null }),
     };
-    expect((await migrateGuestWorkspaceHandler(deps, { token: "tok", contractTitle: "X" })).ok).toBe(
-      false,
-    );
+    expect(
+      (await migrateGuestWorkspaceHandler(deps, { token: "tok", contractTitle: "X" })).ok,
+    ).toBe(false);
     expect((await migrateGuestWorkspaceHandler(deps, { token: null, contractTitle: "X" })).ok).toBe(
       false,
     );

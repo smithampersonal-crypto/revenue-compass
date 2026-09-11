@@ -40,10 +40,7 @@ export function createGuestToken(): string {
 
 /** SHA-256 of the credential, lowercase hex. This is what the database holds. */
 export async function hashGuestToken(token: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(token),
-  );
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -96,7 +93,13 @@ export function buildGuestCookie(token: string, secure: boolean): string {
 
 /** Retires the credential. Only ever sent after a successful migration. */
 export function clearGuestCookie(secure: boolean): string {
-  const attributes = [`${guestCookieName(secure)}=`, "HttpOnly", "SameSite=Lax", "Path=/", "Max-Age=0"];
+  const attributes = [
+    `${guestCookieName(secure)}=`,
+    "HttpOnly",
+    "SameSite=Lax",
+    "Path=/",
+    "Max-Age=0",
+  ];
   if (secure) attributes.splice(1, 0, "Secure");
   return attributes.join("; ");
 }

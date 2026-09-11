@@ -148,7 +148,10 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
 export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { contractTitle: string }) => ({
-    contractTitle: z.string().max(300).parse(input?.contractTitle ?? ""),
+    contractTitle: z
+      .string()
+      .max(300)
+      .parse(input?.contractTitle ?? ""),
   }))
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { secure, token } = await requestCookieContext();
