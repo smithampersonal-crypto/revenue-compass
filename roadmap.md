@@ -87,6 +87,30 @@
       `engine_version` / `schema_version` to match the snapshot's. Persisted
       summary labels read Draft Analysis · Saved / Finalized Analysis ·
       Revision N / Superseded Analysis · Revision N.
+      7D decoder + coverage patch: frozen snapshots are decoded by a versioned
+      strict Zod decoder for `arc.engine.v1` (`snapshot-schema.ts`) covering
+      every structure the canonical historical workspace dereferences —
+      workflow validation and totals, revenue schedule rows/per-PO/monetary
+      fields, revenue sources and contract groups, variable consideration,
+      material-right lifecycle, contract modifications, contract balances
+      (ordinary and grouped) and journals (discriminated ordinary/grouped,
+      entries, lines, reconciliation) — plus contradiction rejection
+      (unfinalized workflow or balances, journals without matching balance
+      analysis). Structure only; no accounting amount is recomputed. Production
+      finalization and amendment logic is extracted into dependency-injected
+      handlers (`revisions.handlers.ts`) that the `createServerFn` wrappers
+      call, with direct tests for canonical-input reread, server-built
+      snapshots, restricted browser input, stale lock and RPC error mapping,
+      ownership, amendment source validation and exact RPC arguments. UI
+      coverage added for successful finalization reload immutability,
+      current-finalized new-revision navigation, superseded view-only history,
+      and exact history revision links.
+
+      Verification: 553 tests across 52 files, typecheck and build clean,
+      ESLint 0 errors (8 pre-existing warnings). Database suites all green:
+      privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
+      2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
+      sample-fixture change.
       **Awaiting review — do not start 7E.**
 
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
