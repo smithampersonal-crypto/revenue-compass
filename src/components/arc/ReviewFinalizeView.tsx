@@ -1,8 +1,5 @@
 import { formatCents } from "@/lib/asc606";
-import type {
-  ContractBalanceWorkflowResult,
-  WorkflowAnalysisResult,
-} from "@/lib/asc606-workflow";
+import type { ContractBalanceWorkflowResult, WorkflowAnalysisResult } from "@/lib/asc606-workflow";
 import type { ArcJournalSnapshot } from "@/lib/arc/persistence/snapshot";
 
 import { CoreReconciliation } from "@/components/asc606-workflow/CoreReconciliation";

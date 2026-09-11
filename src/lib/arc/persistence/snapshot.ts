@@ -79,8 +79,7 @@ export interface ArcReconciliationSnapshot {
   core: NonNullable<WorkflowAnalysisResult["analysis"]>["reconciliation"] | null;
   lifecycle: NonNullable<WorkflowAnalysisResult["lifecycle"]>["reconciliation"] | null;
   variableConsideration:
-    | NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"]
-    | null;
+    NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"] | null;
   modification: NonNullable<WorkflowAnalysisResult["modification"]>["reconciliation"] | null;
   balances: NonNullable<ContractBalanceWorkflowResult["analysis"]>["reconciliation"] | null;
   groupedBalancesReconciled: boolean | null;
@@ -154,9 +153,7 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
     return {
       ok: false,
       issues:
-        issues.length > 0
-          ? issues
-          : ["The Billing & Contract Balances workpaper is not complete."],
+        issues.length > 0 ? issues : ["The Billing & Contract Balances workpaper is not complete."],
     };
   }
 

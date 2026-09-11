@@ -397,8 +397,7 @@ export function AnalysisProvider({
   // never leave an editable blank workspace that looks like the contract.
   // While a finalization is pending the workspace is non-editable everywhere,
   // so no navigation path can change the draft the server is finalizing.
-  const canEdit =
-    !finalizing && (persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true);
+  const canEdit = !finalizing && (persistenceEnabled ? Boolean(loaded) && !loaded!.readOnly : true);
 
   /**
    * A finalized or superseded revision is presented from its recorded engine
@@ -429,9 +428,7 @@ export function AnalysisProvider({
     () => ({
       active: historicalActive,
       status:
-        loaded && loaded.status !== "draft"
-          ? (loaded.status as "finalized" | "superseded")
-          : null,
+        loaded && loaded.status !== "draft" ? (loaded.status as "finalized" | "superseded") : null,
       engineVersion: loaded?.snapshot?.engineVersion ?? null,
       engineVersionMatchesCurrent: loaded?.snapshot?.engineVersionMatchesCurrent ?? true,
       error: historicalError,

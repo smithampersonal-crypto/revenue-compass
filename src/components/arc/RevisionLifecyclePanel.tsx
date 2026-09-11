@@ -53,7 +53,9 @@ export function RevisionLifecyclePanel() {
   const currentFinalizedId =
     history.data?.revisions.find((entry) => entry.isCurrentFinalized)?.revisionId ?? null;
   const canStartNewRevision =
-    Boolean(revision) && revision!.status === "finalized" && revision!.revisionId === currentFinalizedId;
+    Boolean(revision) &&
+    revision!.status === "finalized" &&
+    revision!.revisionId === currentFinalizedId;
 
   const finalizeMutation = useMutation({
     mutationFn: () => {

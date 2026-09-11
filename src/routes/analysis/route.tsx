@@ -91,8 +91,8 @@ function AnalysisWorkspace() {
           ) : null}
           {persistence.finalizing ? (
             <Notice>
-              This revision is being finalized. The workspace is locked until the server answers,
-              so nothing can change the analysis being recorded.
+              This revision is being finalized. The workspace is locked until the server answers, so
+              nothing can change the analysis being recorded.
             </Notice>
           ) : null}
           {historical.active && !historical.error ? (
