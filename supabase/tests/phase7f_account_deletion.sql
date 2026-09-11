@@ -3,7 +3,7 @@
 -- Every row must report passed = true.
 begin;
 
-create temporary table arc_test_results (assertion text, passed boolean) on commit drop;
+create temporary table arc_test_results (assertion text, passed boolean not null) on commit drop;
 
 -- 01-06 Both Phase 7F routines are service-role only.
 insert into arc_test_results values (
@@ -120,7 +120,7 @@ begin
 end $$;
 
 select assertion, passed from arc_test_results order by assertion;
-select count(*) filter (where not passed) as failures, count(*) as total from arc_test_results;
+select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 
 -- CI gate: a false assertion must make psql exit non-zero.
 do $gate$
@@ -130,7 +130,7 @@ declare
 begin
   select count(*), string_agg(assertion, '; ' order by assertion)
     into v_failed, v_names
-  from arc_test_results where not passed;
+  from arc_test_results where passed is not true;
   if v_failed > 0 then
     raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
   end if;

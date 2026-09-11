@@ -3,7 +3,7 @@
 -- Every row must report passed = true.
 begin;
 
-create temporary table arc_test_results (assertion text, passed boolean) on commit drop;
+create temporary table arc_test_results (assertion text, passed boolean not null) on commit drop;
 
 do $$
 declare
@@ -102,7 +102,7 @@ declare
 begin
   select count(*), string_agg(assertion, '; ' order by assertion)
     into v_failed, v_names
-  from arc_test_results where not passed;
+  from arc_test_results where passed is not true;
   if v_failed > 0 then
     raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
   end if;

@@ -77,7 +77,7 @@ declare
 begin
   select count(*), string_agg(assertion, '; ' order by assertion)
     into v_failed, v_names
-  from arc_dup_results where not passed;
+  from arc_dup_results where passed is not true;
   if v_failed > 0 then
     raise exception 'ARC SQL suite failed: % assertion(s) did not pass: %', v_failed, v_names;
   end if;
