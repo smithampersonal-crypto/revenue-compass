@@ -167,7 +167,8 @@ describe("explicit save of a guest analysis", () => {
       revisionId: "rev-1",
     });
     renderGuest({ autoOpen: true });
-    await screen.findByText("Northwind");
+    // The contract name is suggested from Step 1 before the form can be used.
+    await screen.findByDisplayValue("Northwind");
 
     fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
@@ -191,7 +192,7 @@ describe("explicit save of a guest analysis", () => {
   it("keeps the temporary workspace when the migration fails", async () => {
     migrate.mockResolvedValue({ ok: false, reason: "Nothing was created. Please try again." });
     renderGuest({ autoOpen: true });
-    await screen.findByText("Northwind");
+    await screen.findByDisplayValue("Northwind");
     fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
     expect(await screen.findByText(/Nothing was created/)).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
