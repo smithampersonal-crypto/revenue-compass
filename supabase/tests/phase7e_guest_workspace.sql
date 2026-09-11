@@ -55,8 +55,9 @@ declare
   hash_ok text := repeat('a', 64);
   hash_expired text := repeat('b', 64);
   hash_locked text := repeat('d', 64);
+  hash_ok2 text := repeat('e', 64);
   other_id uuid := '00000000-0000-4000-8000-0000000007e2';
-  guest_ok uuid; guest_expired uuid; guest_locked uuid;
+  guest_ok uuid; guest_expired uuid; guest_locked uuid; guest_ok2 uuid;
   res record; res2 record; failed boolean;
 
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Guest Co"}}'::jsonb;
@@ -73,6 +74,10 @@ begin
   insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
   values (hash_expired, draft, 'arc.workflow.v1', now() - interval '1 minute')
   returning id into guest_expired;
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (hash_ok2, draft, 'arc.workflow.v1', now() + interval '9 hours')
+  returning id into guest_ok2;
 
   -- 07 The credential hash is unique.
   failed := false;
