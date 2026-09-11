@@ -19,14 +19,33 @@ vi.mock("@tanstack/react-start", async (importOriginal) => {
   return { ...actual, useServerFn: (fn: unknown) => fn };
 });
 
+const navigate = vi.fn();
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
-    Link: ({ children }: { children?: unknown }) => <span>{children as never}</span>,
+    useNavigate: () => navigate,
+    Link: ({
+      children,
+      search,
+      to,
+    }: {
+      children?: unknown;
+      search?: { contract?: string; revision?: string };
+      to?: string;
+    }) => (
+      <a
+        href={to ?? "#"}
+        data-contract={search?.contract ?? ""}
+        data-revision={search?.revision ?? ""}
+      >
+        {children as never}
+      </a>
+    ),
   };
 });
+
 
 const load = vi.fn();
 const save = vi.fn();
