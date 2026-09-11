@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createEmptyDraft, analyzeWorkflow } from "@/lib/asc606-workflow";
+import {
+  analyzeContractBalanceWorkflow,
+  analyzeWorkflow,
+  createEmptyDraft,
+} from "@/lib/asc606-workflow";
+import { analyzeGroupedJournalEntries, analyzeJournalEntries } from "@/lib/asc606-journals";
 import { createDemoDraftIfKnown } from "@/lib/demo-scenarios";
 
 import {
@@ -22,7 +27,7 @@ describe("finalization snapshot", () => {
   });
 
   it("records engine and schema versions with the snapshot", () => {
-    const draft = createDemoDraftIfKnown("redwood");
+    const draft = createDemoDraftIfKnown("horizon");
     expect(draft).not.toBeNull();
     const outcome = buildFinalizationSnapshot(draft!);
     expect(outcome.ok).toBe(true);
@@ -32,7 +37,7 @@ describe("finalization snapshot", () => {
   });
 
   it("copies engine reconciliation verbatim and performs no arithmetic of its own", () => {
-    const draft = createDemoDraftIfKnown("redwood")!;
+    const draft = createDemoDraftIfKnown("horizon")!;
     const engine = analyzeWorkflow(draft);
     const outcome = buildFinalizationSnapshot(draft);
     expect(outcome.ok).toBe(true);
@@ -47,7 +52,7 @@ describe("finalization snapshot", () => {
   });
 
   it("produces a JSON-serializable snapshot", () => {
-    const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown("redwood")!);
+    const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown("horizon")!);
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(() => JSON.stringify(outcome.engineOutputs)).not.toThrow();
@@ -55,6 +60,70 @@ describe("finalization snapshot", () => {
       JSON.parse(JSON.stringify(outcome.reconciliation)) as unknown,
     );
     expect(round?.engineVersion).toBe(ARC_ENGINE_VERSION);
+  });
+});
+
+describe("complete-workpaper finalization", () => {
+  it("matches the direct workflow, balance and journal engines for an ordinary contract", () => {
+    const draft = createDemoDraftIfKnown("horizon")!;
+    const outcome = buildFinalizationSnapshot(draft);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    const balances = analyzeContractBalanceWorkflow(draft);
+    expect(outcome.engineOutputs.journals.kind).toBe("ordinary");
+    expect(JSON.parse(JSON.stringify(outcome.engineOutputs.workflow))).toEqual(
+      JSON.parse(JSON.stringify(analyzeWorkflow(draft))),
+    );
+    expect(JSON.parse(JSON.stringify(outcome.engineOutputs.balances))).toEqual(
+      JSON.parse(JSON.stringify(balances)),
+    );
+    if (outcome.engineOutputs.journals.kind !== "ordinary") return;
+    expect(JSON.parse(JSON.stringify(outcome.engineOutputs.journals.analysis))).toEqual(
+      JSON.parse(JSON.stringify(analyzeJournalEntries(balances.engineInput!))),
+    );
+  });
+
+  it("preserves group identity and gross journals for the grouped Meridian case", () => {
+    const draft = createDemoDraftIfKnown("meridian")!;
+    const outcome = buildFinalizationSnapshot(draft);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.engineOutputs.journals.kind).toBe("grouped");
+    if (outcome.engineOutputs.journals.kind !== "grouped") return;
+    const balances = analyzeContractBalanceWorkflow(draft);
+    const grouped = analyzeGroupedJournalEntries(balances.groupInputs);
+    expect(outcome.engineOutputs.journals.analysis.groups.map((g) => g.groupId)).toEqual(
+      grouped.groups.map((g) => g.groupId),
+    );
+    expect(JSON.parse(JSON.stringify(outcome.engineOutputs.journals.analysis))).toEqual(
+      JSON.parse(JSON.stringify(grouped)),
+    );
+  });
+
+  it("blocks a five-step-complete analysis whose billing workpaper is incomplete", () => {
+    const draft = createDemoDraftIfKnown("redwood")!;
+    expect(analyzeWorkflow(draft).finalized).toBe(true);
+    const outcome = buildFinalizationSnapshot(draft);
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.issues.length).toBeGreaterThan(0);
+  });
+
+  it("blocks when no journal output can be produced", () => {
+    const draft = createDemoDraftIfKnown("redwood")!;
+    const outcome = buildFinalizationSnapshot(draft);
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(analyzeContractBalanceWorkflow(draft).finalized).toBe(false);
+  });
+
+  it("a successful snapshot always carries applicable journal output", () => {
+    for (const id of ["horizon", "stellar", "meridian"]) {
+      const outcome = buildFinalizationSnapshot(createDemoDraftIfKnown(id)!);
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) continue;
+      expect(outcome.engineOutputs.journals).not.toBeNull();
+    }
   });
 });
 
