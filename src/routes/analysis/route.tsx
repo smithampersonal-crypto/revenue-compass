@@ -18,10 +18,13 @@ export const Route = createFileRoute("/analysis")({
   // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { sample?: string; contract?: string; revision?: string } => ({
+  ): { sample?: string; contract?: string; revision?: string; save?: string } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
+    // Carries only the intent to save a temporary workspace after signing in.
+    // The guest credential is never in the URL.
+    ...(typeof search["save"] === "string" ? { save: search["save"] } : {}),
   }),
   beforeLoad: ({ search }) => {
     if (search.sample && (search.contract || search.revision)) {
