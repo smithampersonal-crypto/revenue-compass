@@ -99,7 +99,6 @@ export function buildAnalysisSummary({
   /** Present only for a saved contract revision. */
   persisted?: PersistedRevisionLabel | null;
 }): AnalysisSummaryModel {
-
   const status = statusLabel(result);
 
   const identity: SummaryMetric[] = [];
