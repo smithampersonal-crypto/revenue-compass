@@ -82,7 +82,11 @@ function Asc606AnalysisArea() {
           <div className="space-y-6">
             <IssueList title="Items requiring attention in Step 2" issues={step2Issues} />
             <Step2Promises draft={draft} onChange={setDraft} />
-            <Step2PerformanceObligations draft={draft} onChange={setDraft} />
+            <Step2PerformanceObligations
+              draft={draft}
+              onChange={setDraft}
+              warnings={result.workflowValidation.warningsByStep["2b"]}
+            />
           </div>
         </AccordionSection>
 
