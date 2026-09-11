@@ -176,18 +176,27 @@ export function AnalysisProvider({
   sample,
   contractId,
   revisionId,
+  guest = false,
   children,
 }: {
   sample: string | undefined;
   contractId?: string | undefined;
   revisionId?: string | undefined;
+  /** Bare /analysis in the running app: back the analysis with a guest workspace. */
+  guest?: boolean;
   children: ReactNode;
 }) {
   // Samples are always ephemeral fixtures and are never autosaved, so a sample
   // in the URL disables persistence entirely. Bare /analysis is backed by a
   // temporary guest workspace; a contract id opens the saved analysis.
-  const mode: AnalysisBackingStore = sample ? "sample" : contractId ? "contract" : "guest";
-  const persistenceEnabled = mode !== "sample";
+  const mode: AnalysisBackingStore = sample
+    ? "sample"
+    : contractId
+      ? "contract"
+      : guest
+        ? "guest"
+        : "memory";
+  const persistenceEnabled = mode === "contract" || mode === "guest";
 
   // Initial state only: later user edits are never overwritten by a rerender,
   // and navigating between parent areas never remounts this provider.
