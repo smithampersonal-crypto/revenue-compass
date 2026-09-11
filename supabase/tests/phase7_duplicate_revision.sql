@@ -4,7 +4,7 @@
 -- Runs inside a rolled-back transaction with synthetic auth users only.
 begin;
 
-create temporary table arc_dup_results (assertion text, passed boolean, detail text) on commit drop;
+create temporary table arc_dup_results (assertion text, passed boolean not null, detail text) on commit drop;
 
 do $$
 declare
