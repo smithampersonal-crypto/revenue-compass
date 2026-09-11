@@ -113,6 +113,11 @@ describe("guest cookie", () => {
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain(`Max-Age=${GUEST_LIFETIME_SECONDS}`);
     expect(GUEST_LIFETIME_SECONDS).toBe(9 * 60 * 60);
+    // `__Host-` is only honoured without a Domain attribute (Phase 7F).
+    expect(cookie).not.toMatch(/;\s*Domain=/i);
+    expect(cookie).toBe(
+      "__Host-arc_guest=abc; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=32400",
+    );
   });
 
   it("falls back to a development-safe name on local http, still HttpOnly", () => {

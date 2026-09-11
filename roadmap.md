@@ -190,10 +190,43 @@
       a rolled-back transaction. Earlier Phase 7 suites unchanged and last
       green at 7D acceptance.
       No `src/lib/asc606*` or sample-fixture change.
-      **Awaiting review — do not start 7F.**
+      **Accepted.**
 
-- [ ] 7F Hardening: account deletion, bundle/network service-role leakage audit,
-      end-to-end regression, completion report.
+- [x] 7F Hardening: account deletion, guest physical retention, service-role
+      leakage audit, reproducible verification, end-to-end regression.
+      Account Settings now carries an irreversible-action panel requiring the
+      typed word `DELETE`. `deleteAccount` is signed-in only: the identity comes
+      from `requireSupabaseAuth` plus a server-side `auth.getUser()`
+      re-verification, never from browser input. It purges the deleting user's
+      temporary-workspace rows first — `migrated_user_id = user` and the current
+      browser's credential hash — through service-role-only
+      `arc_purge_user_guest_data`, because deleting the auth identity would
+      otherwise null `migrated_user_id` and orphan a copy of their contract
+      draft. It then removes the Supabase auth user, which cascades
+      customer → contract → analysis → revision (finalized and superseded
+      revisions delete only on this path; the immutability trigger still blocks
+      every other route). The handler proves the post-condition before reporting
+      success, the guest cookie is cleared, and the browser then clears the React
+      Query cache and signs out.
+      Guest physical retention now uses the existing nine-hour lifetime as the
+      boundary: service-role-only `arc_delete_expired_guest_workspaces()` deletes
+      rows whose `expires_at` has passed, so idempotent migration recovery lasts
+      exactly as long as the workspace did. Authorization remains `expires_at`,
+      independent of cleanup timing. Scheduling documented in `docs/operations.md`
+      (hourly `pg_cron` or external scheduler).
+      Reproducible verification added: `bun run verify` (tests, typecheck, lint,
+      production build, client-bundle secret audit), `bun run db:test`
+      (`scripts/run-sql-suites.sh` against a local Supabase database) and
+      `.github/workflows/verify.yml` with a pinned Supabase CLI — CI uses local
+      infrastructure and no production service-role secret.
+      Verification: 610 tests across 56 files, typecheck clean, ESLint 0 errors
+      (8 pre-existing warnings), production build OK, bundle audit clean (no
+      service-role env name, secret value, `service_role` JWT payload or admin
+      client module in any client asset). New suite
+      `phase7f_account_deletion.sql`: 17/17 green against the project database in
+      a rolled-back transaction. No `src/lib/asc606*` or sample-fixture change.
+      Production prerequisite outside the codebase: custom SMTP for the
+      magic-link sender.
 
 ## Standing guardrails
 
