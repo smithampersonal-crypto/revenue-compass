@@ -61,17 +61,45 @@ function statusLabel(result: WorkflowAnalysisResult): {
   return { label: "Needs attention", tone: status.tone };
 }
 
+/**
+ * The saved revision this workspace is showing, when it is a persisted
+ * analysis. Labelling only — no accounting meaning.
+ */
+export interface PersistedRevisionLabel {
+  status: "draft" | "finalized" | "superseded";
+  revisionNumber: number;
+}
+
+function originLabelFor(
+  origin: AnalysisOrigin,
+  persisted: PersistedRevisionLabel | null | undefined,
+): string {
+  if (origin === "sample" || !persisted) return ORIGIN_LABELS[origin];
+  switch (persisted.status) {
+    case "draft":
+      return "Draft Analysis · Saved";
+    case "finalized":
+      return `Finalized Analysis · Revision ${persisted.revisionNumber}`;
+    case "superseded":
+      return `Superseded Analysis · Revision ${persisted.revisionNumber}`;
+  }
+}
+
 export function buildAnalysisSummary({
   draft,
   result,
   origin,
   scenario,
+  persisted,
 }: {
   draft: WorkflowDraft;
   result: WorkflowAnalysisResult;
   origin: AnalysisOrigin;
   scenario: DemoScenario | null;
+  /** Present only for a saved contract revision. */
+  persisted?: PersistedRevisionLabel | null;
 }): AnalysisSummaryModel {
+
   const status = statusLabel(result);
 
   const identity: SummaryMetric[] = [];
