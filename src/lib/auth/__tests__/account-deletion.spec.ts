@@ -141,3 +141,34 @@ describe("account deletion handler", () => {
     expect(otherUsersRows.has("other-user-hash")).toBe(true);
   });
 });
+
+describe("post-condition counts", () => {
+  it("treats a null count as unavailable, never as proof of zero rows", () => {
+    expect(() => requireExactCount({ count: null }, "customers")).toThrow(/unavailable/);
+    expect(() => requireExactCount({}, "customers")).toThrow(/unavailable/);
+    expect(() => requireExactCount({ error: { message: "boom" }, count: 0 }, "customers")).toThrow(
+      /post-condition query failed/,
+    );
+    expect(requireExactCount({ count: 0, error: null }, "customers")).toBe(0);
+  });
+
+  it("cannot report success when a post-condition count is null", async () => {
+    const { deps } = depsFor({
+      verifyRemoval: async () => ({
+        customers: requireExactCount({ count: null }, "customers"),
+        guestRows: 0,
+      }),
+    });
+    const result = await deleteAccountHandler(deps, { confirmation: DELETE_CONFIRMATION });
+    expect(result).toEqual({ ok: false, reason: UNCONFIRMED_MESSAGE });
+  });
+});
+
+describe("account page error wording", () => {
+  const source = readFileSync("src/routes/_authenticated/account.tsx", "utf8");
+
+  it("never tells the user nothing was removed after the request was sent", () => {
+    expect(source).not.toContain("Nothing has been removed");
+    expect(source).toContain("messageForRequestFailure()");
+  });
+});
