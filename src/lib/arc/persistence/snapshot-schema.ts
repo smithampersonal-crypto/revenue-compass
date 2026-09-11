@@ -587,7 +587,12 @@ const journalEntry = z
     id: text,
     date: text,
     month: text,
-    eventType: text,
+    eventType: z.enum([
+      "revenue_recognition",
+      "unconditional_right",
+      "invoice_reclassification",
+      "cash_collection",
+    ]),
     sourceId: nullableText,
     description: text,
     lines: z.array(journalLine),
