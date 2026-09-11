@@ -111,6 +111,25 @@
       privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
       2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
       sample-fixture change.
+      7D final renderer-integrity patch: the `arc.engine.v1` decoder now
+      requires every workflow step key (1, 2a, 2b, 3, 4, 5, mod) in both
+      blockingByStep and warningsByStep, types the optional revenue-source
+      provenance fields, and validates the modification scope description,
+      separate-contract test flag, mixed-allocation policy union and journal
+      event-type enum that historical renderers dereference; unknown keys stay
+      permitted for forward compatibility. Step 2 performance obligations no
+      longer run workflow validation itself and instead renders the
+      authoritative warnings supplied by the analysis context, so a finalized
+      or superseded revision shows its recorded Step 2 warnings. Fail-closed
+      regressions cover each newly required field, plus positive decoder
+      coverage for Horizon (ordinary), Stellar and Meridian (grouped)
+      finalized snapshots.
+
+      Verification: 563 tests across 53 files, typecheck and build clean,
+      ESLint 0 errors (8 pre-existing warnings). Database suites all green:
+      privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
+      2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
+      sample-fixture change.
       **Awaiting review — do not start 7E.**
 
 - [ ] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
