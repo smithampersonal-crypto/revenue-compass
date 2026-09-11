@@ -123,7 +123,7 @@ function renderWorkspace() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider contractId={CONTRACT_ID} revisionId={REVISION_ID}>
+      <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={REVISION_ID}>
         <Workspace />
       </AnalysisProvider>
     </QueryClientProvider>,
@@ -206,7 +206,7 @@ describe("pending finalization locks the draft", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
-        <AnalysisProvider contractId={CONTRACT_ID} revisionId={REVISION_ID}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={REVISION_ID}>
           <Locking />
         </AnalysisProvider>
       </QueryClientProvider>,
