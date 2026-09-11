@@ -157,7 +157,7 @@ export function buildAnalysisSummary({
     commonMethod && !hasActiveModification ? RECOGNITION_LABELS[commonMethod] : null;
 
   return {
-    originLabel: ORIGIN_LABELS[origin],
+    originLabel: originLabelFor(origin, persisted),
     originDetail: scenario
       ? "Fictional sample — edit any assumption to explore the accounting."
       : null,
