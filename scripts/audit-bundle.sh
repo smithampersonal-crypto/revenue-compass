@@ -4,7 +4,7 @@
 # browser bundle or source map. Never prints a secret value.
 set -euo pipefail
 
-DIR="${1:-dist}"
+DIR="${1:-.output/public}"
 if [ ! -d "$DIR" ]; then
   echo "audit:bundle — no build output at $DIR; run 'bun run build' first." >&2
   exit 1
