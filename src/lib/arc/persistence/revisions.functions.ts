@@ -127,6 +127,19 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
 
     const customer = contract.customers as unknown as { name: string } | null;
 
+    // A finalized snapshot is returned exactly as recorded. It is never
+    // recomputed here, so a later engine change cannot silently rewrite it.
+    const snapshot: RevisionSnapshotDto | null =
+      revision.status === "draft"
+        ? null
+        : {
+            engineVersion: revision.engine_version ?? "",
+            schemaVersion: revision.schema_version,
+            finalizedAt: revision.finalized_at,
+            engineVersionMatchesCurrent: revision.engine_version === ARC_ENGINE_VERSION,
+            reconciliation: readReconciliationSnapshot(revision.reconciliation_snapshot),
+          };
+
     return {
       contractId: contract.id,
       contractTitle: contract.title,
@@ -140,6 +153,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       schemaVersion: revision.schema_version,
       readOnly: revision.status !== "draft",
       draft: parsed.draft,
+      snapshot,
     };
   });
 
