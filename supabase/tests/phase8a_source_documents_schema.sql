@@ -50,13 +50,18 @@ begin
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents' and b.file_size_limit = 10485760));
   -- The hosted platform does not expose a bucket content-type setting through
-  -- the managed tooling, so where it is configured it must be PDF-only and
-  -- server-side validation stays the authoritative gate.
-  insert into arc_test_results values ('01c source bucket never accepts a non-PDF type',
+  -- the managed tooling, so this assertion only proves the weaker condition:
+  -- where a content-type restriction IS configured (local/CI from
+  -- supabase/config.toml) it must be exactly application/pdf. A NULL setting
+  -- proves nothing about what the bucket accepts; Phase 8B's server-side
+  -- inspection of the actual uploaded bytes remains the authoritative PDF gate
+  -- and must never rely on browser-supplied MIME metadata.
+  insert into arc_test_results values (
+    '01c bucket content-type restriction, where configured, is exactly application/pdf',
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents'
-               and coalesce(b.allowed_mime_types, array['application/pdf'])
-                   = array['application/pdf']));
+               and (b.allowed_mime_types is null
+                    or b.allowed_mime_types = array['application/pdf'])));
 
 
 

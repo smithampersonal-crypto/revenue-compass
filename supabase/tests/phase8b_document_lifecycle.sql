@@ -9,7 +9,7 @@ do $$
 declare
   user_a uuid := '00000000-0000-4000-8000-0000000008b1';
   user_b uuid := '00000000-0000-4000-8000-0000000008b2';
-  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; g1 uuid;
+  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; g1 uuid; g2 uuid;
   i1 uuid; i2 uuid; i3 uuid; i4 uuid; i5 uuid; i6 uuid; i7 uuid; i8 uuid;
   sha1 text := repeat('1', 64);
   sha3 text := repeat('3', 64);
@@ -18,7 +18,8 @@ declare
   sha6 text := repeat('6', 64);
   sha7 text := repeat('7', 64);
   sha8 text := repeat('8', 64);
-  doc1 uuid; doc3 uuid; doc4 uuid;
+  sha9 text := repeat('9', 64);
+  doc1 uuid; doc3 uuid; doc4 uuid; doc9 uuid;
   p record; c record; res record; job record;
   reserved text; lock_now integer; ok boolean; n integer;
 begin
@@ -152,20 +153,42 @@ begin
     and exists (select 1 from public.revision_source_documents
                  where revision_id = rev1 and source_document_id = doc3));
   lock_now := public.arc_attach_source_document(user_a, rev1, doc3, 3);
-  insert into arc_test_results values ('13 re-attaching an already selected document is idempotent',
-    lock_now = 4 and (select count(*) from public.revision_source_documents
-                       where revision_id = rev1 and source_document_id = doc3) = 1);
+  insert into arc_test_results values ('13 re-attaching an already selected document changes nothing',
+    lock_now = 3 and (select lock_version from public.analysis_revisions where id = rev1) = 3
+    and (select count(*) from public.revision_source_documents
+          where revision_id = rev1 and source_document_id = doc3) = 1);
+
+  -- 13b a stale attach still conflicts even though the end state already exists
+  ok := false;
+  begin
+    perform public.arc_attach_source_document(user_a, rev1, doc3, 2);
+  exception when sqlstate '40001' then ok := true; end;
+  insert into arc_test_results values ('13b stale attach conflicts even when already selected',
+    ok and (select lock_version from public.analysis_revisions where id = rev1) = 3);
 
   -- 14 remove advances the lock exactly once and rejects a stale lock
   ok := false;
   begin
     perform public.arc_remove_source_document(user_a, rev1, doc3, 2);
   exception when sqlstate '40001' then ok := true; end;
-  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 4);
+  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 3);
   insert into arc_test_results values ('14 remove rejects a stale lock and otherwise advances once',
-    ok and lock_now = 5
+    ok and lock_now = 4
     and not exists (select 1 from public.revision_source_documents
                      where revision_id = rev1 and source_document_id = doc3));
+
+  -- 14b removing an already absent association changes nothing
+  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 4);
+  insert into arc_test_results values ('14b removing an absent association changes nothing',
+    lock_now = 4 and (select lock_version from public.analysis_revisions where id = rev1) = 4);
+
+  -- 14c a stale remove still conflicts even though the document is already absent
+  ok := false;
+  begin
+    perform public.arc_remove_source_document(user_a, rev1, doc3, 3);
+  exception when sqlstate '40001' then ok := true; end;
+  insert into arc_test_results values ('14c stale remove conflicts even when already absent',
+    ok and (select lock_version from public.analysis_revisions where id = rev1) = 4);
 
   -- 15 an eligible hard delete queues the object exactly once and frees the row
   select * into res from public.arc_stage_source_document_deletion(user_a, null, doc3, null);
@@ -288,6 +311,33 @@ begin
   exception when others then ok := true; end;
   insert into arc_test_results values ('27 non-conflict association failure is fatal',
     ok and not exists (select 1 from public.source_documents where sha256 = sha8));
+
+  -- 28 an expired guest credential cannot stage a source-document deletion
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values ('phase8b-guest-del', '{"v":1}'::jsonb, 'arc-workflow-1', now() + interval '9 hours')
+  returning id into g2;
+  insert into public.source_documents
+    (guest_workspace_id, storage_object_path, original_filename, display_name,
+     sha256, byte_size, page_count)
+  values (g2, 'documents/8b-guest-del.pdf', 'gd.pdf', 'Guest Delete', sha9, 1024, 2)
+  returning id into doc9;
+  insert into public.guest_source_document_selections (guest_workspace_id, source_document_id)
+  values (g2, doc9);
+  select lock_version into lock_now from public.guest_workspaces where id = g2;
+  update public.guest_workspaces set expires_at = now() - interval '1 minute' where id = g2;
+
+  ok := false;
+  begin
+    perform public.arc_stage_source_document_deletion(null, 'phase8b-guest-del', doc9, lock_now);
+  exception when others then ok := true; end;
+  select count(*) into n from public.storage_deletion_queue
+   where storage_object_path = 'documents/8b-guest-del.pdf';
+  insert into arc_test_results values ('28 expired guest credential cannot stage source-document deletion',
+    ok and exists (select 1 from public.source_documents where id = doc9)
+    and exists (select 1 from public.guest_source_document_selections
+                 where guest_workspace_id = g2 and source_document_id = doc9)
+    and n = 0
+    and (select lock_version from public.guest_workspaces where id = g2) = lock_now);
 
   -- 24 every privileged function is service-role only
 
