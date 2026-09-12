@@ -290,12 +290,24 @@
   `arc_set_source_document_archived`, `arc_stage_source_document_deletion` and
   the storage deletion queue claim/complete/release trio — all service-role
   only, each advancing the revision lock exactly once and idempotent on retry.
-  Suites: `supabase/tests/phase8a_source_documents_schema.sql` (18 assertions)
-  and `supabase/tests/phase8b_document_lifecycle.sql` (24 assertions), both
+  Suites: `supabase/tests/phase8a_source_documents_schema.sql` (23 assertions)
+  and `supabase/tests/phase8b_document_lifecycle.sql` (27 assertions), both
   executed green against the development project;
   `supabase/tests/phase7f_account_deletion.sql` extended with two document
   assertions and re-run green. No UI, server functions, or PDF parsing in this
   stage. No `src/lib/asc606*` or sample-fixture change.
+
+- Phase 8A corrective patch: `source_documents` now rejects blank
+  `original_filename` / `display_name`; `arc_prepare_source_document_upload`
+  bounds validated facts at 10 MB and 500 pages exactly like the row
+  constraints; `arc_commit_source_document_upload` re-checks that a guest
+  workspace is still active and unexpired and only downgrades a `40001`
+  concurrency conflict to "document accepted, selection failed" — any other
+  association failure is now fatal. The private bucket configuration
+  (private, 10 MB, PDF only) is declared in `supabase/config.toml`, because
+  buckets cannot be created from a migration; the hosted project exposes no
+  bucket content-type setting through the managed tooling, so server-side
+  PDF validation in stage 8B stays the authoritative content gate.
 
 ## Standing guardrails
 

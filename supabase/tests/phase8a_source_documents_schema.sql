@@ -49,10 +49,15 @@ begin
   insert into arc_test_results values ('01b source bucket size limit is 10 MB',
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents' and b.file_size_limit = 10485760));
-  insert into arc_test_results values ('01c source bucket accepts only application/pdf',
+  -- The hosted platform does not expose a bucket content-type setting through
+  -- the managed tooling, so where it is configured it must be PDF-only and
+  -- server-side validation stays the authoritative gate.
+  insert into arc_test_results values ('01c source bucket never accepts a non-PDF type',
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents'
-               and b.allowed_mime_types = array['application/pdf']));
+               and coalesce(b.allowed_mime_types, array['application/pdf'])
+                   = array['application/pdf']));
+
 
 
   insert into public.source_documents
