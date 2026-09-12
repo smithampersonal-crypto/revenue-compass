@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
+import { CreateRevisionAction } from "@/components/arc/CreateRevisionAction";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import {
   createContract,
@@ -30,7 +31,7 @@ const INPUT_CLASS =
 const BUTTON_CLASS =
   "inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
 
-function WorkspacePage() {
+export function WorkspacePage() {
   const queryClient = useQueryClient();
   const verifyIdentity = useServerFn(getVerifiedIdentity);
   const fetchWorkspace = useServerFn(listWorkspace);
@@ -198,20 +199,52 @@ function WorkspacePage() {
                   <li key={customer.id}>
                     <h3 className="text-sm font-semibold text-foreground">{customer.name}</h3>
                     <ul className="mt-2 space-y-2">
-                      {customer.contracts.map((contract) => (
-                        <li key={contract.id}>
-                          <Link
-                            to="/analysis"
-                            search={{ contract: contract.id }}
-                            className="flex min-h-10 items-center justify-between rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                      {customer.contracts.map((contract) => {
+                        const state = contract.revisionState;
+                        return (
+                          <li
+                            key={contract.id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
                           >
-                            <span>{contract.title}</span>
-                            <span className="text-muted-foreground">
-                              {contract.contractNumber ?? "—"}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
+                            <div className="min-w-0">
+                              <Link
+                                to="/analysis"
+                                search={{ contract: contract.id }}
+                                className="text-sm font-medium text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                {contract.title}
+                              </Link>
+                              <p className="text-xs text-muted-foreground">
+                                {contract.contractNumber ?? "—"}
+                                {state.kind === "draft"
+                                  ? ` · Draft · Revision ${state.revisionNumber}`
+                                  : state.kind === "finalized"
+                                    ? ` · Finalized · Revision ${state.revisionNumber}`
+                                    : " · No revision yet"}
+                              </p>
+                            </div>
+                            {/* Always-visible actions: never hover-only, so keyboard
+                                and touch users can reach them. */}
+                            {state.kind === "draft" && state.revisionId ? (
+                              <Link
+                                to="/analysis"
+                                search={{ contract: contract.id, revision: state.revisionId }}
+                                className="inline-flex min-h-10 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                Open draft
+                              </Link>
+                            ) : null}
+                            {state.kind === "finalized" && state.revisionId ? (
+                              <CreateRevisionAction
+                                contractId={contract.id}
+                                sourceRevisionId={state.revisionId}
+                                sourceRevisionNumber={state.revisionNumber ?? 1}
+                                nextRevisionNumber={state.nextRevisionNumber}
+                              />
+                            ) : null}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </li>
                 ))}
