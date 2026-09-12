@@ -195,6 +195,9 @@ export function RevisionLifecyclePanel() {
               Finalize analysis
             </button>
           ) : null}
+          {amendmentDraft && contractId ? (
+            <DiscardDraftRevisionAction contractId={contractId} {...amendmentDraft} />
+          ) : null}
           {canStartNewRevision && contractId ? (
             <CreateRevisionAction
               contractId={contractId}
