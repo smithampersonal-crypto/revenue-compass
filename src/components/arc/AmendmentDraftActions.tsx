@@ -133,6 +133,7 @@ export function DiscardDraftRevisionAction({
   draftRevisionNumber,
   sourceRevisionNumber,
   className,
+  onReloaded,
 }: {
   contractId: string;
   revisionId: string;
