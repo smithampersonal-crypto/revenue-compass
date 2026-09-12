@@ -1,51 +1,42 @@
-# ARC Phase 7 — Identity + Core Persistence Foundation
+# Phase 8 — Source Documents + Private Storage
 
-Implements the uploaded Phase 7 plan: Supabase sign-in, saved customers/contracts, autosaved drafts, immutable finalized revisions with history, guest workspaces that expire, explicit "Save this analysis" migration, and account deletion — with no change to the approved ASC 606 engines.
+Adopt the uploaded Phase 8 implementation plan as the controlling specification, executed in the seven reviewed stages it defines. This plan covers the first stage in detail (Phase 8A, Tasks 1–2) and records the remaining stages as the agreed sequence.
 
-## Deviations from the uploaded document (platform requirements)
+## Stage sequence (one review gate each)
 
-The document's file layout assumes a plain Supabase/TanStack setup. Three adjustments are required here, with identical behavior:
+1. **8A Data foundation** — Tasks 1–2: schema, private bucket, RLS/grants, immutability triggers, trusted lifecycle RPCs, SQL suites.
+2. **8B Private PDF pipeline** — Task 3: server-only PDF validation + SHA-256, signed upload intent, promotion, signed read.
+3. **8C Authenticated documents UX** — Task 4: Source Documents view, upload/add-existing dialogs, lock-version adoption.
+4. **8D Revision provenance** — Task 5: create / reset / discard / finalize source-set semantics.
+5. **8E Guest documents & migration** — Task 6.
+6. **8F Deletion & operations** — Task 7: durable Storage deletion queue, guest expiry, account deletion, protected hourly worker route.
+7. **8G Hardening & acceptance** — Task 8: full verification, docs, hosted acceptance.
 
-- Reuse the existing `src/integrations/supabase/*` clients (browser client, `client.server.ts` service-role client, `auth-middleware.ts` caller-scoped client) instead of creating `src/lib/supabase/server.ts` / `admin.server.ts`. Generated types stay in `src/integrations/supabase/types.ts`.
-- Server functions live in client-safe module paths (`src/lib/arc/persistence/*.functions.ts`), not `src/server/`, which is blocked from client bundles. Service-role imports happen inside handlers via `await import(...)`.
-- ARC recruiter-ready v1 uses Supabase email magic-link authentication only. No passwords and no social/OAuth login. Google/social login is deferred to future scope.
-- Migrations are applied through the migration tool (source-controlled under `supabase/migrations/`); the dashboard is never the schema source.
+No stage starts until the previous one is reviewed and its Critical/Important findings are closed.
 
-Everything else — constraints, RLS, transactional functions, 9-hour guest expiry, one-canonical-renderer rule, samples never autosaving — is implemented as written.
+## Stage 8A scope (this implementation)
 
-## What gets built
+Test-first, red → green, exactly as the uploaded plan specifies.
 
-**Data model (migrations, RLS on every table, grants):**
-`customers`, `contracts`, `analyses`, `analysis_revisions` (draft | finalized, one active draft, at most one current finalized), `guest_workspaces` (opaque HttpOnly credential, `expires_at = created_at + 9h`, unauthorized on read after expiry). Owner-scoped policies via `auth.uid()`; guest rows reachable only server-side by cookie proof.
+- New SQL suite `supabase/tests/phase8a_source_documents_schema.sql` written first and run RED, using the existing `arc_test_results(assertion text, passed boolean not null)` + `passed is not true` gate pattern; the 18 listed assertions (bucket privacy, owner/other-user/anon RLS, no direct DML for `authenticated`, contract XOR guest ownership, per-owner SHA-256 duplicate rules, cross-contract association rejection, technical-metadata immutability, finalized-history metadata lock with archive still allowed, finalized source-set immutability, draft mutation permitted from trusted context).
+- Migration `20260912180000_phase8_source_documents_schema.sql`: private `arc-source-documents` bucket (10 MB, `application/pdf` only), tables `source_documents`, `revision_source_documents`, `guest_source_document_selections`, `document_upload_intents`, `storage_deletion_queue`, plus ownership/immutability triggers, RLS policies, explicit GRANTs, indexes and duplicate constraints.
+- Migration `20260912181000_phase8_document_lifecycle.sql`: trusted `SECURITY DEFINER` functions `arc_prepare_source_document_upload`, `arc_commit_source_document_upload`, `arc_attach_source_document`, `arc_remove_source_document`, `arc_stage_source_document_deletion`, and the queue claim/complete/retry primitives — each with a fixed `search_path`, internal ownership derivation, and execution revoked from `public`/`anon`/`authenticated` unless intentionally caller-scoped.
+- Second SQL suite `supabase/tests/phase8b_document_lifecycle.sql` covering the RPC behaviors (duplicate-safe commit, idempotent re-commit, attach/remove draft-only rules, hard-delete staging restricted to documents never used in finalized history, queue claim/retry).
+- Regenerate `src/integrations/supabase/types.ts` after the migrations.
+- Update `roadmap.md` with the Phase 8 stage list and 8A status.
 
-**Trusted transactions (SQL functions, service-role only):** finalize revision, guest → account migration (all-or-nothing; failure leaves the guest workspace authoritative), account deletion cascade.
+No UI, no server functions, no PDF parsing in this stage.
 
-**Server functions:** auth/session, workspace (customer/contract CRUD, caller-scoped so RLS is exercised), guest workspace create/load/autosave, revision load/save/finalize/history, account deletion.
+## Invariants held throughout
 
-**Finalization:** pure snapshot builder reruns the existing deterministic engines from the authoritative `WorkflowDraft` and stores canonical inputs + outputs with `ARC_WORKFLOW_SCHEMA_VERSION` / `ARC_ENGINE_VERSION`. The engine's existing `analyzeWorkflow(...).finalized` field is untouched and stays conceptually separate from `analysis_revisions.status`.
+- `src/lib/asc606*` engines and sample fixtures are never modified.
+- Phase 7 persistence, revision lifecycle, finalization snapshots, auth and account deletion behavior are preserved; document associations live beside `canonical_inputs`, never inside them.
+- Service-role material stays server-only and `bun run audit:bundle` stays clean.
+- Finalized and superseded revision source sets remain database-enforced immutable.
 
-**UI:** sign-in page and callback route, account menu in the header, workspace dashboard with customer/contract creation, save-status indicator, revision history and finalize panel inside Review & Finalize, guest "Save this analysis" dialog, account settings/deletion. `/analysis` remains the single renderer; the backing store is selected by URL:
+## Technical notes
 
-```text
-/analysis?sample=redwood   fixture, ephemeral, never autosaved
-/analysis                  9-hour guest workspace, server-side autosave
-/analysis?contract=<uuid>  owned contract: active draft, else current finalized
-/analysis?contract=<uuid>&revision=<uuid>  exact owned revision (read-only when finalized)
-```
-
-## Sequence (review gate after each stage)
-
-1. **7A — Foundation:** schema, constraints, RLS, grants, trusted SQL functions, generated types, security tests.
-2. **7B — Identity:** auth server functions, sign-in/callback routes, account menu, protected route placement.
-3. **7C — Persistence in the workspace:** DTOs/Zod schemas, workspace + revision server functions, `AnalysisProvider` extension for load/autosave/lock-version conflict handling, save status.
-4. **7D — Lifecycle:** finalization snapshot builder, Review & Finalize lifecycle, revision history.
-5. **7E — Guest:** 9-hour guest workspace, guest autosave, explicit atomic migration.
-6. **7F — Hardening + acceptance:** account deletion, service-role audit, end-to-end regression, browser review, completion report.
-
-## Verification each stage
-
-`bun run test`, `bunx tsc --noEmit`, `bun run build`, `bun run lint`, `bunx prettier --check .` (three pre-existing Markdown failures remain the baseline), plus browser review of sign-in, save, finalize, history, and guest migration. All Phase 1–6 tests stay green and unweakened; no file under `src/lib/asc606*` changes.
-
-## Out of scope
-
-PDF/source-document processing and Storage, Guidance Library, case-study overhaul, AI features, passwords, and any accounting-engine change. Phase 8 hooks (`documents`, `contract_documents`, `analysis_revision_sources`) are left addable without reopening finalized snapshots.
+- The `pdfjs-dist` parse boundary (stage 8B) must run inside server handlers only and be checked for Cloudflare Worker compatibility before it is adopted; if the bundled build is not Worker-safe, that is escalated at the 8B gate rather than worked around in the client.
+- `FEATURES.SOURCE_DOCUMENTS` stays `true`; `src/routes/analysis/documents.tsx` keeps its current placeholder until stage 8C replaces it.
+- Database suites need `SUPABASE_DB_URL`/local Supabase. Where the sandbox cannot run them, the suites are still committed and run against the remote project, and any unexecuted suite is reported explicitly in the stage report.
+- Each stage report returns: files changed; new/modified SQL functions and tables; focused test counts; verification status; environment limitations; confirmation that engines and fixtures were untouched.
