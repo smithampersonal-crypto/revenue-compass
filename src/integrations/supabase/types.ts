@@ -535,6 +535,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      arc_attach_source_document: {
+        Args: {
+          p_expected_lock_version: number
+          p_owner_user_id: string
+          p_revision_id: string
+          p_source_document_id: string
+        }
+        Returns: number
+      }
+      arc_claim_storage_deletion_jobs: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempt_count: number
+          id: string
+          storage_bucket: string
+          storage_object_path: string
+        }[]
+      }
+      arc_commit_source_document_upload: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_intent_id: string
+          p_owner_user_id: string
+        }
+        Returns: {
+          associated: boolean
+          association_conflict: boolean
+          duplicate: boolean
+          lock_version: number
+          source_document_id: string
+        }[]
+      }
+      arc_complete_storage_deletion_job: {
+        Args: { p_job_id: string }
+        Returns: boolean
+      }
       arc_create_contract_with_draft: {
         Args: {
           p_canonical_inputs: Json
@@ -603,8 +640,37 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_prepare_source_document_upload: {
+        Args: {
+          p_byte_size: number
+          p_guest_token_hash: string
+          p_intent_id: string
+          p_owner_user_id: string
+          p_page_count: number
+          p_sha256: string
+        }
+        Returns: {
+          duplicate: boolean
+          permanent_object_path: string
+          requires_promotion: boolean
+          source_document_id: string
+        }[]
+      }
       arc_purge_user_guest_data: {
         Args: { p_guest_token_hash: string; p_user_id: string }
+        Returns: number
+      }
+      arc_release_storage_deletion_job: {
+        Args: { p_error: string; p_job_id: string }
+        Returns: boolean
+      }
+      arc_remove_source_document: {
+        Args: {
+          p_expected_lock_version: number
+          p_owner_user_id: string
+          p_revision_id: string
+          p_source_document_id: string
+        }
         Returns: number
       }
       arc_reset_amendment_draft: {
@@ -619,6 +685,14 @@ export type Database = {
           source_revision_id: string
         }[]
       }
+      arc_set_source_document_archived: {
+        Args: {
+          p_archived: boolean
+          p_owner_user_id: string
+          p_source_document_id: string
+        }
+        Returns: string
+      }
       arc_source_document_in_history: {
         Args: { p_document_id: string }
         Returns: boolean
@@ -626,6 +700,18 @@ export type Database = {
       arc_source_document_owner_present: {
         Args: { p_contract_id: string }
         Returns: boolean
+      }
+      arc_stage_source_document_deletion: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_owner_user_id: string
+          p_source_document_id: string
+        }
+        Returns: {
+          lock_version: number
+          queued: boolean
+        }[]
       }
       arc_start_amendment_revision: {
         Args: {
@@ -637,6 +723,16 @@ export type Database = {
           created: boolean
           revision_id: string
         }[]
+      }
+      arc_update_source_document_metadata: {
+        Args: {
+          p_display_name: string
+          p_document_type: string
+          p_effective_date: string
+          p_owner_user_id: string
+          p_source_document_id: string
+        }
+        Returns: string
       }
     }
     Enums: {
