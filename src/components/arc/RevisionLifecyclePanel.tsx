@@ -215,7 +215,11 @@ export function RevisionLifecyclePanel() {
             </button>
           ) : null}
           {amendmentDraft && contractId ? (
-            <DiscardDraftRevisionAction contractId={contractId} {...amendmentDraft} />
+            <DiscardDraftRevisionAction
+              contractId={contractId}
+              {...amendmentDraft}
+              onReloaded={persistence.reload}
+            />
           ) : null}
           {canStartNewRevision && contractId ? (
             <CreateRevisionAction

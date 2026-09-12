@@ -43,8 +43,8 @@ export function ResetToRevisionAction({
   sourceRevisionNumber: number;
   className?: string;
   onReloaded: () => void;
-  /** Reported to the parent so it survives the workspace reload. */
-  onOutcome?: (message: string) => void;
+  /** Reported to the parent so it survives the workspace reload; null clears a stale message after success. */
+  onOutcome?: (message: string | null) => void;
 }) {
   const reset = useServerFn(resetAmendmentDraft);
   const [open, setOpen] = useState(false);
@@ -59,6 +59,8 @@ export function ResetToRevisionAction({
         onOutcome?.(CONFLICT_MESSAGE);
       } else {
         setMessage(null);
+        // A successful reset supersedes any earlier conflict shown by the parent.
+        onOutcome?.(null);
       }
       // Either way the server copy is authoritative from here.
       onReloaded();
@@ -131,6 +133,7 @@ export function DiscardDraftRevisionAction({
   draftRevisionNumber,
   sourceRevisionNumber,
   className,
+  onReloaded,
 }: {
   contractId: string;
   revisionId: string;
@@ -138,6 +141,8 @@ export function DiscardDraftRevisionAction({
   draftRevisionNumber: number;
   sourceRevisionNumber: number;
   className?: string;
+  /** Reloads the authoritative workspace (revision + lock version) from the server. */
+  onReloaded?: () => void;
 }) {
   const discard = useServerFn(discardAmendmentDraft);
   const queryClient = useQueryClient();
@@ -152,6 +157,10 @@ export function DiscardDraftRevisionAction({
       if (!outcome.ok) {
         setMessage(CONFLICT_MESSAGE);
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+        await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
+        // The loaded revision and its lock version are stale; re-establish the
+        // authoritative server copy before anything else can be saved.
+        onReloaded?.();
         return;
       }
       setMessage(null);
@@ -169,6 +178,8 @@ export function DiscardDraftRevisionAction({
           ? cause.message
           : "This draft revision could not be discarded.",
       );
+      // Transport failure leaves the outcome ambiguous; reload the server copy.
+      onReloaded?.();
     },
   });
 
