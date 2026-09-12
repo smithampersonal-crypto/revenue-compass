@@ -135,6 +135,9 @@ begin
   select '13 no revision remains, including the finalized one',
          not exists (select 1 from public.analysis_revisions where id = revision_id);
   insert into arc_test_results
+  select '13b no source document of the deleted account remains',
+         not exists (select 1 from public.source_documents where id = doc_id);
+  insert into arc_test_results
   select '14 no guest draft of the deleted user remains',
          not exists (select 1 from public.guest_workspaces
                      where token_hash in (hash_migrated, hash_browser));
