@@ -108,6 +108,41 @@ begin
   end if;
   insert into arc_test_results values ('07 contract xor guest ownership enforced', ok);
 
+  -- 07b a document always carries a real filename and a real display name
+  ok := false;
+  begin
+    insert into public.source_documents
+      (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+    values (cont, 'documents/phase8a-blank1.pdf', '   ', 'Named', repeat('1', 64), 10, 1);
+  exception when others then ok := true; end;
+  if ok then
+    ok := false;
+    begin
+      insert into public.source_documents
+        (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+      values (cont, 'documents/phase8a-blank2.pdf', 'x.pdf', '', repeat('2', 64), 10, 1);
+    exception when others then ok := true; end;
+  end if;
+  insert into arc_test_results values ('07b blank document names rejected', ok);
+
+  -- 07c oversized or over-long documents are rejected at the row level
+  ok := false;
+  begin
+    insert into public.source_documents
+      (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+    values (cont, 'documents/phase8a-big.pdf', 'big.pdf', 'Big', repeat('3', 64), 10485761, 1);
+  exception when others then ok := true; end;
+  if ok then
+    ok := false;
+    begin
+      insert into public.source_documents
+        (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+      values (cont, 'documents/phase8a-long.pdf', 'long.pdf', 'Long', repeat('4', 64), 10, 501);
+    exception when others then ok := true; end;
+  end if;
+  insert into arc_test_results values ('07c oversized documents rejected', ok);
+
+
   -- 08 duplicate sha within a contract is rejected
   ok := false;
   begin
