@@ -309,6 +309,20 @@
   bucket content-type setting through the managed tooling, so server-side
   PDF validation in stage 8B stays the authoritative content gate.
 
+- Phase 8A final lifecycle consistency patch: `arc_stage_source_document_deletion`
+  now requires a guest credential that is still active and unexpired, the same
+  9-hour boundary as prepare/commit; `arc_attach_source_document` and
+  `arc_remove_source_document` still lock the revision and reject a stale
+  expected lock first, but are genuine no-ops that return the existing
+  `lock_version` when the requested end state already holds; guest
+  auto-selection inside `arc_commit_source_document_upload` follows the same
+  rule. The bucket assertion is renamed to state only what it proves: where a
+  content-type restriction is configured it is exactly `application/pdf`; a
+  NULL setting proves nothing and stage 8B must still validate the actual
+  uploaded bytes independently of browser MIME metadata. Suites now
+  `phase8a_source_documents_schema.sql` (23 assertions) and
+  `phase8b_document_lifecycle.sql` (31 assertions).
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.
