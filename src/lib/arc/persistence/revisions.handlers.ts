@@ -46,6 +46,15 @@ export interface RpcResult {
 export interface RevisionReader {
   readRevisionForFinalization(revisionId: string): Promise<QueryResult<RevisionRow>>;
   readSourceRevision(revisionId: string): Promise<QueryResult<SourceRevisionRow>>;
+  readLifecycleRevision(revisionId: string): Promise<QueryResult<LifecycleRevisionRow>>;
+}
+
+/** The minimum a destructive lifecycle decision needs from the draft row. */
+export interface LifecycleRevisionRow {
+  id: string;
+  status: string;
+  lock_version: number;
+  supersedes_revision_id: string | null;
 }
 
 export interface FinalizeDeps {
