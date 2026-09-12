@@ -42,9 +42,27 @@ export function AnalysisSummary() {
   const contractId = revision?.contractId ?? null;
   const history = useQuery({
     queryKey: ["arc-revision-history", contractId],
-    enabled: Boolean(contractId) && revision?.status === "finalized",
+    enabled: Boolean(contractId),
     queryFn: () => fetchHistory({ data: { contractId: contractId! } }),
   });
+
+  // An amendment draft continues a finalized revision, so its reset restores
+  // that revision's inputs rather than blanking the analysis.
+  const openEntry =
+    history.data?.revisions.find((entry) => entry.revisionId === revision?.revisionId) ?? null;
+  const sourceRevisionId = revision?.supersedesRevisionId ?? openEntry?.supersedesRevisionId ?? null;
+  const sourceEntry = sourceRevisionId
+    ? (history.data?.revisions.find((entry) => entry.revisionId === sourceRevisionId) ?? null)
+    : null;
+  const amendmentDraft =
+    revision?.status === "draft" && sourceEntry && persistence.lockVersion
+      ? {
+          revisionId: revision.revisionId,
+          expectedLockVersion: persistence.lockVersion,
+          draftRevisionNumber: revision.revisionNumber,
+          sourceRevisionNumber: sourceEntry.revisionNumber,
+        }
+      : null;
   const currentFinalized =
     history.data?.revisions.find((entry) => entry.isCurrentFinalized) ?? null;
   const canCreateRevision =
