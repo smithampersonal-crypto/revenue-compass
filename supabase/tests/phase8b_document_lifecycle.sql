@@ -311,6 +311,33 @@ begin
   insert into arc_test_results values ('27 non-conflict association failure is fatal',
     ok and not exists (select 1 from public.source_documents where sha256 = sha8));
 
+  -- 28 an expired guest credential cannot stage a source-document deletion
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values ('phase8b-guest-del', '{"v":1}'::jsonb, 'arc-workflow-1', now() + interval '9 hours')
+  returning id into g2;
+  insert into public.source_documents
+    (guest_workspace_id, storage_object_path, original_filename, display_name,
+     sha256, byte_size, page_count)
+  values (g2, 'documents/8b-guest-del.pdf', 'gd.pdf', 'Guest Delete', sha9, 1024, 2)
+  returning id into doc9;
+  insert into public.guest_source_document_selections (guest_workspace_id, source_document_id)
+  values (g2, doc9);
+  select lock_version into lock_now from public.guest_workspaces where id = g2;
+  update public.guest_workspaces set expires_at = now() - interval '1 minute' where id = g2;
+
+  ok := false;
+  begin
+    perform public.arc_stage_source_document_deletion(null, 'phase8b-guest-del', doc9, lock_now);
+  exception when others then ok := true; end;
+  select count(*) into n from public.storage_deletion_queue
+   where storage_object_path = 'documents/8b-guest-del.pdf';
+  insert into arc_test_results values ('28 expired guest credential cannot stage source-document deletion',
+    ok and exists (select 1 from public.source_documents where id = doc9)
+    and exists (select 1 from public.guest_source_document_selections
+                 where guest_workspace_id = g2 and source_document_id = doc9)
+    and n = 0
+    and (select lock_version from public.guest_workspaces where id = g2) = lock_now);
+
   -- 24 every privileged function is service-role only
 
   insert into arc_test_results values ('24 lifecycle functions are service-role only',
