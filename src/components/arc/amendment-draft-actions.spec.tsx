@@ -166,15 +166,15 @@ describe("Amendment draft reset", () => {
 
     await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
     await user.click(screen.getByRole("button", { name: "Reset revision" }));
-    expect((await screen.findAllByText(/changed since this page loaded/i)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/changed since this page loaded/i)).length).toBeGreaterThan(
+      0,
+    );
 
     resetDraft.mockResolvedValue({ ok: true, lockVersion: 5, draft: DRAFT });
     await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
     await user.click(screen.getByRole("button", { name: "Reset revision" }));
 
-    await waitFor(() =>
-      expect(screen.queryByText(/changed since this page loaded/i)).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText(/changed since this page loaded/i)).toBeNull());
   });
 
   it("keeps the plain Reset Analysis action for an unsourced draft", async () => {
