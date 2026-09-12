@@ -140,6 +140,8 @@ export function DiscardDraftRevisionAction({
   draftRevisionNumber: number;
   sourceRevisionNumber: number;
   className?: string;
+  /** Reloads the authoritative workspace (revision + lock version) from the server. */
+  onReloaded?: () => void;
 }) {
   const discard = useServerFn(discardAmendmentDraft);
   const queryClient = useQueryClient();
@@ -154,6 +156,10 @@ export function DiscardDraftRevisionAction({
       if (!outcome.ok) {
         setMessage(CONFLICT_MESSAGE);
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+        await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
+        // The loaded revision and its lock version are stale; re-establish the
+        // authoritative server copy before anything else can be saved.
+        onReloaded?.();
         return;
       }
       setMessage(null);
@@ -171,6 +177,8 @@ export function DiscardDraftRevisionAction({
           ? cause.message
           : "This draft revision could not be discarded.",
       );
+      // Transport failure leaves the outcome ambiguous; reload the server copy.
+      onReloaded?.();
     },
   });
 
