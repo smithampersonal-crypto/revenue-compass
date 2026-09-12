@@ -43,6 +43,7 @@ declare
   customer_id uuid; contract_id uuid; analysis_id uuid; revision_id uuid;
   late_customer uuid; late_contract uuid; late_analysis uuid; late_revision uuid;
   late_idempotent boolean;
+  doc_id uuid; guest_doc uuid;
   purged integer; removed integer; failed boolean;
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Deletion Co"}}'::jsonb;
 begin
