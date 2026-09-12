@@ -35,6 +35,24 @@ export function AnalysisSummary() {
       : null,
   });
 
+  // Discoverability only: the revision action belongs next to the finalized
+  // status, so it is not hidden inside Review & Finalize. History is read only
+  // for a finalized revision, and a superseded revision never qualifies.
+  const fetchHistory = useServerFn(listRevisionHistory);
+  const contractId = revision?.contractId ?? null;
+  const history = useQuery({
+    queryKey: ["arc-revision-history", contractId],
+    enabled: Boolean(contractId) && revision?.status === "finalized",
+    queryFn: () => fetchHistory({ data: { contractId: contractId! } }),
+  });
+  const currentFinalized =
+    history.data?.revisions.find((entry) => entry.isCurrentFinalized) ?? null;
+  const canCreateRevision =
+    revision?.status === "finalized" && currentFinalized?.revisionId === revision.revisionId;
+  const nextRevisionNumber =
+    (history.data?.revisions.reduce((max, entry) => Math.max(max, entry.revisionNumber), 0) ?? 0) +
+    1;
+
   return (
     <section
       aria-label="Analysis summary"
