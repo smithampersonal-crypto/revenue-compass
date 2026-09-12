@@ -362,6 +362,122 @@ begin
   delete from auth.users where id in (user_a, user_b);
 end $$;
 
+-- Phase 8A finalized-retry readback: retrying a finalized intent must reconstruct
+-- authoritative association state without mutating anything.
+do $$
+declare
+  user_c uuid := '00000000-0000-4000-8000-0000000008c1';
+  cust uuid; cont uuid; ana uuid; rev uuid; gr uuid;
+  ig uuid; is1 uuid; is2 uuid; il uuid;
+  shag text := repeat('a', 64);
+  shas text := repeat('b', 64);
+  shak text := repeat('c', 64);
+  shal text := repeat('d', 64);
+  r1 record; r2 record;
+  glock integer; rlock integer;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (user_c, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-lifecycle-doc-c@example.test', '', now(), now(), now());
+
+  insert into public.customers (owner_user_id, name) values (user_c, 'Retry Co')
+    returning id into cust;
+  insert into public.contracts (customer_id, title) values (cust, 'Retry Contract')
+    returning id into cont;
+  insert into public.analyses (contract_id) values (cont) returning id into ana;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (ana, 1, '{"v":1}'::jsonb, 'arc-workflow-1') returning id into rev;
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values ('phase8b-retry-guest', '{"v":1}'::jsonb, 'arc-workflow-1', now() + interval '9 hours')
+  returning id into gr;
+
+  -- 29 guest first commit selects the document and advances the lock exactly once
+  insert into public.document_upload_intents
+    (guest_workspace_id, pending_object_path, original_filename, display_name, expires_at)
+  values (gr, 'pending/8b-retry-g.pdf', 'g.pdf', 'Guest Retry', now() + interval '1 hour')
+  returning id into ig;
+  perform public.arc_prepare_source_document_upload(ig, null, 'phase8b-retry-guest', shag, 1024, 2);
+  select lock_version into glock from public.guest_workspaces where id = gr;
+  select * into r1 from public.arc_commit_source_document_upload(ig, null, 'phase8b-retry-guest', glock);
+  insert into arc_test_results values ('29 guest first commit selects document and advances lock once',
+    r1.associated and not r1.association_conflict and r1.lock_version = glock + 1
+    and (select lock_version from public.guest_workspaces where id = gr) = glock + 1
+    and exists (select 1 from public.guest_source_document_selections
+                 where guest_workspace_id = gr and source_document_id = r1.source_document_id));
+
+  -- 30 retrying the finalized guest commit reports the true association and lock
+  select * into r2 from public.arc_commit_source_document_upload(ig, null, 'phase8b-retry-guest', glock);
+  insert into arc_test_results values ('30 finalized guest retry returns associated with the same lock',
+    r2.associated and not r2.association_conflict
+    and r2.lock_version = r1.lock_version
+    and r2.source_document_id = r1.source_document_id);
+
+  -- 31 the retry performed no further write
+  insert into arc_test_results values ('31 finalized guest retry does not advance the guest lock again',
+    (select lock_version from public.guest_workspaces where id = gr) = glock + 1
+    and (select count(*) from public.guest_source_document_selections
+          where guest_workspace_id = gr) = 1);
+
+  -- 32 a stale saved-revision commit reports an association conflict
+  insert into public.document_upload_intents
+    (contract_id, target_revision_id, pending_object_path, original_filename, display_name, expires_at)
+  values (cont, rev, 'pending/8b-retry-stale.pdf', 's.pdf', 'Stale Retry', now() + interval '1 hour')
+  returning id into is1;
+  perform public.arc_prepare_source_document_upload(is1, user_c, null, shas, 1024, 2);
+  select lock_version into rlock from public.analysis_revisions where id = rev;
+  select * into r1 from public.arc_commit_source_document_upload(is1, user_c, null, rlock + 7);
+  insert into arc_test_results values ('32 stale saved-revision commit returns an association conflict',
+    r1.association_conflict and not r1.associated and r1.lock_version = rlock
+    and not exists (select 1 from public.revision_source_documents
+                     where revision_id = rev and source_document_id = r1.source_document_id));
+
+  -- 33 retrying that finalized intent still reports it unassociated and conflicted
+  select * into r2 from public.arc_commit_source_document_upload(is1, user_c, null, rlock);
+  insert into arc_test_results values ('33 finalized retry after a stale commit still reports a conflict',
+    r2.association_conflict and not r2.associated
+    and r2.lock_version = rlock
+    and r2.source_document_id = r1.source_document_id);
+
+  -- 34 that retry wrote nothing
+  insert into arc_test_results values ('34 finalized retry after a stale commit performs no write',
+    (select lock_version from public.analysis_revisions where id = rev) = rlock
+    and not exists (select 1 from public.revision_source_documents
+                     where revision_id = rev and source_document_id = r1.source_document_id));
+
+  -- 35 a successful saved-revision commit retried stays associated with an unchanged lock
+  insert into public.document_upload_intents
+    (contract_id, target_revision_id, pending_object_path, original_filename, display_name, expires_at)
+  values (cont, rev, 'pending/8b-retry-ok.pdf', 'k.pdf', 'Ok Retry', now() + interval '1 hour')
+  returning id into is2;
+  perform public.arc_prepare_source_document_upload(is2, user_c, null, shak, 1024, 2);
+  select lock_version into rlock from public.analysis_revisions where id = rev;
+  select * into r1 from public.arc_commit_source_document_upload(is2, user_c, null, rlock);
+  select * into r2 from public.arc_commit_source_document_upload(is2, user_c, null, rlock);
+  insert into arc_test_results values ('35 successful saved-revision finalized retry stays associated',
+    r1.associated and r2.associated and not r2.association_conflict
+    and r1.lock_version = rlock + 1 and r2.lock_version = rlock + 1
+    and (select lock_version from public.analysis_revisions where id = rev) = rlock + 1
+    and (select count(*) from public.revision_source_documents
+          where revision_id = rev and source_document_id = r1.source_document_id) = 1);
+
+  -- 36 a standalone contract-library upload reports no association on retry
+  insert into public.document_upload_intents
+    (contract_id, pending_object_path, original_filename, display_name, expires_at)
+  values (cont, 'pending/8b-retry-lib.pdf', 'l.pdf', 'Library Retry', now() + interval '1 hour')
+  returning id into il;
+  perform public.arc_prepare_source_document_upload(il, user_c, null, shal, 1024, 2);
+  perform public.arc_commit_source_document_upload(il, user_c, null, null);
+  select * into r2 from public.arc_commit_source_document_upload(il, user_c, null, null);
+  insert into arc_test_results values ('36 standalone library finalized retry reports no association',
+    not r2.associated and not r2.association_conflict and r2.lock_version is null
+    and r2.source_document_id is not null);
+
+  delete from auth.users where id = user_c;
+end $$;
+
+
+
 select assertion, passed from arc_test_results order by assertion;
 
 -- CI gate: a false or null assertion must make psql exit non-zero.
