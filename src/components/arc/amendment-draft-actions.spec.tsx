@@ -159,6 +159,24 @@ describe("Amendment draft reset", () => {
     expect(await screen.findByText(/changed since this page loaded/i)).toBeInTheDocument();
   });
 
+  it("clears a stale conflict message after a later successful reset", async () => {
+    resetDraft.mockResolvedValueOnce({ ok: false, reason: "conflict" });
+    renderWorkspace(<AnalysisSummary />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
+    await user.click(screen.getByRole("button", { name: "Reset revision" }));
+    expect((await screen.findAllByText(/changed since this page loaded/i)).length).toBeGreaterThan(0);
+
+    resetDraft.mockResolvedValue({ ok: true, lockVersion: 5, draft: DRAFT });
+    await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
+    await user.click(screen.getByRole("button", { name: "Reset revision" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/changed since this page loaded/i)).toBeNull(),
+    );
+  });
+
   it("keeps the plain Reset Analysis action for an unsourced draft", async () => {
     load.mockResolvedValue(revision({ revisionNumber: 1, supersedesRevisionId: null }));
     history.mockResolvedValue({
@@ -234,6 +252,9 @@ describe("Discard draft revision", () => {
 
     expect(await screen.findByText(/changed since this page loaded/i)).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
+    // The conflict path must reload the authoritative workspace (revision and
+    // lock version), not just the revision history list.
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
   });
 
   it("never offers discard on a finalized revision", async () => {
