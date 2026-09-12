@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
@@ -30,7 +30,6 @@ const SECONDARY_CLASS =
 export function RevisionLifecyclePanel() {
   const { persistence, result, workpaper } = useAnalysis();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [message, setMessage] = useState<string | null>(null);
   const [blockingIssues, setBlockingIssues] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
