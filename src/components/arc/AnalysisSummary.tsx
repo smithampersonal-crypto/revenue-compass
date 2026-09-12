@@ -101,6 +101,15 @@ export function AnalysisSummary() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
+        {canCreateRevision && contractId && revision ? (
+          <CreateRevisionAction
+            contractId={contractId}
+            sourceRevisionId={revision.revisionId}
+            sourceRevisionNumber={revision.revisionNumber}
+            nextRevisionNumber={nextRevisionNumber}
+            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          />
+        ) : null}
         <Button asChild size="sm">
           <Link to="/analysis/review" search={(previous: Record<string, unknown>) => previous}>
             Review &amp; Finalize
