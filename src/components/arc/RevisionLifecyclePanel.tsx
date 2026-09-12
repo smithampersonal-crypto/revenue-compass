@@ -114,33 +114,10 @@ export function RevisionLifecyclePanel() {
     onSettled: () => persistence.setFinalizing(false),
   });
 
-  const newRevisionMutation = useMutation({
-    mutationFn: () =>
-      newRevision({
-        data: {
-          contractId: contractId!,
-          // Provenance is explicit and re-checked inside the database
-          // transaction: only the current finalized revision may be continued,
-          // and the server records it as the superseded source.
-          sourceRevisionId: currentFinalizedId!,
-        },
-      }),
-    onSuccess: async (outcome) => {
-      setMessage(
-        outcome.created
-          ? "A new draft revision was started from the finalized snapshot."
-          : "An editable draft revision already existed, so it was opened.",
-      );
-      await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
-      await navigate({
-        to: "/analysis/review",
-        search: { contract: contractId!, revision: outcome.revisionId },
-      });
-    },
-    onError: (error: unknown) => {
-      setMessage(error instanceof Error ? error.message : "A new revision could not be started.");
-    },
-  });
+  // The revision number a new revision would take, from authoritative history.
+  const nextRevisionNumber =
+    (history.data?.revisions.reduce((max, entry) => Math.max(max, entry.revisionNumber), 0) ?? 0) +
+    1;
 
   if (!persistence.enabled) {
     return (
