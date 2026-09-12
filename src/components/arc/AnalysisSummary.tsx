@@ -140,21 +140,29 @@ export function AnalysisSummary() {
             </Link>
           </Button>
         ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!canEdit}
-          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => {
-            const message = loadedSample
-              ? "Reset this sample? Your edits to the sample contract will be discarded."
-              : "Reset this analysis? All entered contract data will be cleared.";
-            if (window.confirm(message)) resetAnalysis();
-          }}
-        >
-          {summary.resetLabel}
-        </Button>
+        {amendmentDraft ? (
+          <ResetToRevisionAction
+            {...amendmentDraft}
+            className="inline-flex h-8 items-center rounded-md border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            onReloaded={persistence.reload}
+          />
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canEdit}
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              const message = loadedSample
+                ? "Reset this sample? Your edits to the sample contract will be discarded."
+                : "Reset this analysis? All entered contract data will be cleared.";
+              if (window.confirm(message)) resetAnalysis();
+            }}
+          >
+            {summary.resetLabel}
+          </Button>
+        )}
       </div>
     </section>
   );
