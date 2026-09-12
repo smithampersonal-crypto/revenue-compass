@@ -43,6 +43,7 @@ declare
   customer_id uuid; contract_id uuid; analysis_id uuid; revision_id uuid;
   late_customer uuid; late_contract uuid; late_analysis uuid; late_revision uuid;
   late_idempotent boolean;
+  doc_id uuid; guest_doc uuid;
   purged integer; removed integer; failed boolean;
   draft jsonb := '{"schemaVersion":"arc.workflow.v1","contract":{"customerName":"Deletion Co"}}'::jsonb;
 begin
@@ -61,6 +62,16 @@ begin
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
   values (analysis_id, 1, draft, 'arc.workflow.v1') returning id into revision_id;
 
+  -- Phase 8: the finalized revision also carries an uploaded source document,
+  -- so deletion has to remove the document rows as well.
+  insert into public.source_documents
+    (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  values (contract_id, 'documents/7f-regression.pdf', 'a.pdf', 'Master Agreement',
+          repeat('a', 64), 1024, 3)
+  returning id into doc_id;
+  insert into public.revision_source_documents (revision_id, source_document_id)
+  values (revision_id, doc_id);
+
   -- A finalized revision is the hardest case: it is immutable outside the
   -- account-deletion path.
   perform public.arc_finalize_revision(
@@ -78,6 +89,12 @@ begin
                                        status, migrated_user_id)
   values (hash_other, draft, 'arc.workflow.v1', now() + interval '9 hours', 'migrated', other_id);
 
+  insert into public.source_documents
+    (guest_workspace_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  select g.id, 'documents/7f-guest.pdf', 'g.pdf', 'Guest doc', repeat('b', 64), 512, 1
+    from public.guest_workspaces g where g.token_hash = hash_browser
+  returning id into guest_doc;
+
   -- 07 Finalized revisions are not deletable through ordinary paths.
   failed := false;
   begin
@@ -91,6 +108,9 @@ begin
   insert into arc_test_results
   select '09 another user''s guest row is untouched',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
+  insert into arc_test_results
+  select '09b the purged guest workspace took its documents with it',
+         not exists (select 1 from public.source_documents where id = guest_doc);
 
   -- A legitimate migration can land AFTER the purge and before auth deletion.
   -- That late row must disappear through the migrated_user_id cascade, never
@@ -114,6 +134,9 @@ begin
   insert into arc_test_results
   select '13 no revision remains, including the finalized one',
          not exists (select 1 from public.analysis_revisions where id = revision_id);
+  insert into arc_test_results
+  select '13b no source document of the deleted account remains',
+         not exists (select 1 from public.source_documents where id = doc_id);
   insert into arc_test_results
   select '14 no guest draft of the deleted user remains',
          not exists (select 1 from public.guest_workspaces

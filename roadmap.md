@@ -278,6 +278,25 @@
   superseded revisions remain immutable. No `src/lib/asc606*` or sample-fixture
   change.
 
+- Phase 8A — source document data foundation: private `arc-source-documents`
+  bucket; `source_documents`, `revision_source_documents`,
+  `guest_source_document_selections`, `document_upload_intents` and
+  `storage_deletion_queue` tables with ownership RLS, explicit grants,
+  duplicate constraints and immutability triggers (technical facts frozen;
+  documents inside finalized history cannot be renamed or deleted, but can be
+  archived); trusted lifecycle transactions `arc_prepare_source_document_upload`,
+  `arc_commit_source_document_upload`, `arc_attach_source_document`,
+  `arc_remove_source_document`, `arc_update_source_document_metadata`,
+  `arc_set_source_document_archived`, `arc_stage_source_document_deletion` and
+  the storage deletion queue claim/complete/release trio — all service-role
+  only, each advancing the revision lock exactly once and idempotent on retry.
+  Suites: `supabase/tests/phase8a_source_documents_schema.sql` (18 assertions)
+  and `supabase/tests/phase8b_document_lifecycle.sql` (24 assertions), both
+  executed green against the development project;
+  `supabase/tests/phase7f_account_deletion.sql` extended with two document
+  assertions and re-run green. No UI, server functions, or PDF parsing in this
+  stage. No `src/lib/asc606*` or sample-fixture change.
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.
@@ -286,4 +305,4 @@
   public/anon/authenticated, granted to service_role only.
 - Samples never autosave. Browser-supplied engine outputs are never authoritative.
 - `supabase/migrations/` is the reproducible source of truth.
-- Phase 8 (documents/storage) not implemented.
+- Phase 8: stage 8A (data foundation) complete; 8B onward not implemented.

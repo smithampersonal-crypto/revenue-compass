@@ -226,14 +226,19 @@ begin
   insert into arc_test_results values ('21 claiming returns every outstanding job once',
     n = 3 and (select count(*) from public.arc_claim_storage_deletion_jobs(10)) = 0);
 
+  -- Each step runs as its own statement: expression evaluation order is not
+  -- guaranteed, so the release must be observed before the reclaim.
   select * into job from public.storage_deletion_queue order by created_at limit 1;
+  ok := public.arc_release_storage_deletion_job(job.id, 'network error');
+  select count(*) into n from public.arc_claim_storage_deletion_jobs(10);
   insert into arc_test_results values ('22 release then reclaim retries without duplicating work',
-    public.arc_release_storage_deletion_job(job.id, 'network error')
-    and (select count(*) from public.arc_claim_storage_deletion_jobs(10)) = 1
+    ok and n = 1
     and (select attempt_count from public.storage_deletion_queue where id = job.id) = 2);
+
+  ok := public.arc_complete_storage_deletion_job(job.id);
+  select count(*) into n from public.arc_claim_storage_deletion_jobs(10);
   insert into arc_test_results values ('23 completing a job takes it out of the queue',
-    public.arc_complete_storage_deletion_job(job.id)
-    and (select count(*) from public.arc_claim_storage_deletion_jobs(10)) = 0);
+    ok and n = 0);
 
   -- 24 every privileged function is service-role only
   insert into arc_test_results values ('24 lifecycle functions are service-role only',
