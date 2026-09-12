@@ -181,6 +181,137 @@ export type Database = {
         }
         Relationships: []
       }
+      document_upload_intents: {
+        Row: {
+          contract_id: string | null
+          created_at: string
+          display_name: string
+          document_type: string | null
+          effective_date: string | null
+          expires_at: string
+          guest_workspace_id: string | null
+          id: string
+          is_duplicate: boolean | null
+          original_filename: string
+          pending_object_path: string
+          permanent_document_id: string | null
+          permanent_object_path: string | null
+          resolved_source_document_id: string | null
+          state: string
+          target_revision_id: string | null
+          updated_at: string
+          validated_byte_size: number | null
+          validated_page_count: number | null
+          validated_sha256: string | null
+        }
+        Insert: {
+          contract_id?: string | null
+          created_at?: string
+          display_name: string
+          document_type?: string | null
+          effective_date?: string | null
+          expires_at: string
+          guest_workspace_id?: string | null
+          id?: string
+          is_duplicate?: boolean | null
+          original_filename: string
+          pending_object_path: string
+          permanent_document_id?: string | null
+          permanent_object_path?: string | null
+          resolved_source_document_id?: string | null
+          state?: string
+          target_revision_id?: string | null
+          updated_at?: string
+          validated_byte_size?: number | null
+          validated_page_count?: number | null
+          validated_sha256?: string | null
+        }
+        Update: {
+          contract_id?: string | null
+          created_at?: string
+          display_name?: string
+          document_type?: string | null
+          effective_date?: string | null
+          expires_at?: string
+          guest_workspace_id?: string | null
+          id?: string
+          is_duplicate?: boolean | null
+          original_filename?: string
+          pending_object_path?: string
+          permanent_document_id?: string | null
+          permanent_object_path?: string | null
+          resolved_source_document_id?: string | null
+          state?: string
+          target_revision_id?: string | null
+          updated_at?: string
+          validated_byte_size?: number | null
+          validated_page_count?: number | null
+          validated_sha256?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_upload_intents_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_upload_intents_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_upload_intents_resolved_source_document_id_fkey"
+            columns: ["resolved_source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_upload_intents_target_revision_id_fkey"
+            columns: ["target_revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_source_document_selections: {
+        Row: {
+          created_at: string
+          guest_workspace_id: string
+          source_document_id: string
+        }
+        Insert: {
+          created_at?: string
+          guest_workspace_id: string
+          source_document_id: string
+        }
+        Update: {
+          created_at?: string
+          guest_workspace_id?: string
+          source_document_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_source_document_selections_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_source_document_selections_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_workspaces: {
         Row: {
           created_at: string
@@ -260,6 +391,144 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      revision_source_documents: {
+        Row: {
+          created_at: string
+          revision_id: string
+          source_document_id: string
+        }
+        Insert: {
+          created_at?: string
+          revision_id: string
+          source_document_id: string
+        }
+        Update: {
+          created_at?: string
+          revision_id?: string
+          source_document_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revision_source_documents_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revision_source_documents_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      source_documents: {
+        Row: {
+          archived_at: string | null
+          byte_size: number
+          contract_id: string | null
+          created_at: string
+          display_name: string
+          document_type: string | null
+          effective_date: string | null
+          guest_workspace_id: string | null
+          id: string
+          original_filename: string
+          page_count: number
+          sha256: string
+          storage_bucket: string
+          storage_object_path: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          byte_size: number
+          contract_id?: string | null
+          created_at?: string
+          display_name: string
+          document_type?: string | null
+          effective_date?: string | null
+          guest_workspace_id?: string | null
+          id?: string
+          original_filename: string
+          page_count: number
+          sha256: string
+          storage_bucket?: string
+          storage_object_path: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          byte_size?: number
+          contract_id?: string | null
+          created_at?: string
+          display_name?: string
+          document_type?: string | null
+          effective_date?: string | null
+          guest_workspace_id?: string | null
+          id?: string
+          original_filename?: string
+          page_count?: number
+          sha256?: string
+          storage_bucket?: string
+          storage_object_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_documents_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_documents_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storage_deletion_queue: {
+        Row: {
+          attempt_count: number
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          reason: string
+          storage_bucket: string
+          storage_object_path: string
+        }
+        Insert: {
+          attempt_count?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          reason: string
+          storage_bucket: string
+          storage_object_path: string
+        }
+        Update: {
+          attempt_count?: number
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          reason?: string
+          storage_bucket?: string
+          storage_object_path?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -349,6 +618,14 @@ export type Database = {
           schema_version: string
           source_revision_id: string
         }[]
+      }
+      arc_source_document_in_history: {
+        Args: { p_document_id: string }
+        Returns: boolean
+      }
+      arc_source_document_owner_present: {
+        Args: { p_contract_id: string }
+        Returns: boolean
       }
       arc_start_amendment_revision: {
         Args: {
