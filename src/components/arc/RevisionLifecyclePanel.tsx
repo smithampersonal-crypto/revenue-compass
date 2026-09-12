@@ -200,15 +200,18 @@ export function RevisionLifecyclePanel() {
               Finalize analysis
             </button>
           ) : null}
-          {canStartNewRevision ? (
-            <button
-              type="button"
+          {canStartNewRevision && contractId ? (
+            <CreateRevisionAction
+              contractId={contractId}
+              // Provenance is explicit and re-checked inside the database
+              // transaction: only the current finalized revision may be
+              // continued, and the server records it as the superseded source.
+              sourceRevisionId={currentFinalizedId!}
+              sourceRevisionNumber={revision!.revisionNumber}
+              nextRevisionNumber={nextRevisionNumber}
               className={SECONDARY_CLASS}
-              disabled={newRevisionMutation.isPending}
-              onClick={() => newRevisionMutation.mutate()}
-            >
-              {newRevisionMutation.isPending ? "Starting…" : "Start a new revision"}
-            </button>
+              onOutcome={setMessage}
+            />
           ) : null}
         </div>
       )}
