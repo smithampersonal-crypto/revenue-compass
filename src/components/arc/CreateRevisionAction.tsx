@@ -47,8 +47,7 @@ export function CreateRevisionAction({
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () =>
-      createRevision({ data: { contractId, sourceRevisionId } }),
+    mutationFn: () => createRevision({ data: { contractId, sourceRevisionId } }),
     onSuccess: async (outcome) => {
       setOpen(false);
       setError(null);
@@ -61,7 +60,10 @@ export function CreateRevisionAction({
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
       // The point of this action is to begin editing the new revision, so the
       // editable ASC 606 analysis opens — not Review & Finalize.
-      await navigate({ to: "/analysis", search: { contract: contractId, revision: outcome.revisionId } });
+      await navigate({
+        to: "/analysis",
+        search: { contract: contractId, revision: outcome.revisionId },
+      });
     },
     onError: (cause: unknown) => {
       const message =

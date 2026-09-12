@@ -3,10 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
-import {
-  finalizeRevision,
-  listRevisionHistory,
-} from "@/lib/arc/persistence/revisions.functions";
+import { finalizeRevision, listRevisionHistory } from "@/lib/arc/persistence/revisions.functions";
 import { describeRevisionStatus, finalizeGate } from "@/lib/arc/persistence/revision-history";
 import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
 import { Notice, Section } from "@/components/asc606-workflow/fields";

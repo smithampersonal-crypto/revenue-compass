@@ -25,21 +25,17 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     ...actual,
     useNavigate: () => navigate,
     createFileRoute: () => (options: unknown) => options,
-    Link: ({
-      children,
-      search,
-      to,
-    }: {
-      children?: unknown;
-      search?: unknown;
-      to?: string;
-    }) => {
+    Link: ({ children, search, to }: { children?: unknown; search?: unknown; to?: string }) => {
       const value = (typeof search === "object" && search !== null ? search : {}) as {
         contract?: string;
         revision?: string;
       };
       return (
-        <a href={to ?? "#"} data-contract={value.contract ?? ""} data-revision={value.revision ?? ""}>
+        <a
+          href={to ?? "#"}
+          data-contract={value.contract ?? ""}
+          data-revision={value.revision ?? ""}
+        >
           {children as never}
         </a>
       );
