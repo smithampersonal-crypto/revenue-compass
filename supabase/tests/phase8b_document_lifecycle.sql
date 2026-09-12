@@ -10,11 +10,14 @@ declare
   user_a uuid := '00000000-0000-4000-8000-0000000008b1';
   user_b uuid := '00000000-0000-4000-8000-0000000008b2';
   cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; g1 uuid;
-  i1 uuid; i2 uuid; i3 uuid; i4 uuid; i5 uuid;
+  i1 uuid; i2 uuid; i3 uuid; i4 uuid; i5 uuid; i6 uuid; i7 uuid; i8 uuid;
   sha1 text := repeat('1', 64);
   sha3 text := repeat('3', 64);
   sha4 text := repeat('4', 64);
   sha5 text := repeat('5', 64);
+  sha6 text := repeat('6', 64);
+  sha7 text := repeat('7', 64);
+  sha8 text := repeat('8', 64);
   doc1 uuid; doc3 uuid; doc4 uuid;
   p record; c record; res record; job record;
   reserved text; lock_now integer; ok boolean; n integer;
@@ -228,7 +231,7 @@ begin
 
   -- Each step runs as its own statement: expression evaluation order is not
   -- guaranteed, so the release must be observed before the reclaim.
-  select * into job from public.storage_deletion_queue order by created_at limit 1;
+  select * into job from public.storage_deletion_queue order by created_at, id limit 1;
   ok := public.arc_release_storage_deletion_job(job.id, 'network error');
   select count(*) into n from public.arc_claim_storage_deletion_jobs(10);
   insert into arc_test_results values ('22 release then reclaim retries without duplicating work',
@@ -240,7 +243,54 @@ begin
   insert into arc_test_results values ('23 completing a job takes it out of the queue',
     ok and n = 0);
 
+
+  -- 25 validated upload facts are bounded exactly like the stored row
+  insert into public.document_upload_intents
+    (contract_id, pending_object_path, original_filename, display_name, expires_at)
+  values (cont, 'pending/8b-oversize.pdf', 'big.pdf', 'Big', now() + interval '1 hour')
+  returning id into i6;
+  ok := false;
+  begin
+    perform public.arc_prepare_source_document_upload(i6, user_a, null, sha6, 10485761, 4);
+  exception when sqlstate '22023' then ok := true; end;
+  if ok then
+    ok := false;
+    begin
+      perform public.arc_prepare_source_document_upload(i6, user_a, null, sha6, 1024, 501);
+    exception when sqlstate '22023' then ok := true; end;
+  end if;
+  insert into arc_test_results values ('25 prepare rejects oversized upload facts',
+    ok and (select state from public.document_upload_intents where id = i6) = 'pending');
+
+  -- 26 an expired temporary workspace can no longer complete an upload
+  update public.guest_workspaces set expires_at = now() - interval '1 minute' where id = g1;
+  insert into public.document_upload_intents
+    (guest_workspace_id, pending_object_path, original_filename, display_name, expires_at)
+  values (g1, 'pending/8b-guest.pdf', 'g.pdf', 'Guest', now() + interval '1 hour')
+  returning id into i7;
+  ok := false;
+  begin
+    perform public.arc_prepare_source_document_upload(i7, null, 'phase8b-guest', sha7, 1024, 2);
+  exception when others then ok := true; end;
+  insert into arc_test_results values ('26 expired guest workspace cannot upload', ok);
+
+  -- 27 an association failure that is not a concurrency conflict is fatal
+  insert into public.document_upload_intents
+    (contract_id, target_revision_id, pending_object_path, original_filename, display_name, expires_at)
+  values (cont, rev1, 'pending/8b-finalized.pdf', 'f.pdf', 'Finalized target',
+          now() + interval '1 hour')
+  returning id into i8;
+  perform public.arc_prepare_source_document_upload(i8, user_a, null, sha8, 1024, 2);
+  ok := false;
+  begin
+    perform public.arc_commit_source_document_upload(i8, user_a, null,
+      (select lock_version from public.analysis_revisions where id = rev1));
+  exception when others then ok := true; end;
+  insert into arc_test_results values ('27 non-conflict association failure is fatal',
+    ok and not exists (select 1 from public.source_documents where sha256 = sha8));
+
   -- 24 every privileged function is service-role only
+
   insert into arc_test_results values ('24 lifecycle functions are service-role only',
     (select bool_and(
        not has_function_privilege('anon', f, 'execute')
