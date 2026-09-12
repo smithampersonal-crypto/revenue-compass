@@ -1,1 +1,14 @@
 project_id = "nsmxezhuwkzfvoijjyoi"
+
+# The private source-document area is declared here so a fresh local or CI
+# stack (`supabase start` / `supabase db reset`) always recreates it with the
+# same rules as the hosted project: private, 10 MB per file, PDF only.
+# Buckets cannot be created from a migration, so this file is the source of
+# truth for their configuration.
+[storage]
+enabled = true
+
+[storage.buckets.arc-source-documents]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["application/pdf"]
