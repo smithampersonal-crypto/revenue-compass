@@ -9,6 +9,7 @@ import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
 import { CreateRevisionAction } from "./CreateRevisionAction";
+import { DiscardDraftRevisionAction } from "./AmendmentDraftActions";
 import { useAnalysis } from "./analysis-context";
 
 const BUTTON_CLASS =
@@ -51,6 +52,24 @@ export function RevisionLifecyclePanel() {
     Boolean(revision) &&
     revision!.status === "finalized" &&
     revision!.revisionId === currentFinalizedId;
+
+  // An unfinished draft that continues a finalized revision may be discarded;
+  // finalized and superseded revisions never can.
+  const sourceEntry =
+    revision?.status === "draft" && revision.supersedesRevisionId
+      ? (history.data?.revisions.find(
+          (entry) => entry.revisionId === revision.supersedesRevisionId,
+        ) ?? null)
+      : null;
+  const amendmentDraft =
+    revision && sourceEntry && persistence.lockVersion
+      ? {
+          revisionId: revision.revisionId,
+          expectedLockVersion: persistence.lockVersion,
+          draftRevisionNumber: revision.revisionNumber,
+          sourceRevisionNumber: sourceEntry.revisionNumber,
+        }
+      : null;
 
   const finalizeMutation = useMutation({
     mutationFn: () => {
@@ -194,6 +213,9 @@ export function RevisionLifecyclePanel() {
             >
               Finalize analysis
             </button>
+          ) : null}
+          {amendmentDraft && contractId ? (
+            <DiscardDraftRevisionAction contractId={contractId} {...amendmentDraft} />
           ) : null}
           {canStartNewRevision && contractId ? (
             <CreateRevisionAction

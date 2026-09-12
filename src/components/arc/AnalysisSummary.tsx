@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 
 import { Button } from "@/components/ui/button";
 import { CreateRevisionAction } from "@/components/arc/CreateRevisionAction";
+import { ResetToRevisionAction } from "@/components/arc/AmendmentDraftActions";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { buildAnalysisSummary } from "@/lib/arc/analysis-summary";
 import { listRevisionHistory } from "@/lib/arc/persistence/revisions.functions";
@@ -25,6 +27,7 @@ export function AnalysisSummary() {
   const { draft, result, origin, loadedSample, resetAnalysis, canEdit, persistence } =
     useAnalysis();
   const revision = persistence.revision;
+  const [lifecycleMessage, setLifecycleMessage] = useState<string | null>(null);
   const summary = buildAnalysisSummary({
     draft,
     result,
@@ -42,9 +45,28 @@ export function AnalysisSummary() {
   const contractId = revision?.contractId ?? null;
   const history = useQuery({
     queryKey: ["arc-revision-history", contractId],
-    enabled: Boolean(contractId) && revision?.status === "finalized",
+    enabled: Boolean(contractId),
     queryFn: () => fetchHistory({ data: { contractId: contractId! } }),
   });
+
+  // An amendment draft continues a finalized revision, so its reset restores
+  // that revision's inputs rather than blanking the analysis.
+  const openEntry =
+    history.data?.revisions.find((entry) => entry.revisionId === revision?.revisionId) ?? null;
+  const sourceRevisionId =
+    revision?.supersedesRevisionId ?? openEntry?.supersedesRevisionId ?? null;
+  const sourceEntry = sourceRevisionId
+    ? (history.data?.revisions.find((entry) => entry.revisionId === sourceRevisionId) ?? null)
+    : null;
+  const amendmentDraft =
+    revision?.status === "draft" && sourceEntry && persistence.lockVersion
+      ? {
+          revisionId: revision.revisionId,
+          expectedLockVersion: persistence.lockVersion,
+          draftRevisionNumber: revision.revisionNumber,
+          sourceRevisionNumber: sourceEntry.revisionNumber,
+        }
+      : null;
   const currentFinalized =
     history.data?.revisions.find((entry) => entry.isCurrentFinalized) ?? null;
   const canCreateRevision =
@@ -122,22 +144,33 @@ export function AnalysisSummary() {
             </Link>
           </Button>
         ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!canEdit}
-          className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => {
-            const message = loadedSample
-              ? "Reset this sample? Your edits to the sample contract will be discarded."
-              : "Reset this analysis? All entered contract data will be cleared.";
-            if (window.confirm(message)) resetAnalysis();
-          }}
-        >
-          {summary.resetLabel}
-        </Button>
+        {amendmentDraft ? (
+          <ResetToRevisionAction
+            {...amendmentDraft}
+            className="inline-flex h-8 items-center rounded-md border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            onReloaded={persistence.reload}
+            onOutcome={setLifecycleMessage}
+          />
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canEdit}
+            className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => {
+              const message = loadedSample
+                ? "Reset this sample? Your edits to the sample contract will be discarded."
+                : "Reset this analysis? All entered contract data will be cleared.";
+              if (window.confirm(message)) resetAnalysis();
+            }}
+          >
+            {summary.resetLabel}
+          </Button>
+        )}
       </div>
+
+      {lifecycleMessage ? <p className="text-sm text-destructive">{lifecycleMessage}</p> : null}
     </section>
   );
 }

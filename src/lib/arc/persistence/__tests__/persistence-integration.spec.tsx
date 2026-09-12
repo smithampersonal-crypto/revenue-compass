@@ -47,6 +47,7 @@ function loadedRevision(overrides: Partial<LoadedRevisionDto> = {}): LoadedRevis
     analysisId: "33333333-3333-4333-8333-333333333333",
     revisionId: REVISION_ID,
     revisionNumber: 1,
+    supersedesRevisionId: null,
     status: "draft",
     snapshot: null,
     lockVersion: 1,

@@ -267,6 +267,17 @@
       Production prerequisite outside the codebase: custom SMTP for the
       magic-link sender.
 
+- Amendment draft reset + discard (post-7D patch): trusted
+  `arc_reset_amendment_draft` and `arc_discard_amendment_draft` transactions
+  (service-role only, ownership + active-draft + source-provenance + expected
+  lock version checked under one lock), caller-scoped server functions
+  `resetAmendmentDraft` / `discardAmendmentDraft`, a `Reset to Revision N`
+  action in the analysis summary, a destructive `Discard draft revision` action
+  under Review & Finalize, and `supabase/tests/phase7g_amendment_lifecycle.sql`
+  (17 assertions). Discarded revision numbers are reusable; finalized and
+  superseded revisions remain immutable. No `src/lib/asc606*` or sample-fixture
+  change.
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.

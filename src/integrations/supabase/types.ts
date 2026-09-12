@@ -281,6 +281,14 @@ export type Database = {
         }[]
       }
       arc_delete_expired_guest_workspaces: { Args: never; Returns: number }
+      arc_discard_amendment_draft: {
+        Args: {
+          p_expected_lock_version: number
+          p_owner_user_id: string
+          p_revision_id: string
+        }
+        Returns: string
+      }
       arc_expire_guest_workspaces: { Args: never; Returns: number }
       arc_finalize_revision: {
         Args: {
@@ -329,6 +337,18 @@ export type Database = {
       arc_purge_user_guest_data: {
         Args: { p_guest_token_hash: string; p_user_id: string }
         Returns: number
+      }
+      arc_reset_amendment_draft: {
+        Args: {
+          p_expected_lock_version: number
+          p_owner_user_id: string
+          p_revision_id: string
+        }
+        Returns: {
+          lock_version: number
+          schema_version: string
+          source_revision_id: string
+        }[]
       }
       arc_start_amendment_revision: {
         Args: {
