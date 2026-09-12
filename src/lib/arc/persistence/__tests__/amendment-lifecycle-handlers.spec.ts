@@ -81,7 +81,7 @@ describe("resetAmendmentDraftHandler", () => {
     });
     expect(outcome).toMatchObject({ ok: true, lockVersion: 5 });
     // Server-authoritative: the draft comes back from the database, not the browser.
-    if (outcome.ok) expect(outcome.draft.contract.contractId).toBe(DRAFT.contract.contractId);
+    if (outcome.ok) expect(outcome.draft.contract).toEqual(DRAFT.contract);
   });
 
   it("reports a conflict for a stale lock version and writes nothing", async () => {
