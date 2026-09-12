@@ -63,6 +63,12 @@ function revisionReader(supabase: unknown): RevisionReader {
         .select("canonical_inputs, schema_version, status")
         .eq("id", revisionId)
         .maybeSingle(),
+    readLifecycleRevision: (revisionId) =>
+      client
+        .from("analysis_revisions")
+        .select("id, status, lock_version, supersedes_revision_id")
+        .eq("id", revisionId)
+        .maybeSingle(),
   };
 }
 
