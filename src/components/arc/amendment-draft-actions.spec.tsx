@@ -250,10 +250,16 @@ describe("Discard draft revision", () => {
     await user.click(await screen.findByRole("button", { name: "Discard draft revision" }));
     await user.click(screen.getByRole("button", { name: "Discard draft" }));
 
-    expect(await screen.findByText(/changed since this page loaded/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(discardDraft).toHaveBeenCalledWith({
+        data: { revisionId: DRAFT_ID, expectedLockVersion: 4 },
+      }),
+    );
+    // A stale discard deletes nothing and never navigates.
     expect(navigate).not.toHaveBeenCalled();
     // The conflict path must reload the authoritative workspace (revision and
-    // lock version), not just the revision history list.
+    // lock version), not just the revision history list. The initial open is
+    // call #1; the conflict-triggered reload is a later call.
     await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
   });
 
