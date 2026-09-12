@@ -9,7 +9,7 @@ do $$
 declare
   user_a uuid := '00000000-0000-4000-8000-0000000008b1';
   user_b uuid := '00000000-0000-4000-8000-0000000008b2';
-  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; g1 uuid;
+  cust uuid; cont uuid; ana uuid; rev1 uuid; rev2 uuid; g1 uuid; g2 uuid;
   i1 uuid; i2 uuid; i3 uuid; i4 uuid; i5 uuid; i6 uuid; i7 uuid; i8 uuid;
   sha1 text := repeat('1', 64);
   sha3 text := repeat('3', 64);
@@ -18,7 +18,8 @@ declare
   sha6 text := repeat('6', 64);
   sha7 text := repeat('7', 64);
   sha8 text := repeat('8', 64);
-  doc1 uuid; doc3 uuid; doc4 uuid;
+  sha9 text := repeat('9', 64);
+  doc1 uuid; doc3 uuid; doc4 uuid; doc9 uuid;
   p record; c record; res record; job record;
   reserved text; lock_now integer; ok boolean; n integer;
 begin
