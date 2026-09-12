@@ -43,8 +43,8 @@ export function ResetToRevisionAction({
   sourceRevisionNumber: number;
   className?: string;
   onReloaded: () => void;
-  /** Reported to the parent so it survives the workspace reload. */
-  onOutcome?: (message: string) => void;
+  /** Reported to the parent so it survives the workspace reload; null clears a stale message after success. */
+  onOutcome?: (message: string | null) => void;
 }) {
   const reset = useServerFn(resetAmendmentDraft);
   const [open, setOpen] = useState(false);
@@ -59,6 +59,8 @@ export function ResetToRevisionAction({
         onOutcome?.(CONFLICT_MESSAGE);
       } else {
         setMessage(null);
+        // A successful reset supersedes any earlier conflict shown by the parent.
+        onOutcome?.(null);
       }
       // Either way the server copy is authoritative from here.
       onReloaded();
