@@ -152,20 +152,42 @@ begin
     and exists (select 1 from public.revision_source_documents
                  where revision_id = rev1 and source_document_id = doc3));
   lock_now := public.arc_attach_source_document(user_a, rev1, doc3, 3);
-  insert into arc_test_results values ('13 re-attaching an already selected document is idempotent',
-    lock_now = 4 and (select count(*) from public.revision_source_documents
-                       where revision_id = rev1 and source_document_id = doc3) = 1);
+  insert into arc_test_results values ('13 re-attaching an already selected document changes nothing',
+    lock_now = 3 and (select lock_version from public.analysis_revisions where id = rev1) = 3
+    and (select count(*) from public.revision_source_documents
+          where revision_id = rev1 and source_document_id = doc3) = 1);
+
+  -- 13b a stale attach still conflicts even though the end state already exists
+  ok := false;
+  begin
+    perform public.arc_attach_source_document(user_a, rev1, doc3, 2);
+  exception when sqlstate '40001' then ok := true; end;
+  insert into arc_test_results values ('13b stale attach conflicts even when already selected',
+    ok and (select lock_version from public.analysis_revisions where id = rev1) = 3);
 
   -- 14 remove advances the lock exactly once and rejects a stale lock
   ok := false;
   begin
     perform public.arc_remove_source_document(user_a, rev1, doc3, 2);
   exception when sqlstate '40001' then ok := true; end;
-  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 4);
+  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 3);
   insert into arc_test_results values ('14 remove rejects a stale lock and otherwise advances once',
-    ok and lock_now = 5
+    ok and lock_now = 4
     and not exists (select 1 from public.revision_source_documents
                      where revision_id = rev1 and source_document_id = doc3));
+
+  -- 14b removing an already absent association changes nothing
+  lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 4);
+  insert into arc_test_results values ('14b removing an absent association changes nothing',
+    lock_now = 4 and (select lock_version from public.analysis_revisions where id = rev1) = 4);
+
+  -- 14c a stale remove still conflicts even though the document is already absent
+  ok := false;
+  begin
+    perform public.arc_remove_source_document(user_a, rev1, doc3, 3);
+  exception when sqlstate '40001' then ok := true; end;
+  insert into arc_test_results values ('14c stale remove conflicts even when already absent',
+    ok and (select lock_version from public.analysis_revisions where id = rev1) = 4);
 
   -- 15 an eligible hard delete queues the object exactly once and frees the row
   select * into res from public.arc_stage_source_document_deletion(user_a, null, doc3, null);
