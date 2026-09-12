@@ -62,6 +62,57 @@ export const listWorkspace = createServerFn({ method: "POST" })
       .order("updated_at", { ascending: false });
     if (contractsError) throw new Error("Your saved contracts could not be loaded.");
 
+    // Two set-based, caller-scoped reads cover every contract, so the browser
+    // never issues one request per contract to learn its working state.
+    const contractIds = (contracts ?? []).map((contract) => contract.id);
+    const analyses = contractIds.length
+      ? await context.supabase
+          .from("analyses")
+          .select("id, contract_id, current_finalized_revision_id")
+          .in("contract_id", contractIds)
+      : { data: [], error: null };
+    if (analyses.error) throw new Error("Your saved contracts could not be loaded.");
+
+    const analysisIds = (analyses.data ?? []).map((analysis) => analysis.id);
+    const revisions = analysisIds.length
+      ? await context.supabase
+          .from("analysis_revisions")
+          .select("id, analysis_id, revision_number, status")
+          .in("analysis_id", analysisIds)
+      : { data: [], error: null };
+    if (revisions.error) throw new Error("Your saved contracts could not be loaded.");
+
+    function revisionState(contractId: string): ContractRevisionStateDto {
+      const analysis = (analyses.data ?? []).find((row) => row.contract_id === contractId);
+      const rows = analysis
+        ? (revisions.data ?? []).filter((row) => row.analysis_id === analysis.id)
+        : [];
+      const highest = rows.reduce((max, row) => Math.max(max, row.revision_number), 0);
+      const nextRevisionNumber = highest + 1;
+
+      const draft = rows.find((row) => row.status === "draft");
+      if (draft) {
+        return {
+          kind: "draft",
+          revisionId: draft.id,
+          revisionNumber: draft.revision_number,
+          nextRevisionNumber,
+        };
+      }
+      const finalized = analysis?.current_finalized_revision_id
+        ? rows.find((row) => row.id === analysis.current_finalized_revision_id)
+        : undefined;
+      if (finalized) {
+        return {
+          kind: "finalized",
+          revisionId: finalized.id,
+          revisionNumber: finalized.revision_number,
+          nextRevisionNumber,
+        };
+      }
+      return { kind: "none", revisionId: null, revisionNumber: null, nextRevisionNumber };
+    }
+
     return {
       customers: (customers ?? []).map((customer) => ({
         id: customer.id,
@@ -74,6 +125,7 @@ export const listWorkspace = createServerFn({ method: "POST" })
             contractNumber: contract.contract_number,
             status: contract.status,
             updatedAt: contract.updated_at,
+            revisionState: revisionState(contract.id),
           })),
       })),
     };
