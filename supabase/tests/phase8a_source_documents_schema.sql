@@ -42,10 +42,18 @@ begin
   values ('phase8a-guest-2', '{"v":1}'::jsonb, 'arc-workflow-1', now() + interval '9 hours')
   returning id into g2;
 
-  -- 01 the source bucket exists and is private
+  -- 01 the source bucket exists, is private, and is configured as approved
   insert into arc_test_results values ('01 private source bucket exists',
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents' and b.public is false));
+  insert into arc_test_results values ('01b source bucket size limit is 10 MB',
+    exists (select 1 from storage.buckets b
+             where b.id = 'arc-source-documents' and b.file_size_limit = 10485760));
+  insert into arc_test_results values ('01c source bucket accepts only application/pdf',
+    exists (select 1 from storage.buckets b
+             where b.id = 'arc-source-documents'
+               and b.allowed_mime_types = array['application/pdf']));
+
 
   insert into public.source_documents
     (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
