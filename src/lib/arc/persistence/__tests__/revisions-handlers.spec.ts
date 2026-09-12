@@ -29,6 +29,15 @@ const CANONICAL = toCanonicalInputs(COMPLETE);
 
 function reader(overrides: Partial<RevisionReader> = {}): RevisionReader {
   return {
+    readLifecycleRevision: async () => ({
+      data: {
+        id: REVISION_ID,
+        status: "draft",
+        lock_version: 3,
+        supersedes_revision_id: null,
+      },
+      error: null,
+    }),
     readRevisionForFinalization: async () => ({
       data: {
         id: REVISION_ID,
