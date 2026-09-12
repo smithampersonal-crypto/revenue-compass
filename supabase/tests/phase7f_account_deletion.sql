@@ -89,6 +89,12 @@ begin
                                        status, migrated_user_id)
   values (hash_other, draft, 'arc.workflow.v1', now() + interval '9 hours', 'migrated', other_id);
 
+  insert into public.source_documents
+    (guest_workspace_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  select g.id, 'documents/7f-guest.pdf', 'g.pdf', 'Guest doc', repeat('b', 64), 512, 1
+    from public.guest_workspaces g where g.token_hash = hash_browser
+  returning id into guest_doc;
+
   -- 07 Finalized revisions are not deletable through ordinary paths.
   failed := false;
   begin
