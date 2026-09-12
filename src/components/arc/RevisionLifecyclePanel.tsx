@@ -1,17 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
-import {
-  finalizeRevision,
-  listRevisionHistory,
-  startNewRevision,
-} from "@/lib/arc/persistence/revisions.functions";
+import { finalizeRevision, listRevisionHistory } from "@/lib/arc/persistence/revisions.functions";
 import { describeRevisionStatus, finalizeGate } from "@/lib/arc/persistence/revision-history";
 import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
+import { CreateRevisionAction } from "./CreateRevisionAction";
 import { useAnalysis } from "./analysis-context";
 
 const BUTTON_CLASS =
@@ -30,14 +27,12 @@ const SECONDARY_CLASS =
 export function RevisionLifecyclePanel() {
   const { persistence, result, workpaper } = useAnalysis();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const [message, setMessage] = useState<string | null>(null);
   const [blockingIssues, setBlockingIssues] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
 
   const finalize = useServerFn(finalizeRevision);
   const fetchHistory = useServerFn(listRevisionHistory);
-  const newRevision = useServerFn(startNewRevision);
 
   const revision = persistence.revision;
   const contractId = revision?.contractId ?? null;
@@ -114,33 +109,10 @@ export function RevisionLifecyclePanel() {
     onSettled: () => persistence.setFinalizing(false),
   });
 
-  const newRevisionMutation = useMutation({
-    mutationFn: () =>
-      newRevision({
-        data: {
-          contractId: contractId!,
-          // Provenance is explicit and re-checked inside the database
-          // transaction: only the current finalized revision may be continued,
-          // and the server records it as the superseded source.
-          sourceRevisionId: currentFinalizedId!,
-        },
-      }),
-    onSuccess: async (outcome) => {
-      setMessage(
-        outcome.created
-          ? "A new draft revision was started from the finalized snapshot."
-          : "An editable draft revision already existed, so it was opened.",
-      );
-      await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
-      await navigate({
-        to: "/analysis/review",
-        search: { contract: contractId!, revision: outcome.revisionId },
-      });
-    },
-    onError: (error: unknown) => {
-      setMessage(error instanceof Error ? error.message : "A new revision could not be started.");
-    },
-  });
+  // The revision number a new revision would take, from authoritative history.
+  const nextRevisionNumber =
+    (history.data?.revisions.reduce((max, entry) => Math.max(max, entry.revisionNumber), 0) ?? 0) +
+    1;
 
   if (!persistence.enabled) {
     return (
@@ -223,15 +195,18 @@ export function RevisionLifecyclePanel() {
               Finalize analysis
             </button>
           ) : null}
-          {canStartNewRevision ? (
-            <button
-              type="button"
+          {canStartNewRevision && contractId ? (
+            <CreateRevisionAction
+              contractId={contractId}
+              // Provenance is explicit and re-checked inside the database
+              // transaction: only the current finalized revision may be
+              // continued, and the server records it as the superseded source.
+              sourceRevisionId={currentFinalizedId!}
+              sourceRevisionNumber={revision!.revisionNumber}
+              nextRevisionNumber={nextRevisionNumber}
               className={SECONDARY_CLASS}
-              disabled={newRevisionMutation.isPending}
-              onClick={() => newRevisionMutation.mutate()}
-            >
-              {newRevisionMutation.isPending ? "Starting…" : "Start a new revision"}
-            </button>
+              onOutcome={setMessage}
+            />
           ) : null}
         </div>
       )}

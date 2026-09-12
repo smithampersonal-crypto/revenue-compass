@@ -203,7 +203,8 @@ describe("successful lifecycle paths", () => {
     renderPanel();
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: /start a new revision/i }));
+    await user.click(await screen.findByRole("button", { name: "Create new revision" }));
+    await user.click(await screen.findByRole("button", { name: "Create revision" }));
 
     await waitFor(() =>
       expect(startNew).toHaveBeenCalledWith({
@@ -212,7 +213,7 @@ describe("successful lifecycle paths", () => {
     );
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
-        to: "/analysis/review",
+        to: "/analysis",
         search: { contract: CONTRACT_ID, revision: NEXT },
       }),
     );
@@ -234,7 +235,7 @@ describe("successful lifecycle paths", () => {
     renderPanel();
 
     await waitFor(() => expect(screen.getByText(/view-only/i)).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: /start a new revision/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create new revision" })).toBeNull();
     expect(screen.queryByRole("button", { name: /finalize analysis/i })).toBeNull();
   });
 
