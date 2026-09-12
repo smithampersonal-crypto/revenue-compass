@@ -28,6 +28,10 @@ import {
 import {
   finalizeRevisionHandler,
   startNewRevisionHandler,
+  resetAmendmentDraftHandler,
+  discardAmendmentDraftHandler,
+  type ResetAmendmentDraftResult,
+  type DiscardAmendmentDraftResult,
   type FinalizeRevisionResult,
   type RevisionReader,
   type StartRevisionResult,
@@ -108,6 +112,8 @@ export interface LoadedRevisionDto {
   draft: WorkflowDraft;
   /** Present only for finalized and superseded revisions. */
   snapshot: RevisionSnapshotDto | null;
+  /** The finalized revision this draft continues, when it is an amendment. */
+  supersedesRevisionId: string | null;
 }
 
 const uuid = z.string().uuid();
@@ -140,7 +146,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       throw new Error("That contract's analysis could not be opened.");
 
     const revisionColumns =
-      "id, revision_number, status, lock_version, canonical_inputs, schema_version, engine_version, finalized_at, reconciliation_snapshot, engine_outputs";
+      "id, revision_number, status, lock_version, canonical_inputs, schema_version, engine_version, finalized_at, reconciliation_snapshot, engine_outputs, supersedes_revision_id";
 
     let query = context.supabase
       .from("analysis_revisions")
@@ -217,6 +223,7 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
       readOnly: revision.status !== "draft",
       draft: parsed.draft,
       snapshot,
+      supersedesRevisionId: revision.supersedes_revision_id,
     };
   });
 
@@ -394,3 +401,52 @@ export const startNewRevision = createServerFn({ method: "POST" })
       data,
     );
   });
+
+export type {
+  ResetAmendmentDraftResult,
+  DiscardAmendmentDraftResult,
+} from "./revisions.handlers";
+
+function amendmentLifecycleDeps(supabase: unknown, userId: string) {
+  return {
+    reader: revisionReader(supabase),
+    userId,
+    resetTransaction: async (args: Record<string, unknown>) => {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      return supabaseAdmin.rpc("arc_reset_amendment_draft", args as never);
+    },
+    discardTransaction: async (args: Record<string, unknown>) => {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      return supabaseAdmin.rpc("arc_discard_amendment_draft", args as never);
+    },
+  };
+}
+
+const lifecycleInput = (input: { revisionId: string; expectedLockVersion: number }) => ({
+  revisionId: uuid.parse(input?.revisionId),
+  expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
+});
+
+/**
+ * Restores an amendment draft to the canonical inputs of the finalized
+ * revision it continues. The browser sends no draft content: the trusted
+ * transaction copies the source inputs and advances the lock version once.
+ */
+export const resetAmendmentDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(lifecycleInput)
+  .handler(async ({ data, context }): Promise<ResetAmendmentDraftResult> =>
+    resetAmendmentDraftHandler(amendmentLifecycleDeps(context.supabase, context.userId), data),
+  );
+
+/**
+ * Permanently removes an unfinished amendment draft. Finalized and superseded
+ * revisions can never be deleted through this operation, and the abandoned
+ * revision number becomes available again.
+ */
+export const discardAmendmentDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(lifecycleInput)
+  .handler(async ({ data, context }): Promise<DiscardAmendmentDraftResult> =>
+    discardAmendmentDraftHandler(amendmentLifecycleDeps(context.supabase, context.userId), data),
+  );
