@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -26,6 +27,7 @@ export function AnalysisSummary() {
   const { draft, result, origin, loadedSample, resetAnalysis, canEdit, persistence } =
     useAnalysis();
   const revision = persistence.revision;
+  const [lifecycleMessage, setLifecycleMessage] = useState<string | null>(null);
   const summary = buildAnalysisSummary({
     draft,
     result,
@@ -146,6 +148,7 @@ export function AnalysisSummary() {
             {...amendmentDraft}
             className="inline-flex h-8 items-center rounded-md border border-destructive/40 px-3 text-xs font-medium text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
             onReloaded={persistence.reload}
+            onOutcome={setLifecycleMessage}
           />
         ) : (
           <Button
@@ -165,6 +168,10 @@ export function AnalysisSummary() {
           </Button>
         )}
       </div>
+
+      {lifecycleMessage ? (
+        <p className="text-sm text-destructive">{lifecycleMessage}</p>
+      ) : null}
     </section>
   );
 }

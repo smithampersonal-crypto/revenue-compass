@@ -35,6 +35,7 @@ export function ResetToRevisionAction({
   sourceRevisionNumber,
   className,
   onReloaded,
+  onOutcome,
 }: {
   revisionId: string;
   expectedLockVersion: number;
@@ -42,6 +43,8 @@ export function ResetToRevisionAction({
   sourceRevisionNumber: number;
   className?: string;
   onReloaded: () => void;
+  /** Reported to the parent so it survives the workspace reload. */
+  onOutcome?: (message: string) => void;
 }) {
   const reset = useServerFn(resetAmendmentDraft);
   const [open, setOpen] = useState(false);
@@ -53,6 +56,7 @@ export function ResetToRevisionAction({
       setOpen(false);
       if (!outcome.ok) {
         setMessage(CONFLICT_MESSAGE);
+        onOutcome?.(CONFLICT_MESSAGE);
       } else {
         setMessage(null);
       }
@@ -61,9 +65,12 @@ export function ResetToRevisionAction({
     },
     onError: (cause: unknown) => {
       setOpen(false);
-      setMessage(
-        cause instanceof Error && cause.message ? cause.message : "This revision could not be reset.",
-      );
+      const text =
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "This revision could not be reset.";
+      setMessage(text);
+      onOutcome?.(text);
       onReloaded();
     },
   });
