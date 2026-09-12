@@ -6,12 +6,12 @@ import { useState } from "react";
 import {
   finalizeRevision,
   listRevisionHistory,
-  startNewRevision,
 } from "@/lib/arc/persistence/revisions.functions";
 import { describeRevisionStatus, finalizeGate } from "@/lib/arc/persistence/revision-history";
 import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
+import { CreateRevisionAction } from "./CreateRevisionAction";
 import { useAnalysis } from "./analysis-context";
 
 const BUTTON_CLASS =
@@ -37,7 +37,6 @@ export function RevisionLifecyclePanel() {
 
   const finalize = useServerFn(finalizeRevision);
   const fetchHistory = useServerFn(listRevisionHistory);
-  const newRevision = useServerFn(startNewRevision);
 
   const revision = persistence.revision;
   const contractId = revision?.contractId ?? null;
