@@ -42,10 +42,18 @@ begin
   values ('phase8a-guest-2', '{"v":1}'::jsonb, 'arc-workflow-1', now() + interval '9 hours')
   returning id into g2;
 
-  -- 01 the source bucket exists and is private
+  -- 01 the source bucket exists, is private, and is configured as approved
   insert into arc_test_results values ('01 private source bucket exists',
     exists (select 1 from storage.buckets b
              where b.id = 'arc-source-documents' and b.public is false));
+  insert into arc_test_results values ('01b source bucket size limit is 10 MB',
+    exists (select 1 from storage.buckets b
+             where b.id = 'arc-source-documents' and b.file_size_limit = 10485760));
+  insert into arc_test_results values ('01c source bucket accepts only application/pdf',
+    exists (select 1 from storage.buckets b
+             where b.id = 'arc-source-documents'
+               and b.allowed_mime_types = array['application/pdf']));
+
 
   insert into public.source_documents
     (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
@@ -99,6 +107,41 @@ begin
     exception when others then ok := true; end;
   end if;
   insert into arc_test_results values ('07 contract xor guest ownership enforced', ok);
+
+  -- 07b a document always carries a real filename and a real display name
+  ok := false;
+  begin
+    insert into public.source_documents
+      (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+    values (cont, 'documents/phase8a-blank1.pdf', '   ', 'Named', repeat('1', 64), 10, 1);
+  exception when others then ok := true; end;
+  if ok then
+    ok := false;
+    begin
+      insert into public.source_documents
+        (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+      values (cont, 'documents/phase8a-blank2.pdf', 'x.pdf', '', repeat('2', 64), 10, 1);
+    exception when others then ok := true; end;
+  end if;
+  insert into arc_test_results values ('07b blank document names rejected', ok);
+
+  -- 07c oversized or over-long documents are rejected at the row level
+  ok := false;
+  begin
+    insert into public.source_documents
+      (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+    values (cont, 'documents/phase8a-big.pdf', 'big.pdf', 'Big', repeat('3', 64), 10485761, 1);
+  exception when others then ok := true; end;
+  if ok then
+    ok := false;
+    begin
+      insert into public.source_documents
+        (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+      values (cont, 'documents/phase8a-long.pdf', 'long.pdf', 'Long', repeat('4', 64), 10, 501);
+    exception when others then ok := true; end;
+  end if;
+  insert into arc_test_results values ('07c oversized documents rejected', ok);
+
 
   -- 08 duplicate sha within a contract is rejected
   ok := false;
