@@ -108,6 +108,9 @@ begin
   insert into arc_test_results
   select '09 another user''s guest row is untouched',
          exists (select 1 from public.guest_workspaces where token_hash = hash_other);
+  insert into arc_test_results
+  select '09b the purged guest workspace took its documents with it',
+         not exists (select 1 from public.source_documents where id = guest_doc);
 
   -- A legitimate migration can land AFTER the purge and before auth deletion.
   -- That late row must disappear through the migrated_user_id cascade, never
