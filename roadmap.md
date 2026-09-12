@@ -323,6 +323,24 @@
   `phase8a_source_documents_schema.sql` (23 assertions) and
   `phase8b_document_lifecycle.sql` (31 assertions).
 
+- Phase 8A finalized upload retry patch: the finalized-intent branch of
+  `arc_commit_source_document_upload` is pure recovery readback and now
+  reconstructs authoritative association state per ownership mode — saved
+  revision target (`revision_source_documents` membership, current
+  `analysis_revisions.lock_version`, conflict when the target exists but the
+  association is absent), guest workspace (`guest_source_document_selections`
+  membership, current `guest_workspaces.lock_version`, conflict when the
+  intended auto-selection is absent), and standalone contract-library upload
+  (`associated = false`, `association_conflict = false`, `lock_version = null`).
+  A retry never attaches, selects, or advances a lock. Guest authorization (the
+  active, unexpired 9-hour credential) is still evaluated before the finalized
+  readback. Two latent PL/pgSQL ambiguity faults on the guest commit path
+  (`returning source_document_id`, `set lock_version = lock_version + 1`
+  colliding with the OUT parameters) were fixed by qualifying the references.
+  `phase8b_document_lifecycle.sql` is now 39 assertions (added 29–36).
+
+
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.
