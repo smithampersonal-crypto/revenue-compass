@@ -62,6 +62,16 @@ begin
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
   values (analysis_id, 1, draft, 'arc.workflow.v1') returning id into revision_id;
 
+  -- Phase 8: the finalized revision also carries an uploaded source document,
+  -- so deletion has to remove the document rows as well.
+  insert into public.source_documents
+    (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  values (contract_id, 'documents/7f-regression.pdf', 'a.pdf', 'Master Agreement',
+          repeat('a', 64), 1024, 3)
+  returning id into doc_id;
+  insert into public.revision_source_documents (revision_id, source_document_id)
+  values (revision_id, doc_id);
+
   -- A finalized revision is the hardest case: it is immutable outside the
   -- account-deletion path.
   perform public.arc_finalize_revision(
