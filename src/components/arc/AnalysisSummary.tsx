@@ -53,7 +53,8 @@ export function AnalysisSummary() {
   // that revision's inputs rather than blanking the analysis.
   const openEntry =
     history.data?.revisions.find((entry) => entry.revisionId === revision?.revisionId) ?? null;
-  const sourceRevisionId = revision?.supersedesRevisionId ?? openEntry?.supersedesRevisionId ?? null;
+  const sourceRevisionId =
+    revision?.supersedesRevisionId ?? openEntry?.supersedesRevisionId ?? null;
   const sourceEntry = sourceRevisionId
     ? (history.data?.revisions.find((entry) => entry.revisionId === sourceRevisionId) ?? null)
     : null;
@@ -169,9 +170,7 @@ export function AnalysisSummary() {
         )}
       </div>
 
-      {lifecycleMessage ? (
-        <p className="text-sm text-destructive">{lifecycleMessage}</p>
-      ) : null}
+      {lifecycleMessage ? <p className="text-sm text-destructive">{lifecycleMessage}</p> : null}
     </section>
   );
 }

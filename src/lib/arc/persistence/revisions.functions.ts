@@ -402,10 +402,7 @@ export const startNewRevision = createServerFn({ method: "POST" })
     );
   });
 
-export type {
-  ResetAmendmentDraftResult,
-  DiscardAmendmentDraftResult,
-} from "./revisions.handlers";
+export type { ResetAmendmentDraftResult, DiscardAmendmentDraftResult } from "./revisions.handlers";
 
 function amendmentLifecycleDeps(supabase: unknown, userId: string) {
   return {

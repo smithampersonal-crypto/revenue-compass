@@ -196,8 +196,7 @@ export type ResetAmendmentDraftResult =
   | { ok: false; reason: "conflict" };
 
 export type DiscardAmendmentDraftResult =
-  | { ok: true; finalizedRevisionId: string }
-  | { ok: false; reason: "conflict" };
+  { ok: true; finalizedRevisionId: string } | { ok: false; reason: "conflict" };
 
 /**
  * Shared gate for both destructive amendment operations. Only the active,
@@ -262,8 +261,9 @@ export async function discardAmendmentDraftHandler(
   });
   if (error?.code === "40001") return { ok: false, reason: "conflict" };
   const finalizedRevisionId =
-    typeof result === "string" ? result : ((result as { arc_discard_amendment_draft?: string })
-      ?.arc_discard_amendment_draft ?? null);
+    typeof result === "string"
+      ? result
+      : ((result as { arc_discard_amendment_draft?: string })?.arc_discard_amendment_draft ?? null);
   if (error || !finalizedRevisionId) throw new Error("This draft revision could not be discarded.");
 
   return { ok: true, finalizedRevisionId };
