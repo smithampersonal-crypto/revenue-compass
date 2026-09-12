@@ -14,12 +14,28 @@ import { createEmptyDraft } from "@/lib/asc606-workflow";
 
 import { ARC_WORKFLOW_SCHEMA_VERSION, toCanonicalInputs } from "./schema";
 
+/**
+ * The contract's authoritative current working state, so My Contracts can show
+ * it and offer the right action without a per-contract request.
+ *
+ * A superseded revision is history and is never reported here as the current
+ * state: only an active draft, or the analysis's current finalized revision.
+ */
+export interface ContractRevisionStateDto {
+  kind: "draft" | "finalized" | "none";
+  revisionId: string | null;
+  revisionNumber: number | null;
+  /** The revision number a new revision would take. */
+  nextRevisionNumber: number;
+}
+
 export interface ContractSummaryDto {
   id: string;
   title: string;
   contractNumber: string | null;
   status: "active" | "archived";
   updatedAt: string;
+  revisionState: ContractRevisionStateDto;
 }
 
 export interface CustomerWithContractsDto {
