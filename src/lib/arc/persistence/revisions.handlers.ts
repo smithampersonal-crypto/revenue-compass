@@ -174,3 +174,97 @@ export async function startNewRevisionHandler(
     created: Boolean((created as { created: boolean }).created),
   };
 }
+
+/* ------------------------------------ amendment reset / discard (7D+) --- */
+
+export interface AmendmentLifecycleDeps {
+  reader: RevisionReader;
+  userId: string;
+  /** Trusted, service-role-only reset transaction. */
+  resetTransaction(args: Record<string, unknown>): Promise<RpcResult>;
+  /** Trusted, service-role-only discard transaction. */
+  discardTransaction(args: Record<string, unknown>): Promise<RpcResult>;
+}
+
+export interface AmendmentLifecycleInput {
+  revisionId: string;
+  expectedLockVersion: number;
+}
+
+export type ResetAmendmentDraftResult =
+  | { ok: true; lockVersion: number; draft: import("@/lib/asc606-workflow").WorkflowDraft }
+  | { ok: false; reason: "conflict" };
+
+export type DiscardAmendmentDraftResult =
+  | { ok: true; finalizedRevisionId: string }
+  | { ok: false; reason: "conflict" };
+
+/**
+ * Shared gate for both destructive amendment operations. Only the active,
+ * unfinished draft that continues a finalized revision may be touched, and
+ * only at the lock version the browser actually observed.
+ */
+async function readAmendmentDraft(
+  deps: AmendmentLifecycleDeps,
+  data: AmendmentLifecycleInput,
+): Promise<LifecycleRevisionRow | "conflict"> {
+  const { data: revision, error } = await deps.reader.readLifecycleRevision(data.revisionId);
+  if (error) throw new Error("That revision could not be read.");
+  if (!revision) throw new Error("That revision was not found in your workspace.");
+  if (revision.status !== "draft") {
+    throw new Error("Only an unfinished draft revision can be changed this way.");
+  }
+  if (!revision.supersedes_revision_id) {
+    throw new Error("This draft does not continue a finalized revision.");
+  }
+  if (revision.lock_version !== data.expectedLockVersion) return "conflict";
+  return revision;
+}
+
+export async function resetAmendmentDraftHandler(
+  deps: AmendmentLifecycleDeps,
+  data: AmendmentLifecycleInput,
+): Promise<ResetAmendmentDraftResult> {
+  const revision = await readAmendmentDraft(deps, data);
+  if (revision === "conflict") return { ok: false, reason: "conflict" };
+
+  const { data: rows, error } = await deps.resetTransaction({
+    p_owner_user_id: deps.userId,
+    p_revision_id: data.revisionId,
+    p_expected_lock_version: data.expectedLockVersion,
+  });
+  if (error?.code === "40001") return { ok: false, reason: "conflict" };
+  const row = (Array.isArray(rows) ? rows[0] : rows) as { lock_version: number } | null;
+  if (error || !row) throw new Error("This revision could not be reset.");
+
+  // Authoritative: the restored draft is read back from the database.
+  const { data: restored, error: readError } = await deps.reader.readSourceRevision(
+    data.revisionId,
+  );
+  if (readError || !restored) throw new Error("The reset revision could not be read back.");
+  const parsed = parseCanonicalInputs(restored.canonical_inputs, restored.schema_version);
+  if (!parsed.ok) throw new Error(parsed.reason);
+
+  return { ok: true, lockVersion: row.lock_version, draft: parsed.draft };
+}
+
+export async function discardAmendmentDraftHandler(
+  deps: AmendmentLifecycleDeps,
+  data: AmendmentLifecycleInput,
+): Promise<DiscardAmendmentDraftResult> {
+  const revision = await readAmendmentDraft(deps, data);
+  if (revision === "conflict") return { ok: false, reason: "conflict" };
+
+  const { data: result, error } = await deps.discardTransaction({
+    p_owner_user_id: deps.userId,
+    p_revision_id: data.revisionId,
+    p_expected_lock_version: data.expectedLockVersion,
+  });
+  if (error?.code === "40001") return { ok: false, reason: "conflict" };
+  const finalizedRevisionId =
+    typeof result === "string" ? result : ((result as { arc_discard_amendment_draft?: string })
+      ?.arc_discard_amendment_draft ?? null);
+  if (error || !finalizedRevisionId) throw new Error("This draft revision could not be discarded.");
+
+  return { ok: true, finalizedRevisionId };
+}
