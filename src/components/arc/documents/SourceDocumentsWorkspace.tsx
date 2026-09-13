@@ -101,7 +101,12 @@ function DocumentRow({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => actions.onView(document)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => actions.onView(document)}
+          >
             View PDF
           </Button>
           <Button

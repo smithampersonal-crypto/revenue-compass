@@ -7,11 +7,7 @@
  * hashes never leave this module.
  */
 
-import type {
-  DocumentWorkspaceDto,
-  SourceDocumentSummaryDto,
-  SourceDocumentType,
-} from "./types";
+import type { DocumentWorkspaceDto, SourceDocumentSummaryDto, SourceDocumentType } from "./types";
 
 function fail(operation: string, error: { message?: string }): never {
   throw new Error(`The document workspace is unavailable (${operation}).`, { cause: error });
@@ -89,11 +85,7 @@ export interface DocumentWorkspaceStore {
     documentType: string | null;
     effectiveDate: string | null;
   }): Promise<void>;
-  setArchived(args: {
-    userId: string;
-    sourceDocumentId: string;
-    archived: boolean;
-  }): Promise<void>;
+  setArchived(args: { userId: string; sourceDocumentId: string; archived: boolean }): Promise<void>;
   stageDeletion(args: {
     userId: string;
     sourceDocumentId: string;

@@ -216,9 +216,7 @@ describe("Source Documents workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Add from Contract Library" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Remove from revision" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove from revision" })).not.toBeInTheDocument();
   });
 
   it("treats zero selected sources as a normal state", async () => {
@@ -479,9 +477,7 @@ describe("Source Documents workspace", () => {
     const library = screen.getByText("Contract Document Library").closest("section")!;
     expect(within(library).getByRole("button", { name: "Edit details" })).toBeDisabled();
     expect(
-      screen.getByText(
-        /details are locked because it is part of finalized analysis history/i,
-      ),
+      screen.getByText(/details are locked because it is part of finalized analysis history/i),
     ).toBeInTheDocument();
   });
 
