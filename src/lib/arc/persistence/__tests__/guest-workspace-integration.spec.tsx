@@ -146,7 +146,7 @@ describe("explicit save of a guest analysis", () => {
     renderGuest();
     await screen.findByText("Northwind");
     expect(migrate).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Save this analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save to My Contracts" })).toBeInTheDocument();
   });
 
   it("sends a signed-out visitor to sign in, preserving the intent without the credential", async () => {
@@ -170,7 +170,7 @@ describe("explicit save of a guest analysis", () => {
     // The contract name is suggested from Step 1 before the form can be used.
     await screen.findByDisplayValue("Northwind");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
     expect(migrate.mock.calls[0]![0].data.contractTitle).toBe("Northwind");
     await waitFor(() =>
@@ -186,14 +186,14 @@ describe("explicit save of a guest analysis", () => {
     renderGuest({ autoOpen: true });
     await screen.findByTestId("mode");
     expect(await screen.findByText(/Add the customer name in Step 1/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save to my account" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save to My Contracts" })).toBeDisabled();
   });
 
   it("keeps the temporary workspace when the migration fails", async () => {
     migrate.mockResolvedValue({ ok: false, reason: "Nothing was created. Please try again." });
     renderGuest({ autoOpen: true });
     await screen.findByDisplayValue("Northwind");
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     expect(await screen.findByText(/Nothing was created/)).toBeInTheDocument();
     expect(navigate).not.toHaveBeenCalled();
     expect(screen.getByTestId("mode")).toHaveTextContent("guest");
@@ -210,7 +210,7 @@ describe("explicit save of a guest analysis", () => {
     });
     renderGuest({ autoOpen: true });
     await screen.findByDisplayValue("Northwind");
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
     expect(migrate.mock.calls[0]![0].data.expectedLockVersion).toBe(1);
   });
@@ -248,7 +248,7 @@ describe("explicit save of a guest analysis", () => {
     await screen.findByDisplayValue("Northwind");
 
     fireEvent.click(screen.getByRole("button", { name: "edit" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     expect(migrate).not.toHaveBeenCalled();
 
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1), { timeout: 3000 });
@@ -274,7 +274,7 @@ describe("explicit save of a guest analysis", () => {
     );
     renderGuest({ autoOpen: true });
     await screen.findByDisplayValue("Northwind");
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
 
     // An attempted edit cannot change the analysis being saved.
@@ -288,7 +288,7 @@ describe("explicit save of a guest analysis", () => {
     migrate.mockRejectedValueOnce(new Error("network"));
     renderGuest({ autoOpen: true });
     await screen.findByDisplayValue("Northwind");
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     await waitFor(() => expect(migrate).toHaveBeenCalledTimes(1));
 
     // Never a claim that nothing was created.
@@ -336,7 +336,7 @@ describe("explicit save of a guest analysis", () => {
     });
     renderGuest({ autoOpen: true });
     await screen.findByDisplayValue("Northwind");
-    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to My Contracts" }));
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
         to: "/analysis",
