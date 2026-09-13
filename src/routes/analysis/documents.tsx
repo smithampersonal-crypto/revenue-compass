@@ -2,6 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 import { useAnalysis } from "@/components/arc/analysis-context";
+import { GuestSourceDocumentsWorkspace } from "@/components/arc/documents/GuestSourceDocumentsWorkspace";
 import { SourceDocumentsWorkspace } from "@/components/arc/documents/SourceDocumentsWorkspace";
 import { FEATURES } from "@/lib/arc/features";
 
@@ -32,9 +33,15 @@ export const Route = createFileRoute("/analysis/documents")({
 
 function SourceDocumentsArea() {
   const { persistence } = useAnalysis();
+  const search = Route.useSearch() as { upload?: string };
 
-  // Samples, in-memory analyses and temporary guest workspaces never own
-  // persistent contract documents. Guest document intake arrives in Phase 8E.
+  // A temporary workspace keeps its own uploaded PDFs, which move with the
+  // analysis when it is saved to My Contracts.
+  if (persistence.mode === "guest") {
+    return <GuestSourceDocumentsWorkspace autoOpenUpload={search.upload === "1"} />;
+  }
+
+  // Samples and in-memory analyses never own source documents.
   if (persistence.mode !== "contract") {
     return (
       <Section title="Source documents" description="Supporting documentation for this analysis.">

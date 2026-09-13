@@ -19,17 +19,30 @@ export const Route = createFileRoute("/analysis")({
   // contract is dropped rather than silently connected to sample data.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { sample?: string; contract?: string; revision?: string; save?: string } => ({
+  ): {
+    sample?: string;
+    contract?: string;
+    revision?: string;
+    save?: string;
+    upload?: string;
+  } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
     // Carries only the intent to save a temporary workspace after signing in.
     // The guest credential is never in the URL.
     ...(typeof search["save"] === "string" ? { save: search["save"] } : {}),
+    // Carries only the intent to start by uploading a contract PDF.
+    ...(typeof search["upload"] === "string" ? { upload: search["upload"] } : {}),
   }),
-  beforeLoad: ({ search }) => {
+  beforeLoad: ({ search, location }) => {
     if (search.sample && (search.contract || search.revision)) {
       throw redirect({ to: "/analysis", search: { sample: search.sample } });
+    }
+    // Starting from Home with a PDF lands on Source Documents with the upload
+    // dialog open, in the very same temporary analysis.
+    if (search.upload === "1" && location.pathname.replace(/\/$/, "") === "/analysis") {
+      throw redirect({ to: "/analysis/documents", search: { upload: "1" } });
     }
   },
   head: () => ({
