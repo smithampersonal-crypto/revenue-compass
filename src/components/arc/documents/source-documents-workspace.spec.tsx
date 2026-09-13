@@ -193,7 +193,9 @@ describe("Source Documents workspace", () => {
     renderWorkspace();
     expect(await screen.findByText("Selected for Revision 2")).toBeInTheDocument();
     expect(screen.getByText("Contract Document Library")).toBeInTheDocument();
-    expect(screen.getByText("Documents supporting this draft analysis.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Documents supporting this draft analysis."),
+    ).toBeInTheDocument();
   });
 
   it("renders a finalized source set read-only", async () => {
@@ -203,8 +205,9 @@ describe("Source Documents workspace", () => {
     );
     renderWorkspace();
 
+    expect((await screen.findAllByRole("button", { name: "View PDF" })).length).toBeGreaterThan(0);
     expect(
-      await screen.findByText(
+      screen.getByText(
         "Sources used for finalized Revision 2. This source set is part of the finalized analysis and cannot be changed.",
       ),
     ).toBeInTheDocument();
@@ -215,7 +218,6 @@ describe("Source Documents workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Remove from revision" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "View PDF" }).length).toBeGreaterThan(0);
   });
 
   it("treats zero selected sources as a normal state", async () => {
@@ -265,8 +267,8 @@ describe("Source Documents workspace", () => {
     renderWorkspace();
 
     await user.click(await screen.findByRole("button", { name: "Add to revision" }));
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole("alert")).toHaveTextContent("changed since this page");
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   });
 
   it("removes only the association and advances the lock once", async () => {
@@ -454,7 +456,8 @@ describe("Source Documents workspace", () => {
     editDetails.mockResolvedValue({ ok: true, lockVersion: null });
     renderWorkspace();
 
-    const library = (await screen.findByText("Contract Document Library")).closest("section")!;
+    await screen.findByText("Master Agreement");
+    const library = screen.getByText("Contract Document Library").closest("section")!;
     await user.click(within(library).getByRole("button", { name: "Edit details" }));
     const name = screen.getByLabelText(/Document name/i);
     await user.clear(name);
@@ -471,7 +474,8 @@ describe("Source Documents workspace", () => {
     );
     renderWorkspace();
 
-    const library = (await screen.findByText("Contract Document Library")).closest("section")!;
+    await screen.findByText("Master Agreement");
+    const library = screen.getByText("Contract Document Library").closest("section")!;
     expect(within(library).getByRole("button", { name: "Edit details" })).toBeDisabled();
     expect(
       screen.getByText(
@@ -512,7 +516,8 @@ describe("Source Documents workspace", () => {
     load.mockResolvedValue(revision({ status: "superseded", readOnly: true }));
     renderWorkspace();
 
-    const selected = (await screen.findByText("Selected for Revision 2")).closest("section")!;
+    await screen.findByText("Master Agreement");
+    const selected = screen.getByText("Selected for Revision 2").closest("section")!;
     expect(within(selected).getByText("Master Agreement")).toBeInTheDocument();
   });
 
