@@ -405,9 +405,7 @@ describe("validation-failure durability", () => {
 
     expect(result).toMatchObject({ ok: false, code: "invalid_pdf" });
     expect(intents.get("intent-1")?.state).toBe("failed");
-    expect(deletionQueue).toEqual([
-      { path: "pending/intent-1.pdf", reason: "validation_failed" },
-    ]);
+    expect(deletionQueue).toEqual([{ path: "pending/intent-1.pdf", reason: "validation_failed" }]);
   });
 
   it("fails openly, yet keeps the intent terminal, when cleanup cannot be established at all", async () => {
