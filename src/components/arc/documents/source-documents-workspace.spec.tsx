@@ -607,7 +607,7 @@ describe("Source Documents workspace", () => {
     await user.click(await screen.findByRole("button", { name: "Add to revision" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
-    expect(screen.queryByText(/was added to this revision/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
 
     await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
@@ -624,7 +624,7 @@ describe("Source Documents workspace", () => {
     await user.click(await screen.findByRole("button", { name: "Remove from revision" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
-    expect(screen.queryByText(/was removed from this revision/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
 
     await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
