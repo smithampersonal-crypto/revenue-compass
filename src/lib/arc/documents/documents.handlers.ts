@@ -371,20 +371,9 @@ export async function finalizeUploadHandler(
     await discardPendingObject(deps, intent.pending_object_path, "duplicate_upload");
   }
 
-  const committed = await deps.store.commit({
-    intentId: intent.id,
-    ...identity,
-    expectedLockVersion,
-  });
-
-  return {
-    ok: true,
-    sourceDocumentId: committed.sourceDocumentId,
-    duplicate: committed.duplicate,
-    associated: committed.associated,
-    associationConflict: committed.associationConflict,
-    lockVersion: committed.lockVersion,
-  };
+  return commitResult(
+    await deps.store.commit({ intentId: intent.id, ...identity, expectedLockVersion }),
+  );
 }
 
 /* --------------------------------------------------------------- reading */
