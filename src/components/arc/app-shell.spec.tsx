@@ -65,7 +65,10 @@ describe("ARC app shell (Phase 5)", () => {
         name: "ASC 606 analysis, from contract judgment to journal entry.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Analyze Your Contract" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Upload a Contract PDF" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Enter Contract Details Manually" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Try a Sample Contract" })).toBeInTheDocument();
     expect(screen.getByText("Accountant-owned judgments")).toBeInTheDocument();
     expect(screen.getByText("Deterministic calculations")).toBeInTheDocument();
