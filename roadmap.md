@@ -412,4 +412,4 @@
   public/anon/authenticated, granted to service_role only.
 - Samples never autosave. Browser-supplied engine outputs are never authoritative.
 - `supabase/migrations/` is the reproducible source of truth.
-- Phase 8: stages 8A, 8B and 8C complete; 8D onward not implemented.
+- Phase 8: stages 8A, 8B, 8C and 8D complete; 8E onward not implemented.
