@@ -188,7 +188,7 @@ describe("upload initiation", () => {
       displayName: "Master agreement",
       // A browser-chosen path is not part of the input contract and must not
       // reach Storage.
-      ...({ pendingObjectPath: "pending/attacker.pdf" } as Record<string, never>),
+      ...({ pendingObjectPath: "pending/attacker.pdf" } as unknown as Record<string, never>),
     });
 
     expect(dto.bucket).toBe(SOURCE_DOCUMENT_BUCKET);
