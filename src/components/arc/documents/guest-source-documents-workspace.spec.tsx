@@ -168,7 +168,8 @@ describe("Temporary workspace source documents", () => {
 
   it("hands the new lock version to the next accounting autosave", async () => {
     const user = userEvent.setup();
-    loadWorkspace.mockResolvedValue(workspace([document({ selected: false })]));
+    loadWorkspace.mockResolvedValueOnce(workspace([document({ selected: false })]));
+    loadWorkspace.mockResolvedValue(workspace([document({ selected: true })]));
     attach.mockResolvedValue({ ok: true, lockVersion: 5 });
     renderGuest();
 
@@ -177,7 +178,7 @@ describe("Temporary workspace source documents", () => {
 
     // A later document change reads the lock the server accepted, not the
     // one the page was loaded with.
-    await user.click(screen.getByRole("button", { name: "Remove from this analysis" }));
+    await user.click(await screen.findByRole("button", { name: "Remove from this analysis" }));
     await waitFor(() => expect(detach).toHaveBeenCalled());
     expect(detach.mock.calls[0]![0].data.expectedLockVersion).toBe(5);
   });
