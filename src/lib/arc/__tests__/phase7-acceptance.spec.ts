@@ -212,15 +212,15 @@ describe("Phase 7 acceptance — revision lifecycle", () => {
   });
 });
 
-describe("Phase 7 acceptance — scope boundary", () => {
-  it("Source Documents stores nothing: no intake, no upload, no persistence import", () => {
+describe("Phase 8C scope boundary — Source Documents", () => {
+  it("only a saved contract analysis reaches the persistent document workspace", () => {
     const route = readFileSync("src/routes/analysis/documents.tsx", "utf8");
-    // No way in: no file input, no upload control, no storage call.
-    expect(route).not.toMatch(/type="file"|<input|upload|storage\.from/i);
-    // And no persistence surface is reachable from the documents area.
-    expect(route).not.toMatch(/persistence\/(guest|workspace|revisions)/);
-    expect(route).toContain("Document intake is not part of the current release");
-    // The area itself stays behind its feature gate.
+    // Samples, in-memory analyses and guest workspaces never own contract
+    // documents: the workspace is reached only in the saved-contract mode.
+    expect(route).toContain('persistence.mode !== "contract"');
+    expect(route).toContain("Source Documents are available for saved analyses.");
+    // No storage identity is ever handled in the route itself.
+    expect(route).not.toMatch(/storage\.from|arc-source-documents/);
     // The area itself stays behind an explicit feature gate.
     expect(route).toContain("FEATURES.SOURCE_DOCUMENTS");
     expect(typeof FEATURES.SOURCE_DOCUMENTS).toBe("boolean");
