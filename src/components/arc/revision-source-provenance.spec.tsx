@@ -115,8 +115,8 @@ function renderWorkspace(children: React.ReactNode) {
   return invalidate;
 }
 
-function invalidatedSourceDocuments(invalidate: ReturnType<typeof vi.spyOn>) {
-  return invalidate.mock.calls.some((call) => {
+function invalidatedSourceDocuments(invalidate: { mock: { calls: unknown[][] } }) {
+  return invalidate.mock.calls.some((call: unknown[]) => {
     const key = (call[0] as { queryKey?: unknown[] } | undefined)?.queryKey;
     return Array.isArray(key) && key[0] === "arc-source-documents";
   });
