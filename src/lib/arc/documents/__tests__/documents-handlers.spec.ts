@@ -117,6 +117,7 @@ function harness(options: HarnessOptions = {}) {
         delete objects[path];
       }
     }),
+    exists: vi.fn(async (path: string) => path in objects),
     createReadUrl: vi.fn(async () => "https://example.test/signed"),
   };
 
@@ -300,7 +301,7 @@ describe("upload finalization", () => {
     });
     // The move already happened; the response was lost.
     vi.mocked(storage.promote).mockRejectedValueOnce(new Error("Object not found"));
-    vi.mocked(storage.exists ?? (() => undefined));
+    vi.mocked(storage.exists).mockResolvedValueOnce(true);
 
     const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
       intentId: "intent-1",
@@ -330,7 +331,6 @@ describe("upload finalization", () => {
       lockVersion: 4,
     });
 
-    const { deps: _unused } = { deps };
     const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
       intentId: "intent-1",
       expectedLockVersion: 3,
