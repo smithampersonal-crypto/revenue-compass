@@ -147,6 +147,8 @@ function intentRow(overrides: Partial<IntentRow> = {}): IntentRow {
     target_revision_id: REVISION,
     pending_object_path: "pending/intent-1.pdf",
     permanent_object_path: null,
+    resolved_source_document_id: null,
+    is_duplicate: null,
     state: "pending",
     expires_at: "2026-09-13T01:00:00.000Z",
     original_filename: "agreement.pdf",
