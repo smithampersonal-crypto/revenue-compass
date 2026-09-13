@@ -343,7 +343,7 @@ begin
     and (select lock_version from public.analysis_revisions where id = rev) = v_lock);
 
   begin
-    perform * from public.arc_stage_source_document_deletion(user_a_missing(), null, docY, v_lock);
+    perform * from public.arc_stage_source_document_deletion('00000000-0000-4000-8000-0000000008d9'::uuid, null, docY, v_lock);
     ok := false;
   exception when others then
     ok := true;
