@@ -474,6 +474,13 @@ export function SourceDocumentsWorkspace() {
           onClose={() => setUploadOpen(false)}
           revisionNumber={revisionNumber}
           onUpload={async (input) => {
+            // The shared revision lock must be authoritative before an upload
+            // may claim a place in this revision. A reload in flight never
+            // silently degrades into an unversioned finalization.
+            if (typeof lockVersion !== "number") {
+              return "This analysis is still loading. Please try again in a moment.";
+            }
+
             const intent = await initiate({
               data: {
                 contractId,
@@ -485,12 +492,30 @@ export function SourceDocumentsWorkspace() {
               },
             });
             await uploadPdfToSignedTarget(intent, input.file);
-            const outcome = await finalize({
-              data: {
-                intentId: intent.intentId,
-                ...(typeof lockVersion === "number" ? { expectedLockVersion: lockVersion } : {}),
-              },
-            });
+
+            // Finalization is retry-safe by design (Phase 8B): the same intent
+            // replays into the recorded outcome. A lost response is therefore
+            // retried once with the identical intent and expected lock version,
+            // never with a second intent or a second copy of the bytes.
+            const finalizePayload = {
+              intentId: intent.intentId,
+              expectedLockVersion: lockVersion,
+            };
+            let outcome;
+            try {
+              outcome = await finalize({ data: finalizePayload });
+            } catch {
+              try {
+                outcome = await finalize({ data: finalizePayload });
+              } catch {
+                setNotice(null);
+                setProblem(
+                  "ARC could not confirm whether that upload was recorded, so it has reloaded the current version.",
+                );
+                await reloadAuthoritative();
+                return null;
+              }
+            }
 
             if (!outcome.ok) return outcome.message;
 
