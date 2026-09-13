@@ -63,17 +63,34 @@ function Index() {
           </p>
         </header>
 
-        <section aria-label="Get started" className="mt-9 grid gap-4 md:grid-cols-2">
+        <section aria-label="Get started" className="mt-9 grid gap-4 md:grid-cols-3">
           <article className="flex flex-col border-t-2 border-primary bg-card p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-foreground">Analyze Your Contract</h2>
+            <h2 className="text-lg font-semibold text-foreground">Upload a Contract PDF</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Keep the contract PDF alongside the analysis as its source document. You still enter
+              every accounting judgment yourself.
+            </p>
+            <Link
+              to="/analysis"
+              search={{ upload: "1" }}
+              className="mt-5 inline-flex min-h-10 w-fit items-center justify-center rounded-md border border-primary bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Upload PDF
+            </Link>
+          </article>
+
+          <article className="flex flex-col border-t-2 border-border bg-card p-5 sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              Enter Contract Details Manually
+            </h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Enter contract facts and accounting judgments in the ARC workspace.
             </p>
             <Link
               to="/analysis"
-              className="mt-5 inline-flex min-h-10 w-fit items-center justify-center rounded-md border border-primary bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-5 inline-flex min-h-10 w-fit items-center justify-center rounded-md border border-input bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Start Analysis
+              Start Manually
             </Link>
           </article>
 

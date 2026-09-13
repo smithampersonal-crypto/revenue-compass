@@ -20,9 +20,13 @@ import {
   type DocumentDeps,
 } from "./documents.handlers";
 import {
+  GUEST_SOURCE_CONFLICT_MESSAGE,
+  GUEST_WORKSPACE_UNAVAILABLE,
   SOURCE_DOCUMENT_TYPES,
   type DocumentReadUrlResult,
   type FinalizeUploadResult,
+  type GuestDocumentWorkspaceDto,
+  type SourceMutationResult,
   type UploadIntentDto,
 } from "./types";
 
@@ -82,4 +86,86 @@ export const getGuestDocumentReadUrl = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => readInput.parse(data))
   .handler(async ({ data }): Promise<DocumentReadUrlResult> =>
     documentReadUrlHandler(await deps(), await guestCaller(), data),
+  );
+
+/* --------------------------------- Phase 8E — temporary workspace documents */
+
+async function guestTokenHash(): Promise<string> {
+  const caller = await guestCaller();
+  const token = caller.kind === "guest" ? caller.token : null;
+  if (!token) throw new Error(GUEST_WORKSPACE_UNAVAILABLE);
+  const { hashGuestToken } = await import("@/lib/arc/persistence/guest");
+  return hashGuestToken(token);
+}
+
+async function guestStore() {
+  // Server-only module, loaded inside the handler so it never enters the
+  // client graph.
+  const { guestDocumentWorkspaceStore } = await import("./guest-workspace.store.server");
+  return guestDocumentWorkspaceStore();
+}
+
+async function isGuestConflict(error: unknown): Promise<boolean> {
+  const { GuestSourceLockConflictError } = await import("./guest-workspace.store.server");
+  return error instanceof GuestSourceLockConflictError;
+}
+
+/** Turns a trusted mutation into a stable, user-safe outcome. */
+async function guestMutation(run: () => Promise<number | null>): Promise<SourceMutationResult> {
+  try {
+    return { ok: true, lockVersion: await run() };
+  } catch (error) {
+    if (await isGuestConflict(error)) {
+      return { ok: false, reason: "conflict", message: GUEST_SOURCE_CONFLICT_MESSAGE };
+    }
+    return {
+      ok: false,
+      reason: "failed",
+      message:
+        error instanceof Error && error.message
+          ? error.message
+          : "That change could not be completed.",
+    };
+  }
+}
+
+export const loadGuestDocumentWorkspace = createServerFn({ method: "POST" }).handler(
+  async (): Promise<GuestDocumentWorkspaceDto> =>
+    (await guestStore()).loadWorkspace(await guestTokenHash()),
+);
+
+const guestSelectionInput = z.object({
+  sourceDocumentId: z.string().uuid(),
+  expectedLockVersion: z.number().int().nonnegative(),
+});
+
+export const attachGuestSourceDocument = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => guestSelectionInput.parse(data))
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).attach({ tokenHash: await guestTokenHash(), ...data }),
+    ),
+  );
+
+export const removeGuestSourceDocument = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => guestSelectionInput.parse(data))
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).remove({ tokenHash: await guestTokenHash(), ...data }),
+    ),
+  );
+
+export const deleteGuestSourceDocument = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        sourceDocumentId: z.string().uuid(),
+        expectedLockVersion: z.number().int().nonnegative().nullable(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).stageDeletion({ tokenHash: await guestTokenHash(), ...data }),
+    ),
   );

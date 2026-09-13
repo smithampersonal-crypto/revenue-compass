@@ -144,6 +144,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
 
   if (persistence.mode !== "guest") return null;
 
+  const signedIn = session.status === "signed-in";
   const check = validateMigrationRequest({ customerName, contractTitle: title });
   const expired = persistence.status.kind === "guest-expired";
   const waiting = intent !== null;
@@ -179,11 +180,12 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="guest-save-heading" className="text-sm font-semibold text-foreground">
-            Temporary workspace
+            {signedIn ? "Unsaved analysis" : "Temporary workspace"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Your work is kept for nine hours in this browser session. Save it to your account to
-            keep it permanently.
+            {signedIn
+              ? "This analysis is not in My Contracts yet. ARC keeps it temporarily for nine hours. Save it to My Contracts to keep the analysis and its source documents permanently."
+              : "Your work is kept for nine hours in this browser session. Save it to your account to keep it permanently."}
           </p>
         </div>
         {open ? null : (
@@ -193,7 +195,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
             onClick={startSave}
             disabled={expired || waiting || pending}
           >
-            {waiting ? "Saving your latest edits…" : "Save this analysis"}
+            {waiting
+              ? "Saving your latest edits…"
+              : signedIn
+                ? "Save to My Contracts"
+                : "Save this analysis"}
           </button>
         )}
       </div>
@@ -254,7 +260,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
                   className={PRIMARY}
                   disabled={!check.ok || pending || waiting || expired}
                 >
-                  {pending ? "Saving…" : "Save to my account"}
+                  {pending ? "Saving…" : signedIn ? "Save to My Contracts" : "Save to my account"}
                 </button>
                 <button
                   type="button"
