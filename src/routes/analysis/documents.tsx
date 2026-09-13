@@ -1,6 +1,8 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { Notice, Section } from "@/components/asc606-workflow/fields";
+import { useAnalysis } from "@/components/arc/analysis-context";
+import { SourceDocumentsWorkspace } from "@/components/arc/documents/SourceDocumentsWorkspace";
 import { FEATURES } from "@/lib/arc/features";
 
 export const Route = createFileRoute("/analysis/documents")({
@@ -9,12 +11,12 @@ export const Route = createFileRoute("/analysis/documents")({
       { title: "Source Documents — Ayden's Revenue Compass" },
       {
         name: "description",
-        content: "Review source-document context for an ASC 606 analysis.",
+        content: "Manage the contract PDFs supporting an ASC 606 analysis revision.",
       },
       { property: "og:title", content: "Source Documents — Ayden's Revenue Compass" },
       {
         property: "og:description",
-        content: "Review source-document context for an ASC 606 analysis.",
+        content: "Manage the contract PDFs supporting an ASC 606 analysis revision.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "/analysis/documents" },
@@ -29,13 +31,17 @@ export const Route = createFileRoute("/analysis/documents")({
 });
 
 function SourceDocumentsArea() {
-  return (
-    <Section title="Source documents" description="Supporting documentation for this analysis.">
-      <Notice>
-        This analysis was entered directly in the workspace, so there are no attached source
-        documents. Document intake is not part of the current release and no accounting output
-        depends on it.
-      </Notice>
-    </Section>
-  );
+  const { persistence } = useAnalysis();
+
+  // Samples, in-memory analyses and temporary guest workspaces never own
+  // persistent contract documents. Guest document intake arrives in Phase 8E.
+  if (persistence.mode !== "contract" || !persistence.revision) {
+    return (
+      <Section title="Source documents" description="Supporting documentation for this analysis.">
+        <Notice>Source Documents are available for saved analyses.</Notice>
+      </Section>
+    );
+  }
+
+  return <SourceDocumentsWorkspace />;
 }
