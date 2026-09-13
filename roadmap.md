@@ -339,6 +339,33 @@
   colliding with the OUT parameters) were fixed by qualifying the references.
   `phase8b_document_lifecycle.sql` is now 39 assertions (added 29–36).
 
+- Phase 8B — private PDF upload / validation / access pipeline (no UI yet).
+  `src/lib/arc/documents/validation.server.ts` judges the actual bytes with
+  `pdfjs-dist` loaded inside the function: size, page count, decodability,
+  encryption and a 50-character meaningful-text threshold, returning stable
+  codes (`too_large`, `too_many_pages`, `invalid_pdf`, `password_protected`,
+  `no_extractable_text`) and facts only — sha256, byte size, page count — never
+  extracted text. `storage.server.ts` holds the private-bucket helpers
+  (one-time signed upload target, download, retry-safe promotion, removal,
+  15-minute signed read link). `documents.handlers.ts` is dependency-injected
+  orchestration: initiation proves contract ownership (or an active, unexpired
+  guest credential) and assigns `pending/<intent-id>.pdf` server-side;
+  finalization downloads exactly the recorded pending object, validates it,
+  discards invalid or duplicate blobs (immediate removal, else the 8A deletion
+  queue), promotes new documents idempotently and lets the trusted 8A
+  transactions decide recording, duplication and association; a finalized
+  intent is pure read-back with no download, validation, promotion or lock
+  movement. Read access resolves the document from the caller's own ownership
+  or workspace and refuses foreign and unknown ids identically, leaking no
+  path, filename or owner; signed links are ephemeral responses and are never
+  stored. Server functions: `documents.functions.ts` (authenticated) and
+  `guest-documents.functions.ts` (HttpOnly credential); `upload-client.ts`
+  uploads only to the server-issued target with `upsert: false`.
+  Verification: 697 tests across 65 files (32 in `src/lib/arc/documents`,
+  including server-only isolation), typecheck clean, ESLint 0 errors, build OK,
+  bundle audit clean. No `src/lib/asc606*` or sample-fixture change; no UI and
+  no database change in this stage.
+
 
 
 ## Standing guardrails
