@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAnalysis } from "@/components/arc/analysis-context";
+import { SourceDocumentUploadDialog } from "@/components/arc/documents/SourceDocumentUploadDialog";
 import {
   finalizeDocumentUpload,
   getDocumentReadUrl,
@@ -44,8 +45,6 @@ import {
   type SourceMutationResult,
 } from "@/lib/arc/documents/types";
 
-const UPLOAD_HELP = "Text-based PDFs only. Maximum 10 MB and 500 pages.";
-
 function fileSize(bytes: number): string {
   if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -55,10 +54,6 @@ function fileSize(bytes: number): string {
 function uploadedOn(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toISOString().slice(0, 10);
-}
-
-function defaultDisplayName(filename: string): string {
-  return filename.replace(/\.pdf$/i, "").trim() || filename;
 }
 
 interface RowActions {
@@ -533,9 +528,9 @@ export function SourceDocumentsWorkspace() {
       </Section>
 
       {uploadOpen ? (
-        <UploadDialog
+        <SourceDocumentUploadDialog
+          submitLabel={`Upload to Revision ${revisionNumber}`}
           onClose={() => setUploadOpen(false)}
-          revisionNumber={revisionNumber}
           onUpload={async (input) => {
             // The shared revision lock must be authoritative before an upload
             // may claim a place in this revision. A reload in flight never
@@ -788,129 +783,6 @@ function EditDetailsDialog({
             }}
           >
             Save details
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function UploadDialog({
-  revisionNumber,
-  onClose,
-  onUpload,
-}: {
-  revisionNumber: number;
-  onClose: () => void;
-  /** Resolves with a user-facing rejection message, or null on success. */
-  onUpload: (input: {
-    file: File;
-    displayName: string;
-    documentType: SourceDocumentType | null;
-    effectiveDate: string | null;
-  }) => Promise<string | null>;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [displayName, setDisplayName] = useState("");
-  const [documentType, setDocumentType] = useState<string>("");
-  const [effectiveDate, setEffectiveDate] = useState<string>("");
-  const [state, setState] = useState<"idle" | "uploading">("idle");
-  const [rejection, setRejection] = useState<string | null>(null);
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Upload PDF</DialogTitle>
-          <DialogDescription>{UPLOAD_HELP}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <label className="block text-sm">
-            PDF file
-            <input
-              type="file"
-              accept="application/pdf"
-              className={inputClass}
-              onChange={(event) => {
-                const picked = event.target.files?.[0] ?? null;
-                setFile(picked);
-                if (picked && displayName.trim() === "") {
-                  setDisplayName(defaultDisplayName(picked.name));
-                }
-              }}
-            />
-          </label>
-          <label className="block text-sm">
-            Document name
-            <input
-              className={inputClass}
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            Document type
-            <select
-              className={inputClass}
-              value={documentType}
-              onChange={(event) => setDocumentType(event.target.value)}
-            >
-              <option value="">Not specified</option>
-              {SOURCE_DOCUMENT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            Effective date
-            <input
-              type="date"
-              className={inputClass}
-              value={effectiveDate}
-              onChange={(event) => setEffectiveDate(event.target.value)}
-            />
-          </label>
-          {state === "uploading" ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Uploading and checking this PDF…
-            </p>
-          ) : null}
-          {rejection ? (
-            <p role="alert" className="text-sm text-destructive">
-              {rejection}
-            </p>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={!file || displayName.trim() === "" || state === "uploading"}
-            onClick={async () => {
-              if (!file) return;
-              setRejection(null);
-              setState("uploading");
-              try {
-                const message = await onUpload({
-                  file,
-                  displayName: displayName.trim(),
-                  documentType: (documentType || null) as SourceDocumentType | null,
-                  effectiveDate: effectiveDate || null,
-                });
-                if (message) setRejection(message);
-                else onClose();
-              } catch {
-                setRejection("That file could not be uploaded. Please try again.");
-              } finally {
-                setState("idle");
-              }
-            }}
-          >
-            Upload to Revision {revisionNumber}
           </Button>
         </DialogFooter>
       </DialogContent>
