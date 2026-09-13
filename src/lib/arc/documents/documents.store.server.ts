@@ -82,7 +82,7 @@ export async function documentStore(): Promise<DocumentStore> {
       const { data, error } = await supabaseAdmin
         .from("document_upload_intents")
         .select(
-          "id, contract_id, guest_workspace_id, target_revision_id, pending_object_path, permanent_object_path, state, expires_at, original_filename, display_name",
+          "id, contract_id, guest_workspace_id, target_revision_id, pending_object_path, permanent_object_path, resolved_source_document_id, is_duplicate, state, expires_at, original_filename, display_name",
         )
         .eq("id", intentId)
         .maybeSingle();
@@ -100,11 +100,16 @@ export async function documentStore(): Promise<DocumentStore> {
     },
 
     queueDeletion: async (objectPath, reason) => {
-      const { error } = await supabaseAdmin.from("storage_deletion_queue").insert({
-        storage_bucket: SOURCE_DOCUMENT_BUCKET,
-        storage_object_path: objectPath,
-        reason,
-      });
+      // Idempotent by (bucket, path): a retried cleanup joins the existing
+      // job instead of creating a duplicate or failing the caller.
+      const { error } = await supabaseAdmin.from("storage_deletion_queue").upsert(
+        {
+          storage_bucket: SOURCE_DOCUMENT_BUCKET,
+          storage_object_path: objectPath,
+          reason,
+        },
+        { onConflict: "storage_bucket,storage_object_path", ignoreDuplicates: true },
+      );
       if (error) fail("cleanup queue", error);
     },
 
