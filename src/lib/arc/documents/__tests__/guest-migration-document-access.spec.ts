@@ -207,7 +207,11 @@ describe("a migrated PDF stays readable by its new owner", () => {
     );
     // The bytes the browser PUTs to the one-time upload target.
     w.objects.set(intent.path, new Uint8Array([1]));
-    await finalizeUploadHandler(w.deps, { kind: "guest", token: GUEST_TOKEN }, { intentId: INTENT });
+    await finalizeUploadHandler(
+      w.deps,
+      { kind: "guest", token: GUEST_TOKEN },
+      { intentId: INTENT },
+    );
   });
 
   it("is viewable by the signed-in owner after the workspace is saved", async () => {
