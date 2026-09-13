@@ -6,6 +6,7 @@
  * state: no ASC 606 engine behaviour is involved or changed.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,7 +78,7 @@ vi.mock("@/lib/arc/documents/upload-client", () => ({
 const { AnalysisProvider, useAnalysis } = await import("@/components/arc/analysis-context");
 const { Route } = await import("@/routes/analysis/documents");
 
-const DocumentsArea = (Route as unknown as { component: () => JSX.Element }).component;
+const DocumentsArea = (Route as unknown as { component: () => React.ReactElement }).component;
 
 const CONTRACT_ID = "11111111-1111-4111-8111-111111111111";
 const REVISION_ID = "22222222-2222-4222-8222-222222222222";
