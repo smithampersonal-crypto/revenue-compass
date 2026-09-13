@@ -107,3 +107,55 @@ export interface DocumentReadUrlResult {
 /** Neutral language for anything the caller may not see. */
 export const DOCUMENT_NOT_AVAILABLE = "That document is not available.";
 export const GUEST_WORKSPACE_UNAVAILABLE = "That temporary workspace is no longer available.";
+
+/* ------------------------------------------- Phase 8C — workspace read model */
+
+/**
+ * Safe per-document metadata for the authenticated workspace. Storage paths,
+ * buckets and content hashes are deliberately absent: the browser identifies a
+ * document by id alone.
+ */
+export interface SourceDocumentSummaryDto {
+  id: string;
+  displayName: string;
+  originalFilename: string;
+  documentType: SourceDocumentType | null;
+  effectiveDate: string | null;
+  byteSize: number;
+  pageCount: number;
+  createdAt: string;
+  archived: boolean;
+  /** Selected for the loaded revision. */
+  selected: boolean;
+  /** Referenced by a finalized or superseded revision. */
+  inFinalizedHistory: boolean;
+  /** Metadata editing is locked once finalized history references it. */
+  metadataLocked: boolean;
+  /** Permanent deletion is only offered when the server allows it. */
+  canDelete: boolean;
+}
+
+export interface DocumentWorkspaceRevisionDto {
+  revisionId: string;
+  revisionNumber: number;
+  status: "draft" | "finalized" | "superseded";
+  lockVersion: number;
+  /** Only an unfinished draft may change its source selection. */
+  canEditSources: boolean;
+}
+
+export interface DocumentWorkspaceDto {
+  revision: DocumentWorkspaceRevisionDto;
+  /** The exact subset associated with the loaded revision. */
+  selected: SourceDocumentSummaryDto[];
+  /** Every document owned by the contract, archived ones included. */
+  library: SourceDocumentSummaryDto[];
+}
+
+/** Outcome of a trusted source-selection mutation. */
+export type SourceMutationResult =
+  | { ok: true; lockVersion: number | null }
+  | { ok: false; reason: "conflict" | "failed"; message: string };
+
+export const SOURCE_CONFLICT_MESSAGE =
+  "This revision changed since this page was loaded, so nothing was changed. ARC has reloaded the current version — please try again.";

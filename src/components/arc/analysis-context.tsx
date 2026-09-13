@@ -63,6 +63,13 @@ export interface AnalysisPersistence {
   readOnly: boolean;
   /** Reloads the saved copy, discarding unsaved local edits. */
   reload: () => void;
+  /**
+   * Adopts a lock version accepted by another trusted operation on the same
+   * revision (Phase 8C source-document selection). Source documents and the
+   * accounting form share one authoritative revision lock, so the next
+   * autosave must send the version the server just returned.
+   */
+  applyLockVersion: (next: number) => void;
   /** Retries an ordinary failed save, keeping local edits. */
   retrySave: () => void;
   /**
@@ -485,6 +492,27 @@ export function AnalysisProvider({
     void revisionQuery.refetch();
   }, [revisionQuery]);
 
+  /**
+   * A source-document mutation advanced the same revision's lock. Adopt it as
+   * the authoritative version everywhere the accounting autosave reads it,
+   * without touching the local draft.
+   */
+  const applyLockVersion = useCallback(
+    (next: number) => {
+      lockVersionRef.current = next;
+      setLockVersion(next);
+      setLoaded((current) => (current ? { ...current, lockVersion: next } : current));
+      queryClient.setQueryData(
+        queryKey,
+        (previous: LoadedRevisionDto | GuestWorkspaceDto | undefined) =>
+          previous ? { ...previous, lockVersion: next } : previous,
+      );
+      const state = queryClient.getQueryState(queryKey);
+      if (state) consumedAtRef.current = state.dataUpdatedAt;
+    },
+    [queryClient, queryKey],
+  );
+
   const retrySave = useCallback(() => {
     if (!loaded || loaded.readOnly || blockedRef.current) return;
     void runSave(loaded);
@@ -565,6 +593,7 @@ export function AnalysisProvider({
       lockVersion: loaded ? (lockVersion ?? loaded.lockVersion) : null,
       readOnly: Boolean(loaded?.readOnly),
       reload,
+      applyLockVersion,
       retrySave,
       finalizing,
       setFinalizing,
@@ -577,6 +606,7 @@ export function AnalysisProvider({
       revision,
       lockVersion,
       reload,
+      applyLockVersion,
       retrySave,
       finalizing,
     ],
