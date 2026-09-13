@@ -33,12 +33,14 @@ export const Route = createFileRoute("/analysis/documents")({
 
 function SourceDocumentsArea() {
   const { persistence } = useAnalysis();
-  const search = Route.useSearch() as { upload?: string };
+  // Arriving from "Upload a Contract PDF" on the landing page opens the
+  // upload step straight away.
+  const wantsUpload = new URLSearchParams(globalThis.location?.search ?? "").get("upload") === "1";
 
   // A temporary workspace keeps its own uploaded PDFs, which move with the
   // analysis when it is saved to My Contracts.
   if (persistence.mode === "guest") {
-    return <GuestSourceDocumentsWorkspace autoOpenUpload={search.upload === "1"} />;
+    return <GuestSourceDocumentsWorkspace autoOpenUpload={wantsUpload} />;
   }
 
   // Samples and in-memory analyses never own source documents.
