@@ -265,11 +265,48 @@ export function SourceDocumentsWorkspace() {
     await workspace.refetch();
   }, [queryClient, queryKey, workspace]);
 
-  /** A stale expected lock is never treated as success: reload everything. */
-  const reloadAuthoritative = useCallback(async () => {
-    await refreshDocuments();
-    persistence.reload();
-  }, [refreshDocuments, persistence]);
+  /**
+   * Recovery boundary. The moment an outcome is unknown or stale, the
+   * workspace becomes non-editable and the authoritative revision reload is
+   * initiated — both synchronously, before any awaited network work. Retained
+   * documents may stay on screen, but nothing may mutate against them, and the
+   * revision reload never depends on the document refetch succeeding.
+   */
+  const recoveringRef = useRef(false);
+  const [recovering, setRecovering] = useState(false);
+
+  const beginRecovery = useCallback(
+    (message?: string) => {
+      recoveringRef.current = true;
+      setRecovering(true);
+      if (message) {
+        setNotice(null);
+        setProblem(message);
+      }
+      // No open dialog may act on retained state once recovery has started.
+      setUploadOpen(false);
+      setAddOpen(false);
+      setEditing(null);
+      setDeleting(null);
+      // Initiated first: the shared revision lock is never left authoritative.
+      persistence.reload();
+    },
+    [persistence],
+  );
+
+  const reloadAuthoritative = useCallback(
+    async (message?: string) => {
+      beginRecovery(message);
+      try {
+        await refreshDocuments();
+      } catch {
+        // Retained documents stay visible; the revision reload already ran.
+      }
+      recoveringRef.current = false;
+      setRecovering(false);
+    },
+    [beginRecovery, refreshDocuments],
+  );
 
   const applyOutcome = useCallback(
     async (result: SourceMutationResult, successMessage: string | null): Promise<boolean> => {
