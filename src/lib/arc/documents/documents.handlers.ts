@@ -37,7 +37,12 @@ export interface IntentRow {
   guest_workspace_id: string | null;
   target_revision_id: string | null;
   pending_object_path: string;
+  /** Reserved permanent path, set by the trusted prepare transaction. */
   permanent_object_path: string | null;
+  /** The document the prepare transaction resolved this upload to. */
+  resolved_source_document_id: string | null;
+  /** Authoritative duplicate verdict recorded at prepare time. */
+  is_duplicate: boolean | null;
   state: string;
   expires_at: string;
   original_filename: string;
