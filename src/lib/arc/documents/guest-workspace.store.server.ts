@@ -92,7 +92,11 @@ export async function guestDocumentWorkspaceStore(): Promise<GuestDocumentWorksp
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) fail("workspace", error);
-      if (!workspace || workspace.status !== "active" || workspace.expires_at <= new Date().toISOString()) {
+      if (
+        !workspace ||
+        workspace.status !== "active" ||
+        workspace.expires_at <= new Date().toISOString()
+      ) {
         throw new Error("That temporary workspace is no longer available.");
       }
 

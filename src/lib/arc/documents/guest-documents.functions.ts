@@ -130,7 +130,8 @@ async function guestMutation(run: () => Promise<number | null>): Promise<SourceM
 }
 
 export const loadGuestDocumentWorkspace = createServerFn({ method: "POST" }).handler(
-  async (): Promise<GuestDocumentWorkspaceDto> => (await guestStore()).loadWorkspace(await guestTokenHash()),
+  async (): Promise<GuestDocumentWorkspaceDto> =>
+    (await guestStore()).loadWorkspace(await guestTokenHash()),
 );
 
 const guestSelectionInput = z.object({
@@ -140,20 +141,18 @@ const guestSelectionInput = z.object({
 
 export const attachGuestSourceDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => guestSelectionInput.parse(data))
-  .handler(
-    async ({ data }): Promise<SourceMutationResult> =>
-      guestMutation(async () =>
-        (await guestStore()).attach({ tokenHash: await guestTokenHash(), ...data }),
-      ),
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).attach({ tokenHash: await guestTokenHash(), ...data }),
+    ),
   );
 
 export const removeGuestSourceDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => guestSelectionInput.parse(data))
-  .handler(
-    async ({ data }): Promise<SourceMutationResult> =>
-      guestMutation(async () =>
-        (await guestStore()).remove({ tokenHash: await guestTokenHash(), ...data }),
-      ),
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).remove({ tokenHash: await guestTokenHash(), ...data }),
+    ),
   );
 
 export const deleteGuestSourceDocument = createServerFn({ method: "POST" })
@@ -165,9 +164,8 @@ export const deleteGuestSourceDocument = createServerFn({ method: "POST" })
       })
       .parse(data),
   )
-  .handler(
-    async ({ data }): Promise<SourceMutationResult> =>
-      guestMutation(async () =>
-        (await guestStore()).stageDeletion({ tokenHash: await guestTokenHash(), ...data }),
-      ),
+  .handler(async ({ data }): Promise<SourceMutationResult> =>
+    guestMutation(async () =>
+      (await guestStore()).stageDeletion({ tokenHash: await guestTokenHash(), ...data }),
+    ),
   );
