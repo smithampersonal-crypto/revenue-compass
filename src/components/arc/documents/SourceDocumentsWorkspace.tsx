@@ -332,7 +332,21 @@ export function SourceDocumentsWorkspace() {
 
   const runSelection = useCallback(
     async (document: SourceDocumentSummaryDto, action: "add" | "remove") => {
-      const result = await selection.mutateAsync({ documentId: document.id, action });
+      let result: SourceMutationResult;
+      try {
+        result = await selection.mutateAsync({ documentId: document.id, action });
+      } catch {
+        // The outcome is unknown: ARC claims neither that the source set
+        // changed nor that it did not, and refetches the authoritative state.
+        setNotice(null);
+        setProblem(
+          action === "add"
+            ? "ARC could not confirm whether that document was added to this revision, so it has reloaded the current version."
+            : "ARC could not confirm whether that document was removed from this revision, so it has reloaded the current version.",
+        );
+        await reloadAuthoritative();
+        return;
+      }
       await applyOutcome(
         result,
         action === "add"
@@ -340,7 +354,7 @@ export function SourceDocumentsWorkspace() {
           : `${document.displayName} was removed from this revision.`,
       );
     },
-    [selection, applyOutcome],
+    [selection, applyOutcome, reloadAuthoritative],
   );
 
   if (!contractId || !revisionId) {
