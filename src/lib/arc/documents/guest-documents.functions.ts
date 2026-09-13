@@ -94,7 +94,9 @@ const initiateInput = z.object({
 export const initiateGuestDocumentUpload = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => initiateInput.parse(data))
   .handler(async ({ data }): Promise<UploadIntentDto> =>
-    initiateUploadHandler(await deps(), await guestCaller(), data),
+    // Uploading may be the visitor's first action, so start a temporary
+    // workspace when they do not have one yet.
+    initiateUploadHandler(await deps(), await ensureGuestCaller(), data),
   );
 
 const finalizeInput = z.object({
@@ -121,8 +123,8 @@ export const getGuestDocumentReadUrl = createServerFn({ method: "POST" })
 
 /* --------------------------------- Phase 8E — temporary workspace documents */
 
-async function guestTokenHash(): Promise<string> {
-  const caller = await guestCaller();
+async function guestTokenHash(ensure = false): Promise<string> {
+  const caller = ensure ? await ensureGuestCaller() : await guestCaller();
   const token = caller.kind === "guest" ? caller.token : null;
   if (!token) throw new Error(GUEST_WORKSPACE_UNAVAILABLE);
   const { hashGuestToken } = await import("@/lib/arc/persistence/guest");
@@ -162,7 +164,9 @@ async function guestMutation(run: () => Promise<number | null>): Promise<SourceM
 
 export const loadGuestDocumentWorkspace = createServerFn({ method: "POST" }).handler(
   async (): Promise<GuestDocumentWorkspaceDto> =>
-    (await guestStore()).loadWorkspace(await guestTokenHash()),
+    // Opening the documents area starts the temporary workspace if needed, so
+    // the area is usable before anything has been typed into the analysis.
+    (await guestStore()).loadWorkspace(await guestTokenHash(true)),
 );
 
 const guestSelectionInput = z.object({
