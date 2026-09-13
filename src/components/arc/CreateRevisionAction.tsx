@@ -58,6 +58,9 @@ export function CreateRevisionAction({
       );
       await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      // The new draft inherits the finalized revision's source documents on the
+      // server; the authoritative set is re-read, never synthesized here.
+      await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
       // The point of this action is to begin editing the new revision, so the
       // editable ASC 606 analysis opens — not Review & Finalize.
       await navigate({

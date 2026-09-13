@@ -47,12 +47,13 @@ export function ResetToRevisionAction({
   onOutcome?: (message: string | null) => void;
 }) {
   const reset = useServerFn(resetAmendmentDraft);
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: () => reset({ data: { revisionId, expectedLockVersion } }),
-    onSuccess: (outcome) => {
+    onSuccess: async (outcome) => {
       setOpen(false);
       if (!outcome.ok) {
         setMessage(CONFLICT_MESSAGE);
@@ -62,6 +63,9 @@ export function ResetToRevisionAction({
         // A successful reset supersedes any earlier conflict shown by the parent.
         onOutcome?.(null);
       }
+      // The reset restored the source revision's document selection in the same
+      // trusted transaction, so the workspace re-reads it from the server.
+      await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
       // Either way the server copy is authoritative from here.
       onReloaded();
     },
@@ -158,6 +162,7 @@ export function DiscardDraftRevisionAction({
         setMessage(CONFLICT_MESSAGE);
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
         await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
+        await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
         // The loaded revision and its lock version are stale; re-establish the
         // authoritative server copy before anything else can be saved.
         onReloaded?.();
@@ -166,6 +171,10 @@ export function DiscardDraftRevisionAction({
       setMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      // The draft's associations are gone with it; the current finalized
+      // revision's own source set is re-read from the server. No contract
+      // document is removed by a discard.
+      await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
       await navigate({
         to: "/analysis",
         search: { contract: contractId, revision: outcome.finalizedRevisionId },

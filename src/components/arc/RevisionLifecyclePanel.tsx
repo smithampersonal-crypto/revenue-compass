@@ -89,6 +89,9 @@ export function RevisionLifecyclePanel() {
         setBlockingIssues([]);
         setMessage("This revision is finalized. It is now read-only.");
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+        // The selected source set is now frozen historical provenance; it is
+        // re-read from the server and rendered read-only.
+        await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
         persistence.reload();
         return;
       }
@@ -103,6 +106,7 @@ export function RevisionLifecyclePanel() {
         // actually holds — a fresh draft, or the immutable snapshot if it was
         // finalized elsewhere.
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+        await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
         persistence.reload();
         return;
       }
@@ -123,6 +127,7 @@ export function RevisionLifecyclePanel() {
           : "The finalization result is unknown. The saved analysis is being reloaded to confirm its current state.",
       );
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
       persistence.reload();
     },
     onSettled: () => persistence.setFinalizing(false),

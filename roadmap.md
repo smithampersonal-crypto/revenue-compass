@@ -386,6 +386,24 @@
   clean, ESLint 0 errors, build OK, bundle audit clean. No `src/lib/asc606*` or
   sample-fixture change; no database change in this stage.
 
+- Phase 8D — revision source provenance. A new revision inherits the finalized
+  revision's exact source-document associations inside the same trusted
+  transaction that creates the draft, copying association rows only: no PDF,
+  storage object, hash or path is ever duplicated, and a retried creation
+  returns the existing draft without recopying or discarding draft-only
+  changes. Reset restores the source revision's association set together with
+  its canonical inputs, removing draft-only associations while leaving those
+  PDFs in the contract library; discard removes only the draft's own
+  associations. Finalization freezes the selected set, after which associations
+  and the metadata of the documents they name are immutable, so each finalized
+  revision keeps its own evidence set and one document can support several
+  revisions without duplication. The UI re-reads the authoritative set after
+  create, reset, discard and finalize rather than assuming one client-side.
+  Verification: 751 tests across 68 files, typecheck clean, ESLint 0 errors,
+  build OK, bundle audit clean; `supabase/tests/phase8d_revision_source_provenance.sql`
+  — 26 assertions, all passing against the ARC-development database. No
+  `src/lib/asc606*` or sample-fixture change.
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.
@@ -394,4 +412,4 @@
   public/anon/authenticated, granted to service_role only.
 - Samples never autosave. Browser-supplied engine outputs are never authoritative.
 - `supabase/migrations/` is the reproducible source of truth.
-- Phase 8: stages 8A, 8B and 8C complete; 8D onward not implemented.
+- Phase 8: stages 8A, 8B, 8C and 8D complete; 8E onward not implemented.
