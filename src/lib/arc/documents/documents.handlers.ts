@@ -135,12 +135,12 @@ export type DocumentCaller =
   | { kind: "guest"; token: string | null };
 
 export interface InitiateUploadInput {
-  contractId?: string;
-  revisionId?: string;
+  contractId?: string | undefined;
+  revisionId?: string | undefined;
   originalFilename: string;
   displayName: string;
-  documentType?: SourceDocumentType;
-  effectiveDate?: string;
+  documentType?: SourceDocumentType | undefined;
+  effectiveDate?: string | undefined;
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -286,7 +286,7 @@ async function discardPendingObject(
 export async function finalizeUploadHandler(
   deps: DocumentDeps,
   caller: DocumentCaller,
-  input: { intentId: string; expectedLockVersion?: number },
+  input: { intentId: string; expectedLockVersion?: number | undefined },
 ): Promise<FinalizeUploadResult> {
   const intent = await deps.store.loadIntent(input.intentId);
   if (!intent) unavailable();
