@@ -162,6 +162,7 @@ export function DiscardDraftRevisionAction({
         setMessage(CONFLICT_MESSAGE);
         await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
         await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
+        await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
         // The loaded revision and its lock version are stale; re-establish the
         // authoritative server copy before anything else can be saved.
         onReloaded?.();
@@ -170,6 +171,10 @@ export function DiscardDraftRevisionAction({
       setMessage(null);
       await queryClient.invalidateQueries({ queryKey: ["arc-workspace"] });
       await queryClient.invalidateQueries({ queryKey: ["arc-revision-history", contractId] });
+      // The draft's associations are gone with it; the current finalized
+      // revision's own source set is re-read from the server. No contract
+      // document is removed by a discard.
+      await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
       await navigate({
         to: "/analysis",
         search: { contract: contractId, revision: outcome.finalizedRevisionId },
