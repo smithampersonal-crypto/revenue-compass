@@ -171,6 +171,7 @@ function DocumentRow({
                 type="button"
                 variant="destructive"
                 size="sm"
+                disabled={actions.busy}
                 onClick={() => actions.onDelete?.(document)}
               >
                 Delete permanently
