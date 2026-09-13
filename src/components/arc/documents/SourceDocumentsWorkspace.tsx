@@ -9,7 +9,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Notice, Section, inputClass } from "@/components/asc606-workflow/fields";
 import { Button } from "@/components/ui/button";
@@ -369,19 +369,18 @@ export function SourceDocumentsWorkspace() {
 
   const runSelection = useCallback(
     async (document: SourceDocumentSummaryDto, action: "add" | "remove") => {
+      if (recoveringRef.current) return;
       let result: SourceMutationResult;
       try {
         result = await selection.mutateAsync({ documentId: document.id, action });
       } catch {
         // The outcome is unknown: ARC claims neither that the source set
         // changed nor that it did not, and refetches the authoritative state.
-        setNotice(null);
-        setProblem(
+        await reloadAuthoritative(
           action === "add"
             ? "ARC could not confirm whether that document was added to this revision, so it has reloaded the current version."
             : "ARC could not confirm whether that document was removed from this revision, so it has reloaded the current version.",
         );
-        await reloadAuthoritative();
         return;
       }
       await applyOutcome(
@@ -426,7 +425,7 @@ export function SourceDocumentsWorkspace() {
    * retained ids as though they were the current authoritative workspace.
    */
   const authoritative = Boolean(revision) && typeof lockVersion === "number";
-  const busy = selection.isPending || !authoritative;
+  const busy = selection.isPending || !authoritative || recovering;
 
   return (
     <div className="space-y-8">
@@ -514,6 +513,7 @@ export function SourceDocumentsWorkspace() {
                       : undefined,
                   onEdit: (item) => setEditing(item),
                   onArchive: async (item) => {
+                    if (recoveringRef.current) return;
                     const result = (await setArchived({
                       data: { sourceDocumentId: item.id, archived: !item.archived },
                     })) as SourceMutationResult;
@@ -540,7 +540,7 @@ export function SourceDocumentsWorkspace() {
             // The shared revision lock must be authoritative before an upload
             // may claim a place in this revision. A reload in flight never
             // silently degrades into an unversioned finalization.
-            if (typeof lockVersion !== "number") {
+            if (recoveringRef.current || typeof lockVersion !== "number") {
               return "This analysis is still loading. Please try again in a moment.";
             }
 
@@ -571,11 +571,9 @@ export function SourceDocumentsWorkspace() {
               try {
                 outcome = await finalize({ data: finalizePayload });
               } catch {
-                setNotice(null);
-                setProblem(
+                await reloadAuthoritative(
                   "ARC could not confirm whether that upload was recorded, so it has reloaded the current version.",
                 );
-                await reloadAuthoritative();
                 return null;
               }
             }
@@ -587,11 +585,9 @@ export function SourceDocumentsWorkspace() {
             }
 
             if (outcome.associationConflict) {
-              setProblem(
+              await reloadAuthoritative(
                 `This PDF was accepted into the Contract Document Library, but this revision changed since the page was loaded, so it was not added to Revision ${revisionNumber}. ARC has reloaded the current version — you can add it from the library.`,
               );
-              setNotice(null);
-              await reloadAuthoritative();
               return null;
             }
 
@@ -681,6 +677,7 @@ export function SourceDocumentsWorkspace() {
                 variant="destructive"
                 onClick={async () => {
                   const target = deleting;
+                  if (recoveringRef.current) return;
                   setDeleting(null);
                   try {
                     const result = (await hardDelete({
@@ -693,11 +690,9 @@ export function SourceDocumentsWorkspace() {
                     await applyOutcome(result, `${target.displayName} was deleted permanently.`);
                   } catch {
                     // An ambiguous transport failure never claims nothing changed.
-                    setNotice(null);
-                    setProblem(
+                    await reloadAuthoritative(
                       "ARC could not confirm whether that document was deleted, so it has reloaded the current version.",
                     );
-                    await reloadAuthoritative();
                   }
                 }}
               >
