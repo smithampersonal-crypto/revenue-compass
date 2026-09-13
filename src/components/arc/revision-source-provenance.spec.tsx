@@ -51,7 +51,7 @@ vi.mock("@/lib/arc/persistence/revisions.functions", () => ({
   discardAmendmentDraft: (args: unknown) => discardDraft(args),
 }));
 
-const { AnalysisProvider } = await import("@/components/arc/analysis-context");
+const { AnalysisProvider, useAnalysis } = await import("@/components/arc/analysis-context");
 const { AnalysisSummary } = await import("@/components/arc/AnalysisSummary");
 const { RevisionLifecyclePanel } = await import("@/components/arc/RevisionLifecyclePanel");
 
@@ -101,6 +101,18 @@ function amendmentHistory() {
   };
 }
 
+/** Reports the authoritative workspace state the accounting form edits with. */
+function Probe() {
+  const { persistence, canEdit } = useAnalysis();
+  return (
+    <p>
+      probe editable={String(canEdit)} lock={String(persistence.lockVersion ?? "none")} revision=
+      {String(persistence.revision?.revisionId ?? "none")} readonly=
+      {String(persistence.readOnly)}
+    </p>
+  );
+}
+
 /** Renders with a client whose invalidations can be observed. */
 function renderWorkspace(children: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -109,6 +121,7 @@ function renderWorkspace(children: React.ReactNode) {
     <QueryClientProvider client={client}>
       <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={DRAFT_ID}>
         {children}
+        <Probe />
       </AnalysisProvider>
     </QueryClientProvider>,
   );
@@ -200,5 +213,180 @@ describe("Source documents follow the revision lifecycle", () => {
 
     await waitFor(() => expect(finalize).toHaveBeenCalled());
     await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
+  });
+});
+
+/**
+ * Safety ordering: the accounting workspace must leave the old revision lock
+ * behind the moment the reset transaction answers, before anything waits on
+ * the Source Documents query.
+ */
+describe("Reset enters the authoritative reload boundary immediately", () => {
+  /** Renders with Source Documents invalidation deliberately left pending. */
+  function renderWithPendingDocuments(children: React.ReactNode) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let release: (() => void) | null = null;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(client, "invalidateQueries").mockImplementation((filters?: unknown) => {
+      const key = (filters as { queryKey?: unknown[] } | undefined)?.queryKey;
+      if (Array.isArray(key) && key[0] === "arc-source-documents") return pending;
+      return Promise.resolve();
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={DRAFT_ID}>
+          {children}
+          <Probe />
+        </AnalysisProvider>
+      </QueryClientProvider>,
+    );
+    return { release: () => release?.() };
+  }
+
+  it("drops the old lock and reloads before the pending source refetch settles", async () => {
+    load.mockResolvedValueOnce(revision({ lockVersion: 4 }));
+    load.mockResolvedValue(revision({ lockVersion: 5 }));
+    resetDraft.mockResolvedValue({ ok: true, lockVersion: 5, draft: DRAFT });
+
+    const { release } = renderWithPendingDocuments(<AnalysisSummary />);
+    const user = userEvent.setup();
+
+    await screen.findByText(/lock=4/);
+
+    await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
+    await user.click(screen.getByRole("button", { name: "Reset revision" }));
+
+    await waitFor(() => expect(resetDraft).toHaveBeenCalled());
+    // The reload boundary is entered while the documents query is still pending.
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
+    // No autosave may use the superseded lock version.
+    expect(save).not.toHaveBeenCalled();
+
+    // The authoritative revision reload supplies the advanced lock.
+    await screen.findByText(/lock=5/);
+    await screen.findByText(/editable=true/);
+    expect(save).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ expectedLockVersion: 4 }) }),
+    );
+    release();
+  });
+
+  it("starts the reload boundary immediately after a stale reset too", async () => {
+    resetDraft.mockResolvedValue({ ok: false });
+
+    const { release } = renderWithPendingDocuments(<AnalysisSummary />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
+    await user.click(screen.getByRole("button", { name: "Reset revision" }));
+
+    await waitFor(() => expect(resetDraft).toHaveBeenCalled());
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
+    expect(save).not.toHaveBeenCalled();
+    release();
+  });
+});
+
+/**
+ * Lifecycle results, not just cache signals: the revision the accountant works
+ * in always comes back from the server, never from the browser.
+ */
+describe("Lifecycle operations load authoritative revision state", () => {
+  it("loads the new draft revision after Create Revision", async () => {
+    const FINALIZED = revision({
+      revisionId: FINALIZED_ID,
+      revisionNumber: 1,
+      status: "finalized",
+      readOnly: true,
+      supersedesRevisionId: null,
+    });
+    load.mockResolvedValueOnce(FINALIZED);
+    load.mockResolvedValue(revision({ lockVersion: 1, revisionNumber: 2 }));
+    history.mockResolvedValue({
+      revisions: [
+        {
+          revisionId: FINALIZED_ID,
+          revisionNumber: 1,
+          status: "finalized",
+          supersedesRevisionId: null,
+          isCurrentFinalized: true,
+        },
+      ],
+    });
+    startNew.mockResolvedValue({ revisionId: DRAFT_ID, created: true });
+
+    const invalidate = renderWorkspace(<RevisionLifecyclePanel />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Create new revision" }));
+    await user.click(await screen.findByRole("button", { name: "Create revision" }));
+
+    await waitFor(() => expect(startNew).toHaveBeenCalled());
+    await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
+    // The workspace opens the server's own new draft; nothing is synthesized.
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          search: expect.objectContaining({ revision: DRAFT_ID }),
+        }),
+      ),
+    );
+  });
+
+  it("makes the restored revision authoritative after Reset", async () => {
+    load.mockResolvedValueOnce(revision({ lockVersion: 4 }));
+    load.mockResolvedValue(revision({ lockVersion: 5 }));
+    resetDraft.mockResolvedValue({ ok: true, lockVersion: 5, draft: DRAFT });
+
+    const invalidate = renderWorkspace(<AnalysisSummary />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Reset to Revision 1" }));
+    await user.click(screen.getByRole("button", { name: "Reset revision" }));
+
+    await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
+    await screen.findByText(/lock=5/);
+  });
+
+  it("keeps contract documents and reloads the finalized set after Discard", async () => {
+    discardDraft.mockResolvedValue({ ok: true, finalizedRevisionId: FINALIZED_ID });
+
+    const invalidate = renderWorkspace(<RevisionLifecyclePanel />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Discard draft revision" }));
+    await user.click(screen.getByRole("button", { name: "Discard draft" }));
+
+    await waitFor(() => expect(discardDraft).toHaveBeenCalled());
+    // Only the draft is discarded: no document deletion is requested, and the
+    // finalized revision's own source set is re-read from the server.
+    await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          search: expect.objectContaining({ revision: FINALIZED_ID }),
+        }),
+      ),
+    );
+  });
+
+  it("reloads the same selected set read-only after Finalize", async () => {
+    load.mockResolvedValueOnce(revision({ lockVersion: 4 }));
+    load.mockResolvedValue(
+      revision({ status: "finalized", readOnly: true, lockVersion: 5, revisionId: DRAFT_ID }),
+    );
+    finalize.mockResolvedValue({ ok: true, revisionId: DRAFT_ID });
+
+    const invalidate = renderWorkspace(<RevisionLifecyclePanel />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /finalize analysis/i }));
+    await user.click(await screen.findByRole("button", { name: /finalize analysis/i }));
+
+    await waitFor(() => expect(finalize).toHaveBeenCalled());
+    await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
+    await screen.findByText(/readonly=true/);
   });
 });

@@ -250,6 +250,121 @@ begin
           where contract_id = cont) = 3);
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Lifecycle lock ordering: Finalize vs permanent Delete.
+--
+-- Limitation, reported rather than faked: this harness runs as a single psql
+-- session inside one rolled-back transaction, so a genuine two-session
+-- deadlock race cannot be scheduled here. Assertions 25-27 are therefore a
+-- deterministic structural regression on the shipped function definitions —
+-- they prove both transactions take the draft revision lock before the
+-- source_documents lock, which is the property that makes the deadlock
+-- impossible. Assertions 28-31 prove that reordering did not weaken any
+-- deletion guarantee.
+-- ---------------------------------------------------------------------------
+do $lockorder$
+declare
+  user_b uuid := '00000000-0000-4000-8000-0000000008d2';
+  cust uuid; cont uuid; ana uuid; rev uuid; hist_rev uuid;
+  docX uuid; docY uuid;
+  v_del text; v_fin text;
+  v_lock integer; r record; ok boolean;
+begin
+  v_del := pg_get_functiondef('public.arc_stage_source_document_deletion(uuid,text,uuid,integer)'::regprocedure);
+  v_fin := pg_get_functiondef('public.arc_finalize_revision(uuid,uuid,integer,jsonb,jsonb,text,text)'::regprocedure);
+
+  insert into arc_test_results values (
+    '25. finalization locks the revision before the selected source documents',
+    strpos(v_fin, 'for update of r') > 0
+    and strpos(v_fin, 'for update of r') <
+        strpos(v_fin, 'from public.source_documents d'));
+
+  insert into arc_test_results values (
+    '26. deletion locks the draft revision before the source document',
+    strpos(v_del, 'where r.id = v_draft_id') > 0
+    and strpos(v_del, 'where r.id = v_draft_id') <
+        strpos(v_del, 'where d.id = p_source_document_id
+     for update'));
+
+  insert into arc_test_results values (
+    '27. deletion identifies the candidate document with an unlocked read',
+    strpos(v_del, 'for update') > strpos(v_del, 'select * into v_doc from public.source_documents d'));
+
+  -- Behavioural regression: nothing the reordering touches may be weaker.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (user_b, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-lockorder-b@example.test', '', now(), now(), now());
+  insert into public.customers (owner_user_id, name) values (user_b, 'Lock Order Co')
+    returning id into cust;
+  insert into public.contracts (customer_id, title) values (cust, 'Lock Order Contract')
+    returning id into cont;
+  insert into public.analyses (contract_id) values (cont) returning id into ana;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (ana, 1, '{"v":1}'::jsonb, 'arc.workflow.v1') returning id into hist_rev;
+
+  insert into public.source_documents
+    (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  values (cont, 'contracts/' || cont || '/x.pdf', 'x.pdf', 'Historical', repeat('d', 64), 10, 1)
+    returning id into docX;
+  insert into public.revision_source_documents (revision_id, source_document_id)
+  values (hist_rev, docX);
+  perform public.arc_finalize_revision(user_b, hist_rev, 1, '{}'::jsonb, '{}'::jsonb,
+                                       'arc.workflow.v1', 'arc.engine.v1');
+
+  begin
+    perform * from public.arc_stage_source_document_deletion(user_b, null, docX, 1);
+    ok := false;
+  exception when others then
+    ok := true;
+  end;
+  insert into arc_test_results values (
+    '28. a document in finalized history still cannot be deleted',
+    ok and exists (select 1 from public.source_documents where id = docX));
+
+  select * into r from public.arc_start_amendment_revision(user_b, cont, hist_rev);
+  rev := r.revision_id;
+  insert into public.source_documents
+    (contract_id, storage_object_path, original_filename, display_name, sha256, byte_size, page_count)
+  values (cont, 'contracts/' || cont || '/y.pdf', 'y.pdf', 'Draft only', repeat('e', 64), 10, 1)
+    returning id into docY;
+  insert into public.revision_source_documents (revision_id, source_document_id) values (rev, docY);
+  select lock_version into v_lock from public.analysis_revisions where id = rev;
+
+  begin
+    perform * from public.arc_stage_source_document_deletion(user_b, null, docY, v_lock + 9);
+    ok := false;
+  exception when others then
+    ok := true;
+  end;
+  insert into arc_test_results values (
+    '29. a stale expected lock version still rejects the deletion',
+    ok and exists (select 1 from public.source_documents where id = docY)
+    and (select lock_version from public.analysis_revisions where id = rev) = v_lock);
+
+  begin
+    perform * from public.arc_stage_source_document_deletion('00000000-0000-4000-8000-0000000008d9'::uuid, null, docY, v_lock);
+    ok := false;
+  exception when others then
+    ok := true;
+  end;
+  insert into arc_test_results values (
+    '30. another account still cannot delete this document',
+    ok and exists (select 1 from public.source_documents where id = docY));
+
+  perform * from public.arc_stage_source_document_deletion(user_b, null, docY, v_lock);
+  insert into arc_test_results values (
+    '31. deleting a selected draft document removes it, advances the lock once and queues Storage',
+    not exists (select 1 from public.source_documents where id = docY)
+    and not exists (select 1 from public.revision_source_documents where source_document_id = docY)
+    and (select lock_version from public.analysis_revisions where id = rev) = v_lock + 1
+    and exists (select 1 from public.storage_deletion_queue
+                 where storage_object_path = 'contracts/' || cont || '/y.pdf'
+                   and reason = 'document_deleted'));
+end $lockorder$;
+
+
+
 select assertion, passed from arc_test_results order by assertion;
 
 -- CI gate: a false or null assertion must make psql exit non-zero.
