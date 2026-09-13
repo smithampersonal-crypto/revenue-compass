@@ -408,6 +408,28 @@
   — 33 assertions, all passing against the ARC-development database. No
   `src/lib/asc606*` or sample-fixture change.
 
+- Phase 8E — guest documents, unsaved-analysis uploads and migration. A
+  temporary workspace now has its own Source Documents area: Upload, View,
+  Download, Add, Remove and permanent Delete, presented as "Included in this
+  analysis" and "Other uploaded PDFs" with no contract library before a
+  contract exists. A shared upload dialog serves the authenticated workspace,
+  the temporary workspace and the landing page, whose three entry paths are
+  Upload a Contract PDF, Enter Contract Details Manually and Try a Sample
+  Contract, with no extraction or AI claim. Guest document changes share the
+  single temporary lock version with the accounting autosave through trusted
+  service-role transactions: a stale lock is refused before anything is
+  written, a repeated add or remove is a genuine no-op, and an ambiguous
+  transport outcome always reloads the authoritative state instead of claiming
+  a result. Saving to My Contracts moves every uploaded PDF to the new contract
+  in the one transaction that creates it — the same rows, hashes, storage
+  paths, filenames and metadata, no duplicated blobs — associates exactly the
+  included documents with revision 1, retires the temporary credential, and
+  replays idempotently if the response is lost.
+  Verification: 767 tests across 69 files, typecheck clean, ESLint 0 errors,
+  build OK, bundle audit clean; `supabase/tests/phase8e_guest_documents.sql`
+  — 40 assertions, all passing against the ARC-development database. No
+  `src/lib/asc606*` or sample-fixture change.
+
 
 ## Standing guardrails
 
