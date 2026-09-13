@@ -75,7 +75,9 @@ export async function createDocumentReadUrl(args: {
   originalFilename: string;
   disposition: "view" | "download";
 }): Promise<string> {
-  const { data, error } = await (await bucket()).createSignedUrl(
+  const { data, error } = await (
+    await bucket()
+  ).createSignedUrl(
     args.objectPath,
     SIGNED_READ_TTL_SECONDS,
     args.disposition === "download" ? { download: args.originalFilename } : undefined,

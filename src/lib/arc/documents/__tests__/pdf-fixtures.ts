@@ -55,8 +55,7 @@ export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
           .join("\n")
       : "0 0 1 rg 10 10 100 100 re f";
     const stream = lines;
-    objects[contentNumber] =
-      `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+    objects[contentNumber] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
     objects[pageNumber] =
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] ` +
       `/Resources << /Font << /F1 3 0 R >> >> /Contents ${contentNumber} 0 R >>`;
@@ -66,8 +65,7 @@ export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
   if (options.encrypted) {
     const filler = "A".repeat(32);
     objects[encryptNumber] =
-      `<< /Filter /Standard /V 1 /R 2 /P -1 ` +
-      `/O (${filler}) /U (${filler}) >>`;
+      `<< /Filter /Standard /V 1 /R 2 /P -1 ` + `/O (${filler}) /U (${filler}) >>`;
   }
 
   let body = "%PDF-1.4\n";

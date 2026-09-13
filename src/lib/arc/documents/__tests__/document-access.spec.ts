@@ -35,7 +35,9 @@ function harness(options: { guestExpired?: boolean } = {}) {
   const store = {
     contractIsOwnedBy: vi.fn(async () => true),
     findDraftRevision: vi.fn(async () => null),
-    findActiveGuest: vi.fn(async () => (options.guestExpired ? null : { id: GUEST, lockVersion: 1 })),
+    findActiveGuest: vi.fn(async () =>
+      options.guestExpired ? null : { id: GUEST, lockVersion: 1 },
+    ),
     createIntent: vi.fn(),
     loadIntent: vi.fn(async () => null),
     markIntentFailed: vi.fn(),
@@ -69,10 +71,14 @@ function harness(options: { guestExpired?: boolean } = {}) {
 describe("document read access", () => {
   it("gives the owner a fifteen-minute view link", async () => {
     const { deps, readCalls } = harness();
-    const result = await documentReadUrlHandler(deps, { kind: "user", userId: OWNER }, {
-      sourceDocumentId: DOCUMENT,
-      disposition: "view",
-    });
+    const result = await documentReadUrlHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        sourceDocumentId: DOCUMENT,
+        disposition: "view",
+      },
+    );
 
     expect(result.url).toContain("https://");
     expect(result.expiresInSeconds).toBe(SIGNED_READ_TTL_SECONDS);
@@ -85,10 +91,14 @@ describe("document read access", () => {
 
   it("uses the immutable original filename for downloads", async () => {
     const { deps, readCalls } = harness();
-    await documentReadUrlHandler(deps, { kind: "user", userId: OWNER }, {
-      sourceDocumentId: DOCUMENT,
-      disposition: "download",
-    });
+    await documentReadUrlHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        sourceDocumentId: DOCUMENT,
+        disposition: "download",
+      },
+    );
 
     expect(readCalls[0]).toMatchObject({
       disposition: "download",
@@ -98,10 +108,14 @@ describe("document read access", () => {
 
   it("gives an active temporary workspace a link to its own document", async () => {
     const { deps, store } = harness();
-    const result = await documentReadUrlHandler(deps, { kind: "guest", token: GUEST_TOKEN }, {
-      sourceDocumentId: DOCUMENT,
-      disposition: "view",
-    });
+    const result = await documentReadUrlHandler(
+      deps,
+      { kind: "guest", token: GUEST_TOKEN },
+      {
+        sourceDocumentId: DOCUMENT,
+        disposition: "view",
+      },
+    );
 
     expect(result.url).toContain("https://");
     expect(store.findActiveGuest).toHaveBeenCalledWith(await hashGuestToken(GUEST_TOKEN));
@@ -110,10 +124,14 @@ describe("document read access", () => {
   it("refuses an expired temporary workspace", async () => {
     const { deps, storage } = harness({ guestExpired: true });
     await expect(
-      documentReadUrlHandler(deps, { kind: "guest", token: GUEST_TOKEN }, {
-        sourceDocumentId: DOCUMENT,
-        disposition: "view",
-      }),
+      documentReadUrlHandler(
+        deps,
+        { kind: "guest", token: GUEST_TOKEN },
+        {
+          sourceDocumentId: DOCUMENT,
+          disposition: "view",
+        },
+      ),
     ).rejects.toThrow();
     expect(storage.createReadUrl).not.toHaveBeenCalled();
   });
@@ -121,17 +139,25 @@ describe("document read access", () => {
   it("refuses a foreign document in neutral language and signs nothing", async () => {
     const { deps, storage } = harness();
     await expect(
-      documentReadUrlHandler(deps, { kind: "user", userId: OTHER }, {
-        sourceDocumentId: DOCUMENT,
-        disposition: "view",
-      }),
+      documentReadUrlHandler(
+        deps,
+        { kind: "user", userId: OTHER },
+        {
+          sourceDocumentId: DOCUMENT,
+          disposition: "view",
+        },
+      ),
     ).rejects.toThrow(/not available/i);
 
     try {
-      await documentReadUrlHandler(deps, { kind: "user", userId: OTHER }, {
-        sourceDocumentId: DOCUMENT,
-        disposition: "view",
-      });
+      await documentReadUrlHandler(
+        deps,
+        { kind: "user", userId: OTHER },
+        {
+          sourceDocumentId: DOCUMENT,
+          disposition: "view",
+        },
+      );
     } catch (error) {
       const message = (error as Error).message;
       // Neutral: no path, no owner, no contract, no filename.
@@ -144,10 +170,14 @@ describe("document read access", () => {
 
   it("never writes a signed link into any stored record", async () => {
     const { deps, store } = harness();
-    await documentReadUrlHandler(deps, { kind: "user", userId: OWNER }, {
-      sourceDocumentId: DOCUMENT,
-      disposition: "view",
-    });
+    await documentReadUrlHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        sourceDocumentId: DOCUMENT,
+        disposition: "view",
+      },
+    );
 
     // Reading a document performs no writes at all.
     expect(store.createIntent).not.toHaveBeenCalled();

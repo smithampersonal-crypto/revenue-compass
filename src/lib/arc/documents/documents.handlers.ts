@@ -131,8 +131,7 @@ export interface DocumentDeps {
 }
 
 export type DocumentCaller =
-  | { kind: "user"; userId: string }
-  | { kind: "guest"; token: string | null };
+  { kind: "user"; userId: string } | { kind: "guest"; token: string | null };
 
 export interface InitiateUploadInput {
   contractId?: string | undefined;
@@ -208,9 +207,7 @@ export async function initiateUploadHandler(
 
   const intentId = (deps.newId ?? (() => globalThis.crypto.randomUUID()))();
   const path = pendingPath(intentId);
-  const expiresAt = new Date(
-    deps.now().getTime() + UPLOAD_INTENT_TTL_SECONDS * 1000,
-  ).toISOString();
+  const expiresAt = new Date(deps.now().getTime() + UPLOAD_INTENT_TTL_SECONDS * 1000).toISOString();
 
   const created = await deps.store.createIntent({
     id: intentId,

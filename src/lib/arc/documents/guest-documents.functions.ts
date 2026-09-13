@@ -19,7 +19,6 @@ import {
   type DocumentCaller,
   type DocumentDeps,
 } from "./documents.handlers";
-import { documentStorage, documentStore } from "./documents.store.server";
 import {
   SOURCE_DOCUMENT_TYPES,
   type DocumentReadUrlResult,
@@ -44,6 +43,9 @@ async function guestCaller(): Promise<DocumentCaller> {
 }
 
 async function deps(): Promise<DocumentDeps> {
+  // Server-only module, loaded inside the handler so it never enters the
+  // client graph.
+  const { documentStorage, documentStore } = await import("./documents.store.server");
   return { store: await documentStore(), storage: documentStorage, now: () => new Date() };
 }
 

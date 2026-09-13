@@ -47,7 +47,9 @@ function harness(options: HarnessOptions = {}) {
   const signedTargets: string[] = [];
 
   const store: DocumentStore = {
-    contractIsOwnedBy: vi.fn(async (contractId, userId) => contractId === CONTRACT && userId === OWNER),
+    contractIsOwnedBy: vi.fn(
+      async (contractId, userId) => contractId === CONTRACT && userId === OWNER,
+    ),
     findDraftRevision: vi.fn(async (revisionId) =>
       revisionId === REVISION
         ? {
@@ -123,7 +125,18 @@ function harness(options: HarnessOptions = {}) {
 
   const deps: DocumentDeps = { store, storage, now: () => new Date("2026-09-13T00:00:00.000Z") };
 
-  return { deps, store, storage, intents, objects, deletionQueue, removed, prepared, committed, signedTargets };
+  return {
+    deps,
+    store,
+    storage,
+    intents,
+    objects,
+    deletionQueue,
+    removed,
+    prepared,
+    committed,
+    signedTargets,
+  };
 }
 
 function intentRow(overrides: Partial<IntentRow> = {}): IntentRow {
@@ -146,11 +159,15 @@ describe("upload initiation", () => {
   it("refuses a contract the caller does not own", async () => {
     const { deps, storage } = harness();
     await expect(
-      initiateUploadHandler(deps, { kind: "user", userId: OTHER }, {
-        contractId: CONTRACT,
-        originalFilename: "a.pdf",
-        displayName: "A",
-      }),
+      initiateUploadHandler(
+        deps,
+        { kind: "user", userId: OTHER },
+        {
+          contractId: CONTRACT,
+          originalFilename: "a.pdf",
+          displayName: "A",
+        },
+      ),
     ).rejects.toThrow();
     expect(storage.createPendingUploadTarget).not.toHaveBeenCalled();
   });
@@ -158,38 +175,50 @@ describe("upload initiation", () => {
   it("refuses a revision belonging to another contract", async () => {
     const { deps } = harness({ revisionContractId: "99999999-9999-9999-9999-999999999999" });
     await expect(
-      initiateUploadHandler(deps, { kind: "user", userId: OWNER }, {
-        contractId: CONTRACT,
-        revisionId: REVISION,
-        originalFilename: "a.pdf",
-        displayName: "A",
-      }),
+      initiateUploadHandler(
+        deps,
+        { kind: "user", userId: OWNER },
+        {
+          contractId: CONTRACT,
+          revisionId: REVISION,
+          originalFilename: "a.pdf",
+          displayName: "A",
+        },
+      ),
     ).rejects.toThrow();
   });
 
   it("refuses a finalized revision as an upload target", async () => {
     const { deps } = harness({ revisionStatus: "finalized" });
     await expect(
-      initiateUploadHandler(deps, { kind: "user", userId: OWNER }, {
-        contractId: CONTRACT,
-        revisionId: REVISION,
-        originalFilename: "a.pdf",
-        displayName: "A",
-      }),
+      initiateUploadHandler(
+        deps,
+        { kind: "user", userId: OWNER },
+        {
+          contractId: CONTRACT,
+          revisionId: REVISION,
+          originalFilename: "a.pdf",
+          displayName: "A",
+        },
+      ),
     ).rejects.toThrow();
   });
 
   it("assigns the pending path server-side and signs exactly that path", async () => {
     const { deps, signedTargets, store } = harness();
-    const dto = await initiateUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      contractId: CONTRACT,
-      revisionId: REVISION,
-      originalFilename: "agreement.pdf",
-      displayName: "Master agreement",
-      // A browser-chosen path is not part of the input contract and must not
-      // reach Storage.
-      ...({ pendingObjectPath: "pending/attacker.pdf" } as unknown as Record<string, never>),
-    });
+    const dto = await initiateUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        contractId: CONTRACT,
+        revisionId: REVISION,
+        originalFilename: "agreement.pdf",
+        displayName: "Master agreement",
+        // A browser-chosen path is not part of the input contract and must not
+        // reach Storage.
+        ...({ pendingObjectPath: "pending/attacker.pdf" } as unknown as Record<string, never>),
+      },
+    );
 
     expect(dto.bucket).toBe(SOURCE_DOCUMENT_BUCKET);
     expect(dto.path).toBe(`pending/${dto.intentId}.pdf`);
@@ -203,10 +232,14 @@ describe("upload initiation", () => {
 
   it("derives the guest workspace from the credential alone", async () => {
     const { deps, store } = harness();
-    const dto = await initiateUploadHandler(deps, { kind: "guest", token: GUEST_TOKEN }, {
-      originalFilename: "a.pdf",
-      displayName: "A",
-    });
+    const dto = await initiateUploadHandler(
+      deps,
+      { kind: "guest", token: GUEST_TOKEN },
+      {
+        originalFilename: "a.pdf",
+        displayName: "A",
+      },
+    );
 
     expect(store.findActiveGuest).toHaveBeenCalledWith(await hashGuestToken(GUEST_TOKEN));
     const created = vi.mocked(store.createIntent).mock.calls[0]![0];
@@ -218,10 +251,14 @@ describe("upload initiation", () => {
   it("refuses an expired temporary workspace", async () => {
     const { deps, storage } = harness({ guestExpired: true });
     await expect(
-      initiateUploadHandler(deps, { kind: "guest", token: GUEST_TOKEN }, {
-        originalFilename: "a.pdf",
-        displayName: "A",
-      }),
+      initiateUploadHandler(
+        deps,
+        { kind: "guest", token: GUEST_TOKEN },
+        {
+          originalFilename: "a.pdf",
+          displayName: "A",
+        },
+      ),
     ).rejects.toThrow(/temporary workspace/i);
     expect(storage.createPendingUploadTarget).not.toHaveBeenCalled();
   });
@@ -234,10 +271,14 @@ describe("upload finalization", () => {
       objects: { "pending/intent-1.pdf": validTextPdf() },
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(storage.download).toHaveBeenCalledWith("pending/intent-1.pdf");
     expect(result).toMatchObject({ ok: true, sourceDocumentId: "doc-1", lockVersion: 4 });
@@ -249,10 +290,14 @@ describe("upload finalization", () => {
       objects: { "pending/intent-1.pdf": corruptBytes() },
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({ ok: false, code: "invalid_pdf" });
     expect(store.prepare).not.toHaveBeenCalled();
@@ -268,14 +313,16 @@ describe("upload finalization", () => {
     });
     vi.mocked(storage.remove).mockRejectedValueOnce(new Error("storage unavailable"));
 
-    await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
-    expect(deletionQueue).toEqual([
-      { path: "pending/intent-1.pdf", reason: "validation_failed" },
-    ]);
+    expect(deletionQueue).toEqual([{ path: "pending/intent-1.pdf", reason: "validation_failed" }]);
   });
 
   it("promotes a new document to documents/<id>.pdf", async () => {
@@ -284,10 +331,14 @@ describe("upload finalization", () => {
       objects: { "pending/intent-1.pdf": validTextPdf() },
     });
 
-    await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(storage.promote).toHaveBeenCalledWith("pending/intent-1.pdf", "documents/doc-1.pdf");
     expect(objects["documents/doc-1.pdf"]).toBeDefined();
@@ -303,10 +354,14 @@ describe("upload finalization", () => {
     vi.mocked(storage.promote).mockRejectedValueOnce(new Error("Object not found"));
     vi.mocked(storage.exists).mockResolvedValueOnce(true);
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({ ok: true });
     expect(storage.exists).toHaveBeenCalledWith("documents/doc-1.pdf");
@@ -331,10 +386,14 @@ describe("upload finalization", () => {
       lockVersion: 4,
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({ ok: true, sourceDocumentId: "existing-doc", duplicate: true });
     // No second permanent object, and the existing document's details are not
@@ -356,10 +415,14 @@ describe("upload finalization", () => {
       lockVersion: 9,
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({
       ok: true,
@@ -381,10 +444,14 @@ describe("upload finalization", () => {
       lockVersion: 4,
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({ ok: true, associated: true, lockVersion: 4 });
     expect(storage.download).not.toHaveBeenCalled();
@@ -400,13 +467,21 @@ describe("upload finalization", () => {
       objects: { "pending/intent-1.pdf": validTextPdf() },
     });
 
-    await finalizeUploadHandler(deps, { kind: "guest", token: GUEST_TOKEN }, {
-      intentId: "intent-1",
-      expectedLockVersion: 2,
-    });
+    await finalizeUploadHandler(
+      deps,
+      { kind: "guest", token: GUEST_TOKEN },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 2,
+      },
+    );
 
     const hash = await hashGuestToken(GUEST_TOKEN);
-    expect(prepared[0]).toMatchObject({ intentId: "intent-1", guestTokenHash: hash, ownerUserId: null });
+    expect(prepared[0]).toMatchObject({
+      intentId: "intent-1",
+      guestTokenHash: hash,
+      ownerUserId: null,
+    });
     expect(committed[0]).toMatchObject({ guestTokenHash: hash, ownerUserId: null });
   });
 
@@ -417,10 +492,14 @@ describe("upload finalization", () => {
     });
 
     await expect(
-      finalizeUploadHandler(deps, { kind: "user", userId: OTHER }, {
-        intentId: "intent-1",
-        expectedLockVersion: 3,
-      }),
+      finalizeUploadHandler(
+        deps,
+        { kind: "user", userId: OTHER },
+        {
+          intentId: "intent-1",
+          expectedLockVersion: 3,
+        },
+      ),
     ).rejects.toThrow();
     expect(storage.download).not.toHaveBeenCalled();
   });
@@ -431,10 +510,14 @@ describe("upload finalization", () => {
       objects: { "pending/intent-1.pdf": new Uint8Array(MAX_DOCUMENT_BYTES + 1) },
     });
 
-    const result = await finalizeUploadHandler(deps, { kind: "user", userId: OWNER }, {
-      intentId: "intent-1",
-      expectedLockVersion: 3,
-    });
+    const result = await finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      {
+        intentId: "intent-1",
+        expectedLockVersion: 3,
+      },
+    );
 
     expect(result).toMatchObject({ ok: false, code: "too_large" });
     expect(store.prepare).not.toHaveBeenCalled();

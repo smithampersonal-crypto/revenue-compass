@@ -37,11 +37,7 @@ export type SourceDocumentType = (typeof SOURCE_DOCUMENT_TYPES)[number];
 
 /** Stable validation outcome codes; never a parsed parser message. */
 export type PdfValidationCode =
-  | "too_large"
-  | "too_many_pages"
-  | "invalid_pdf"
-  | "password_protected"
-  | "no_extractable_text";
+  "too_large" | "too_many_pages" | "invalid_pdf" | "password_protected" | "no_extractable_text";
 
 /** Authoritative technical facts. Extracted text is never part of this. */
 export interface PdfFacts {
@@ -51,8 +47,7 @@ export interface PdfFacts {
 }
 
 export type PdfValidationResult =
-  | ({ ok: true } & PdfFacts)
-  | { ok: false; code: PdfValidationCode; message: string };
+  ({ ok: true } & PdfFacts) | { ok: false; code: PdfValidationCode; message: string };
 
 export const PDF_VALIDATION_MESSAGES: Record<PdfValidationCode, string> = {
   too_large: "This PDF is larger than 10 MB. ARC currently supports files up to 10 MB.",
