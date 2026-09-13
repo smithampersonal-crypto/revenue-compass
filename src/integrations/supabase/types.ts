@@ -535,6 +535,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      arc_attach_guest_source_document: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_source_document_id: string
+        }
+        Returns: number
+      }
       arc_attach_source_document: {
         Args: {
           p_expected_lock_version: number
@@ -663,6 +671,14 @@ export type Database = {
       arc_release_storage_deletion_job: {
         Args: { p_error: string; p_job_id: string }
         Returns: boolean
+      }
+      arc_remove_guest_source_document: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_source_document_id: string
+        }
+        Returns: number
       }
       arc_remove_source_document: {
         Args: {
