@@ -44,9 +44,17 @@ export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
   for (let index = 0; index < pageCount; index += 1) {
     const contentNumber = firstPageObject + index * 2;
     const pageNumber = contentNumber + 1;
-    const stream = text
-      ? `BT /F1 12 Tf 20 120 Td (${escapePdfText(`${text} ${index + 1}`)}) Tj ET`
+    const lines = text
+      ? [1, 2, 3]
+          .map(
+            (line) =>
+              `BT /F1 12 Tf 20 ${160 - line * 20} Td (${escapePdfText(
+                `${text} ${index + 1} line ${line}`,
+              )}) Tj ET`,
+          )
+          .join("\n")
       : "0 0 1 rg 10 10 100 100 re f";
+    const stream = lines;
     objects[contentNumber] =
       `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
     objects[pageNumber] =
