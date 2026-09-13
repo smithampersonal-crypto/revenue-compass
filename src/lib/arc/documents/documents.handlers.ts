@@ -350,9 +350,18 @@ export async function finalizeUploadHandler(
 
   if (!validated.ok) {
     // Nothing invalid is ever recorded as a Source Document, and no private
-    // blob is abandoned.
+    // blob is abandoned. Both lifecycle obligations are established before the
+    // caller is told anything, and in this order:
+    //
+    //   1. the intent durably becomes terminal, so a retry can never
+    //      revalidate or record rejected bytes;
+    //   2. the pending blob is removed, or a durable deletion job exists.
+    //
+    // A failure in either step is reported as a server failure rather than a
+    // normal validation rejection: the intent's authoritative state is the
+    // only thing allowed to decide what happens next.
+    await deps.store.markIntentFailed(intent.id);
     await discardPendingObject(deps, intent.pending_object_path, "validation_failed");
-    await deps.store.markIntentFailed(intent.id).catch(() => undefined);
     return { ok: false, code: validated.code, message: validated.message };
   }
 
