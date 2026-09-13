@@ -399,10 +399,15 @@
   revision keeps its own evidence set and one document can support several
   revisions without duplication. The UI re-reads the authoritative set after
   create, reset, discard and finalize rather than assuming one client-side.
-  Verification: 751 tests across 68 files, typecheck clean, ESLint 0 errors,
+  Lifecycle lock ordering: finalization and permanent document deletion both
+  take the draft revision lock before any source-document lock, so the two can
+  never deadlock, and a reset leaves the superseded revision lock behind before
+  waiting on any document refetch, so no autosave can reuse it.
+  Verification: 757 tests across 68 files, typecheck clean, ESLint 0 errors,
   build OK, bundle audit clean; `supabase/tests/phase8d_revision_source_provenance.sql`
-  — 26 assertions, all passing against the ARC-development database. No
+  — 33 assertions, all passing against the ARC-development database. No
   `src/lib/asc606*` or sample-fixture change.
+
 
 ## Standing guardrails
 
