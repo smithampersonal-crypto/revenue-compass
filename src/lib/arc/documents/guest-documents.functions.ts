@@ -46,6 +46,37 @@ async function guestCaller(): Promise<DocumentCaller> {
   return { kind: "guest", token: readGuestCookie(request.headers.get("cookie"), secure) };
 }
 
+/**
+ * The credential for this visitor's temporary workspace, starting one when
+ * they do not have a valid workspace yet. Uploading a PDF is a legitimate
+ * first action, so it must not fail merely because no analysis has been saved
+ * yet. Resuming is never destructive: an existing valid workspace, its
+ * credential and its lock version are returned untouched.
+ */
+async function ensureGuestCaller(): Promise<DocumentCaller> {
+  const { getRequest, setResponseHeader } = await import("@tanstack/react-start/server");
+  const request = getRequest();
+  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
+  const token = readGuestCookie(request.headers.get("cookie"), secure);
+
+  const [{ resumeOrCreateGuestHandler }, { createGuestStore }, { buildGuestCookie }] =
+    await Promise.all([
+      import("@/lib/arc/persistence/guest.handlers"),
+      import("@/lib/arc/persistence/guest.store.server"),
+      import("@/lib/arc/persistence/guest"),
+    ]);
+
+  const result = await resumeOrCreateGuestHandler(
+    { store: await createGuestStore(), now: () => new Date() },
+    { token },
+  );
+  if (result.issuedToken) {
+    setResponseHeader("Set-Cookie", buildGuestCookie(result.issuedToken, secure));
+    return { kind: "guest", token: result.issuedToken };
+  }
+  return { kind: "guest", token };
+}
+
 async function deps(): Promise<DocumentDeps> {
   // Server-only module, loaded inside the handler so it never enters the
   // client graph.
