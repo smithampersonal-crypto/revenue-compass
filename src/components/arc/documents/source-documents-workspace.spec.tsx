@@ -768,4 +768,111 @@ describe("Source Documents workspace", () => {
       expect(within(library()).getByText("Master Agreement")).toBeInTheDocument(),
     );
   });
+
+  /**
+   * Phase 8C recovery boundary: an ambiguous mutation must make the workspace
+   * non-editable and reload the authoritative revision BEFORE any awaited
+   * Source Documents refetch, so a failed or slow refetch can never leave the
+   * old lock usable.
+   */
+  describe("recovery boundary ordering", () => {
+    function mutationControls() {
+      return [
+        ...screen.queryAllByRole("button", { name: "Upload PDF" }),
+        ...screen.queryAllByRole("button", { name: "Add from Contract Library" }),
+        ...screen.queryAllByRole("button", { name: "Add to revision" }),
+        ...screen.queryAllByRole("button", { name: "Remove from revision" }),
+        ...screen.queryAllByRole("button", { name: "Archive" }),
+        ...screen.queryAllByRole("button", { name: "Unarchive" }),
+        ...screen.queryAllByRole("button", { name: "Delete permanently" }),
+      ];
+    }
+
+    it("locks mutations and reloads the revision before the documents refetch resolves", async () => {
+      const user = userEvent.setup();
+      loadWorkspace.mockResolvedValueOnce(workspace([document({ selected: false })]));
+      // The refetch that recovery triggers never settles.
+      loadWorkspace.mockImplementation(() => new Promise(() => {}));
+      attach.mockRejectedValue(new Error("network"));
+      load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 7 }));
+      renderWorkspace();
+
+      await user.click(await screen.findByRole("button", { name: "Add to revision" }));
+
+      // The revision reload is initiated even though documents are still pending.
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+      await waitFor(() => {
+        const controls = mutationControls();
+        expect(controls.length).toBeGreaterThan(0);
+        for (const control of controls) expect(control).toBeDisabled();
+      });
+
+      // No second mutation can be made against the retained, stale lock.
+      for (const control of mutationControls()) await user.click(control).catch(() => {});
+      expect(attach).toHaveBeenCalledTimes(1);
+      expect(detach).not.toHaveBeenCalled();
+      expect(hardDelete).not.toHaveBeenCalled();
+    });
+
+    it("reloads the revision even when the documents refetch rejects", async () => {
+      const user = userEvent.setup();
+      loadWorkspace.mockResolvedValueOnce(workspace([document()]));
+      loadWorkspace.mockRejectedValue(new Error("documents unavailable"));
+      detach.mockRejectedValue(new Error("network"));
+      load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 21 }));
+      renderWorkspace();
+
+      await user.click(await screen.findByRole("button", { name: "Remove from revision" }));
+
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+      expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
+
+      // The old lock is never authoritative again: the next accounting autosave
+      // uses the freshly loaded revision lock.
+      await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
+      await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 });
+      expect(save.mock.calls[0]![0].data.expectedLockVersion).toBe(21);
+    });
+
+    it("uses the same recovery boundary for an ambiguous upload finalization", async () => {
+      const user = userEvent.setup();
+      initiate.mockResolvedValue(INTENT);
+      finalize.mockRejectedValue(new Error("network"));
+      loadWorkspace.mockResolvedValueOnce(workspace([document({ selected: false })]));
+      loadWorkspace.mockImplementation(() => new Promise(() => {}));
+      load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 9 }));
+      renderWorkspace();
+
+      await submitUpload(user);
+
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+      // The already-open upload dialog cannot fire a second time against
+      // retained state — it is closed by the recovery boundary.
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: "Upload to Revision 2" }),
+        ).not.toBeInTheDocument(),
+      );
+      expect(initiate).toHaveBeenCalledTimes(1);
+      expect(uploadBytes).toHaveBeenCalledTimes(1);
+      expect(finalize).toHaveBeenCalledTimes(2);
+    });
+
+    it("closes an open delete confirmation instead of letting it act on retained state", async () => {
+      const user = userEvent.setup();
+      loadWorkspace.mockResolvedValueOnce(workspace([document()]));
+      loadWorkspace.mockImplementation(() => new Promise(() => {}));
+      hardDelete.mockRejectedValue(new Error("network"));
+      load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 12 }));
+      renderWorkspace();
+
+      await user.click((await screen.findAllByRole("button", { name: "Delete permanently" }))[0]!);
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Delete permanently" }));
+
+      await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(hardDelete).toHaveBeenCalledTimes(1);
+    });
+  });
 });
