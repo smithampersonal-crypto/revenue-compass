@@ -159,3 +159,23 @@ export type SourceMutationResult =
 
 export const SOURCE_CONFLICT_MESSAGE =
   "This revision changed since this page was loaded, so nothing was changed. ARC has reloaded the current version — please try again.";
+
+/* --------------------------------- Phase 8E — temporary workspace documents */
+
+/**
+ * The document read model of a temporary (guest) workspace. There is no
+ * contract yet, so there is no contract library: there are only the PDFs this
+ * visitor uploaded, and the subset included in the analysis.
+ */
+export interface GuestDocumentWorkspaceDto {
+  /** Authoritative guest lock version, shared with the accounting autosave. */
+  lockVersion: number;
+  expiresAt: string;
+  /** Included in this analysis. */
+  selected: SourceDocumentSummaryDto[];
+  /** Every PDF uploaded to this temporary workspace. */
+  library: SourceDocumentSummaryDto[];
+}
+
+export const GUEST_SOURCE_CONFLICT_MESSAGE =
+  "This temporary workspace changed since this page was loaded, so nothing was changed. ARC has reloaded the current version — please try again.";
