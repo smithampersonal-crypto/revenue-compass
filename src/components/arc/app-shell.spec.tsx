@@ -109,13 +109,20 @@ describe("ARC app shell (Phase 5)", () => {
     }
   });
 
-  it("routes Start Analysis to a blank workspace and Try the Sample to Redwood", async () => {
+  it("routes each entry path to the right workspace", async () => {
     const user = userEvent.setup();
     const router = await renderAt("/");
 
-    await user.click(await screen.findByRole("link", { name: "Start Analysis" }));
+    await user.click(await screen.findByRole("link", { name: "Start Manually" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
+
+    await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
+    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/analysis/documents");
+      expect(router.state.location.search).toEqual({ upload: "1" });
+    });
 
     await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
     await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
