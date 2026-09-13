@@ -849,7 +849,9 @@ describe("Source Documents workspace", () => {
       // The already-open upload dialog cannot fire a second time against
       // retained state — it is closed by the recovery boundary.
       await waitFor(() =>
-        expect(screen.queryByRole("button", { name: "Upload to Revision 2" })).not.toBeInTheDocument(),
+        expect(
+          screen.queryByRole("button", { name: "Upload to Revision 2" }),
+        ).not.toBeInTheDocument(),
       );
       expect(initiate).toHaveBeenCalledTimes(1);
       expect(uploadBytes).toHaveBeenCalledTimes(1);
