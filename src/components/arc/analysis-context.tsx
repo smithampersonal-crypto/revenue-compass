@@ -63,6 +63,13 @@ export interface AnalysisPersistence {
   readOnly: boolean;
   /** Reloads the saved copy, discarding unsaved local edits. */
   reload: () => void;
+  /**
+   * Adopts a lock version accepted by another trusted operation on the same
+   * revision (Phase 8C source-document selection). Source documents and the
+   * accounting form share one authoritative revision lock, so the next
+   * autosave must send the version the server just returned.
+   */
+  applyLockVersion: (next: number) => void;
   /** Retries an ordinary failed save, keeping local edits. */
   retrySave: () => void;
   /**
