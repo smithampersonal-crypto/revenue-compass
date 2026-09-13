@@ -18,7 +18,7 @@ import {
   type DocumentStore,
   type IntentRow,
 } from "../documents.handlers";
-import { validTextPdf } from "./pdf-fixtures";
+import { corruptBytes, validTextPdf } from "./pdf-fixtures";
 
 const OWNER = "11111111-1111-1111-1111-111111111111";
 const CONTRACT = "33333333-3333-3333-3333-333333333333";
@@ -353,5 +353,83 @@ describe("failed intents are terminal", () => {
       ),
     ).rejects.toThrow();
     expect(store.prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe("validation-failure durability", () => {
+  function invalidHarness() {
+    return harness({
+      intents: [intentRow()],
+      objects: { "pending/intent-1.pdf": corruptBytes() },
+    });
+  }
+
+  async function finalize(deps: DocumentDeps) {
+    return finalizeUploadHandler(
+      deps,
+      { kind: "user", userId: OWNER },
+      { intentId: "intent-1", expectedLockVersion: 3 },
+    );
+  }
+
+  it("marks the intent terminal before reporting a validation rejection", async () => {
+    const { deps, store, intents, removed } = invalidHarness();
+
+    const result = await finalize(deps);
+
+    expect(result).toMatchObject({ ok: false, code: "invalid_pdf" });
+    expect(store.markIntentFailed).toHaveBeenCalledWith("intent-1");
+    expect(intents.get("intent-1")?.state).toBe("failed");
+    expect(removed).toEqual(["pending/intent-1.pdf"]);
+    expect(store.prepare).not.toHaveBeenCalled();
+    expect(store.commit).not.toHaveBeenCalled();
+  });
+
+  it("returns a server failure, never a validation result, when the terminal state cannot be persisted", async () => {
+    const { deps, store, intents } = invalidHarness();
+    vi.mocked(store.markIntentFailed).mockRejectedValueOnce(new Error("intent store unavailable"));
+
+    // An unpersisted rejection must never look like an ordinary invalid PDF:
+    // the intent would still be pending and could be reprocessed.
+    await expect(finalize(deps)).rejects.toThrow(/unavailable/i);
+    expect(intents.get("intent-1")?.state).toBe("pending");
+    expect(store.prepare).not.toHaveBeenCalled();
+    expect(store.commit).not.toHaveBeenCalled();
+  });
+
+  it("still reports the validation rejection when cleanup falls back to the durable queue", async () => {
+    const { deps, storage, intents, deletionQueue } = invalidHarness();
+    vi.mocked(storage.remove).mockRejectedValueOnce(new Error("storage unavailable"));
+
+    const result = await finalize(deps);
+
+    expect(result).toMatchObject({ ok: false, code: "invalid_pdf" });
+    expect(intents.get("intent-1")?.state).toBe("failed");
+    expect(deletionQueue).toEqual([
+      { path: "pending/intent-1.pdf", reason: "validation_failed" },
+    ]);
+  });
+
+  it("fails openly, yet keeps the intent terminal, when cleanup cannot be established at all", async () => {
+    const { deps, storage, store, intents } = invalidHarness();
+    vi.mocked(storage.remove).mockRejectedValueOnce(new Error("storage unavailable"));
+    vi.mocked(store.queueDeletion).mockRejectedValueOnce(new Error("queue unavailable"));
+
+    await expect(finalize(deps)).rejects.toThrow(/unavailable/i);
+    // The intent is never reopened: the rejection stands even though the
+    // orphaned blob still needs attention.
+    expect(intents.get("intent-1")?.state).toBe("failed");
+  });
+
+  it("never reprocesses the terminal intent on a later retry", async () => {
+    const { deps, store, storage } = invalidHarness();
+    await finalize(deps);
+    vi.mocked(storage.download).mockClear();
+
+    await expect(finalize(deps)).rejects.toThrow();
+
+    expect(storage.download).not.toHaveBeenCalled();
+    expect(store.prepare).not.toHaveBeenCalled();
+    expect(store.commit).not.toHaveBeenCalled();
   });
 });
