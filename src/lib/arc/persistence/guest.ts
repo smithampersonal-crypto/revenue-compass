@@ -77,13 +77,18 @@ export function readGuestCookie(header: string | null | undefined, secure: boole
 
 /**
  * The `Set-Cookie` value that carries the credential: HttpOnly always, and in
- * production Secure, SameSite=Lax, Path=/, Max-Age=32400.
+ * production Secure, SameSite=None, Path=/, Max-Age=32400.
+ *
+ * `SameSite=None` is required because the application is also served inside an
+ * embedded preview frame, where a Lax cookie is neither stored nor sent, so the
+ * temporary workspace would be unreachable on every request. It is only ever
+ * paired with Secure and HttpOnly; local HTTP development keeps Lax.
  */
 export function buildGuestCookie(token: string, secure: boolean): string {
   const attributes = [
     `${guestCookieName(secure)}=${token}`,
     "HttpOnly",
-    "SameSite=Lax",
+    secure ? "SameSite=None" : "SameSite=Lax",
     "Path=/",
     `Max-Age=${GUEST_LIFETIME_SECONDS}`,
   ];
@@ -96,7 +101,7 @@ export function clearGuestCookie(secure: boolean): string {
   const attributes = [
     `${guestCookieName(secure)}=`,
     "HttpOnly",
-    "SameSite=Lax",
+    secure ? "SameSite=None" : "SameSite=Lax",
     "Path=/",
     "Max-Age=0",
   ];

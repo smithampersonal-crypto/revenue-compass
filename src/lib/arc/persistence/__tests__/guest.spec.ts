@@ -104,19 +104,19 @@ describe("guest credential", () => {
 });
 
 describe("guest cookie", () => {
-  it("uses __Host- with Secure, SameSite=Lax, Path=/ and a nine-hour Max-Age", () => {
+  it("uses __Host- with Secure, SameSite=None, Path=/ and a nine-hour Max-Age", () => {
     const cookie = buildGuestCookie("abc", true);
     expect(cookie).toContain(`${GUEST_COOKIE_SECURE_NAME}=abc`);
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("Secure");
-    expect(cookie).toContain("SameSite=Lax");
+    expect(cookie).toContain("SameSite=None");
     expect(cookie).toContain("Path=/");
     expect(cookie).toContain(`Max-Age=${GUEST_LIFETIME_SECONDS}`);
     expect(GUEST_LIFETIME_SECONDS).toBe(9 * 60 * 60);
     // `__Host-` is only honoured without a Domain attribute (Phase 7F).
     expect(cookie).not.toMatch(/;\s*Domain=/i);
     expect(cookie).toBe(
-      "__Host-arc_guest=abc; Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=32400",
+      "__Host-arc_guest=abc; Secure; HttpOnly; SameSite=None; Path=/; Max-Age=32400",
     );
   });
 
