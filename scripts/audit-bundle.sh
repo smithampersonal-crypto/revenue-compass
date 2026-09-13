@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Service-role leakage audit for built client assets.
-# Fails if a service-role key, its env name, or the admin client leaks into any
-# browser bundle or source map. Never prints a secret value.
+# Server-only leakage audit for built client assets.
+# Fails if a service-role key, its env name, the admin client, or the
+# server-only PDF parser leaks into any browser bundle or source map.
+# Never prints a secret value.
 set -euo pipefail
 
 DIR="${1:-.output/public}"
