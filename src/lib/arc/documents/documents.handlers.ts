@@ -19,6 +19,7 @@ import { hashGuestToken } from "@/lib/arc/persistence/guest";
 import {
   DOCUMENT_NOT_AVAILABLE,
   GUEST_WORKSPACE_UNAVAILABLE,
+  SIGNED_READ_TTL_SECONDS,
   SOURCE_DOCUMENT_BUCKET,
   UPLOAD_INTENT_TTL_SECONDS,
   type FinalizeUploadResult,
@@ -378,6 +379,5 @@ export async function documentReadUrlHandler(
     disposition: input.disposition,
   });
 
-  const { SIGNED_READ_TTL_SECONDS } = await import("./types");
   return { url, expiresInSeconds: SIGNED_READ_TTL_SECONDS };
 }
