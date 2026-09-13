@@ -35,7 +35,7 @@ function SourceDocumentsArea() {
 
   // Samples, in-memory analyses and temporary guest workspaces never own
   // persistent contract documents. Guest document intake arrives in Phase 8E.
-  if (persistence.mode !== "contract" || !persistence.revision) {
+  if (persistence.mode !== "contract") {
     return (
       <Section title="Source documents" description="Supporting documentation for this analysis.">
         <Notice>Source Documents are available for saved analyses.</Notice>

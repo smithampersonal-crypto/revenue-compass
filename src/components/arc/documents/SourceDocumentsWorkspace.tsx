@@ -9,7 +9,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Notice, Section, inputClass } from "@/components/asc606-workflow/fields";
 import { Button } from "@/components/ui/button";
@@ -208,8 +208,30 @@ export function SourceDocumentsWorkspace() {
   const initiate = useServerFn(initiateDocumentUpload);
   const finalize = useServerFn(finalizeDocumentUpload);
 
-  const contractId = revision?.contractId ?? null;
-  const revisionId = revision?.revisionId ?? null;
+  /**
+   * An explicit reload briefly clears the loaded revision. The workspace keeps
+   * the ids it already knows so the page does not collapse into the
+   * not-available state (and lose its concurrency message) mid-reload.
+   */
+  const [known, setKnown] = useState<{
+    contractId: string;
+    revisionId: string;
+    revisionNumber: number;
+    status: "draft" | "finalized" | "superseded";
+  } | null>(null);
+
+  useEffect(() => {
+    if (!revision) return;
+    setKnown({
+      contractId: revision.contractId,
+      revisionId: revision.revisionId,
+      revisionNumber: revision.revisionNumber,
+      status: revision.status,
+    });
+  }, [revision]);
+
+  const contractId = revision?.contractId ?? known?.contractId ?? null;
+  const revisionId = revision?.revisionId ?? known?.revisionId ?? null;
 
   const queryKey = useMemo(
     () => ["arc-source-documents", contractId, revisionId] as const,
@@ -315,7 +337,7 @@ export function SourceDocumentsWorkspace() {
     [selection, applyOutcome],
   );
 
-  if (!revision || !contractId || !revisionId) {
+  if (!contractId || !revisionId) {
     return (
       <Section title="Source documents" description="Supporting documentation for this analysis.">
         <Notice>Source Documents are available for saved analyses.</Notice>
@@ -324,9 +346,9 @@ export function SourceDocumentsWorkspace() {
   }
 
   const data = workspace.data;
-  const revisionNumber = data?.revision.revisionNumber ?? revision.revisionNumber;
+  const revisionNumber = data?.revision.revisionNumber ?? known?.revisionNumber ?? 1;
   const editable = Boolean(data?.revision.canEditSources) && !persistence.readOnly;
-  const status = data?.revision.status ?? revision.status;
+  const status = data?.revision.status ?? known?.status ?? "draft";
 
   const selectedDescription = editable
     ? "Documents supporting this draft analysis."
