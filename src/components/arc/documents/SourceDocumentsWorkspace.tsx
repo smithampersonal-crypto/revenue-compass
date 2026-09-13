@@ -387,10 +387,16 @@ export function SourceDocumentsWorkspace() {
       <Section title={`Selected for Revision ${revisionNumber}`} description={selectedDescription}>
         {editable ? (
           <div className="mb-4 flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
+            <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
               Upload PDF
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => setAddOpen(true)}
+            >
               Add from Contract Library
             </Button>
           </div>
