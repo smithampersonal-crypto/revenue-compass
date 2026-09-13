@@ -577,4 +577,195 @@ describe("Source Documents workspace", () => {
     expect(loadWorkspace).not.toHaveBeenCalled();
     expect(initiate).not.toHaveBeenCalled();
   });
+
+  /* ------------------------------- ambiguous mutation recovery (patch) */
+
+  const INTENT = {
+    intentId: "33333333-3333-4333-8333-333333333333",
+    bucket: "arc-source-documents",
+    path: "pending/x.pdf",
+    token: "token",
+    expiresAt: "2026-09-12T00:00:00.000Z",
+  };
+
+  async function submitUpload(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "Upload PDF" }));
+    await user.upload(
+      screen.getByLabelText(/PDF file/i),
+      new File(["%PDF-1.7"], "order-form.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Upload to Revision 2" }));
+  }
+
+  it("never claims an add happened when the transport outcome is unknown", async () => {
+    const user = userEvent.setup();
+    loadWorkspace.mockResolvedValue(workspace([document({ selected: false })]));
+    attach.mockRejectedValue(new Error("network"));
+    load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 7 }));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole("button", { name: "Add to revision" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+    await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
+    await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 });
+    expect(save.mock.calls[0]![0].data.expectedLockVersion).toBe(7);
+  });
+
+  it("never claims a remove happened when the transport outcome is unknown", async () => {
+    const user = userEvent.setup();
+    detach.mockRejectedValue(new Error("network"));
+    load.mockResolvedValueOnce(revision()).mockResolvedValue(revision({ lockVersion: 7 }));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole("button", { name: "Remove from revision" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+    await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
+    await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 });
+    expect(save.mock.calls[0]![0].data.expectedLockVersion).toBe(7);
+  });
+
+  it("retries a lost finalization once with the same intent instead of re-uploading", async () => {
+    const user = userEvent.setup();
+    initiate.mockResolvedValue(INTENT);
+    finalize.mockRejectedValueOnce(new Error("lost response")).mockResolvedValue({
+      ok: true,
+      sourceDocumentId: DOC_B,
+      duplicate: false,
+      associated: true,
+      associationConflict: false,
+      lockVersion: 5,
+    });
+    renderWorkspace();
+
+    await submitUpload(user);
+
+    await waitFor(() => expect(finalize).toHaveBeenCalledTimes(2));
+    expect(initiate).toHaveBeenCalledTimes(1);
+    expect(uploadBytes).toHaveBeenCalledTimes(1);
+    expect(finalize.mock.calls[0]![0].data).toEqual(finalize.mock.calls[1]![0].data);
+    expect(finalize.mock.calls[1]![0].data.intentId).toBe(INTENT.intentId);
+    expect(finalize.mock.calls[1]![0].data.expectedLockVersion).toBe(4);
+    expect(await screen.findByRole("status")).toHaveTextContent("added to Revision 2");
+  });
+
+  it("reloads authoritative state when both finalization attempts are ambiguous", async () => {
+    const user = userEvent.setup();
+    initiate.mockResolvedValue(INTENT);
+    finalize.mockRejectedValue(new Error("lost response"));
+    renderWorkspace();
+
+    await submitUpload(user);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("could not confirm");
+    expect(finalize).toHaveBeenCalledTimes(2);
+    expect(initiate).toHaveBeenCalledTimes(1);
+    expect(uploadBytes).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+  });
+
+  it("disables revision-sensitive actions while the authoritative revision reloads", async () => {
+    const user = userEvent.setup();
+    detach.mockRejectedValue(new Error("network"));
+    load.mockResolvedValueOnce(revision()).mockReturnValue(new Promise(() => {}));
+    renderWorkspace();
+
+    await user.click(await screen.findByRole("button", { name: "Remove from revision" }));
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Remove from revision" })).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Upload PDF" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add from Contract Library" })).toBeDisabled();
+    expect(initiate).not.toHaveBeenCalled();
+  });
+
+  it("hides an archived document from the active library but keeps it in the source set", async () => {
+    const user = userEvent.setup();
+    loadWorkspace.mockResolvedValue(workspace([document({ archived: true, selected: true })]));
+    renderWorkspace();
+
+    const selected = (await screen.findByText("Selected for Revision 2")).closest("section")!;
+    expect(within(selected).getAllByText("Master Agreement").length).toBeGreaterThan(0);
+
+    const libraryBefore = screen.getByText("Contract Document Library").closest("section")!;
+    expect(within(libraryBefore).queryByText("Master Agreement")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Show archived documents"));
+    const libraryAfter = screen.getByText("Contract Document Library").closest("section")!;
+    expect(within(libraryAfter).getByText("Master Agreement")).toBeInTheDocument();
+  });
+
+  it("does not bump the shared lock for a duplicate PDF that is already selected", async () => {
+    const user = userEvent.setup();
+    initiate.mockResolvedValue(INTENT);
+    finalize.mockResolvedValue({
+      ok: true,
+      sourceDocumentId: DOC_A,
+      duplicate: true,
+      associated: true,
+      associationConflict: false,
+      lockVersion: null,
+    });
+    renderWorkspace();
+
+    await submitUpload(user);
+    await waitFor(() => expect(finalize).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
+    await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 });
+    expect(save.mock.calls[0]![0].data.expectedLockVersion).toBe(4);
+  });
+
+  it("leaves the shared lock unchanged when an add is a server-side no-op", async () => {
+    const user = userEvent.setup();
+    loadWorkspace.mockResolvedValue(workspace([document({ selected: false })]));
+    attach.mockResolvedValue({ ok: true, lockVersion: 4 });
+    renderWorkspace();
+
+    await user.click(await screen.findByRole("button", { name: "Add to revision" }));
+    await waitFor(() => expect(attach).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: "Make accounting edit" }));
+    await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: 5000 });
+    expect(save.mock.calls[0]![0].data.expectedLockVersion).toBe(4);
+  });
+
+  it("moves a document out of and back into the active library as it is archived", async () => {
+    const user = userEvent.setup();
+    archive.mockResolvedValue({ ok: true, lockVersion: null });
+    loadWorkspace
+      .mockResolvedValueOnce(workspace([document({ selected: false })]))
+      .mockResolvedValue(workspace([document({ selected: false, archived: true })]));
+    renderWorkspace();
+
+    await user.click((await screen.findAllByRole("button", { name: "Archive" }))[0]!);
+    await waitFor(() => expect(archive).toHaveBeenCalled());
+
+    const library = () => screen.getByText("Contract Document Library").closest("section")!;
+    await waitFor(() =>
+      expect(within(library()).queryByText("Master Agreement")).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByLabelText("Show archived documents"));
+    expect(within(library()).getByText("Master Agreement")).toBeInTheDocument();
+
+    loadWorkspace.mockResolvedValue(workspace([document({ selected: false, archived: false })]));
+    await user.click(within(library()).getByRole("button", { name: "Unarchive" }));
+    await waitFor(() => expect(archive).toHaveBeenCalledTimes(2));
+    expect(archive.mock.calls[1]![0].data.archived).toBe(false);
+
+    await user.click(screen.getByLabelText("Show archived documents"));
+    await waitFor(() =>
+      expect(within(library()).getByText("Master Agreement")).toBeInTheDocument(),
+    );
+  });
 });

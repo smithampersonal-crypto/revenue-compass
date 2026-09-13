@@ -171,6 +171,7 @@ function DocumentRow({
                 type="button"
                 variant="destructive"
                 size="sm"
+                disabled={actions.busy}
                 onClick={() => actions.onDelete?.(document)}
               >
                 Delete permanently
@@ -331,7 +332,21 @@ export function SourceDocumentsWorkspace() {
 
   const runSelection = useCallback(
     async (document: SourceDocumentSummaryDto, action: "add" | "remove") => {
-      const result = await selection.mutateAsync({ documentId: document.id, action });
+      let result: SourceMutationResult;
+      try {
+        result = await selection.mutateAsync({ documentId: document.id, action });
+      } catch {
+        // The outcome is unknown: ARC claims neither that the source set
+        // changed nor that it did not, and refetches the authoritative state.
+        setNotice(null);
+        setProblem(
+          action === "add"
+            ? "ARC could not confirm whether that document was added to this revision, so it has reloaded the current version."
+            : "ARC could not confirm whether that document was removed from this revision, so it has reloaded the current version.",
+        );
+        await reloadAuthoritative();
+        return;
+      }
       await applyOutcome(
         result,
         action === "add"
@@ -339,7 +354,7 @@ export function SourceDocumentsWorkspace() {
           : `${document.displayName} was removed from this revision.`,
       );
     },
-    [selection, applyOutcome],
+    [selection, applyOutcome, reloadAuthoritative],
   );
 
   if (!contractId || !revisionId) {
@@ -361,14 +376,20 @@ export function SourceDocumentsWorkspace() {
       ? `Sources used for finalized Revision ${revisionNumber}. This source set is part of the finalized analysis and cannot be changed.`
       : `Sources recorded for superseded Revision ${revisionNumber}. This historical source set cannot be changed.`;
 
-  const library = (data?.library ?? []).filter(
-    (document) => showArchived || !document.archived || document.selected,
-  );
+  // An archived PDF stays visible inside a source set it belongs to, but it
+  // leaves the normal library until archived documents are asked for.
+  const library = (data?.library ?? []).filter((document) => showArchived || !document.archived);
   const addable = (data?.library ?? []).filter(
     (document) => !document.selected && !document.archived,
   );
 
-  const busy = selection.isPending;
+  /**
+   * The workspace keeps showing what it already knows while the authoritative
+   * revision reloads, but that retained copy is read-only: no mutation may use
+   * retained ids as though they were the current authoritative workspace.
+   */
+  const authoritative = Boolean(revision) && typeof lockVersion === "number";
+  const busy = selection.isPending || !authoritative;
 
   return (
     <div className="space-y-8">
@@ -386,10 +407,16 @@ export function SourceDocumentsWorkspace() {
       <Section title={`Selected for Revision ${revisionNumber}`} description={selectedDescription}>
         {editable ? (
           <div className="mb-4 flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
+            <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
               Upload PDF
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => setAddOpen(true)}
+            >
               Add from Contract Library
             </Button>
           </div>
@@ -473,6 +500,13 @@ export function SourceDocumentsWorkspace() {
           onClose={() => setUploadOpen(false)}
           revisionNumber={revisionNumber}
           onUpload={async (input) => {
+            // The shared revision lock must be authoritative before an upload
+            // may claim a place in this revision. A reload in flight never
+            // silently degrades into an unversioned finalization.
+            if (typeof lockVersion !== "number") {
+              return "This analysis is still loading. Please try again in a moment.";
+            }
+
             const intent = await initiate({
               data: {
                 contractId,
@@ -484,12 +518,30 @@ export function SourceDocumentsWorkspace() {
               },
             });
             await uploadPdfToSignedTarget(intent, input.file);
-            const outcome = await finalize({
-              data: {
-                intentId: intent.intentId,
-                ...(typeof lockVersion === "number" ? { expectedLockVersion: lockVersion } : {}),
-              },
-            });
+
+            // Finalization is retry-safe by design (Phase 8B): the same intent
+            // replays into the recorded outcome. A lost response is therefore
+            // retried once with the identical intent and expected lock version,
+            // never with a second intent or a second copy of the bytes.
+            const finalizePayload = {
+              intentId: intent.intentId,
+              expectedLockVersion: lockVersion,
+            };
+            let outcome;
+            try {
+              outcome = await finalize({ data: finalizePayload });
+            } catch {
+              try {
+                outcome = await finalize({ data: finalizePayload });
+              } catch {
+                setNotice(null);
+                setProblem(
+                  "ARC could not confirm whether that upload was recorded, so it has reloaded the current version.",
+                );
+                await reloadAuthoritative();
+                return null;
+              }
+            }
 
             if (!outcome.ok) return outcome.message;
 
