@@ -366,7 +366,25 @@
   bundle audit clean. No `src/lib/asc606*` or sample-fixture change; no UI and
   no database change in this stage.
 
-
+- Phase 8C — authenticated Source Documents workspace. The placeholder is
+  replaced by two explicit surfaces for a saved contract analysis: "Selected
+  for Revision N" (the exact association set of the loaded revision) and the
+  "Contract Document Library" (every non-hidden contract PDF). Reads go through
+  `workspace.store.server.ts`, which joins ownership explicitly and returns
+  presentation metadata only — no storage object paths, no service-role
+  material, no authorization internals. Mutations (`workspace.functions.ts`)
+  are authenticated server functions that attach, remove, edit details,
+  archive/unarchive and permanently delete through the trusted 8A operations,
+  carry the expected revision lock version, advance the shared lock exactly
+  once, and surface a stale lock as an authoritative reload rather than a
+  claimed success. Uploads reuse the accepted 8B pipeline, including duplicate
+  reuse and validation rejection. Documents used by finalized history are
+  detail-locked and undeletable; archived documents stay visible inside the
+  historical source sets that used them. Samples and non-contract contexts
+  never reach the workspace and never gain persistent document ownership.
+  Verification: 734 tests across 67 files (23 in the workspace spec), typecheck
+  clean, ESLint 0 errors, build OK, bundle audit clean. No `src/lib/asc606*` or
+  sample-fixture change; no database change in this stage.
 
 ## Standing guardrails
 
