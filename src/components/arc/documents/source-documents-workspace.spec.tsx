@@ -456,7 +456,7 @@ describe("Source Documents workspace", () => {
     editDetails.mockResolvedValue({ ok: true, lockVersion: null });
     renderWorkspace();
 
-    await screen.findByText("Master Agreement");
+    await screen.findAllByText("Master Agreement");
     const library = screen.getByText("Contract Document Library").closest("section")!;
     await user.click(within(library).getByRole("button", { name: "Edit details" }));
     const name = screen.getByLabelText(/Document name/i);
@@ -474,7 +474,7 @@ describe("Source Documents workspace", () => {
     );
     renderWorkspace();
 
-    await screen.findByText("Master Agreement");
+    await screen.findAllByText("Master Agreement");
     const library = screen.getByText("Contract Document Library").closest("section")!;
     expect(within(library).getByRole("button", { name: "Edit details" })).toBeDisabled();
     expect(
@@ -516,9 +516,9 @@ describe("Source Documents workspace", () => {
     load.mockResolvedValue(revision({ status: "superseded", readOnly: true }));
     renderWorkspace();
 
-    await screen.findByText("Master Agreement");
+    await screen.findAllByText("Master Agreement");
     const selected = screen.getByText("Selected for Revision 2").closest("section")!;
-    expect(within(selected).getByText("Master Agreement")).toBeInTheDocument();
+    expect(within(selected).getAllByText("Master Agreement").length).toBeGreaterThan(0);
   });
 
   it("archives and unarchives through the trusted operation", async () => {
