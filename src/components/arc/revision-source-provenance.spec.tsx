@@ -142,7 +142,6 @@ beforeEach(() => {
   history.mockResolvedValue(amendmentHistory());
 });
 
-
 describe("Source documents follow the revision lifecycle", () => {
   it("reloads the authoritative source set after a new revision is created", async () => {
     load.mockResolvedValue(
@@ -334,7 +333,6 @@ describe("Lifecycle operations load authoritative revision state", () => {
         }),
       ),
     );
-
   });
 
   it("makes the restored revision authoritative after Reset", async () => {
@@ -392,4 +390,3 @@ describe("Lifecycle operations load authoritative revision state", () => {
     await screen.findByText(/readonly=true/);
   });
 });
-
