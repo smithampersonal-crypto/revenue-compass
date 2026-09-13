@@ -18,7 +18,7 @@ TARGETS="${CLIENT_DIRS:-$DIR}"
 # payload, the server-only env name, or the admin client module. Library code
 # that merely tests for the "sb_secret_" prefix is not a leak.
 FOUND=0
-for pattern in 'SUPABASE_SERVICE_ROLE_KEY' 'sb_secret_[A-Za-z0-9_-]{8,}' '"role" *: *"service_role"' 'cm9sZSI6InNlcnZpY2Vfcm9sZ' 'supabaseAdmin' 'client\.server'; do
+for pattern in 'SUPABASE_SERVICE_ROLE_KEY' 'sb_secret_[A-Za-z0-9_-]{8,}' '"role" *: *"service_role"' 'cm9sZSI6InNlcnZpY2Vfcm9sZ' 'supabaseAdmin' 'client\.server' 'pdfjs-dist' 'GlobalWorkerOptions' 'getDocument\(\{ *data' 'validation\.server'; do
   if grep -rIl --include='*.js' --include='*.mjs' --include='*.map' -E "$pattern" $TARGETS >/tmp/arc-audit-hits 2>/dev/null; then
     if [ -s /tmp/arc-audit-hits ]; then
       echo "LEAK: pattern '$pattern' found in:" >&2
