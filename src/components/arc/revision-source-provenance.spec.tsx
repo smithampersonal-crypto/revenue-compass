@@ -101,6 +101,18 @@ function amendmentHistory() {
   };
 }
 
+/** Reports the authoritative workspace state the accounting form edits with. */
+function Probe() {
+  const { persistence, canEdit } = useAnalysis();
+  return (
+    <p>
+      probe editable={String(canEdit)} lock={String(persistence.lockVersion ?? "none")} revision=
+      {String(persistence.revision?.revisionId ?? "none")} readonly=
+      {String(persistence.readOnly)}
+    </p>
+  );
+}
+
 /** Renders with a client whose invalidations can be observed. */
 function renderWorkspace(children: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -109,6 +121,7 @@ function renderWorkspace(children: React.ReactNode) {
     <QueryClientProvider client={client}>
       <AnalysisProvider sample={undefined} contractId={CONTRACT_ID} revisionId={DRAFT_ID}>
         {children}
+        <Probe />
       </AnalysisProvider>
     </QueryClientProvider>,
   );
@@ -128,6 +141,7 @@ beforeEach(() => {
   save.mockResolvedValue({ ok: true, lockVersion: 5 });
   history.mockResolvedValue(amendmentHistory());
 });
+
 
 describe("Source documents follow the revision lifecycle", () => {
   it("reloads the authoritative source set after a new revision is created", async () => {
