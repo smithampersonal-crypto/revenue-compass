@@ -35,8 +35,7 @@ function SourceDocumentsArea() {
   const { persistence } = useAnalysis();
   // Arriving from "Upload a Contract PDF" on the landing page opens the
   // upload step straight away.
-  const wantsUpload =
-    new URLSearchParams(globalThis.location?.search ?? "").get("upload") === "1";
+  const wantsUpload = new URLSearchParams(globalThis.location?.search ?? "").get("upload") === "1";
 
   // A temporary workspace keeps its own uploaded PDFs, which move with the
   // analysis when it is saved to My Contracts.
