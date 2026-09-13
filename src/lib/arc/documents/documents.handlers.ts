@@ -37,7 +37,12 @@ export interface IntentRow {
   guest_workspace_id: string | null;
   target_revision_id: string | null;
   pending_object_path: string;
+  /** Reserved permanent path, set by the trusted prepare transaction. */
   permanent_object_path: string | null;
+  /** The document the prepare transaction resolved this upload to. */
+  resolved_source_document_id: string | null;
+  /** Authoritative duplicate verdict recorded at prepare time. */
+  is_duplicate: boolean | null;
   state: string;
   expires_at: string;
   original_filename: string;
@@ -267,7 +272,13 @@ async function promoteSafely(
   }
 }
 
-/** Immediate removal when possible, otherwise the accepted deletion queue. */
+/**
+ * Immediate removal when possible, otherwise a durable deletion job.
+ *
+ * A private blob is never silently abandoned: if neither the direct removal
+ * nor the durable queue can be established, the caller fails loudly rather
+ * than reporting an upload as complete over an orphaned object.
+ */
 async function discardPendingObject(
   deps: DocumentDeps,
   objectPath: string,
@@ -276,8 +287,20 @@ async function discardPendingObject(
   try {
     await deps.storage.remove([objectPath]);
   } catch {
-    await deps.store.queueDeletion(objectPath, reason).catch(() => undefined);
+    // Conflict-safe by contract: re-queuing the same bucket/path is a no-op.
+    await deps.store.queueDeletion(objectPath, reason);
   }
+}
+
+function commitResult(committed: CommitResult): FinalizeUploadResult {
+  return {
+    ok: true,
+    sourceDocumentId: committed.sourceDocumentId,
+    duplicate: committed.duplicate,
+    associated: committed.associated,
+    associationConflict: committed.associationConflict,
+    lockVersion: committed.lockVersion,
+  };
 }
 
 export async function finalizeUploadHandler(
@@ -294,20 +317,33 @@ export async function finalizeUploadHandler(
   // A finalized intent is pure read-back: no download, no validation, no
   // promotion, no association, no lock movement.
   if (intent.state === "finalized") {
-    const committed = await deps.store.commit({
-      intentId: intent.id,
-      ...identity,
-      expectedLockVersion,
-    });
-    return {
-      ok: true,
-      sourceDocumentId: committed.sourceDocumentId,
-      duplicate: committed.duplicate,
-      associated: committed.associated,
-      associationConflict: committed.associationConflict,
-      lockVersion: committed.lockVersion,
-    };
+    return commitResult(
+      await deps.store.commit({ intentId: intent.id, ...identity, expectedLockVersion }),
+    );
   }
+
+  // A failed intent is terminal. Rejected bytes are never revalidated, never
+  // prepared and never recorded, whatever the client retries.
+  if (intent.state === "failed") {
+    throw new Error(
+      "That upload was already rejected. Please upload the document again as a new file.",
+    );
+  }
+
+  // Validation already passed and the trusted prepare transaction already
+  // decided the outcome: resume from storage, never from the bytes again.
+  if (intent.state === "prepared") {
+    if (intent.is_duplicate === false && intent.permanent_object_path) {
+      await promoteSafely(deps, intent.pending_object_path, intent.permanent_object_path);
+    } else {
+      await discardPendingObject(deps, intent.pending_object_path, "duplicate_upload");
+    }
+    return commitResult(
+      await deps.store.commit({ intentId: intent.id, ...identity, expectedLockVersion }),
+    );
+  }
+
+  if (intent.state !== "pending") unavailable();
 
   const bytes = await deps.storage.download(intent.pending_object_path);
   const validated = await (deps.validate ?? defaultValidate)(bytes);
@@ -335,20 +371,9 @@ export async function finalizeUploadHandler(
     await discardPendingObject(deps, intent.pending_object_path, "duplicate_upload");
   }
 
-  const committed = await deps.store.commit({
-    intentId: intent.id,
-    ...identity,
-    expectedLockVersion,
-  });
-
-  return {
-    ok: true,
-    sourceDocumentId: committed.sourceDocumentId,
-    duplicate: committed.duplicate,
-    associated: committed.associated,
-    associationConflict: committed.associationConflict,
-    lockVersion: committed.lockVersion,
-  };
+  return commitResult(
+    await deps.store.commit({ intentId: intent.id, ...identity, expectedLockVersion }),
+  );
 }
 
 /* --------------------------------------------------------------- reading */
