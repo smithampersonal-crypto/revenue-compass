@@ -151,9 +151,10 @@ begin
      and (select lock_version from public.guest_workspaces where id = ws_main) = lock_now + 1;
 
   -- 17 Adding the same document again is a genuine no-op.
+  lock_after := public.arc_attach_guest_source_document(hash_main, doc_a, lock_now + 1);
   insert into arc_test_results
   select '17 repeating an add does not advance the lock',
-         public.arc_attach_guest_source_document(hash_main, doc_a, lock_now + 1) = lock_now + 1
+         lock_after = lock_now + 1
      and (select lock_version from public.guest_workspaces where id = ws_main) = lock_now + 1
      and (select count(*) from public.guest_source_document_selections
           where guest_workspace_id = ws_main and source_document_id = doc_a) = 1;
@@ -181,16 +182,20 @@ begin
   exception when others then failed := true; end;
   insert into arc_test_results values ('20 unknown credential cannot remove a document', failed);
 
+  -- The call is made first: a single statement would evaluate the check
+  -- against the snapshot taken before the function ran.
+  lock_after := public.arc_remove_guest_source_document(hash_main, doc_b, lock_now);
   insert into arc_test_results
   select '21 remove with the current lock version excludes the document',
-         public.arc_remove_guest_source_document(hash_main, doc_b, lock_now) = lock_now + 1
+         lock_after = lock_now + 1
      and not exists (select 1 from public.guest_source_document_selections
                      where guest_workspace_id = ws_main and source_document_id = doc_b);
   lock_now := lock_now + 1;
 
+  lock_after := public.arc_remove_guest_source_document(hash_main, doc_b, lock_now);
   insert into arc_test_results
   select '22 removing a document that is not included is a no-op',
-         public.arc_remove_guest_source_document(hash_main, doc_b, lock_now) = lock_now
+         lock_after = lock_now
      and (select lock_version from public.guest_workspaces where id = ws_main) = lock_now;
 
   -- 23/24/25 Permanent deletion of a guest document.
