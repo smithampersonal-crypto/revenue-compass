@@ -113,7 +113,7 @@ function renderGuest(props: { autoOpenUpload?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider guest>
+      <AnalysisProvider sample={undefined} guest>
         <GuestSourceDocumentsWorkspace {...props} />
       </AnalysisProvider>
     </QueryClientProvider>,
