@@ -326,8 +326,15 @@ describe("Lifecycle operations load authoritative revision state", () => {
 
     await waitFor(() => expect(startNew).toHaveBeenCalled());
     await waitFor(() => expect(invalidatedSourceDocuments(invalidate)).toBe(true));
-    // The workspace shows the server's draft, and the sources for it are re-read.
-    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThan(1));
+    // The workspace opens the server's own new draft; nothing is synthesized.
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          search: expect.objectContaining({ revision: DRAFT_ID }),
+        }),
+      ),
+    );
+
   });
 
   it("makes the restored revision authoritative after Reset", async () => {
