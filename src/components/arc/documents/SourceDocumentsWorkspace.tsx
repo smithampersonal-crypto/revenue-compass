@@ -362,14 +362,20 @@ export function SourceDocumentsWorkspace() {
       ? `Sources used for finalized Revision ${revisionNumber}. This source set is part of the finalized analysis and cannot be changed.`
       : `Sources recorded for superseded Revision ${revisionNumber}. This historical source set cannot be changed.`;
 
-  const library = (data?.library ?? []).filter(
-    (document) => showArchived || !document.archived || document.selected,
-  );
+  // An archived PDF stays visible inside a source set it belongs to, but it
+  // leaves the normal library until archived documents are asked for.
+  const library = (data?.library ?? []).filter((document) => showArchived || !document.archived);
   const addable = (data?.library ?? []).filter(
     (document) => !document.selected && !document.archived,
   );
 
-  const busy = selection.isPending;
+  /**
+   * The workspace keeps showing what it already knows while the authoritative
+   * revision reloads, but that retained copy is read-only: no mutation may use
+   * retained ids as though they were the current authoritative workspace.
+   */
+  const authoritative = Boolean(revision) && typeof lockVersion === "number";
+  const busy = selection.isPending || !authoritative;
 
   return (
     <div className="space-y-8">
