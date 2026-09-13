@@ -26,7 +26,7 @@ import {
   type DocumentStorage,
   type DocumentStore,
 } from "../documents.handlers";
-import { onePagePdf } from "../pdf-fixtures";
+import { buildPdf } from "./pdf-fixtures";
 
 const OWNER = "11111111-1111-1111-1111-111111111111";
 const STRANGER = "22222222-2222-2222-2222-222222222222";
@@ -58,7 +58,7 @@ function world() {
     resolvedSourceDocumentId: string | null;
   } | null = null;
 
-  const pdf = onePagePdf();
+  const pdf = buildPdf();
   const digest = "a".repeat(64);
 
   const store = {
@@ -206,7 +206,7 @@ describe("a migrated PDF stays readable by its new owner", () => {
       { originalFilename: "master agreement.pdf", displayName: "Master agreement" },
     );
     // The bytes the browser PUTs to the one-time upload target.
-    w.objects.set(intent.uploadPath, new Uint8Array([1]));
+    w.objects.set(intent.path, new Uint8Array([1]));
     await finalizeUploadHandler(w.deps, { kind: "guest", token: GUEST_TOKEN }, { intentId: INTENT });
   });
 
