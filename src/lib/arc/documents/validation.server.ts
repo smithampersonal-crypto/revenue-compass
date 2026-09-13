@@ -83,7 +83,6 @@ export async function validatePdfBytes(
       useSystemFonts: false,
       disableFontFace: true,
       useWorkerFetch: false,
-besides: undefined,
     }).promise;
   } catch (error) {
     return pdfValidationFailure(classifyParserError(error));
