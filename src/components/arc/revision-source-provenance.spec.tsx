@@ -51,7 +51,7 @@ vi.mock("@/lib/arc/persistence/revisions.functions", () => ({
   discardAmendmentDraft: (args: unknown) => discardDraft(args),
 }));
 
-const { AnalysisProvider } = await import("@/components/arc/analysis-context");
+const { AnalysisProvider, useAnalysis } = await import("@/components/arc/analysis-context");
 const { AnalysisSummary } = await import("@/components/arc/AnalysisSummary");
 const { RevisionLifecyclePanel } = await import("@/components/arc/RevisionLifecyclePanel");
 
