@@ -73,9 +73,8 @@ vi.mock("@/lib/arc/documents/upload-client", () => ({
 }));
 
 const { AnalysisProvider } = await import("@/components/arc/analysis-context");
-const { GuestSourceDocumentsWorkspace } = await import(
-  "@/components/arc/documents/GuestSourceDocumentsWorkspace"
-);
+const { GuestSourceDocumentsWorkspace } =
+  await import("@/components/arc/documents/GuestSourceDocumentsWorkspace");
 
 const DOC_A = "aaaaaaaa-1111-4111-8111-111111111111";
 const DOC_B = "bbbbbbbb-2222-4222-8222-222222222222";
@@ -132,6 +131,9 @@ beforeEach(() => {
   });
   saveGuest.mockResolvedValue({ ok: true, lockVersion: 99, savedAt: new Date().toISOString() });
   loadWorkspace.mockResolvedValue(workspace([document()]));
+  attach.mockResolvedValue({ ok: true, lockVersion: 5 });
+  detach.mockResolvedValue({ ok: true, lockVersion: 5 });
+  hardDelete.mockResolvedValue({ ok: true, lockVersion: 5 });
   readUrl.mockResolvedValue({ url: "https://signed.example/doc.pdf", expiresInSeconds: 900 });
   vi.stubGlobal("open", vi.fn());
 });
@@ -235,14 +237,10 @@ describe("Temporary workspace source documents", () => {
     renderGuest();
 
     await user.click(await screen.findByRole("button", { name: "Delete permanently" }));
-    expect(
-      await screen.findByText("Delete Master Agreement permanently?"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Delete Master Agreement permanently?")).toBeInTheDocument();
 
     const dialog = await screen.findByRole("dialog");
-    await user.click(
-      await within(dialog).findByRole("button", { name: "Delete permanently" }),
-    );
+    await user.click(await within(dialog).findByRole("button", { name: "Delete permanently" }));
 
     await waitFor(() => expect(hardDelete).toHaveBeenCalledTimes(1));
     expect(hardDelete).toHaveBeenCalledWith({
@@ -253,9 +251,7 @@ describe("Temporary workspace source documents", () => {
   it("opens the upload dialog straight away when arriving from the landing page", async () => {
     renderGuest({ autoOpenUpload: true });
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Upload to this analysis" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload to this analysis" })).toBeInTheDocument();
   });
 
   it("keeps an uploaded PDF and explains it when the analysis moved on", async () => {
