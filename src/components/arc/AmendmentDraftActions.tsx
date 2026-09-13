@@ -63,12 +63,15 @@ export function ResetToRevisionAction({
         // A successful reset supersedes any earlier conflict shown by the parent.
         onOutcome?.(null);
       }
+      // Safety ordering: the workspace enters its authoritative reload boundary
+      // first, so the old revision lock stops being usable by autosave before
+      // anything else is awaited. Only then are the source documents refetched.
+      onReloaded();
       // The reset restored the source revision's document selection in the same
       // trusted transaction, so the workspace re-reads it from the server.
       await queryClient.invalidateQueries({ queryKey: ["arc-source-documents"] });
-      // Either way the server copy is authoritative from here.
-      onReloaded();
     },
+
     onError: (cause: unknown) => {
       setOpen(false);
       const text =
