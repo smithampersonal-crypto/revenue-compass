@@ -59,138 +59,138 @@
       snapshot as a fresh draft.
 
       7D remediation: finalization requires the complete workpaper (five steps,
-      contract balances and the applicable reconciled ordinary or grouped
-      journals), and a successful snapshot structurally always carries journal
-      output. The saved workspace renders finalized and superseded revisions
-      from the recorded `engine_outputs` in every parent area — ASC 606
-      Analysis, Revenue Schedule, Contract Balances, Journal Entries and
-      Review — through the same canonical components; a missing or unusable
-      recording fails closed rather than recalculating. Finalization asks for
-      confirmation ("Finalize analysis") and locks the whole workspace while the
-      request is pending. Only the current finalized revision offers a new
-      revision; it is created by the service-role-only
-      `arc_start_amendment_revision` transaction, which seeds the draft from
-      that revision, records `supersedes_revision_id`, reuses an existing active
-      draft, and the UI then navigates to the returned draft.
+          contract balances and the applicable reconciled ordinary or grouped
+          journals), and a successful snapshot structurally always carries journal
+          output. The saved workspace renders finalized and superseded revisions
+          from the recorded `engine_outputs` in every parent area — ASC 606
+          Analysis, Revenue Schedule, Contract Balances, Journal Entries and
+          Review — through the same canonical components; a missing or unusable
+          recording fails closed rather than recalculating. Finalization asks for
+          confirmation ("Finalize analysis") and locks the whole workspace while the
+          request is pending. Only the current finalized revision offers a new
+          revision; it is created by the service-role-only
+          `arc_start_amendment_revision` transaction, which seeds the draft from
+          that revision, records `supersedes_revision_id`, reuses an existing active
+          draft, and the UI then navigates to the returned draft.
 
-      7D final acceptance patch: a finalized or superseded revision never
-      passes its historical draft through the current workflow, balance or
-      journal engines — recorded outputs only, and an unusable recording still
-      does not recalculate. A finalization stale-lock conflict or transport
-      error no longer restores the stale local draft as editable: both
-      re-establish authoritative server state through an explicit reload, while
-      a deterministic blocked result keeps the same saved draft open. Amendment
-      provenance is decided inside the database transaction — the expected
-      source revision is checked against `current_finalized_revision_id` under
-      the same `FOR UPDATE` lock. Frozen-snapshot decoding validates every
-      nested shape the historical renderers read and requires the stored row's
-      `engine_version` / `schema_version` to match the snapshot's. Persisted
-      summary labels read Draft Analysis · Saved / Finalized Analysis ·
-      Revision N / Superseded Analysis · Revision N.
-      7D decoder + coverage patch: frozen snapshots are decoded by a versioned
-      strict Zod decoder for `arc.engine.v1` (`snapshot-schema.ts`) covering
-      every structure the canonical historical workspace dereferences —
-      workflow validation and totals, revenue schedule rows/per-PO/monetary
-      fields, revenue sources and contract groups, variable consideration,
-      material-right lifecycle, contract modifications, contract balances
-      (ordinary and grouped) and journals (discriminated ordinary/grouped,
-      entries, lines, reconciliation) — plus contradiction rejection
-      (unfinalized workflow or balances, journals without matching balance
-      analysis). Structure only; no accounting amount is recomputed. Production
-      finalization and amendment logic is extracted into dependency-injected
-      handlers (`revisions.handlers.ts`) that the `createServerFn` wrappers
-      call, with direct tests for canonical-input reread, server-built
-      snapshots, restricted browser input, stale lock and RPC error mapping,
-      ownership, amendment source validation and exact RPC arguments. UI
-      coverage added for successful finalization reload immutability,
-      current-finalized new-revision navigation, superseded view-only history,
-      and exact history revision links.
+          7D final acceptance patch: a finalized or superseded revision never
+          passes its historical draft through the current workflow, balance or
+          journal engines — recorded outputs only, and an unusable recording still
+          does not recalculate. A finalization stale-lock conflict or transport
+          error no longer restores the stale local draft as editable: both
+          re-establish authoritative server state through an explicit reload, while
+          a deterministic blocked result keeps the same saved draft open. Amendment
+          provenance is decided inside the database transaction — the expected
+          source revision is checked against `current_finalized_revision_id` under
+          the same `FOR UPDATE` lock. Frozen-snapshot decoding validates every
+          nested shape the historical renderers read and requires the stored row's
+          `engine_version` / `schema_version` to match the snapshot's. Persisted
+          summary labels read Draft Analysis · Saved / Finalized Analysis ·
+          Revision N / Superseded Analysis · Revision N.
+          7D decoder + coverage patch: frozen snapshots are decoded by a versioned
+          strict Zod decoder for `arc.engine.v1` (`snapshot-schema.ts`) covering
+          every structure the canonical historical workspace dereferences —
+          workflow validation and totals, revenue schedule rows/per-PO/monetary
+          fields, revenue sources and contract groups, variable consideration,
+          material-right lifecycle, contract modifications, contract balances
+          (ordinary and grouped) and journals (discriminated ordinary/grouped,
+          entries, lines, reconciliation) — plus contradiction rejection
+          (unfinalized workflow or balances, journals without matching balance
+          analysis). Structure only; no accounting amount is recomputed. Production
+          finalization and amendment logic is extracted into dependency-injected
+          handlers (`revisions.handlers.ts`) that the `createServerFn` wrappers
+          call, with direct tests for canonical-input reread, server-built
+          snapshots, restricted browser input, stale lock and RPC error mapping,
+          ownership, amendment source validation and exact RPC arguments. UI
+          coverage added for successful finalization reload immutability,
+          current-finalized new-revision navigation, superseded view-only history,
+          and exact history revision links.
 
-      Verification: 553 tests across 52 files, typecheck and build clean,
-      ESLint 0 errors (8 pre-existing warnings). Database suites all green:
-      privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
-      2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
-      sample-fixture change.
-      7D final renderer-integrity patch: the `arc.engine.v1` decoder now
-      requires every workflow step key (1, 2a, 2b, 3, 4, 5, mod) in both
-      blockingByStep and warningsByStep, types the optional revenue-source
-      provenance fields, and validates the modification scope description,
-      separate-contract test flag, mixed-allocation policy union and journal
-      event-type enum that historical renderers dereference; unknown keys stay
-      permitted for forward compatibility. Step 2 performance obligations no
-      longer run workflow validation itself and instead renders the
-      authoritative warnings supplied by the analysis context, so a finalized
-      or superseded revision shows its recorded Step 2 warnings. Fail-closed
-      regressions cover each newly required field, plus positive decoder
-      coverage for Horizon (ordinary), Stellar and Meridian (grouped)
-      finalized snapshots.
+          Verification: 553 tests across 52 files, typecheck and build clean,
+          ESLint 0 errors (8 pre-existing warnings). Database suites all green:
+          privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
+          2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
+          sample-fixture change.
+          7D final renderer-integrity patch: the `arc.engine.v1` decoder now
+          requires every workflow step key (1, 2a, 2b, 3, 4, 5, mod) in both
+          blockingByStep and warningsByStep, types the optional revenue-source
+          provenance fields, and validates the modification scope description,
+          separate-contract test flag, mixed-allocation policy union and journal
+          event-type enum that historical renderers dereference; unknown keys stay
+          permitted for forward compatibility. Step 2 performance obligations no
+          longer run workflow validation itself and instead renders the
+          authoritative warnings supplied by the analysis context, so a finalized
+          or superseded revision shows its recorded Step 2 warnings. Fail-closed
+          regressions cover each newly required field, plus positive decoder
+          coverage for Horizon (ordinary), Stellar and Meridian (grouped)
+          finalized snapshots.
 
-      Verification: 563 tests across 53 files, typecheck and build clean,
-      ESLint 0 errors (8 pre-existing warnings). Database suites all green:
-      privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
-      2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
-      sample-fixture change.
-      **Accepted.**
+          Verification: 563 tests across 53 files, typecheck and build clean,
+          ESLint 0 errors (8 pre-existing warnings). Database suites all green:
+          privileges 23/23, revision lifecycle 20/20, RLS 12/12, duplicate revision
+          2/2, 7C persistence 15/15, amendment RPC 12/12. No `src/lib/asc606*` or
+          sample-fixture change.
+          **Accepted.**
 
 - [x] 7E Guest workspace (9-hour, HttpOnly credential only) + atomic migration.
 
       Bare `/analysis` resumes or opens a temporary workspace through
-      server-only functions. Authorization is a 48-byte random credential
-      carried in an HttpOnly cookie (`Secure`, `SameSite=Lax`, `Path=/`,
-      `Max-Age=32400`); only its SHA-256 hash is stored, and the workspace id
-      is never an authorization credential. Expiry is checked on every load
-      and save; guest autosave uses the same optimistic lock-version
-      behaviour as 7C. Samples stay fixture-backed and never autosave.
+          server-only functions. Authorization is a 48-byte random credential
+          carried in an HttpOnly cookie (`Secure`, `SameSite=Lax`, `Path=/`,
+          `Max-Age=32400`); only its SHA-256 hash is stored, and the workspace id
+          is never an authorization credential. Expiry is checked on every load
+          and save; guest autosave uses the same optimistic lock-version
+          behaviour as 7C. Samples stay fixture-backed and never autosave.
 
-      Saving to an account is explicit: the panel takes customer name and
-      contract number from the Step 1 draft, requires a contract title,
-      blocks on a blank customer name, and preserves save intent through the
-      magic-link round trip via `/analysis?save=1` without ever putting the
-      credential in a URL. Guest → customer → contract → analysis →
-      revision 1 is one trusted transaction
-      (`arc_migrate_guest_workspace_by_token`, service-role only); on failure
-      the temporary workspace stays active and authoritative, and the
-      credential is cleared only after the transaction succeeds.
+          Saving to an account is explicit: the panel takes customer name and
+          contract number from the Step 1 draft, requires a contract title,
+          blocks on a blank customer name, and preserves save intent through the
+          magic-link round trip via `/analysis?save=1` without ever putting the
+          credential in a URL. Guest → customer → contract → analysis →
+          revision 1 is one trusted transaction
+          (`arc_migrate_guest_workspace_by_token`, service-role only); on failure
+          the temporary workspace stays active and authoritative, and the
+          credential is cleared only after the transaction succeeds.
 
-      Acceptance patch: saving to an account can only start from an exactly
-      server-saved draft — a debounced or in-flight edit is flushed first and
-      neither the magic-link round trip nor the migration proceeds until the
-      server has accepted it. Migration carries the authoritative expected
-      lock version, which the database checks under the guest row lock, so a
-      second tab that saved again creates nothing. A committed migration whose
-      response was lost is idempotently recoverable from provenance recorded
-      on the guest row (same customer/contract/analysis/revision, no
-      duplicates); another account is refused. The workspace is locked while
-      the migration is pending. Store failures now throw instead of being read
-      as "expired" or "conflict", so a lookup error never mints a replacement
-      credential.
+          Acceptance patch: saving to an account can only start from an exactly
+          server-saved draft — a debounced or in-flight edit is flushed first and
+          neither the magic-link round trip nor the migration proceeds until the
+          server has accepted it. Migration carries the authoritative expected
+          lock version, which the database checks under the guest row lock, so a
+          second tab that saved again creates nothing. A committed migration whose
+          response was lost is idempotently recoverable from provenance recorded
+          on the guest row (same customer/contract/analysis/revision, no
+          duplicates); another account is refused. The workspace is locked while
+          the migration is pending. Store failures now throw instead of being read
+          as "expired" or "conflict", so a lookup error never mints a replacement
+          credential.
 
-      Data-lifecycle patch: an active, unexpired workspace whose stored
-      analysis cannot be parsed now fails closed as a load error — no second
-      row, no replacement credential, the original stays reachable. Every
-      accepted guest save writes draft, schema version and lock version in one
-      optimistic update. `arc_expire_guest_workspaces()` marks past-expiry
-      active rows expired; authorization still reads `expires_at` on every
-      load and save, so cleanup timing never widens or narrows access.
-      Physical deletion of long-expired rows is deliberately deferred to
-      7F / operations retention — rows are marked, not removed. A lost
-      migration response is reported as an unknown outcome, never a rollback:
-      the workspace stays locked and a retry with the same expected lock and
-      intent either completes the save or idempotently returns the already
-      created contract/revision. Migration provenance foreign keys are now
-      `ON DELETE SET NULL`, so deleting a saved customer/contract/analysis/
-      revision is never blocked by a temporary-workspace row.
+          Data-lifecycle patch: an active, unexpired workspace whose stored
+          analysis cannot be parsed now fails closed as a load error — no second
+          row, no replacement credential, the original stays reachable. Every
+          accepted guest save writes draft, schema version and lock version in one
+          optimistic update. `arc_expire_guest_workspaces()` marks past-expiry
+          active rows expired; authorization still reads `expires_at` on every
+          load and save, so cleanup timing never widens or narrows access.
+          Physical deletion of long-expired rows is deliberately deferred to
+          7F / operations retention — rows are marked, not removed. A lost
+          migration response is reported as an unknown outcome, never a rollback:
+          the workspace stays locked and a retry with the same expected lock and
+          intent either completes the save or idempotently returns the already
+          created contract/revision. Migration provenance foreign keys are now
+          `ON DELETE SET NULL`, so deleting a saved customer/contract/analysis/
+          revision is never blocked by a temporary-workspace row.
 
-      Verification: 604 tests across 55 files, typecheck clean, ESLint 0
-      errors (8 pre-existing warnings), build OK. Database suite
-      `phase7e_guest_workspace.sql` keeps all 22 prior assertions and adds
-      23–27 (cleanup expires only past-expiry rows and retains them;
-      persistent chain deletable with a migrated guest row present; provenance
-      cleared rather than blocking); verified against the project database in
-      a rolled-back transaction. Earlier Phase 7 suites unchanged and last
-      green at 7D acceptance.
-      No `src/lib/asc606*` or sample-fixture change.
-      **Accepted.**
+          Verification: 604 tests across 55 files, typecheck clean, ESLint 0
+          errors (8 pre-existing warnings), build OK. Database suite
+          `phase7e_guest_workspace.sql` keeps all 22 prior assertions and adds
+          23–27 (cleanup expires only past-expiry rows and retains them;
+          persistent chain deletable with a migrated guest row present; provenance
+          cleared rather than blocking); verified against the project database in
+          a rolled-back transaction. Earlier Phase 7 suites unchanged and last
+          green at 7D acceptance.
+          No `src/lib/asc606*` or sample-fixture change.
+          **Accepted.**
 
 - [x] 7F Hardening: account deletion, guest physical retention, service-role
       leakage audit, reproducible verification, end-to-end regression.
@@ -221,27 +221,27 @@
       infrastructure and no production service-role secret.
       Final acceptance patch:
       • Deletion completion is provable. Every post-condition query error is
-        checked explicitly — an unreadable count is never read as zero. Outcome
-        language is exact: "nothing has been removed" only before any
-        destructive step, otherwise "deletion could not be fully confirmed".
-        `guest_workspaces.migrated_user_id` is now `ON DELETE CASCADE` (the
-        other `migrated_*_id` provenance keys stay `ON DELETE SET NULL`), so a
-        workspace migrated after the purge disappears with the identity instead
-        of becoming anonymous.
+      checked explicitly — an unreadable count is never read as zero. Outcome
+      language is exact: "nothing has been removed" only before any
+      destructive step, otherwise "deletion could not be fully confirmed".
+      `guest_workspaces.migrated_user_id` is now `ON DELETE CASCADE` (the
+      other `migrated_*_id` provenance keys stay `ON DELETE SET NULL`), so a
+      workspace migrated after the purge disappears with the identity instead
+      of becoming anonymous.
       • Every SQL suite now raises before rollback when any assertion is false,
-        so `psql`, `bun run db:test` and CI all fail. `bun run db:test:gate-proof`
-        runs a deliberately false assertion and succeeds only when the runner
-        fails; proven against the project database (raised `P0001`).
+      so `psql`, `bun run db:test` and CI all fail. `bun run db:test:gate-proof`
+      runs a deliberately false assertion and succeeds only when the runner
+      fails; proven against the project database (raised `P0001`).
       • Supabase CLI pinned as an exact dev dependency (`2.34.3`); `db:start`,
-        `db:test` and CI all use the project-pinned CLI and the same runner.
+      `db:test` and CI all use the project-pinned CLI and the same runner.
       • `noStoreMiddleware` applies `Cache-Control: no-store, no-cache,
-        must-revalidate, private` to every server-function response, ahead of
-        the handler and without disturbing CSRF/auth middleware.
+      must-revalidate, private` to every server-function response, ahead of
+      the handler and without disturbing CSRF/auth middleware.
       • `src/lib/arc/__tests__/phase7-acceptance.spec.ts` is the source-controlled
-        Phase 7 gate: samples are fixture-only, guest lifetime is nine hours to
-        the boundary, guest saves move draft/schema/lock together, finalized and
-        superseded snapshots read back verbatim, a foreign engine version fails
-        closed, a new revision copies canonical input, documents stay Phase 8.
+      Phase 7 gate: samples are fixture-only, guest lifetime is nine hours to
+      the boundary, guest saves move draft/schema/lock together, finalized and
+      superseded snapshots read back verbatim, a foreign engine version fails
+      closed, a new revision copies canonical input, documents stay Phase 8.
       Verification: 634 tests across 58 files, typecheck clean, ESLint 0 errors
       (8 pre-existing warnings), production build OK, bundle audit clean (no
       service-role env name, secret value, `service_role` JWT payload or admin
@@ -262,7 +262,7 @@
       from this environment, so hosted `Set-Cookie`/Network/Storage/Console
       evidence must be captured in a signed-in browser session. The exact HTTPS
       cookie contract (`__Host-arc_guest; Secure; HttpOnly; SameSite=Lax;
-      Path=/; Max-Age=32400`, no `Domain`) is covered by a source-controlled
+    Path=/; Max-Age=32400`, no `Domain`) is covered by a source-controlled
       regression. No `src/lib/asc606*` or sample-fixture change.
       Production prerequisite outside the codebase: custom SMTP for the
       magic-link sender.
@@ -394,4 +394,4 @@
   public/anon/authenticated, granted to service_role only.
 - Samples never autosave. Browser-supplied engine outputs are never authoritative.
 - `supabase/migrations/` is the reproducible source of truth.
-- Phase 8: stage 8A (data foundation) complete; 8B onward not implemented.
+- Phase 8: stages 8A, 8B and 8C complete; 8D onward not implemented.
