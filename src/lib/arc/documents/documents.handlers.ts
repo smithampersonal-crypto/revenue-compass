@@ -259,6 +259,11 @@ export async function initiateUploadHandler(
     display_name: displayName,
     document_type: input.documentType ?? null,
     effective_date: input.effectiveDate ?? null,
+    // Transport expectation only; never used as a validated document fact.
+    declared_byte_size:
+      typeof input.declaredByteSize === "number" && Number.isFinite(input.declaredByteSize)
+        ? Math.trunc(input.declaredByteSize)
+        : null,
     expires_at: expiresAt,
   });
 
