@@ -132,6 +132,8 @@ export interface DocumentStore {
   }): Promise<CommitResult>;
   findOwnedDocument(documentId: string, userId: string): Promise<OwnedDocumentRow | null>;
   findGuestDocument(documentId: string, workspaceId: string): Promise<OwnedDocumentRow | null>;
+  /** Private technical record of every server read-back attempt. */
+  recordUploadDiagnostics?(intentId: string, attempts: UploadReadDiagnostic[]): Promise<void>;
 }
 
 export interface DocumentStorage {
