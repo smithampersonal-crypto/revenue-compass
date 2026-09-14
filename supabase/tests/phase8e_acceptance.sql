@@ -33,7 +33,7 @@ declare
   res record;
   doc_id uuid; doc_path text := 'owner/contract/kept.pdf';
   pending_path text := 'pending/unfinished.pdf';
-  contract_id uuid; analysis_id uuid; draft_id uuid; final_id uuid;
+  contract_id uuid; analysis_id uuid; draft_id uuid; kept_customer uuid;
   amend_contract uuid; amend_analysis uuid; amend_draft uuid; amend_final uuid;
   failed boolean;
 begin
@@ -100,6 +100,7 @@ begin
   contract_id := res.contract_id;
   analysis_id := res.analysis_id;
   draft_id := res.revision_id;
+  kept_customer := res.customer_id;
 
   insert into public.source_documents (contract_id, storage_object_path, original_filename,
     display_name, sha256, byte_size, page_count)
@@ -127,7 +128,7 @@ begin
   select '11 the contract is deleted', not exists (select 1 from public.contracts where id = contract_id);
   insert into arc_test_results
   select '12 the customer remains',
-         exists (select 1 from public.customers where id = res.customer_id);
+         exists (select 1 from public.customers where id = kept_customer);
   insert into arc_test_results
   select '13 analysis, draft revision and document rows are gone',
          not exists (select 1 from public.analyses where id = analysis_id)
@@ -146,15 +147,14 @@ begin
   insert into public.contracts (customer_id, title) values (existing_customer, 'Finalized contract')
   returning id into amend_contract;
   insert into public.analyses (contract_id) values (amend_contract) returning id into amend_analysis;
-  insert into public.analysis_revisions (analysis_id, revision_number, status, canonical_inputs,
-    schema_version, finalized_at)
-  values (amend_analysis, 1, 'finalized', draft, 'arc.workflow.v1', now())
-  returning id into amend_final;
-  update public.analyses set current_finalized_revision_id = amend_final where id = amend_analysis;
-  insert into public.analysis_revisions (analysis_id, revision_number, status,
-    supersedes_revision_id, canonical_inputs, schema_version)
-  values (amend_analysis, 2, 'draft', amend_final, draft, 'arc.workflow.v1')
-  returning id into amend_draft;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (amend_analysis, 1, draft, 'arc.workflow.v1') returning id into amend_final;
+  -- The accepted lifecycle transactions create the history, so this suite
+  -- never writes a finalized revision by hand.
+  perform public.arc_finalize_revision(owner_id, amend_final, 1,
+    '{"o":1}'::jsonb, '{"r":1}'::jsonb, 'arc.workflow.v1', 'arc.engine.v1');
+  select r.revision_id into amend_draft
+    from public.arc_start_amendment_revision(owner_id, amend_contract, amend_final) r;
 
   failed := false;
   begin
