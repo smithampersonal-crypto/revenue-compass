@@ -27,6 +27,16 @@ export interface ContractRevisionStateDto {
   revisionNumber: number | null;
   /** The revision number a new revision would take. */
   nextRevisionNumber: number;
+  /**
+   * Which destructive action, if any, applies to the current draft. Advisory
+   * only: the trusted transaction revalidates eligibility before deleting
+   * anything.
+   */
+  draftAction: "delete-initial-draft" | "discard-amendment" | null;
+  /** The active draft's lock version, needed by the discard transaction. */
+  draftLockVersion: number | null;
+  /** For an amendment draft, the finalized revision it continues. */
+  sourceRevisionNumber: number | null;
 }
 
 export interface ContractSummaryDto {
@@ -42,6 +52,12 @@ export interface CustomerWithContractsDto {
   id: string;
   name: string;
   contracts: ContractSummaryDto[];
+}
+
+/** A customer the caller owns, for the "save under an existing customer" choice. */
+export interface CustomerChoiceDto {
+  id: string;
+  name: string;
 }
 
 const nameSchema = z.string().trim().min(1, "A name is required").max(200);
