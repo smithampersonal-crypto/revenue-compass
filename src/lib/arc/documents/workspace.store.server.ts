@@ -9,7 +9,14 @@
 
 import type { DocumentWorkspaceDto, SourceDocumentSummaryDto, SourceDocumentType } from "./types";
 
-function fail(operation: string, error: { message?: string }): never {
+function fail(operation: string, error: { message?: string; code?: string }): never {
+  // Phase 8G.A2 — privacy-safe classification of the failing boundary. Operation
+  // name and Postgres error code only; never tokens, paths, URLs or content.
+  console.error("[arc.documents] operation failed", {
+    operation,
+    code: error.code ?? null,
+    message: error.message ?? null,
+  });
   throw new Error(`The document workspace is unavailable (${operation}).`, { cause: error });
 }
 
@@ -113,7 +120,9 @@ export async function documentWorkspaceStore(): Promise<DocumentWorkspaceStore> 
 
       const { data: revision, error: revisionError } = await supabaseAdmin
         .from("analysis_revisions")
-        .select("id, revision_number, status, lock_version, analyses!inner(contract_id)")
+        .select(
+          "id, revision_number, status, lock_version, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)",
+        )
         .eq("id", revisionId)
         .maybeSingle();
       if (revisionError) fail("revision", revisionError);
