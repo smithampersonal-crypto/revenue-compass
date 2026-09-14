@@ -164,16 +164,37 @@ export function WorkspacePage() {
                   onChange={(event) => setContractNumber(event.target.value)}
                 />
               </label>
-              <div className="flex items-end">
+              <div className="flex flex-wrap items-end gap-3">
                 <button
                   type="submit"
                   className={BUTTON_CLASS}
                   disabled={contractMutation.isPending}
                 >
-                  {contractMutation.isPending ? "Creating…" : "Create contract"}
+                  {contractMutation.isPending ? "Creating…" : "Create manually"}
                 </button>
+                {/* Always-visible and keyboard reachable: the same temporary
+                    workspace and the same upload step used everywhere else.
+                    The chosen customer travels only as a starting point for
+                    the save panel; it never grants access to anything. */}
+                <Link
+                  to="/analysis"
+                  search={{
+                    upload: "1",
+                    customer: contractCustomerId || (customers[0]?.id ?? ""),
+                  }}
+                  className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Upload Contract PDF
+                </Link>
               </div>
             </form>
+          )}
+          {customers.length === 0 ? null : (
+            <p className="mt-3 text-sm text-muted-foreground">
+              ARC keeps an uploaded PDF with the analysis so you can read it alongside your work. It
+              does not create any accounting judgments from the document — you still enter every
+              input yourself.
+            </p>
           )}
           {contractMutation.isError ? (
             <p className="mt-2 text-sm text-destructive">That contract could not be saved.</p>
