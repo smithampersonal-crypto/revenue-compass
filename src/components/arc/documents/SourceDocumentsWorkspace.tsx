@@ -545,6 +545,7 @@ export function SourceDocumentsWorkspace() {
                 revisionId,
                 originalFilename: input.file.name,
                 displayName: input.displayName,
+                declaredByteSize: input.file.size,
                 ...(input.documentType ? { documentType: input.documentType } : {}),
                 ...(input.effectiveDate ? { effectiveDate: input.effectiveDate } : {}),
               },
