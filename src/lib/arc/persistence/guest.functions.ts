@@ -116,15 +116,29 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
  */
 export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contractTitle: string; expectedLockVersion: number }) => ({
-    contractTitle: z
-      .string()
-      .max(300)
-      .parse(input?.contractTitle ?? ""),
-    // The browser supplies only the version of the temporary workspace it has
-    // seen accepted; the credential and the draft itself stay server-side.
-    expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
-  }))
+  .inputValidator(
+    (input: {
+      contractTitle: string;
+      expectedLockVersion: number;
+      existingCustomerId?: string | null;
+    }) => ({
+      contractTitle: z
+        .string()
+        .max(300)
+        .parse(input?.contractTitle ?? ""),
+      // The browser supplies only the version of the temporary workspace it has
+      // seen accepted; the credential and the draft itself stay server-side.
+      expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
+      // A customer the caller claims to own. Ownership is proven in the
+      // trusted transaction, never here.
+      existingCustomerId: z
+        .string()
+        .uuid()
+        .nullable()
+        .optional()
+        .parse(input?.existingCustomerId ?? null),
+    }),
+  )
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { secure, token } = await requestCookieContext();
     const result = await migrateGuestWorkspaceHandler(
@@ -134,13 +148,14 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
         userId: context.userId,
         migrateTransaction: async (args) => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token", args as never);
+          return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token_v2", args as never);
         },
       },
       {
         token,
         contractTitle: data.contractTitle,
         expectedLockVersion: data.expectedLockVersion,
+        existingCustomerId: data.existingCustomerId ?? null,
       },
     );
 
