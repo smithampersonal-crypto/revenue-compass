@@ -119,7 +119,10 @@ export function WorkspacePage() {
         <section className="rounded-lg border border-border bg-card p-6">
           <h2 className="text-lg font-semibold text-foreground">Add a contract</h2>
           {customers.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">Add a customer first.</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Add a customer first to create a contract manually, or start from a contract PDF
+              below.
+            </p>
           ) : (
             <form
               className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -172,30 +175,34 @@ export function WorkspacePage() {
                 >
                   {contractMutation.isPending ? "Creating…" : "Create manually"}
                 </button>
-                {/* Always-visible and keyboard reachable: the same temporary
-                    workspace and the same upload step used everywhere else.
-                    The chosen customer travels only as a starting point for
-                    the save panel; it never grants access to anything. */}
-                <Link
-                  to="/analysis"
-                  search={{
-                    upload: "1",
-                    customer: contractCustomerId || (customers[0]?.id ?? ""),
-                  }}
-                  className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Upload Contract PDF
-                </Link>
               </div>
             </form>
           )}
-          {customers.length === 0 ? null : (
-            <p className="mt-3 text-sm text-muted-foreground">
-              ARC keeps an uploaded PDF with the analysis so you can read it alongside your work. It
-              does not create any accounting judgments from the document — you still enter every
-              input yourself.
-            </p>
-          )}
+          {/* PDF-first entry is always available, including for an account
+              with no customers yet: it opens the same temporary workspace and
+              the same upload step used everywhere else. A chosen customer
+              travels only as a starting point for the save panel; it never
+              grants access to anything, and with none chosen the hint is
+              omitted so the save panel defaults to creating a customer. */}
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link
+              to="/analysis"
+              search={{
+                upload: "1",
+                ...(customers.length > 0
+                  ? { customer: contractCustomerId || (customers[0]?.id ?? "") }
+                  : {}),
+              }}
+              className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Upload Contract PDF
+            </Link>
+          </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            ARC keeps an uploaded PDF with the analysis so you can read it alongside your work. It
+            does not create any accounting judgments from the document — you still enter every input
+            yourself.
+          </p>
           {contractMutation.isError ? (
             <p className="mt-2 text-sm text-destructive">That contract could not be saved.</p>
           ) : null}

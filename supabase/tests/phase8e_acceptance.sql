@@ -169,6 +169,76 @@ begin
      and exists (select 1 from public.analysis_revisions where id = amend_draft);
 end $$;
 
+-- 18..21 Lock-ordering between finishing an upload and deleting an initial
+-- draft contract.
+--
+-- HARNESS LIMITATION, STATED PLAINLY: this suite runs in ONE database session
+-- inside one rolled-back transaction. It therefore cannot schedule a real
+-- two-session race; a genuine deadlock could only be observed with two
+-- concurrent backends. The checks below are structural (the order in which
+-- the shipped function body acquires its locks) plus a behavioural check that
+-- a contract carrying an unfinished upload is still deleted correctly.
+do $lock$
+declare
+  src text := pg_get_functiondef('public.arc_delete_initial_draft_contract(uuid,uuid)'::regprocedure);
+  pos_contract int;
+  pos_analysis int;
+  pos_intents int;
+  pos_revision int;
+  pos_docs int;
+  owner_id uuid := '00000000-0000-4000-8000-00000000081c';
+  cust uuid; v_contract uuid; v_analysis uuid;
+begin
+  pos_contract := position('from public.contracts c' in src);
+  pos_analysis := position('from public.analyses a' in src);
+  pos_intents  := position('from public.document_upload_intents i' in src);
+  pos_revision := position('from public.analysis_revisions r' in src);
+  pos_docs     := position('from public.source_documents d' in src);
+
+  insert into arc_test_results
+  select '18 draft deletion locks upload intents before the draft revision',
+         pos_intents > 0 and pos_revision > 0 and pos_intents < pos_revision;
+
+  insert into arc_test_results
+  select '19 lock direction is contract -> analysis -> intents -> revision -> documents',
+         pos_contract > 0 and pos_contract < pos_analysis
+     and pos_analysis < pos_intents
+     and pos_intents < pos_revision
+     and pos_revision < pos_docs;
+
+  insert into arc_test_results
+  select '20 the intent lock is taken in deterministic id order for update',
+         src ~ 'from public\.document_upload_intents i[^$]{0,200}order by i\.id[^$]{0,80}for update';
+
+  -- Behavioural: an unfinished upload does not obstruct the deletion, and its
+  -- object is still queued durably.
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (owner_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'arc-8e-lock@example.test', '', now(), now(), now());
+  insert into public.customers (owner_user_id, name) values (owner_id, 'Lock Order Co')
+  returning id into cust;
+  insert into public.contracts (customer_id, title) values (cust, 'Lock order contract')
+  returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{"schemaVersion":"arc.workflow.v1"}'::jsonb, 'arc.workflow.v1');
+  insert into public.document_upload_intents (contract_id, pending_object_path,
+    original_filename, display_name, expires_at)
+  values (v_contract, 'pending/lock-order.pdf', 'lock.pdf', 'Lock', now() + interval '1 hour');
+
+  perform public.arc_delete_initial_draft_contract(owner_id, v_contract);
+
+  insert into arc_test_results
+  select '21 a contract with an in-flight upload deletes and queues its object',
+         not exists (select 1 from public.contracts where id = v_contract)
+     and not exists (select 1 from public.document_upload_intents where contract_id = v_contract)
+     and exists (select 1 from public.storage_deletion_queue
+                 where storage_object_path = 'pending/lock-order.pdf');
+end $lock$;
+
+
+
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 
