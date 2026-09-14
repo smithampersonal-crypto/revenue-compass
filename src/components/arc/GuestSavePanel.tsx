@@ -107,12 +107,20 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
 
   const titleRef = useRef(title);
   titleRef.current = title;
+  /** Exactly one filing mode travels with the save; the server enforces it too. */
+  const chosenCustomerId =
+    signedInSession && customerMode === "existing" && existingCustomerId !== ""
+      ? existingCustomerId
+      : null;
+  const customerRef = useRef(chosenCustomerId);
+  customerRef.current = chosenCustomerId;
 
   const runMigration = useCallback(async () => {
     if (lockVersion === null) return;
     const request = validateMigrationRequest({
       customerName,
       contractTitle: titleRef.current,
+      existingCustomerId: customerRef.current,
     });
     if (!request.ok) {
       setError(request.reason);
@@ -127,7 +135,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
     setFinalizing(true);
     try {
       const result = await migrate({
-        data: { contractTitle: request.contractTitle, expectedLockVersion: lockVersion },
+        data: {
+          contractTitle: request.contractTitle,
+          expectedLockVersion: lockVersion,
+          existingCustomerId: request.existingCustomerId,
+        },
       });
       if (!result.ok) {
         // A confirmed answer from the server: nothing partial was created and
