@@ -93,7 +93,7 @@ export const listWorkspace = createServerFn({ method: "POST" })
     const revisions = analysisIds.length
       ? await context.supabase
           .from("analysis_revisions")
-          .select("id, analysis_id, revision_number, status")
+          .select("id, analysis_id, revision_number, status, lock_version, supersedes_revision_id")
           .in("analysis_id", analysisIds)
       : { data: [], error: null };
     if (revisions.error) throw new Error("Your saved contracts could not be loaded.");
@@ -108,11 +108,27 @@ export const listWorkspace = createServerFn({ method: "POST" })
 
       const draft = rows.find((row) => row.status === "draft");
       if (draft) {
+        // History decides the destructive action, never the label: a draft is
+        // only "delete" when nothing has ever been finalized.
+        const hasHistory = rows.some(
+          (row) => row.status === "finalized" || row.status === "superseded",
+        );
+        const source = draft.supersedes_revision_id
+          ? rows.find((row) => row.id === draft.supersedes_revision_id)
+          : undefined;
         return {
           kind: "draft",
           revisionId: draft.id,
           revisionNumber: draft.revision_number,
           nextRevisionNumber,
+          draftAction:
+            !hasHistory && draft.revision_number === 1 && !draft.supersedes_revision_id
+              ? "delete-initial-draft"
+              : source
+                ? "discard-amendment"
+                : null,
+          draftLockVersion: draft.lock_version,
+          sourceRevisionNumber: source?.revision_number ?? null,
         };
       }
       const finalized = analysis?.current_finalized_revision_id
@@ -124,9 +140,20 @@ export const listWorkspace = createServerFn({ method: "POST" })
           revisionId: finalized.id,
           revisionNumber: finalized.revision_number,
           nextRevisionNumber,
+          draftAction: null,
+          draftLockVersion: null,
+          sourceRevisionNumber: null,
         };
       }
-      return { kind: "none", revisionId: null, revisionNumber: null, nextRevisionNumber };
+      return {
+        kind: "none",
+        revisionId: null,
+        revisionNumber: null,
+        nextRevisionNumber,
+        draftAction: null,
+        draftLockVersion: null,
+        sourceRevisionNumber: null,
+      };
     }
 
     return {
