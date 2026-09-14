@@ -384,8 +384,49 @@ export async function finalizeUploadHandler(
 
   if (intent.state !== "pending") unavailable();
 
-  const bytes = await deps.storage.download(intent.pending_object_path);
-  const validated = await (deps.validate ?? defaultValidate)(bytes);
+  // Up to two read-backs of the same pending object. A short, empty or
+  // size-mismatched read is a transport failure, never a verdict about the
+  // document; an unreadable-PDF verdict may also be caused by an incomplete
+  // read, so both are worth reading once more. Every other code is a genuine
+  // decision about the document and is returned immediately.
+  const declared =
+    typeof intent.declared_byte_size === "number" && intent.declared_byte_size > 0
+      ? intent.declared_byte_size
+      : null;
+  const attempts: UploadReadDiagnostic[] = [];
+  let validated!: PdfValidationResult;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const bytes = await deps.storage.download(intent.pending_object_path);
+    const signature = hasPdfSignature(bytes);
+    const complete = bytes.byteLength > 0 && (declared === null || bytes.byteLength === declared);
+
+    validated = complete
+      ? await (deps.validate ?? defaultValidate)(bytes)
+      : pdfValidationFailure("upload_incomplete");
+
+    attempts.push({
+      attempt,
+      declaredByteSize: declared,
+      observedByteSize: bytes.byteLength,
+      sha256: await sha256Hex(bytes),
+      pdfSignature: signature,
+      code: validated.ok ? null : validated.code,
+    });
+
+    if (validated.ok || !RETRYABLE_UPLOAD_CODES.includes(validated.code)) break;
+  }
+
+  // Diagnostics are kept for every attempt, including a first failure that a
+  // second successful read recovered from. Best-effort: a diagnostics failure
+  // never changes the upload's outcome.
+  if (attempts.some((entry) => entry.code !== null)) {
+    try {
+      await deps.store.recordUploadDiagnostics?.(intent.id, attempts);
+    } catch {
+      // Intentionally ignored: diagnostics are observational only.
+    }
+  }
 
   if (!validated.ok) {
     // Nothing invalid is ever recorded as a Source Document, and no private
