@@ -16,24 +16,63 @@ retention boundary:
 Both routines are `SECURITY DEFINER` and executable by `service_role` only;
 `public`, `anon` and `authenticated` are revoked.
 
-### Scheduling
+Scheduling is covered by hourly ARC maintenance below. Missing a run is safe:
+an expired workspace is already unauthorized.
 
-Run the physical cleanup hourly. Either option is acceptable:
+## Hourly ARC maintenance (Phase 8F)
 
-1. **Database schedule (preferred).** With `pg_cron` enabled in the Supabase
-   project:
+One entrypoint performs every recurring cleanup:
 
-   ```sql
-   select cron.schedule(
-     'arc-expire-guest-workspaces', '0 * * * *',
-     $$select public.arc_delete_expired_guest_workspaces();$$
-   );
-   ```
+1. **Abandoned uploads** — `public.arc_cleanup_stale_upload_intents(limit)`.
+   An upload intent is stale when its own server-side `expires_at` (the
+   one-hour TTL) has passed by more than fifteen minutes and its state is
+   `pending`, `prepared` or `failed`. Such an intent is moved to the terminal
+   `failed` state and its pending object — plus any reserved permanent path
+   that never became a Source Document — is queued for deletion. A `finalized`
+   intent and every Source Document are never touched, and the Phase 8E upload
+   diagnostics are preserved. Rows are taken with `for update skip locked`, so
+   an in-flight finalization is yielded to rather than raced.
+2. **Nine-hour guest expiry** — `arc_expire_guest_workspaces()` then
+   `arc_delete_expired_guest_workspaces()`. Expiry is decided from
+   `expires_at` in the database, never from browser time. A `before delete`
+   trigger on `source_documents` (and on `document_upload_intents`) queues each
+   storage object before relational ownership disappears, so no cascade can
+   orphan a private object. A document migrated to an authenticated contract is
+   no longer owned by the guest workspace and therefore survives.
+3. **Storage deletion drain** — the application worker
+   (`src/lib/arc/maintenance/`): claim a bounded batch through
+   `arc_claim_storage_deletion_jobs`, delete each object from the private
+   bucket, complete the successful jobs, and release the retryable failures
+   with a safe error category only. An object that is already absent completes
+   the job (desired end state) instead of retrying forever; a job never
+   disappears because deletion failed.
 
-2. **External scheduler.** Any hourly job that calls the routine with the
-   service-role key. Never expose it to a browser.
+`public.arc_run_maintenance(limit)` runs steps 1 and 2 in isolated blocks, so
+one failing category never discards another's work.
 
-Missing a run is safe: an expired workspace is already unauthorized.
+### Production deployment (required manual steps)
+
+1. **Database schedule.** Enable `pg_cron` in the Supabase project and apply
+   `supabase/schedules/arc-hourly-maintenance.sql` once. This runs steps 1
+   and 2 every hour.
+2. **Storage drain schedule.** Set the repository secrets
+   `ARC_MAINTENANCE_URL` (the deployed
+   `https://<host>/api/public/maintenance`) and `ARC_MAINTENANCE_SECRET`
+   (identical to the deployed `ARC_MAINTENANCE_SECRET` environment variable).
+   `.github/workflows/maintenance.yml` then calls the endpoint hourly. The
+   endpoint verifies the bearer secret in constant time and is closed when the
+   secret is unset; it returns counts only.
+
+Both schedules are safe to overlap, to fail partially and to restart midway.
+
+### Observability
+
+A maintenance invocation returns counts only: stale intents processed, objects
+queued, guest workspaces marked expired and deleted, and deletion jobs claimed,
+completed, already-absent and released, plus failures by safe category
+(`not_found`, `permission`, `network`, `unknown`). Document text, raw PDF
+bytes, signed URLs, object paths, auth tokens and guest credentials are never
+recorded.
 
 ## Verification
 
