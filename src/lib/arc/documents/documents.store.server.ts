@@ -82,12 +82,22 @@ export async function documentStore(): Promise<DocumentStore> {
       const { data, error } = await supabaseAdmin
         .from("document_upload_intents")
         .select(
-          "id, contract_id, guest_workspace_id, target_revision_id, pending_object_path, permanent_object_path, resolved_source_document_id, is_duplicate, state, expires_at, original_filename, display_name",
+          "id, contract_id, guest_workspace_id, target_revision_id, pending_object_path, permanent_object_path, resolved_source_document_id, is_duplicate, state, expires_at, original_filename, display_name, declared_byte_size",
         )
         .eq("id", intentId)
         .maybeSingle();
       if (error) fail("upload intent", error);
       return (data as never) ?? null;
+    },
+
+    recordUploadDiagnostics: async (intentId, attempts) => {
+      // Observational only: technical facts about each server read-back, never
+      // PDF text and never raw bytes.
+      const { error } = await supabaseAdmin
+        .from("document_upload_intents")
+        .update({ read_attempts: attempts.length, upload_diagnostics: attempts } as never)
+        .eq("id", intentId);
+      if (error) fail("upload diagnostics", error);
     },
 
     markIntentFailed: async (intentId) => {
