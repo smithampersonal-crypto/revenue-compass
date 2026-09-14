@@ -44,6 +44,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const session = useSupabaseSession();
   const navigate = useNavigate();
   const migrate = useServerFn(migrateGuestWorkspace);
+  const listCustomers = useServerFn(listCustomerChoices);
 
   const [open, setOpen] = useState(autoOpen);
   const [title, setTitle] = useState("");
