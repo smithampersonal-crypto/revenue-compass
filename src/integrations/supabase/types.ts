@@ -570,6 +570,13 @@ export type Database = {
           storage_object_path: string
         }[]
       }
+      arc_cleanup_stale_upload_intents: {
+        Args: { p_limit?: number }
+        Returns: {
+          intents_processed: number
+          objects_queued: number
+        }[]
+      }
       arc_commit_source_document_upload: {
         Args: {
           p_expected_lock_version: number
@@ -717,6 +724,10 @@ export type Database = {
         Args: { p_guest_token_hash: string; p_user_id: string }
         Returns: number
       }
+      arc_queue_storage_object: {
+        Args: { p_bucket: string; p_path: string; p_reason: string }
+        Returns: boolean
+      }
       arc_release_storage_deletion_job: {
         Args: { p_error: string; p_job_id: string }
         Returns: boolean
@@ -750,6 +761,7 @@ export type Database = {
           source_revision_id: string
         }[]
       }
+      arc_run_maintenance: { Args: { p_intent_limit?: number }; Returns: Json }
       arc_set_source_document_archived: {
         Args: {
           p_archived: boolean
