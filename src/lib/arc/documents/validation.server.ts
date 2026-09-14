@@ -41,6 +41,15 @@ export interface ValidatePdfOptions {
 }
 
 async function loadPdfParser(): Promise<PdfParser> {
+  // The deployed server runtime has no runtime module resolution, so pdf.js's
+  // "fake worker" fallback (a dynamic import of pdf.worker.mjs) fails there and
+  // every document is reported as unreadable. Registering the worker module up
+  // front — it is bundled because this import is static-equivalent — makes
+  // pdf.js reuse it instead of resolving a path at runtime.
+  const globals = globalThis as Record<string, unknown>;
+  if (!globals["pdfjsWorker"]) {
+    globals["pdfjsWorker"] = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  }
   const module = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as PdfParser;
   return module;
 }
