@@ -212,7 +212,16 @@ const CONFLICT_MESSAGE =
 
 export async function migrateGuestWorkspaceHandler(
   deps: GuestMigrationDeps,
-  input: { token: string | null; contractTitle: string; expectedLockVersion: number },
+  input: {
+    token: string | null;
+    contractTitle: string;
+    expectedLockVersion: number;
+    /**
+     * The accountant chose a customer they already have. Only ever a hint:
+     * the trusted transaction re-checks that it belongs to them.
+     */
+    existingCustomerId?: string | null;
+  },
 ): Promise<GuestMigrationResult> {
   if (!input.token) return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
   if (!Number.isInteger(input.expectedLockVersion) || input.expectedLockVersion < 1) {
@@ -237,25 +246,32 @@ export async function migrateGuestWorkspaceHandler(
   }
 
   // The saved customer and contract number come from the analysis itself; the
-  // accountant supplies only the contract name.
+  // accountant supplies only the contract name and, optionally, which of their
+  // existing customers this contract belongs to.
   const parsed = parseCanonicalInputs(row!.draft_json, row!.schema_version);
   if (!parsed.ok) return { ok: false, code: "invalid", reason: parsed.reason };
+
+  const existingCustomerId = (input.existingCustomerId ?? "").trim() || null;
 
   const checked = validateMigrationRequest({
     customerName: parsed.draft.contract.customerName,
     contractTitle: input.contractTitle,
     contractNumber: parsed.draft.contract.contractNumber,
+    existingCustomerId,
   });
   if (!checked.ok) return { ok: false, code: "invalid", reason: checked.reason };
 
   // One trusted transaction: guest → customer → contract → analysis →
   // revision 1, under the guest row lock and the expected lock version. It is
   // keyed by the credential hash, never by a browser-supplied workspace id.
+  // Exactly one customer mode travels with it; the database enforces that and
+  // re-checks that an existing customer belongs to this account.
   const { data, error } = await deps.migrateTransaction({
     p_token_hash: tokenHash,
     p_owner_user_id: deps.userId,
     p_expected_lock_version: input.expectedLockVersion,
-    p_customer_name: checked.customerName,
+    p_existing_customer_id: existingCustomerId,
+    p_new_customer_name: existingCustomerId === null ? checked.customerName : null,
     p_contract_title: checked.contractTitle,
     p_contract_number: checked.contractNumber,
   });

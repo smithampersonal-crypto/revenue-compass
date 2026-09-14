@@ -340,11 +340,44 @@ describe("migrateGuestWorkspaceHandler", () => {
       p_token_hash: await hashGuestToken("raw-credential-xyz"),
       p_owner_user_id: "user-7",
       p_expected_lock_version: 3,
-      p_customer_name: "Northwind Systems",
+      // Exactly one filing mode: with no existing customer chosen, the draft's
+      // customer name creates a new one.
+      p_existing_customer_id: null,
+      p_new_customer_name: "Northwind Systems",
       p_contract_title: "Northwind — enterprise",
       p_contract_number: "C-1001",
     });
     expect(JSON.stringify(calls[0])).not.toContain("raw-credential-xyz");
+  });
+
+  it("files the analysis under a chosen existing customer instead of creating one", async () => {
+    const recorder = storeFor(rowFor());
+    const calls: Record<string, unknown>[] = [];
+    const result = await migrateGuestWorkspaceHandler(
+      {
+        store: recorder.store,
+        now: () => NOW,
+        userId: "user-7",
+        migrateTransaction: async (args) => {
+          calls.push(args);
+          return { data: migrated, error: null };
+        },
+      },
+      {
+        token: "raw-credential-xyz",
+        contractTitle: "Northwind — enterprise",
+        expectedLockVersion: 3,
+        existingCustomerId: "11111111-1111-4111-8111-111111111111",
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    // Exactly one mode travels to the trusted transaction, which re-checks
+    // that the caller owns the chosen customer.
+    expect(calls[0]).toMatchObject({
+      p_existing_customer_id: "11111111-1111-4111-8111-111111111111",
+      p_new_customer_name: null,
+    });
   });
 
   it("creates nothing when the temporary workspace moved on in another tab", async () => {

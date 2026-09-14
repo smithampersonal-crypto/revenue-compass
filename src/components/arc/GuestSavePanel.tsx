@@ -1,13 +1,22 @@
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { migrateGuestWorkspace } from "@/lib/arc/persistence/guest.functions";
 import { suggestedContractTitle, validateMigrationRequest } from "@/lib/arc/persistence/guest";
+import { listCustomerChoices } from "@/lib/arc/persistence/workspace.functions";
 import { Notice } from "@/components/asc606-workflow/fields";
 
 import { useAnalysis } from "./analysis-context";
 import { useSupabaseSession } from "./use-supabase-session";
+
+/** The preselection hint from the URL. Never authorization — only a default. */
+function customerHint(): string {
+  if (typeof window === "undefined") return "";
+  const value = new URLSearchParams(window.location.search).get("customer");
+  return value ?? "";
+}
 
 const BUTTON =
   "min-h-9 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
@@ -35,6 +44,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const session = useSupabaseSession();
   const navigate = useNavigate();
   const migrate = useServerFn(migrateGuestWorkspace);
+  const listCustomers = useServerFn(listCustomerChoices);
 
   const [open, setOpen] = useState(autoOpen);
   const [title, setTitle] = useState("");
@@ -47,6 +57,35 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
    * it may well have committed. ARC never claims a rollback here.
    */
   const [unknownOutcome, setUnknownOutcome] = useState(false);
+  /** "existing" files the analysis under a customer the caller already owns. */
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
+  const [existingCustomerId, setExistingCustomerId] = useState<string>(customerHint);
+  const [customerTouched, setCustomerTouched] = useState(false);
+
+  const signedInSession = session.status === "signed-in";
+  const choices = useQuery({
+    queryKey: ["arc-customer-choices"],
+    enabled: signedInSession,
+    queryFn: () => listCustomers({}),
+    retry: false,
+  });
+  const customerChoices = choices.data?.customers ?? [];
+
+  // With no customers of their own, the only sensible mode is a new one.
+  useEffect(() => {
+    if (customerTouched || !choices.isSuccess) return;
+    if (customerChoices.length === 0) {
+      setCustomerMode("new");
+      setExistingCustomerId("");
+      return;
+    }
+    setCustomerMode("existing");
+    setExistingCustomerId((current) =>
+      customerChoices.some((choice) => choice.id === current)
+        ? current
+        : (customerChoices[0]?.id ?? ""),
+    );
+  }, [choices.isSuccess, customerChoices, customerTouched]);
 
   const customerName = draft.contract.customerName.trim();
   const suggestion = suggestedContractTitle({
@@ -68,12 +107,20 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
 
   const titleRef = useRef(title);
   titleRef.current = title;
+  /** Exactly one filing mode travels with the save; the server enforces it too. */
+  const chosenCustomerId =
+    signedInSession && customerMode === "existing" && existingCustomerId !== ""
+      ? existingCustomerId
+      : null;
+  const customerRef = useRef(chosenCustomerId);
+  customerRef.current = chosenCustomerId;
 
   const runMigration = useCallback(async () => {
     if (lockVersion === null) return;
     const request = validateMigrationRequest({
       customerName,
       contractTitle: titleRef.current,
+      existingCustomerId: customerRef.current,
     });
     if (!request.ok) {
       setError(request.reason);
@@ -88,7 +135,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
     setFinalizing(true);
     try {
       const result = await migrate({
-        data: { contractTitle: request.contractTitle, expectedLockVersion: lockVersion },
+        data: {
+          contractTitle: request.contractTitle,
+          expectedLockVersion: lockVersion,
+          existingCustomerId: request.existingCustomerId,
+        },
       });
       if (!result.ok) {
         // A confirmed answer from the server: nothing partial was created and
@@ -145,7 +196,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   if (persistence.mode !== "guest") return null;
 
   const signedIn = session.status === "signed-in";
-  const check = validateMigrationRequest({ customerName, contractTitle: title });
+  const check = validateMigrationRequest({
+    customerName,
+    contractTitle: title,
+    existingCustomerId: chosenCustomerId,
+  });
   const expired = persistence.status.kind === "guest-expired";
   const waiting = intent !== null;
 
@@ -212,6 +267,65 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
             submit();
           }}
         >
+          {signedIn ? (
+            <fieldset className="space-y-2" disabled={pending}>
+              <legend className="text-sm font-medium text-foreground">Customer</legend>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name="guest-customer-mode"
+                  value="existing"
+                  checked={customerMode === "existing"}
+                  disabled={customerChoices.length === 0}
+                  onChange={() => {
+                    setCustomerTouched(true);
+                    setCustomerMode("existing");
+                    if (existingCustomerId === "") {
+                      setExistingCustomerId(customerChoices[0]?.id ?? "");
+                    }
+                  }}
+                />
+                Existing customer
+              </label>
+              {customerMode === "existing" ? (
+                <select
+                  aria-label="Existing customer"
+                  value={existingCustomerId}
+                  onChange={(event) => {
+                    setCustomerTouched(true);
+                    setExistingCustomerId(event.target.value);
+                  }}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {customerChoices.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name="guest-customer-mode"
+                  value="new"
+                  checked={customerMode === "new"}
+                  onChange={() => {
+                    setCustomerTouched(true);
+                    setCustomerMode("new");
+                  }}
+                />
+                Create new customer
+              </label>
+              {customerMode === "new" ? (
+                <p className="text-sm text-muted-foreground">
+                  A new customer will be created as{" "}
+                  {customerName === "" ? "the customer named in Step 1" : customerName}.
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
+
           <div className="space-y-1">
             <label htmlFor="guest-contract-title" className="text-sm font-medium text-foreground">
               Contract name
@@ -227,7 +341,13 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="text-sm text-muted-foreground">
-              Saved for {customerName === "" ? "the customer named in Step 1" : customerName}
+              Saved for{" "}
+              {chosenCustomerId
+                ? (customerChoices.find((choice) => choice.id === chosenCustomerId)?.name ??
+                  "the selected customer")
+                : customerName === ""
+                  ? "the customer named in Step 1"
+                  : customerName}
               {draft.contract.contractNumber.trim() === ""
                 ? ""
                 : ` · ${draft.contract.contractNumber.trim()}`}

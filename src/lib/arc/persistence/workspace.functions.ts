@@ -27,6 +27,16 @@ export interface ContractRevisionStateDto {
   revisionNumber: number | null;
   /** The revision number a new revision would take. */
   nextRevisionNumber: number;
+  /**
+   * Which destructive action, if any, applies to the current draft. Advisory
+   * only: the trusted transaction revalidates eligibility before deleting
+   * anything.
+   */
+  draftAction: "delete-initial-draft" | "discard-amendment" | null;
+  /** The active draft's lock version, needed by the discard transaction. */
+  draftLockVersion: number | null;
+  /** For an amendment draft, the finalized revision it continues. */
+  sourceRevisionNumber: number | null;
 }
 
 export interface ContractSummaryDto {
@@ -42,6 +52,12 @@ export interface CustomerWithContractsDto {
   id: string;
   name: string;
   contracts: ContractSummaryDto[];
+}
+
+/** A customer the caller owns, for the "save under an existing customer" choice. */
+export interface CustomerChoiceDto {
+  id: string;
+  name: string;
 }
 
 const nameSchema = z.string().trim().min(1, "A name is required").max(200);
@@ -77,7 +93,7 @@ export const listWorkspace = createServerFn({ method: "POST" })
     const revisions = analysisIds.length
       ? await context.supabase
           .from("analysis_revisions")
-          .select("id, analysis_id, revision_number, status")
+          .select("id, analysis_id, revision_number, status, lock_version, supersedes_revision_id")
           .in("analysis_id", analysisIds)
       : { data: [], error: null };
     if (revisions.error) throw new Error("Your saved contracts could not be loaded.");
@@ -92,11 +108,27 @@ export const listWorkspace = createServerFn({ method: "POST" })
 
       const draft = rows.find((row) => row.status === "draft");
       if (draft) {
+        // History decides the destructive action, never the label: a draft is
+        // only "delete" when nothing has ever been finalized.
+        const hasHistory = rows.some(
+          (row) => row.status === "finalized" || row.status === "superseded",
+        );
+        const source = draft.supersedes_revision_id
+          ? rows.find((row) => row.id === draft.supersedes_revision_id)
+          : undefined;
         return {
           kind: "draft",
           revisionId: draft.id,
           revisionNumber: draft.revision_number,
           nextRevisionNumber,
+          draftAction:
+            !hasHistory && draft.revision_number === 1 && !draft.supersedes_revision_id
+              ? "delete-initial-draft"
+              : source
+                ? "discard-amendment"
+                : null,
+          draftLockVersion: draft.lock_version,
+          sourceRevisionNumber: source?.revision_number ?? null,
         };
       }
       const finalized = analysis?.current_finalized_revision_id
@@ -108,9 +140,20 @@ export const listWorkspace = createServerFn({ method: "POST" })
           revisionId: finalized.id,
           revisionNumber: finalized.revision_number,
           nextRevisionNumber,
+          draftAction: null,
+          draftLockVersion: null,
+          sourceRevisionNumber: null,
         };
       }
-      return { kind: "none", revisionId: null, revisionNumber: null, nextRevisionNumber };
+      return {
+        kind: "none",
+        revisionId: null,
+        revisionNumber: null,
+        nextRevisionNumber,
+        draftAction: null,
+        draftLockVersion: null,
+        sourceRevisionNumber: null,
+      };
     }
 
     return {
@@ -191,3 +234,48 @@ export const createContract = createServerFn({ method: "POST" })
       };
     },
   );
+
+/**
+ * The caller's own customers, for choosing where an unsaved analysis is filed.
+ * Caller-scoped: row-level security means another account's customers can
+ * never appear here.
+ */
+export const listCustomerChoices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ customers: CustomerChoiceDto[] }> => {
+    const { data, error } = await context.supabase
+      .from("customers")
+      .select("id, name")
+      .order("name", { ascending: true });
+    if (error) throw new Error("Your saved customers could not be loaded.");
+    return { customers: (data ?? []).map((row) => ({ id: row.id, name: row.name })) };
+  });
+
+/**
+ * Permanently deletes a saved analysis that has never been finalized: the
+ * contract, its first draft and its uploaded source documents. The customer
+ * stays. Every stored PDF is queued for removal before the rows disappear.
+ *
+ * Eligibility is decided inside the trusted transaction under row locks, so a
+ * finalize racing this deletion wins and nothing is removed.
+ */
+export const deleteInitialDraftContract = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { contractId: string }) => ({
+    contractId: z.string().uuid().parse(input?.contractId),
+  }))
+  .handler(async ({ data, context }): Promise<{ deletedContractId: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: deleted, error } = await supabaseAdmin
+      .rpc("arc_delete_initial_draft_contract", {
+        p_owner_user_id: context.userId,
+        p_contract_id: data.contractId,
+      } as never)
+      .single();
+
+    const row = deleted as { deleted_contract_id?: string } | null;
+    if (error || !row?.deleted_contract_id) {
+      throw new Error("That draft analysis could not be deleted.");
+    }
+    return { deletedContractId: row.deleted_contract_id };
+  });

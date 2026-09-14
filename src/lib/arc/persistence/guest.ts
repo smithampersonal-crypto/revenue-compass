@@ -116,22 +116,37 @@ export interface MigrationRequestFields {
   contractTitle: string;
   /** Taken from the Step 1 draft; optional. */
   contractNumber?: string;
+  /**
+   * Set when the analysis is being saved under a customer the accountant
+   * already has. Only a hint at this layer: ownership is decided by the
+   * trusted transaction, never here.
+   */
+  existingCustomerId?: string | null;
 }
 
 export type MigrationRequestCheck =
-  | { ok: true; customerName: string; contractTitle: string; contractNumber: string }
+  | {
+      ok: true;
+      customerName: string;
+      contractTitle: string;
+      contractNumber: string;
+      existingCustomerId: string | null;
+    }
   | { ok: false; reason: string };
 
 /**
  * Validates what a guest → account migration needs before anything is created.
- * A blank customer name is an analysis gap, so it points back at Step 1.
+ * A blank customer name is an analysis gap, so it points back at Step 1 —
+ * unless the analysis is being filed under an existing customer, whose name is
+ * already recorded.
  */
 export function validateMigrationRequest(fields: MigrationRequestFields): MigrationRequestCheck {
+  const existingCustomerId = (fields.existingCustomerId ?? "").trim() || null;
   const customerName = (fields.customerName ?? "").trim();
   const contractTitle = (fields.contractTitle ?? "").trim();
   const contractNumber = (fields.contractNumber ?? "").trim();
 
-  if (customerName === "") {
+  if (existingCustomerId === null && customerName === "") {
     return {
       ok: false,
       reason:
@@ -144,7 +159,7 @@ export function validateMigrationRequest(fields: MigrationRequestFields): Migrat
   if (contractTitle.length > 200) {
     return { ok: false, reason: "That contract name is too long (200 characters maximum)." };
   }
-  return { ok: true, customerName, contractTitle, contractNumber };
+  return { ok: true, customerName, contractTitle, contractNumber, existingCustomerId };
 }
 
 /**
