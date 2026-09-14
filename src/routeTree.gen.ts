@@ -23,6 +23,7 @@ import { Route as AnalysisReviewRouteImport } from './routes/analysis/review'
 import { Route as AnalysisScheduleRouteImport } from './routes/analysis/schedule'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as ApiPublicPdfRuntimeCheckRouteImport } from './routes/api/public/pdf-runtime-check'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -93,6 +94,12 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPdfRuntimeCheckRoute =
+  ApiPublicPdfRuntimeCheckRouteImport.update({
+    id: '/api/public/pdf-runtime-check',
+    path: '/api/public/pdf-runtime-check',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/api/public/pdf-runtime-check': typeof ApiPublicPdfRuntimeCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -122,6 +130,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis': typeof AnalysisIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/api/public/pdf-runtime-check': typeof ApiPublicPdfRuntimeCheckRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -139,6 +148,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/api/public/pdf-runtime-check': typeof ApiPublicPdfRuntimeCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/analysis/'
     | '/auth/'
+    | '/api/public/pdf-runtime-check'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/analysis'
     | '/auth'
+    | '/api/public/pdf-runtime-check'
   id:
     | '__root__'
     | '/'
@@ -186,6 +198,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/analysis/'
     | '/auth/'
+    | '/api/public/pdf-runtime-check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -195,6 +208,7 @@ export interface RootRouteChildren {
   EngineCheckRoute: typeof EngineCheckRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthIndexRoute: typeof AuthIndexRoute
+  ApiPublicPdfRuntimeCheckRoute: typeof ApiPublicPdfRuntimeCheckRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -297,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pdf-runtime-check': {
+      id: '/api/public/pdf-runtime-check'
+      path: '/api/public/pdf-runtime-check'
+      fullPath: '/api/public/pdf-runtime-check'
+      preLoaderRoute: typeof ApiPublicPdfRuntimeCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -342,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   EngineCheckRoute: EngineCheckRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthIndexRoute: AuthIndexRoute,
+  ApiPublicPdfRuntimeCheckRoute: ApiPublicPdfRuntimeCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
