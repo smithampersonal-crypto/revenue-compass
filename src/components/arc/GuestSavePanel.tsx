@@ -267,6 +267,65 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
             submit();
           }}
         >
+          {signedIn ? (
+            <fieldset className="space-y-2" disabled={pending}>
+              <legend className="text-sm font-medium text-foreground">Customer</legend>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name="guest-customer-mode"
+                  value="existing"
+                  checked={customerMode === "existing"}
+                  disabled={customerChoices.length === 0}
+                  onChange={() => {
+                    setCustomerTouched(true);
+                    setCustomerMode("existing");
+                    if (existingCustomerId === "") {
+                      setExistingCustomerId(customerChoices[0]?.id ?? "");
+                    }
+                  }}
+                />
+                Existing customer
+              </label>
+              {customerMode === "existing" ? (
+                <select
+                  aria-label="Existing customer"
+                  value={existingCustomerId}
+                  onChange={(event) => {
+                    setCustomerTouched(true);
+                    setExistingCustomerId(event.target.value);
+                  }}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {customerChoices.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="radio"
+                  name="guest-customer-mode"
+                  value="new"
+                  checked={customerMode === "new"}
+                  onChange={() => {
+                    setCustomerTouched(true);
+                    setCustomerMode("new");
+                  }}
+                />
+                Create new customer
+              </label>
+              {customerMode === "new" ? (
+                <p className="text-sm text-muted-foreground">
+                  A new customer will be created as{" "}
+                  {customerName === "" ? "the customer named in Step 1" : customerName}.
+                </p>
+              ) : null}
+            </fieldset>
+          ) : null}
+
           <div className="space-y-1">
             <label htmlFor="guest-contract-title" className="text-sm font-medium text-foreground">
               Contract name
@@ -282,7 +341,13 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
             />
             <p className="text-sm text-muted-foreground">
-              Saved for {customerName === "" ? "the customer named in Step 1" : customerName}
+              Saved for{" "}
+              {chosenCustomerId
+                ? (customerChoices.find((choice) => choice.id === chosenCustomerId)?.name ??
+                  "the selected customer")
+                : customerName === ""
+                  ? "the customer named in Step 1"
+                  : customerName}
               {draft.contract.contractNumber.trim() === ""
                 ? ""
                 : ` · ${draft.contract.contractNumber.trim()}`}
