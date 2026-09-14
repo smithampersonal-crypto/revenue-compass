@@ -350,6 +350,36 @@ describe("migrateGuestWorkspaceHandler", () => {
     expect(JSON.stringify(calls[0])).not.toContain("raw-credential-xyz");
   });
 
+  it("files the analysis under a chosen existing customer instead of creating one", async () => {
+    const recorder = storeFor(rowFor());
+    const calls: Record<string, unknown>[] = [];
+    const result = await migrateGuestWorkspaceHandler(
+      {
+        store: recorder.store,
+        now: () => NOW,
+        userId: "user-7",
+        migrateTransaction: async (args) => {
+          calls.push(args);
+          return { data: migrated, error: null };
+        },
+      },
+      {
+        token: "raw-credential-xyz",
+        contractTitle: "Northwind — enterprise",
+        expectedLockVersion: 3,
+        existingCustomerId: "11111111-1111-4111-8111-111111111111",
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    // Exactly one mode travels to the trusted transaction, which re-checks
+    // that the caller owns the chosen customer.
+    expect(calls[0]).toMatchObject({
+      p_existing_customer_id: "11111111-1111-4111-8111-111111111111",
+      p_new_customer_name: null,
+    });
+  });
+
   it("creates nothing when the temporary workspace moved on in another tab", async () => {
     const recorder = storeFor(rowFor({ lock_version: 4 }));
     let called = false;
