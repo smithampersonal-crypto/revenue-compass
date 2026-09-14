@@ -39,7 +39,7 @@ export async function documentStore(): Promise<DocumentStore> {
     findDraftRevision: async (revisionId) => {
       const { data, error } = await supabaseAdmin
         .from("analysis_revisions")
-        .select("id, status, lock_version, analyses!inner(contract_id)")
+        .select("id, status, lock_version, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)")
         .eq("id", revisionId)
         .maybeSingle();
       if (error) fail("revision", error);
