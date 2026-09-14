@@ -50,6 +50,12 @@ export interface IntentRow {
   expires_at: string;
   original_filename: string;
   display_name: string;
+  /**
+   * Transport-integrity expectation taken from the browser-selected file. It
+   * is never a validated fact: the downloaded bytes alone decide the hash,
+   * the size, the page count and whether the document is a readable PDF.
+   */
+  declared_byte_size?: number | null;
 }
 
 export interface IntentInsert {
@@ -62,7 +68,20 @@ export interface IntentInsert {
   display_name: string;
   document_type: string | null;
   effective_date: string | null;
+  declared_byte_size: number | null;
   expires_at: string;
+}
+
+/** One server read-back attempt, recorded privately. Never text, never bytes. */
+export interface UploadReadDiagnostic {
+  attempt: number;
+  declaredByteSize: number | null;
+  observedByteSize: number;
+  /** SHA-256 of exactly the bytes this attempt read back. */
+  sha256: string;
+  pdfSignature: boolean;
+  /** Null when this attempt validated successfully. */
+  code: string | null;
 }
 
 export interface PrepareResult {
