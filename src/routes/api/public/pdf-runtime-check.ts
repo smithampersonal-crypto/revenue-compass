@@ -23,8 +23,9 @@ trailer<</Root 1 0 R>>
 export const Route = createFileRoute("/api/public/pdf-runtime-check")({
   server: {
     handlers: {
-      GET: async () => {
-        const bytes = new TextEncoder().encode(TINY_PDF);
+      POST: async ({ request }: { request: Request }) => {
+        const body = new Uint8Array(await request.arrayBuffer());
+        const bytes = body.byteLength > 0 ? body : new TextEncoder().encode(TINY_PDF);
         const report: Record<string, unknown> = {
           runtime: typeof navigator !== "undefined" ? String(navigator.userAgent) : "unknown",
           hasDOMMatrix: typeof (globalThis as Record<string, unknown>)["DOMMatrix"] !== "undefined",
