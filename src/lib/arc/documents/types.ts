@@ -37,7 +37,43 @@ export type SourceDocumentType = (typeof SOURCE_DOCUMENT_TYPES)[number];
 
 /** Stable validation outcome codes; never a parsed parser message. */
 export type PdfValidationCode =
-  "too_large" | "too_many_pages" | "invalid_pdf" | "password_protected" | "no_extractable_text";
+  | "too_large"
+  | "too_many_pages"
+  | "invalid_pdf"
+  | "password_protected"
+  | "no_extractable_text"
+  /** Transport failure: the bytes the server read back are not the file sent. */
+  | "upload_incomplete";
+
+/** How many bytes of the opening portion may contain the PDF signature. */
+export const PDF_SIGNATURE_SEARCH_BYTES = 1024;
+
+/**
+ * A PDF signature anywhere in the opening portion of the file. Byte zero is
+ * not required: real-world PDFs carry leading whitespace or junk and are still
+ * read correctly by every conforming reader.
+ */
+export function hasPdfSignature(bytes: Uint8Array): boolean {
+  const window = bytes.subarray(0, PDF_SIGNATURE_SEARCH_BYTES);
+  const marker = [0x25, 0x50, 0x44, 0x46, 0x2d]; // "%PDF-"
+  outer: for (let start = 0; start + marker.length <= window.length; start += 1) {
+    for (let offset = 0; offset < marker.length; offset += 1) {
+      if (window[start + offset] !== marker[offset]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Rejections worth reading the object a second time. A transport problem and
+ * an unreadable-PDF verdict can both be caused by an incomplete read; every
+ * other code is a genuine decision about the document and is never retried.
+ */
+export const RETRYABLE_UPLOAD_CODES: readonly PdfValidationCode[] = [
+  "upload_incomplete",
+  "invalid_pdf",
+];
 
 /** Authoritative technical facts. Extracted text is never part of this. */
 export interface PdfFacts {
@@ -57,6 +93,7 @@ export const PDF_VALIDATION_MESSAGES: Record<PdfValidationCode, string> = {
     "This PDF is password-protected. ARC currently supports unprotected text-based PDFs only.",
   no_extractable_text:
     "This PDF does not contain extractable text. ARC currently supports text-based PDFs only.",
+  upload_incomplete: "That upload did not finish — please try again.",
 };
 
 export function pdfValidationFailure(code: PdfValidationCode): PdfValidationResult {

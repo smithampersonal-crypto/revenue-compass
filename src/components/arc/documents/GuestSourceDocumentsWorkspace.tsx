@@ -332,6 +332,7 @@ export function GuestSourceDocumentsWorkspace({
               data: {
                 originalFilename: input.file.name,
                 displayName: input.displayName,
+                declaredByteSize: input.file.size,
                 ...(input.documentType ? { documentType: input.documentType } : {}),
                 ...(input.effectiveDate ? { effectiveDate: input.effectiveDate } : {}),
               },

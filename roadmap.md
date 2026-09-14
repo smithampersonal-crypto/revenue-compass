@@ -430,6 +430,28 @@
   — 40 assertions, all passing against the ARC-development database. No
   `src/lib/asc606*` or sample-fixture change.
 
+- Phase 8E acceptance — upload transport integrity. The browser's selected
+  file size now travels with the upload intent as a transport expectation
+  only: the server's own downloaded bytes remain authoritative for hash, size,
+  page count and PDF validity. Before the PDF reader is asked, an empty or
+  size-mismatched read-back is reported as "That upload did not finish" rather
+  than as an unreadable document, and the PDF signature is looked for anywhere
+  in the first 1,024 bytes. An incomplete or unreadable-PDF verdict is read
+  back once more; password-protected, too large, too many pages and no
+  extractable text are never retried. A successful second read continues
+  through the same prepare/duplicate/promote/commit path — one intent, one
+  document row, one permanent blob. Both attempts are recorded privately
+  (declared size, observed size, SHA-256, signature present, code, attempt
+  count — never text, never raw bytes), including a first failure that the
+  retry recovered. Both reads failing still marks the intent terminal before
+  cleanup, exactly as Phase 8B requires.
+  Verification: 783 tests across 71 files, typecheck clean, ESLint 0 errors,
+  build OK, bundle audit clean.
+
+- Phase 8E acceptance — still open: saving under an existing customer, Upload
+  Contract PDF from My Contracts, and delete/discard of drafts.
+
+
 
 ## Standing guardrails
 

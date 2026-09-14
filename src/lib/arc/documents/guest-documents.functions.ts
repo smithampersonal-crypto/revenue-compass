@@ -22,6 +22,7 @@ import {
 import {
   GUEST_SOURCE_CONFLICT_MESSAGE,
   GUEST_WORKSPACE_UNAVAILABLE,
+  MAX_DOCUMENT_BYTES,
   SOURCE_DOCUMENT_TYPES,
   type DocumentReadUrlResult,
   type FinalizeUploadResult,
@@ -89,6 +90,8 @@ const initiateInput = z.object({
   displayName: z.string().trim().min(1).max(255),
   documentType: z.enum(SOURCE_DOCUMENT_TYPES).optional(),
   effectiveDate: z.string().date().optional(),
+  // Transport-integrity expectation only; the server's own read decides facts.
+  declaredByteSize: z.number().int().positive().max(MAX_DOCUMENT_BYTES).optional(),
 });
 
 export const initiateGuestDocumentUpload = createServerFn({ method: "POST" })

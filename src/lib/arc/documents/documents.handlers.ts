@@ -19,9 +19,12 @@ import { hashGuestToken } from "@/lib/arc/persistence/guest";
 import {
   DOCUMENT_NOT_AVAILABLE,
   GUEST_WORKSPACE_UNAVAILABLE,
+  RETRYABLE_UPLOAD_CODES,
   SIGNED_READ_TTL_SECONDS,
   SOURCE_DOCUMENT_BUCKET,
   UPLOAD_INTENT_TTL_SECONDS,
+  hasPdfSignature,
+  pdfValidationFailure,
   type FinalizeUploadResult,
   type DocumentReadUrlResult,
   type PdfValidationResult,
@@ -47,6 +50,12 @@ export interface IntentRow {
   expires_at: string;
   original_filename: string;
   display_name: string;
+  /**
+   * Transport-integrity expectation taken from the browser-selected file. It
+   * is never a validated fact: the downloaded bytes alone decide the hash,
+   * the size, the page count and whether the document is a readable PDF.
+   */
+  declared_byte_size?: number | null;
 }
 
 export interface IntentInsert {
@@ -59,7 +68,20 @@ export interface IntentInsert {
   display_name: string;
   document_type: string | null;
   effective_date: string | null;
+  declared_byte_size: number | null;
   expires_at: string;
+}
+
+/** One server read-back attempt, recorded privately. Never text, never bytes. */
+export interface UploadReadDiagnostic {
+  attempt: number;
+  declaredByteSize: number | null;
+  observedByteSize: number;
+  /** SHA-256 of exactly the bytes this attempt read back. */
+  sha256: string;
+  pdfSignature: boolean;
+  /** Null when this attempt validated successfully. */
+  code: string | null;
 }
 
 export interface PrepareResult {
@@ -110,6 +132,8 @@ export interface DocumentStore {
   }): Promise<CommitResult>;
   findOwnedDocument(documentId: string, userId: string): Promise<OwnedDocumentRow | null>;
   findGuestDocument(documentId: string, workspaceId: string): Promise<OwnedDocumentRow | null>;
+  /** Private technical record of every server read-back attempt. */
+  recordUploadDiagnostics?(intentId: string, attempts: UploadReadDiagnostic[]): Promise<void>;
 }
 
 export interface DocumentStorage {
@@ -145,6 +169,8 @@ export interface InitiateUploadInput {
   displayName: string;
   documentType?: SourceDocumentType | undefined;
   effectiveDate?: string | undefined;
+  /** Size of the browser-selected file; a transport expectation only. */
+  declaredByteSize?: number | undefined;
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -172,6 +198,14 @@ function pendingPath(intentId: string): string {
 async function defaultValidate(bytes: Uint8Array): Promise<PdfValidationResult> {
   const { validatePdfBytes } = await import("./validation.server");
   return validatePdfBytes(bytes);
+}
+
+/** SHA-256 of exactly these bytes, lowercase hex. Diagnostics only. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBuffer);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /* ------------------------------------------------------------- initiation */
@@ -225,6 +259,11 @@ export async function initiateUploadHandler(
     display_name: displayName,
     document_type: input.documentType ?? null,
     effective_date: input.effectiveDate ?? null,
+    // Transport expectation only; never used as a validated document fact.
+    declared_byte_size:
+      typeof input.declaredByteSize === "number" && Number.isFinite(input.declaredByteSize)
+        ? Math.trunc(input.declaredByteSize)
+        : null,
     expires_at: expiresAt,
   });
 
@@ -345,8 +384,49 @@ export async function finalizeUploadHandler(
 
   if (intent.state !== "pending") unavailable();
 
-  const bytes = await deps.storage.download(intent.pending_object_path);
-  const validated = await (deps.validate ?? defaultValidate)(bytes);
+  // Up to two read-backs of the same pending object. A short, empty or
+  // size-mismatched read is a transport failure, never a verdict about the
+  // document; an unreadable-PDF verdict may also be caused by an incomplete
+  // read, so both are worth reading once more. Every other code is a genuine
+  // decision about the document and is returned immediately.
+  const declared =
+    typeof intent.declared_byte_size === "number" && intent.declared_byte_size > 0
+      ? intent.declared_byte_size
+      : null;
+  const attempts: UploadReadDiagnostic[] = [];
+  let validated!: PdfValidationResult;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const bytes = await deps.storage.download(intent.pending_object_path);
+    const signature = hasPdfSignature(bytes);
+    const complete = bytes.byteLength > 0 && (declared === null || bytes.byteLength === declared);
+
+    validated = complete
+      ? await (deps.validate ?? defaultValidate)(bytes)
+      : pdfValidationFailure("upload_incomplete");
+
+    attempts.push({
+      attempt,
+      declaredByteSize: declared,
+      observedByteSize: bytes.byteLength,
+      sha256: await sha256Hex(bytes),
+      pdfSignature: signature,
+      code: validated.ok ? null : validated.code,
+    });
+
+    if (validated.ok || !RETRYABLE_UPLOAD_CODES.includes(validated.code)) break;
+  }
+
+  // Diagnostics are kept for every attempt, including a first failure that a
+  // second successful read recovered from. Best-effort: a diagnostics failure
+  // never changes the upload's outcome.
+  if (attempts.some((entry) => entry.code !== null)) {
+    try {
+      await deps.store.recordUploadDiagnostics?.(intent.id, attempts);
+    } catch {
+      // Intentionally ignored: diagnostics are observational only.
+    }
+  }
 
   if (!validated.ok) {
     // Nothing invalid is ever recorded as a Source Document, and no private

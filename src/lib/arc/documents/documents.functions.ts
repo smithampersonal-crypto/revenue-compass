@@ -18,6 +18,7 @@ import {
   type DocumentDeps,
 } from "./documents.handlers";
 import {
+  MAX_DOCUMENT_BYTES,
   SOURCE_DOCUMENT_TYPES,
   type DocumentReadUrlResult,
   type FinalizeUploadResult,
@@ -38,6 +39,8 @@ const initiateInput = z.object({
   displayName: z.string().trim().min(1).max(255),
   documentType: z.enum(SOURCE_DOCUMENT_TYPES).optional(),
   effectiveDate: z.string().date().optional(),
+  // Transport-integrity expectation only; the server's own read decides facts.
+  declaredByteSize: z.number().int().positive().max(MAX_DOCUMENT_BYTES).optional(),
 });
 
 /** Reserves one pending object and returns a one-time signed upload target. */
