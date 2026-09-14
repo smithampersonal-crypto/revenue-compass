@@ -234,3 +234,48 @@ export const createContract = createServerFn({ method: "POST" })
       };
     },
   );
+
+/**
+ * The caller's own customers, for choosing where an unsaved analysis is filed.
+ * Caller-scoped: row-level security means another account's customers can
+ * never appear here.
+ */
+export const listCustomerChoices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ customers: CustomerChoiceDto[] }> => {
+    const { data, error } = await context.supabase
+      .from("customers")
+      .select("id, name")
+      .order("name", { ascending: true });
+    if (error) throw new Error("Your saved customers could not be loaded.");
+    return { customers: (data ?? []).map((row) => ({ id: row.id, name: row.name })) };
+  });
+
+/**
+ * Permanently deletes a saved analysis that has never been finalized: the
+ * contract, its first draft and its uploaded source documents. The customer
+ * stays. Every stored PDF is queued for removal before the rows disappear.
+ *
+ * Eligibility is decided inside the trusted transaction under row locks, so a
+ * finalize racing this deletion wins and nothing is removed.
+ */
+export const deleteInitialDraftContract = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { contractId: string }) => ({
+    contractId: z.string().uuid().parse(input?.contractId),
+  }))
+  .handler(async ({ data, context }): Promise<{ deletedContractId: string }> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: deleted, error } = await supabaseAdmin
+      .rpc("arc_delete_initial_draft_contract", {
+        p_owner_user_id: context.userId,
+        p_contract_id: data.contractId,
+      } as never)
+      .single();
+
+    const row = deleted as { deleted_contract_id?: string } | null;
+    if (error || !row?.deleted_contract_id) {
+      throw new Error("That draft analysis could not be deleted.");
+    }
+    return { deletedContractId: row.deleted_contract_id };
+  });
