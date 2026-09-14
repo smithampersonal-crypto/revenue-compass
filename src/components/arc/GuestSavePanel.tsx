@@ -56,6 +56,35 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
    * it may well have committed. ARC never claims a rollback here.
    */
   const [unknownOutcome, setUnknownOutcome] = useState(false);
+  /** "existing" files the analysis under a customer the caller already owns. */
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">("existing");
+  const [existingCustomerId, setExistingCustomerId] = useState<string>(customerHint);
+  const [customerTouched, setCustomerTouched] = useState(false);
+
+  const signedInSession = session.status === "signed-in";
+  const choices = useQuery({
+    queryKey: ["arc-customer-choices"],
+    enabled: signedInSession,
+    queryFn: () => listCustomers({}),
+    retry: false,
+  });
+  const customerChoices = choices.data?.customers ?? [];
+
+  // With no customers of their own, the only sensible mode is a new one.
+  useEffect(() => {
+    if (customerTouched || !choices.isSuccess) return;
+    if (customerChoices.length === 0) {
+      setCustomerMode("new");
+      setExistingCustomerId("");
+      return;
+    }
+    setCustomerMode("existing");
+    setExistingCustomerId((current) =>
+      customerChoices.some((choice) => choice.id === current)
+        ? current
+        : (customerChoices[0]?.id ?? ""),
+    );
+  }, [choices.isSuccess, customerChoices, customerTouched]);
 
   const customerName = draft.contract.customerName.trim();
   const suggestion = suggestedContractTitle({
