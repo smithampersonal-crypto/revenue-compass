@@ -386,6 +386,71 @@ begin
            where storage_object_path = 'pending/8f-idem.pdf') = 1;
 end $idem$;
 
+-- 32..34 Signed-upload lifetime alignment: physical cleanup must wait until the
+-- Supabase signed-upload capability (2h) has expired plus the 15-minute grace,
+-- i.e. expires_at < now() - interval '1 hour 15 minutes'.
+do $window$
+declare
+  guest_id uuid;
+  young_intent uuid;
+  old_intent uuid;
+  queue_rows integer;
+begin
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values ('8f0f' || repeat('f', 60), '{}'::jsonb, 'arc.workflow.v1', now() + interval '5 hours')
+  returning id into guest_id;
+
+  -- Created 90 minutes ago => ARC-expired 30 minutes ago, capability still live.
+  insert into public.document_upload_intents (guest_workspace_id, pending_object_path,
+        original_filename, display_name, state, expires_at, created_at)
+  values (guest_id, 'pending/8f-window-young.pdf', 'y.pdf', 'Young', 'pending',
+          now() - interval '30 minutes', now() - interval '90 minutes')
+  returning id into young_intent;
+
+  -- Created ~2h20 ago => capability expired plus grace.
+  insert into public.document_upload_intents (guest_workspace_id, pending_object_path,
+        original_filename, display_name, state, expires_at, created_at)
+  values (guest_id, 'pending/8f-window-old.pdf', 'o.pdf', 'Old', 'pending',
+          now() - interval '1 hour 20 minutes', now() - interval '2 hours 20 minutes')
+  returning id into old_intent;
+
+  perform public.arc_cleanup_stale_upload_intents(100);
+
+  insert into arc_test_results
+  select '32 an intent 90 minutes old is ARC-expired but not yet cleanup eligible',
+         (select expires_at from public.document_upload_intents where id = young_intent) < now()
+     and (select state from public.document_upload_intents where id = young_intent) = 'pending'
+     and (select cleanup_queued_at from public.document_upload_intents where id = young_intent)
+         is null
+     and not exists (select 1 from public.storage_deletion_queue
+                     where storage_object_path = 'pending/8f-window-young.pdf');
+
+  insert into arc_test_results
+  select '33 an intent older than the signed-upload capability plus grace is cleaned',
+         (select state from public.document_upload_intents where id = old_intent) = 'failed'
+     and (select cleanup_queued_at from public.document_upload_intents where id = old_intent)
+         is not null
+     and exists (select 1 from public.storage_deletion_queue
+                 where storage_object_path = 'pending/8f-window-old.pdf');
+
+  -- Marker and terminal-queue behaviour are unchanged inside the new window.
+  update public.storage_deletion_queue
+     set completed_at = now(), claimed_at = now(), attempt_count = 3
+   where storage_object_path = 'pending/8f-window-old.pdf';
+  select count(*) into queue_rows from public.storage_deletion_queue;
+  perform public.arc_cleanup_stale_upload_intents(100);
+
+  insert into arc_test_results
+  select '34 the one-time marker and terminal queue rows are unchanged by the new window',
+         (select count(*) from public.storage_deletion_queue) = queue_rows
+     and (select completed_at from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-window-old.pdf') is not null
+     and (select attempt_count from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-window-old.pdf') = 3
+     and not exists (select 1 from public.storage_deletion_queue
+                     where storage_object_path = 'pending/8f-window-young.pdf');
+end $window$;
+
 
 
 select assertion, passed from arc_test_results order by assertion;
