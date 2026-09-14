@@ -24,8 +24,22 @@ an expired workspace is already unauthorized.
 One entrypoint performs every recurring cleanup:
 
 1. **Abandoned uploads** — `public.arc_cleanup_stale_upload_intents(limit)`.
-   An upload intent is stale when its own server-side `expires_at` (the
-   one-hour TTL) has passed by more than fifteen minutes, its state is
+
+   Three distinct lifetimes apply, and they must not be conflated:
+
+   - ARC logical upload-intent lifetime: **1 hour** (`expires_at`). After this
+     the intent can no longer be prepared, committed or finalized.
+   - Supabase signed-upload capability: **2 hours** — the token handed out by
+     `createSignedUploadUrl` can still write bytes into the `pending/...` path
+     after the ARC intent has logically expired.
+   - Abandoned Storage cleanup: after capability expiry **+ 15 minutes' grace**,
+     i.e. `expires_at < now() - interval '1 hour 15 minutes'`, which is roughly
+     `created_at + 2 hours 15 minutes`. Physically staging the object for
+     deletion any earlier could delete a path the browser still holds a valid
+     capability to write, orphaning the late bytes against a terminal queue row.
+
+   An upload intent is therefore eligible for storage cleanup when
+   `expires_at < now() - interval '1 hour 15 minutes'`, its state is
    `pending`, `prepared` or `failed`, and its one-time `cleanup_queued_at`
    marker is still null. Once every required object is durably queued the row
    is atomically moved to the terminal `failed` state with `cleanup_queued_at`
