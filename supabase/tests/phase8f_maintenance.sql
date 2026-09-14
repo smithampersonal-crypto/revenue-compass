@@ -299,6 +299,95 @@ begin
                  where storage_object_path = 'documents/8f-draft-doc.pdf');
 end $paths$;
 
+-- 28..31 Stale-upload cleanup is permanently idempotent: a cleaned intent is
+-- never reprocessed, a completed deletion job is terminal, cleaned rows cannot
+-- starve newer work, and deleting a cleaned intent cannot resurrect its job.
+do $idem$
+declare
+  guest_id uuid;
+  intent_id uuid;
+  later_intent uuid;
+  res record;
+  res2 record;
+  attempts integer;
+  queue_rows integer;
+begin
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values ('8f0e' || repeat('e', 60), '{}'::jsonb, 'arc.workflow.v1', now() + interval '5 hours')
+  returning id into guest_id;
+
+  insert into public.document_upload_intents (guest_workspace_id, pending_object_path,
+        original_filename, display_name, state, expires_at)
+  values (guest_id, 'pending/8f-idem.pdf', 'i.pdf', 'Idem', 'pending', now() - interval '2 hours')
+  returning id into intent_id;
+
+  perform public.arc_cleanup_stale_upload_intents(100);
+
+  insert into arc_test_results
+  select '28 stale cleanup queues the object and records the one-time marker',
+         (select state from public.document_upload_intents where id = intent_id) = 'failed'
+     and (select cleanup_queued_at from public.document_upload_intents where id = intent_id)
+         is not null
+     and exists (select 1 from public.storage_deletion_queue
+                 where storage_object_path = 'pending/8f-idem.pdf');
+
+  -- The worker drains the job: it is now terminal.
+  update public.storage_deletion_queue
+     set completed_at = now(), claimed_at = now(), attempt_count = 2
+   where storage_object_path = 'pending/8f-idem.pdf';
+
+  select count(*) into queue_rows from public.storage_deletion_queue;
+  select * into res from public.arc_cleanup_stale_upload_intents(100);
+
+  insert into arc_test_results
+  select '29 a cleaned intent is not reprocessed and its completed job stays terminal',
+         (select completed_at from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-idem.pdf') is not null
+     and (select attempt_count from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-idem.pdf') = 2
+     and (select count(*) from public.storage_deletion_queue) = queue_rows
+     and not exists (
+           select 1 from public.storage_deletion_queue
+            where storage_object_path = 'pending/8f-idem.pdf' and completed_at is null);
+
+  -- More than one bounded batch of already-cleaned rows must not starve a new one.
+  insert into public.document_upload_intents (guest_workspace_id, pending_object_path,
+        original_filename, display_name, state, expires_at, cleanup_queued_at)
+  select guest_id, 'pending/8f-old-' || g || '.pdf', 'o.pdf', 'Old', 'failed',
+         now() - interval '9 hours', now() - interval '8 hours'
+    from generate_series(1, 6) g;
+
+  insert into public.document_upload_intents (guest_workspace_id, pending_object_path,
+        original_filename, display_name, state, expires_at)
+  values (guest_id, 'pending/8f-newly-stale.pdf', 'n.pdf', 'New', 'pending', now() - interval '2 hours')
+  returning id into later_intent;
+
+  select * into res2 from public.arc_cleanup_stale_upload_intents(5);
+
+  insert into arc_test_results
+  select '30 already-cleaned intents cannot starve newly stale cleanup work',
+         (select cleanup_queued_at from public.document_upload_intents where id = later_intent)
+         is not null
+     and exists (select 1 from public.storage_deletion_queue
+                 where storage_object_path = 'pending/8f-newly-stale.pdf');
+
+  -- Deleting a cleaned intent (guest/account removal) must not resurrect its job.
+  select attempt_count into attempts from public.storage_deletion_queue
+   where storage_object_path = 'pending/8f-idem.pdf';
+  delete from public.document_upload_intents where id = intent_id;
+
+  insert into arc_test_results
+  select '31 deleting a cleaned intent does not resurrect its completed deletion job',
+         (select completed_at from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-idem.pdf') is not null
+     and (select attempt_count from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-idem.pdf') = attempts
+     and (select count(*) from public.storage_deletion_queue
+           where storage_object_path = 'pending/8f-idem.pdf') = 1;
+end $idem$;
+
+
+
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 
