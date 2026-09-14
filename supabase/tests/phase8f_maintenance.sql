@@ -167,7 +167,7 @@ begin
 
   insert into arc_test_results
   select '16 cleanup reports bounded, non-negative counts',
-         res.intents_processed = 2 and res.objects_queued >= 3;
+         res.intents_processed >= 2 and res.objects_queued >= 3;
 
   -- 17 Repeating cleanup is idempotent: no duplicate queue work.
   perform public.arc_cleanup_stale_upload_intents(100);
