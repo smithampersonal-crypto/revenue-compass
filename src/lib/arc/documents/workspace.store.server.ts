@@ -120,7 +120,9 @@ export async function documentWorkspaceStore(): Promise<DocumentWorkspaceStore> 
 
       const { data: revision, error: revisionError } = await supabaseAdmin
         .from("analysis_revisions")
-        .select("id, revision_number, status, lock_version, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)")
+        .select(
+          "id, revision_number, status, lock_version, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)",
+        )
         .eq("id", revisionId)
         .maybeSingle();
       if (revisionError) fail("revision", revisionError);
