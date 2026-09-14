@@ -212,7 +212,16 @@ const CONFLICT_MESSAGE =
 
 export async function migrateGuestWorkspaceHandler(
   deps: GuestMigrationDeps,
-  input: { token: string | null; contractTitle: string; expectedLockVersion: number },
+  input: {
+    token: string | null;
+    contractTitle: string;
+    expectedLockVersion: number;
+    /**
+     * The accountant chose a customer they already have. Only ever a hint:
+     * the trusted transaction re-checks that it belongs to them.
+     */
+    existingCustomerId?: string | null;
+  },
 ): Promise<GuestMigrationResult> {
   if (!input.token) return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
   if (!Number.isInteger(input.expectedLockVersion) || input.expectedLockVersion < 1) {
