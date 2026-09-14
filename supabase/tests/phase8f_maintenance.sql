@@ -258,16 +258,17 @@ begin
   returning id into contract_id;
   insert into public.analyses (contract_id) values (contract_id) returning id into analysis_id;
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs,
-                                         schema_version, status, finalized_at, engine_outputs)
-  values (analysis_id, 1, draft, 'arc.workflow.v1', 'finalized', now(), '{}'::jsonb)
+                                         schema_version)
+  values (analysis_id, 1, draft, 'arc.workflow.v1')
   returning id into final_rev;
-  update public.analyses set current_finalized_revision_id = final_rev where id = analysis_id;
   insert into public.source_documents (contract_id, storage_object_path, original_filename,
                                        display_name, sha256, byte_size, page_count)
   values (contract_id, 'documents/8f-history-doc.pdf', 'h.pdf', 'History PDF', repeat('5', 64), 100, 1)
   returning id into hist_doc;
-  insert into public.revision_source_documents (revision_id, source_document_id)
-  values (final_rev, hist_doc);
+  -- Association and finalization both go through the accepted trusted paths.
+  lockv := public.arc_attach_source_document(owner_id, final_rev, hist_doc, 1);
+  perform public.arc_finalize_revision(owner_id, final_rev, lockv, '{}'::jsonb, '{}'::jsonb,
+                                       'arc.workflow.v1', 'arc.engine.v1');
 
   select * into res from public.arc_start_amendment_revision(owner_id, contract_id, final_rev);
   amend_rev := res.revision_id;
