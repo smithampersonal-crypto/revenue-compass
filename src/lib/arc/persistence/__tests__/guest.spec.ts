@@ -340,7 +340,10 @@ describe("migrateGuestWorkspaceHandler", () => {
       p_token_hash: await hashGuestToken("raw-credential-xyz"),
       p_owner_user_id: "user-7",
       p_expected_lock_version: 3,
-      p_customer_name: "Northwind Systems",
+      // Exactly one filing mode: with no existing customer chosen, the draft's
+      // customer name creates a new one.
+      p_existing_customer_id: null,
+      p_new_customer_name: "Northwind Systems",
       p_contract_title: "Northwind — enterprise",
       p_contract_number: "C-1001",
     });
