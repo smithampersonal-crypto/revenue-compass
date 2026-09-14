@@ -196,7 +196,11 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   if (persistence.mode !== "guest") return null;
 
   const signedIn = session.status === "signed-in";
-  const check = validateMigrationRequest({ customerName, contractTitle: title });
+  const check = validateMigrationRequest({
+    customerName,
+    contractTitle: title,
+    existingCustomerId: chosenCustomerId,
+  });
   const expired = persistence.status.kind === "guest-expired";
   const waiting = intent !== null;
 
