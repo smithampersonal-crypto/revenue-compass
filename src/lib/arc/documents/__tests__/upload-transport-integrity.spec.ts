@@ -78,7 +78,9 @@ function harness(options: HarnessOptions) {
   });
 
   const store: DocumentStore = {
-    contractIsOwnedBy: vi.fn(async (contractId, userId) => contractId === CONTRACT && userId === OWNER),
+    contractIsOwnedBy: vi.fn(
+      async (contractId, userId) => contractId === CONTRACT && userId === OWNER,
+    ),
     findDraftRevision: vi.fn(async () => ({
       id: REVISION,
       contractId: CONTRACT,
@@ -162,7 +164,10 @@ describe("an unfinished upload is never reported as a bad PDF", () => {
   });
 
   it("reports upload_incomplete for an empty read-back", async () => {
-    const { deps } = harness({ reads: [new Uint8Array(), new Uint8Array()], declaredByteSize: null });
+    const { deps } = harness({
+      reads: [new Uint8Array(), new Uint8Array()],
+      declaredByteSize: null,
+    });
 
     expect(await finalize(deps)).toMatchObject({ ok: false, code: "upload_incomplete" });
   });
