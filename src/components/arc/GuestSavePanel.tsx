@@ -1,13 +1,22 @@
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { migrateGuestWorkspace } from "@/lib/arc/persistence/guest.functions";
 import { suggestedContractTitle, validateMigrationRequest } from "@/lib/arc/persistence/guest";
+import { listCustomerChoices } from "@/lib/arc/persistence/workspace.functions";
 import { Notice } from "@/components/asc606-workflow/fields";
 
 import { useAnalysis } from "./analysis-context";
 import { useSupabaseSession } from "./use-supabase-session";
+
+/** The preselection hint from the URL. Never authorization — only a default. */
+function customerHint(): string {
+  if (typeof window === "undefined") return "";
+  const value = new URLSearchParams(window.location.search).get("customer");
+  return value ?? "";
+}
 
 const BUTTON =
   "min-h-9 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring";
