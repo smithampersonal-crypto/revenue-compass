@@ -146,7 +146,7 @@ export function validateMigrationRequest(fields: MigrationRequestFields): Migrat
   const contractTitle = (fields.contractTitle ?? "").trim();
   const contractNumber = (fields.contractNumber ?? "").trim();
 
-  if (customerName === "") {
+  if (existingCustomerId === null && customerName === "") {
     return {
       ok: false,
       reason:
@@ -159,7 +159,7 @@ export function validateMigrationRequest(fields: MigrationRequestFields): Migrat
   if (contractTitle.length > 200) {
     return { ok: false, reason: "That contract name is too long (200 characters maximum)." };
   }
-  return { ok: true, customerName, contractTitle, contractNumber };
+  return { ok: true, customerName, contractTitle, contractNumber, existingCustomerId };
 }
 
 /**
