@@ -183,6 +183,7 @@ export type Database = {
       }
       document_upload_intents: {
         Row: {
+          cleanup_queued_at: string | null
           contract_id: string | null
           created_at: string
           declared_byte_size: number | null
@@ -208,6 +209,7 @@ export type Database = {
           validated_sha256: string | null
         }
         Insert: {
+          cleanup_queued_at?: string | null
           contract_id?: string | null
           created_at?: string
           declared_byte_size?: number | null
@@ -233,6 +235,7 @@ export type Database = {
           validated_sha256?: string | null
         }
         Update: {
+          cleanup_queued_at?: string | null
           contract_id?: string | null
           created_at?: string
           declared_byte_size?: number | null

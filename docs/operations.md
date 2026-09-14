@@ -25,13 +25,21 @@ One entrypoint performs every recurring cleanup:
 
 1. **Abandoned uploads** — `public.arc_cleanup_stale_upload_intents(limit)`.
    An upload intent is stale when its own server-side `expires_at` (the
-   one-hour TTL) has passed by more than fifteen minutes and its state is
-   `pending`, `prepared` or `failed`. Such an intent is moved to the terminal
-   `failed` state and its pending object — plus any reserved permanent path
-   that never became a Source Document — is queued for deletion. A `finalized`
+   one-hour TTL) has passed by more than fifteen minutes, its state is
+   `pending`, `prepared` or `failed`, and its one-time `cleanup_queued_at`
+   marker is still null. Once every required object is durably queued the row
+   is atomically moved to the terminal `failed` state with `cleanup_queued_at`
+   set, so cleanup happens exactly once per intent: an old cleaned row can
+   never re-queue an already-deleted object, nor consume the bounded batch and
+   starve newer stale work. A failure before durable queueing aborts the
+   statement and leaves the marker null. A `finalized`
    intent and every Source Document are never touched, and the Phase 8E upload
    diagnostics are preserved. Rows are taken with `for update skip locked`, so
    an in-flight finalization is yielded to rather than raced.
+   Queue rows are keyed on `(bucket, path)` and are terminal: because ARC
+   storage paths are immutable and never reused, an existing pending, claimed
+   or completed job stays authoritative and is never reopened.
+
 2. **Nine-hour guest expiry** — `arc_expire_guest_workspaces()` then
    `arc_delete_expired_guest_workspaces()`. Expiry is decided from
    `expires_at` in the database, never from browser time. A `before delete`
