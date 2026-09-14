@@ -17,7 +17,9 @@ export function createMaintenanceDeps(): MaintenanceDeps {
 
   return {
     claimDeletionJobs: async (limit): Promise<StorageDeletionJob[]> => {
-      const { data, error } = await (await admin()).rpc("arc_claim_storage_deletion_jobs", {
+      const { data, error } = await (
+        await admin()
+      ).rpc("arc_claim_storage_deletion_jobs", {
         p_limit: limit,
       });
       if (error) throw new Error("deletion jobs could not be claimed", { cause: error });
@@ -36,7 +38,9 @@ export function createMaintenanceDeps(): MaintenanceDeps {
     objectExists: async (_bucket, path) => privateObjectExists(path),
 
     completeDeletionJob: async (jobId) => {
-      const { data, error } = await (await admin()).rpc("arc_complete_storage_deletion_job", {
+      const { data, error } = await (
+        await admin()
+      ).rpc("arc_complete_storage_deletion_job", {
         p_job_id: jobId,
       });
       if (error) throw new Error("deletion job could not be completed", { cause: error });
@@ -46,7 +50,9 @@ export function createMaintenanceDeps(): MaintenanceDeps {
     // Only the safe category is durably recorded — never a provider message,
     // object path or signed URL.
     releaseDeletionJob: async (jobId, category) => {
-      const { data, error } = await (await admin()).rpc("arc_release_storage_deletion_job", {
+      const { data, error } = await (
+        await admin()
+      ).rpc("arc_release_storage_deletion_job", {
         p_job_id: jobId,
         p_error: category,
       });
@@ -55,7 +61,9 @@ export function createMaintenanceDeps(): MaintenanceDeps {
     },
 
     cleanupStaleUploadIntents: async (limit) => {
-      const { data, error } = await (await admin()).rpc("arc_cleanup_stale_upload_intents", {
+      const { data, error } = await (
+        await admin()
+      ).rpc("arc_cleanup_stale_upload_intents", {
         p_limit: limit,
       } as never);
       if (error) throw new Error("stale uploads could not be cleaned", { cause: error });
