@@ -448,8 +448,21 @@
   Verification: 783 tests across 71 files, typecheck clean, ESLint 0 errors,
   build OK, bundle audit clean.
 
-- Phase 8E acceptance — still open: saving under an existing customer, Upload
-  Contract PDF from My Contracts, and delete/discard of drafts.
+- Phase 8E acceptance — complete. Saving an unsaved analysis now offers an
+  existing customer or a new one, verified against the caller's ownership in
+  the trusted migration transaction (`arc_migrate_guest_workspace_v2` /
+  `_by_token_v2`), with the response-loss retry still returning the original
+  hierarchy. My Contracts offers "Upload Contract PDF" beside "Create
+  manually", reusing the same temporary workspace and Phase 8B upload
+  pipeline; the customer travels only as a preselection hint. Saved analyses
+  offer a server-derived destructive action: "Delete draft" for a first draft
+  with no finalized history (`arc_delete_initial_draft_contract`, which queues
+  every stored and pending object path before deleting the contract and leaves
+  the customer), and the existing "Discard draft" for amendment drafts.
+  Verification: 794 tests across 73 files, typecheck clean, ESLint 0 errors,
+  build OK, bundle audit clean, 17/17 assertions in
+  `supabase/tests/phase8e_acceptance.sql`.
+
 
 
 
