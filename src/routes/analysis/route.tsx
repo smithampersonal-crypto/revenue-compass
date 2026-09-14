@@ -25,6 +25,7 @@ export const Route = createFileRoute("/analysis")({
     revision?: string;
     save?: string;
     upload?: string;
+    customer?: string;
   } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
@@ -34,6 +35,9 @@ export const Route = createFileRoute("/analysis")({
     ...(typeof search["save"] === "string" ? { save: search["save"] } : {}),
     // Carries only the intent to start by uploading a contract PDF.
     ...(typeof search["upload"] === "string" ? { upload: search["upload"] } : {}),
+    // A preselection hint for the save panel only. It is never authorization:
+    // the save transaction re-checks that the caller owns the customer.
+    ...(typeof search["customer"] === "string" ? { customer: search["customer"] } : {}),
   }),
   beforeLoad: ({ search, location }) => {
     if (search.sample && (search.contract || search.revision)) {
@@ -42,7 +46,13 @@ export const Route = createFileRoute("/analysis")({
     // Starting from Home with a PDF lands on Source Documents with the upload
     // dialog open, in the very same temporary analysis.
     if (search.upload === "1" && location.pathname.replace(/\/$/, "") === "/analysis") {
-      throw redirect({ to: "/analysis/documents", search: { upload: "1" } });
+      throw redirect({
+        to: "/analysis/documents",
+        search: {
+          upload: "1",
+          ...(search.customer ? { customer: search.customer } : {}),
+        },
+      });
     }
   },
   head: () => ({
