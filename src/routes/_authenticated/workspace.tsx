@@ -248,23 +248,50 @@ export function WorkspacePage() {
                             </div>
                             {/* Always-visible actions: never hover-only, so keyboard
                                 and touch users can reach them. */}
-                            {state.kind === "draft" && state.revisionId ? (
-                              <Link
-                                to="/analysis"
-                                search={{ contract: contract.id, revision: state.revisionId }}
-                                className="inline-flex min-h-10 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                Open draft
-                              </Link>
-                            ) : null}
-                            {state.kind === "finalized" && state.revisionId ? (
-                              <CreateRevisionAction
-                                contractId={contract.id}
-                                sourceRevisionId={state.revisionId}
-                                sourceRevisionNumber={state.revisionNumber ?? 1}
-                                nextRevisionNumber={state.nextRevisionNumber}
-                              />
-                            ) : null}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {state.kind === "draft" && state.revisionId ? (
+                                <Link
+                                  to="/analysis"
+                                  search={{ contract: contract.id, revision: state.revisionId }}
+                                  className="inline-flex min-h-10 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  Open draft
+                                </Link>
+                              ) : null}
+                              {state.kind === "finalized" && state.revisionId ? (
+                                <CreateRevisionAction
+                                  contractId={contract.id}
+                                  sourceRevisionId={state.revisionId}
+                                  sourceRevisionNumber={state.revisionNumber ?? 1}
+                                  nextRevisionNumber={state.nextRevisionNumber}
+                                />
+                              ) : null}
+                              {/* Server-derived: a draft that has never been
+                                  finalized can be deleted outright, while an
+                                  amendment draft uses the existing discard. */}
+                              {state.draftAction === "delete-initial-draft" ? (
+                                <DeleteDraftContractAction
+                                  contractId={contract.id}
+                                  contractTitle={contract.title}
+                                />
+                              ) : null}
+                              {state.draftAction === "discard-amendment" &&
+                              state.revisionId &&
+                              state.draftLockVersion !== null ? (
+                                <DiscardDraftRevisionAction
+                                  contractId={contract.id}
+                                  revisionId={state.revisionId}
+                                  expectedLockVersion={state.draftLockVersion}
+                                  draftRevisionNumber={state.revisionNumber ?? 1}
+                                  sourceRevisionNumber={state.sourceRevisionNumber ?? 1}
+                                  onReloaded={() => {
+                                    void queryClient.invalidateQueries({
+                                      queryKey: ["arc-workspace"],
+                                    });
+                                  }}
+                                />
+                              ) : null}
+                            </div>
                           </li>
                         );
                       })}
