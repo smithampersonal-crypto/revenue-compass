@@ -1,51 +1,44 @@
-# Fix: "could not be read as a PDF" when uploading while signed in
+# Fix: "could not be read as a PDF" on a PDF that is actually fine
 
-## What the records show
+## What I have established
 
-I checked the real upload records and the file store for tonight's attempts:
+- **Your PDF is valid.** I ran the exact file through ARC's own PDF checker: 47,654 bytes, 4 pages, text readable, accepted — three times in a row. Nothing is wrong with the document.
+- **The same file already succeeded in ARC at 23:55** (stored at the same 47,654 bytes) and failed at 00:26, so this is intermittent, not file-specific.
+- **The rejected attempt was recorded against a temporary workspace, not a saved contract.** So "signed in vs guest" is probably not the real difference — both attempts used the same upload route.
+- **The rejection left no evidence.** ARC deletes the uploaded file the instant it rejects it and records no reason, no byte count, no checksum. That is why the cause cannot be named yet.
 
-- The rejected attempt (00:26) went through the **temporary-workspace** upload route, not the signed-in contract route — its record has no contract attached. So the two attempts you compared may have used the *same* code path, and the difference is something else.
-- The same file name uploaded successfully at 23:55 (47,654 bytes) and again earlier at 23:18.
-- For the rejected attempt no stored file remains, because ARC deletes the uploaded file as soon as it rejects it. That deletion is also why we currently cannot tell *why* it was rejected: no size, no reason, nothing kept.
+The most likely explanation is that the copy ARC read back from private storage was not the copy you uploaded — short, empty, or not yet fully stored — and the generic "not a readable PDF" message hid that. The plan proves or disproves this rather than guessing.
 
-So right now the evidence cannot distinguish "the file arrived damaged or incomplete" from "the PDF reader genuinely refused these bytes". The plan closes that gap first, then fixes the proven cause.
+## Step 1 — Never report a transport problem as a bad PDF
 
-## Step 1 — Reproduce directly (fastest route)
+Before the PDF reader is even asked, check the bytes ARC read back:
 
-Send me the exact PDF you uploaded. I will run it straight through ARC's PDF checker in isolation. Two outcomes:
+- Compare the number of bytes read back with the size the upload recorded. A mismatch is an upload problem, not a format problem.
+- Check the bytes begin with a PDF marker. If they do not, this is a transport problem.
+- In either case, show "That upload did not finish — please try again." and let the visitor retry the same file cleanly, instead of the misleading format message.
 
-- It is rejected → the fault is in the PDF reader configuration, and I fix that.
-- It passes → the file was damaged in transit during the signed-in upload, and Step 2's evidence pins down where.
+## Step 2 — Retry the read-back once before rejecting
 
-## Step 2 — Keep evidence when an upload is rejected
+If the bytes read back look wrong, fetch them once more from private storage before deciding anything. A file that is momentarily not fully visible then reads correctly and the upload simply succeeds.
 
-Today a rejection leaves no trace. Change that, minimally:
+## Step 3 — Keep evidence when an upload is genuinely rejected
 
-- Record on the upload record: the rejection reason, the exact number of bytes ARC received, whether the bytes began with a valid PDF marker, and the checksum.
-- Keep the rejected file for a short quarantine period instead of deleting it immediately, still private, still queued for deletion afterwards, so the bytes ARC actually received can be compared against the file on your machine.
+Record on the upload record, inside the existing failure path: the rejection reason, the exact bytes received, whether the PDF marker was present, and the checksum. Private, never shown to the visitor. If this ever happens again, the record says immediately whether the bytes arrived intact.
 
-This is deliberately additive: no change to what is accepted, to storage privacy, or to the temporary-workspace flow.
+## Step 4 — Tests and verification
 
-## Step 3 — Fix the proven cause
-
-Two candidates, and the evidence from Steps 1–2 decides which:
-
-- **Damaged/short upload:** the byte count will not match your file. Fix at the upload boundary: confirm the stored object's size against the browser's file size before validating, and fail with a clear "the upload did not finish, please try again" instead of a misleading "not a readable PDF".
-- **Reader rejects a valid PDF:** the byte count matches. Fix in the PDF reader's server configuration (the exact reader error name will be in the recorded reason).
-
-## Step 4 — Regression test and verification
-
-- A test that proves a short/truncated upload reports an upload failure, not a PDF-format rejection.
-- A test covering whichever cause is proven, using the real validator.
-- Full run: application tests, type check, lint, build, bundle audit.
+- A test proving truncated or empty read-back bytes produce the upload-failure message, not the format rejection.
+- A test proving a first bad read-back followed by a good one succeeds without a duplicate document.
+- A test proving your actual PDF's byte profile is accepted.
+- Full run: application tests, type check, lint, build, bundle audit; plus the existing database suites.
 
 ## Out of scope
 
-No changes to the ASC 606 engines or samples, to accepted PDF limits (10 MB / 500 pages / text-based), to the private-storage model, or to any Phase 8E acceptance-patch work already in progress.
+No change to the ASC 606 engines or samples, to the accepted limits (10 MB, 500 pages, text-based PDFs), to the private-storage model, to duplicate detection, or to the Phase 8E acceptance-patch work still open.
 
 ## Technical notes
 
-- Evidence source: `document_upload_intents` joined to `storage.objects`; the 00:26 row is `state = failed`, `contract_id IS NULL`.
-- Rejection currently returns `pdfValidationFailure("invalid_pdf")` from `validatePdfBytes` in `validation.server.ts`; `discardPendingObject` in `documents.handlers.ts` removes the blob immediately afterwards.
-- Diagnostics belong on the intent row (new nullable columns) written inside the existing failure branch, before discard — never surfaced to the browser.
-- Quarantine reuses the existing `storage_deletion_queue` semantics rather than adding a second cleanup mechanism.
+- `validatePdfBytes` in `validation.server.ts` returns `pdfValidationFailure("invalid_pdf")` for any `pdf.js` load error; the new size/header pre-check happens in `finalizeUploadHandler` before validation, returning a distinct `upload_incomplete` code rather than overloading `invalid_pdf`.
+- Expected size comes from the intent row's recorded upload size where present, otherwise from `storage.objects.metadata->>'size'` via the existing server storage module — no new browser-supplied facts.
+- Retry re-calls `deps.storage.download` once; the intent stays `pending` across the retry, so existing retry-safety and duplicate rules are untouched.
+- Diagnostics are new nullable columns on `document_upload_intents`, written in the existing failure branch before `discardPendingObject`.
