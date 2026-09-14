@@ -185,6 +185,7 @@ export type Database = {
         Row: {
           contract_id: string | null
           created_at: string
+          declared_byte_size: number | null
           display_name: string
           document_type: string | null
           effective_date: string | null
@@ -196,10 +197,12 @@ export type Database = {
           pending_object_path: string
           permanent_document_id: string | null
           permanent_object_path: string | null
+          read_attempts: number
           resolved_source_document_id: string | null
           state: string
           target_revision_id: string | null
           updated_at: string
+          upload_diagnostics: Json | null
           validated_byte_size: number | null
           validated_page_count: number | null
           validated_sha256: string | null
@@ -207,6 +210,7 @@ export type Database = {
         Insert: {
           contract_id?: string | null
           created_at?: string
+          declared_byte_size?: number | null
           display_name: string
           document_type?: string | null
           effective_date?: string | null
@@ -218,10 +222,12 @@ export type Database = {
           pending_object_path: string
           permanent_document_id?: string | null
           permanent_object_path?: string | null
+          read_attempts?: number
           resolved_source_document_id?: string | null
           state?: string
           target_revision_id?: string | null
           updated_at?: string
+          upload_diagnostics?: Json | null
           validated_byte_size?: number | null
           validated_page_count?: number | null
           validated_sha256?: string | null
@@ -229,6 +235,7 @@ export type Database = {
         Update: {
           contract_id?: string | null
           created_at?: string
+          declared_byte_size?: number | null
           display_name?: string
           document_type?: string | null
           effective_date?: string | null
@@ -240,10 +247,12 @@ export type Database = {
           pending_object_path?: string
           permanent_document_id?: string | null
           permanent_object_path?: string | null
+          read_attempts?: number
           resolved_source_document_id?: string | null
           state?: string
           target_revision_id?: string | null
           updated_at?: string
+          upload_diagnostics?: Json | null
           validated_byte_size?: number | null
           validated_page_count?: number | null
           validated_sha256?: string | null
