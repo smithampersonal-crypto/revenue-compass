@@ -463,6 +463,37 @@
   build OK, bundle audit clean, 17/17 assertions in
   `supabase/tests/phase8e_acceptance.sql`.
 
+- Phase 8E final acceptance corrections.
+  (A) "Upload Contract PDF" on My Contracts is now always available, including
+  for an account with zero customers; it routes to the same
+  `/analysis?upload=1` temporary workspace, omits the customer hint when no
+  customer is selected (so the save panel defaults to creating one), and
+  manual creation still requires a customer. UI regression:
+  `src/components/arc/workspace-pdf-first.spec.tsx`.
+  (B) Lock ordering: `arc_delete_initial_draft_contract` now locks every one
+  of the contract's `document_upload_intents` rows in ascending id order
+  BEFORE the draft revision, matching the intent → revision direction taken by
+  `arc_commit_source_document_upload`; direction is contract → analysis →
+  upload intents → draft revision → source documents, with eligibility
+  revalidated after all locks and the durable deletion queue unchanged.
+  Assertions 18–21 in `supabase/tests/phase8e_acceptance.sql` prove the shipped
+  function body's lock order structurally plus a behavioural deletion with an
+  in-flight upload. HARNESS LIMITATION: the SQL runner uses a single database
+  session in one rolled-back transaction, so no real two-session race is
+  scheduled; the cycle removal is proven structurally, not by deadlock.
+  (C) Hosted acceptance: the embedded-vs-standalone difference is resolved and
+  closed (pdf.js worker registration in the built output); no parser rule was
+  changed. The guest half of the journey was executed against the production
+  build running in the Cloudflare Workers runtime (`wrangler dev` over
+  `dist/`): fresh guest → upload → document listed (4 pages, 47 KB) → View
+  returns 200 `application/pdf`, 47,654 bytes, `%PDF-` header. The
+  authenticated half (save to My Contracts, reopen, View + Download the
+  migrated PDF) could not be executed from the build sandbox: identity is an
+  external Supabase project and no browser session can be minted here. It
+  requires a manual run on the published URL.
+  Verification: 797 tests across 74 files, typecheck clean, ESLint 0 errors,
+  build OK, bundle audit clean.
+
 
 
 
