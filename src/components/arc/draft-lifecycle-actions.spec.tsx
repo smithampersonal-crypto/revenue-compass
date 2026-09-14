@@ -149,9 +149,7 @@ describe("My Contracts draft actions", () => {
     listWorkspace.mockResolvedValue(workspaceWith(initialDraftState));
     renderWorkspace();
     await userEvent.click(await screen.findByRole("button", { name: "Delete draft" }));
-    expect(
-      await screen.findByText(/This draft has never been finalized\./i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/This draft has never been finalized\./i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(deleteInitialDraftContract).not.toHaveBeenCalled();
   });
@@ -159,14 +157,14 @@ describe("My Contracts draft actions", () => {
   it("confirming deletes the contract and refreshes the list", async () => {
     listWorkspace.mockResolvedValue(workspaceWith(initialDraftState));
     deleteInitialDraftContract.mockImplementation(async () => {
-      listWorkspace.mockResolvedValue({ customers: [{ id: "c1", name: "Northwind", contracts: [] }] });
+      listWorkspace.mockResolvedValue({
+        customers: [{ id: "c1", name: "Northwind", contracts: [] }],
+      });
       return { deletedContractId: CONTRACT_ID };
     });
     renderWorkspace();
     await userEvent.click(await screen.findByRole("button", { name: "Delete draft" }));
-    await userEvent.click(
-      screen.getByRole("button", { name: "Delete Platform subscription" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Delete Platform subscription" }));
     await waitFor(() => {
       expect(deleteInitialDraftContract).toHaveBeenCalledWith({
         data: { contractId: CONTRACT_ID },
@@ -184,9 +182,7 @@ describe("My Contracts draft actions", () => {
     );
     renderWorkspace();
     await userEvent.click(await screen.findByRole("button", { name: "Delete draft" }));
-    await userEvent.click(
-      screen.getByRole("button", { name: "Delete Platform subscription" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Delete Platform subscription" }));
     expect(
       await screen.findByText("That draft analysis could not be deleted."),
     ).toBeInTheDocument();
