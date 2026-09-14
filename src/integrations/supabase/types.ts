@@ -604,6 +604,12 @@ export type Database = {
         }[]
       }
       arc_delete_expired_guest_workspaces: { Args: never; Returns: number }
+      arc_delete_initial_draft_contract: {
+        Args: { p_contract_id: string; p_owner_user_id: string }
+        Returns: {
+          deleted_contract_id: string
+        }[]
+      }
       arc_discard_amendment_draft: {
         Args: {
           p_expected_lock_version: number
@@ -654,6 +660,40 @@ export type Database = {
           contract_id: string
           customer_id: string
           idempotent: boolean
+          revision_id: string
+        }[]
+      }
+      arc_migrate_guest_workspace_by_token_v2: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_existing_customer_id: string
+          p_expected_lock_version: number
+          p_new_customer_name: string
+          p_owner_user_id: string
+          p_token_hash: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
+          idempotent: boolean
+          revision_id: string
+        }[]
+      }
+      arc_migrate_guest_workspace_v2: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_existing_customer_id: string
+          p_guest_workspace_id: string
+          p_new_customer_name: string
+          p_owner_user_id: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
           revision_id: string
         }[]
       }
