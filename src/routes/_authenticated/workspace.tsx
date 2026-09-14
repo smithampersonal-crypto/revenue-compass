@@ -3,7 +3,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
+import { DiscardDraftRevisionAction } from "@/components/arc/AmendmentDraftActions";
 import { CreateRevisionAction } from "@/components/arc/CreateRevisionAction";
+import { DeleteDraftContractAction } from "@/components/arc/DeleteDraftContractAction";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import {
   createContract,
