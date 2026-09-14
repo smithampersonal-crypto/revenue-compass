@@ -1,0 +1,45 @@
+name: ARC hourly maintenance
+
+# Phase 8F — the scheduled operational entrypoint, reproducible from the
+# repository rather than an undocumented dashboard setting.
+#
+# Calls the deployed maintenance endpoint once an hour. That single invocation
+# runs the abandoned-upload sweep, the nine-hour temporary-workspace expiry and
+# a bounded drain of the durable storage deletion queue. Every operation is
+# bounded and idempotent, so overlapping, failed or restarted runs are safe.
+#
+# Required repository secrets:
+#   ARC_MAINTENANCE_URL     e.g. https://<project>.lovable.app/api/public/maintenance
+#   ARC_MAINTENANCE_SECRET  identical to the deployed ARC_MAINTENANCE_SECRET
+#
+# The secret is never echoed; only the HTTP status and the count summary are
+# printed, and the endpoint returns counts only.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: arc-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke ARC maintenance
+        env:
+          URL: ${{ secrets.ARC_MAINTENANCE_URL }}
+          SECRET: ${{ secrets.ARC_MAINTENANCE_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL:-}" ] || [ -z "${SECRET:-}" ]; then
+            echo "ARC_MAINTENANCE_URL / ARC_MAINTENANCE_SECRET are not configured." >&2
+            exit 1
+          fi
+          status=$(curl -sS -o /tmp/arc-maintenance.json -w '%{http_code}' \
+            -X POST "$URL" -H "Authorization: Bearer $SECRET")
+          echo "status=$status"
+          cat /tmp/arc-maintenance.json
+          [ "$status" = "200" ]
