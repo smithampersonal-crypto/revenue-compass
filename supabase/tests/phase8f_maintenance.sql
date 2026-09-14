@@ -222,6 +222,7 @@ declare
   customer_id uuid; contract_id uuid; analysis_id uuid; draft_rev uuid;
   final_rev uuid; amend_rev uuid; doc_id uuid; hist_doc uuid;
   blocked boolean := false;
+  lockv integer;
   res record;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
