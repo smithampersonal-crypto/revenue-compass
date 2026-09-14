@@ -78,7 +78,7 @@ function renderPanel() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider guest>
+      <AnalysisProvider sample={undefined} guest>
         <GuestSavePanel autoOpen />
       </AnalysisProvider>
     </QueryClientProvider>,
