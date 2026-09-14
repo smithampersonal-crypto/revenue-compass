@@ -169,6 +169,8 @@ export interface InitiateUploadInput {
   displayName: string;
   documentType?: SourceDocumentType | undefined;
   effectiveDate?: string | undefined;
+  /** Size of the browser-selected file; a transport expectation only. */
+  declaredByteSize?: number | undefined;
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -196,6 +198,14 @@ function pendingPath(intentId: string): string {
 async function defaultValidate(bytes: Uint8Array): Promise<PdfValidationResult> {
   const { validatePdfBytes } = await import("./validation.server");
   return validatePdfBytes(bytes);
+}
+
+/** SHA-256 of exactly these bytes, lowercase hex. Diagnostics only. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBuffer);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /* ------------------------------------------------------------- initiation */
