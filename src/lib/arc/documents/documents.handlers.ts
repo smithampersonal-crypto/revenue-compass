@@ -19,9 +19,12 @@ import { hashGuestToken } from "@/lib/arc/persistence/guest";
 import {
   DOCUMENT_NOT_AVAILABLE,
   GUEST_WORKSPACE_UNAVAILABLE,
+  RETRYABLE_UPLOAD_CODES,
   SIGNED_READ_TTL_SECONDS,
   SOURCE_DOCUMENT_BUCKET,
   UPLOAD_INTENT_TTL_SECONDS,
+  hasPdfSignature,
+  pdfValidationFailure,
   type FinalizeUploadResult,
   type DocumentReadUrlResult,
   type PdfValidationResult,
