@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
+import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
@@ -142,6 +143,8 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
             </Notice>
           ) : null}
         </header>
+
+        <AnalysisContextBar />
 
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a
