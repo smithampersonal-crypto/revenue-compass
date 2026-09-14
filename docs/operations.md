@@ -85,6 +85,22 @@ one failing category never discards another's work.
    endpoint verifies the bearer secret in constant time and is closed when the
    secret is unset; it returns counts only.
 
+#### Which schedule is authoritative
+
+`pg_cron` (step 1) is the **authoritative production hourly trigger** for
+abandoned-upload cleanup and guest expiry. It runs inside the database, needs
+no deployed application and no secret.
+
+The GitHub Actions workflow (step 2) is the **only** trigger for the Storage
+drain, because deleting private objects requires the application's storage
+credentials. It also re-runs steps 1 and 2 as a harmless fallback.
+
+Enable both: they cover different work. They are deliberately offset (`7 * * * *`
+for pg_cron, `17 * * * *` for the workflow) and remain correct if they overlap —
+claiming is `for update skip locked`, queue rows are terminal, and the
+`cleanup_queued_at` marker makes stale-intent cleanup one-time. Do not add a
+third scheduler.
+
 Both schedules are safe to overlap, to fail partially and to restart midway.
 
 ### Observability

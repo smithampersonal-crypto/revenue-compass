@@ -12,6 +12,8 @@ import { z } from "zod";
 
 import { readGuestCookie } from "@/lib/arc/persistence/guest";
 
+import { scopedToCaller } from "./caller-scope";
+
 import {
   documentReadUrlHandler,
   finalizeUploadHandler,
@@ -181,7 +183,7 @@ export const attachGuestSourceDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => guestSelectionInput.parse(data))
   .handler(async ({ data }): Promise<SourceMutationResult> =>
     guestMutation(async () =>
-      (await guestStore()).attach({ tokenHash: await guestTokenHash(), ...data }),
+      (await guestStore()).attach(scopedToCaller({ tokenHash: await guestTokenHash() }, data)),
     ),
   );
 
@@ -189,7 +191,7 @@ export const removeGuestSourceDocument = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => guestSelectionInput.parse(data))
   .handler(async ({ data }): Promise<SourceMutationResult> =>
     guestMutation(async () =>
-      (await guestStore()).remove({ tokenHash: await guestTokenHash(), ...data }),
+      (await guestStore()).remove(scopedToCaller({ tokenHash: await guestTokenHash() }, data)),
     ),
   );
 
@@ -204,6 +206,8 @@ export const deleteGuestSourceDocument = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }): Promise<SourceMutationResult> =>
     guestMutation(async () =>
-      (await guestStore()).stageDeletion({ tokenHash: await guestTokenHash(), ...data }),
+      (await guestStore()).stageDeletion(
+        scopedToCaller({ tokenHash: await guestTokenHash() }, data),
+      ),
     ),
   );
