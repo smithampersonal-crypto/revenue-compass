@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Server-only leakage audit for built client assets.
-# Fails if a service-role key, its env name, the admin client, or the
-# server-only PDF parser leaks into any browser bundle or source map.
+# Fails if a service-role key, its env name, the admin client, the ARC
+# maintenance secret, a trusted maintenance RPC name, a server-only store
+# module or the server-only PDF parser leaks into a browser bundle or map.
 # Never prints a secret value.
 set -euo pipefail
 
@@ -18,7 +19,7 @@ TARGETS="${CLIENT_DIRS:-$DIR}"
 # payload, the server-only env name, or the admin client module. Library code
 # that merely tests for the "sb_secret_" prefix is not a leak.
 FOUND=0
-for pattern in 'SUPABASE_SERVICE_ROLE_KEY' 'sb_secret_[A-Za-z0-9_-]{8,}' '"role" *: *"service_role"' 'cm9sZSI6InNlcnZpY2Vfcm9sZ' 'supabaseAdmin' 'client\.server' 'pdfjs-dist' 'GlobalWorkerOptions' 'getDocument\(\{ *data' 'validation\.server'; do
+for pattern in 'SUPABASE_SERVICE_ROLE_KEY' 'sb_secret_[A-Za-z0-9_-]{8,}' '"role" *: *"service_role"' 'cm9sZSI6InNlcnZpY2Vfcm9sZ' 'supabaseAdmin' 'client\.server' 'pdfjs-dist' 'GlobalWorkerOptions' 'getDocument\(\{ *data' 'validation\.server' 'ARC_MAINTENANCE_SECRET' 'arc_run_maintenance' 'arc_claim_storage_deletion_jobs' 'store\.server' 'maintenance\.server'; do
   if grep -rIl --include='*.js' --include='*.mjs' --include='*.map' -E "$pattern" $TARGETS >/tmp/arc-audit-hits 2>/dev/null; then
     if [ -s /tmp/arc-audit-hits ]; then
       echo "LEAK: pattern '$pattern' found in:" >&2

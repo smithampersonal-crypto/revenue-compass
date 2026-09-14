@@ -12,6 +12,8 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+import { scopedToCaller } from "./caller-scope";
+
 import {
   SOURCE_CONFLICT_MESSAGE,
   SOURCE_DOCUMENT_TYPES,
@@ -56,7 +58,7 @@ export const loadDocumentWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ contractId: uuid, revisionId: uuid }).parse(data))
   .handler(async ({ data, context }): Promise<DocumentWorkspaceDto> =>
-    (await store()).loadWorkspace({ userId: context.userId, ...data }),
+    (await store()).loadWorkspace(scopedToCaller({ userId: context.userId }, data)),
   );
 
 const selectionInput = z.object({
@@ -69,14 +71,14 @@ export const attachSourceDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => selectionInput.parse(data))
   .handler(async ({ data, context }): Promise<SourceMutationResult> =>
-    mutation(async () => (await store()).attach({ userId: context.userId, ...data })),
+    mutation(async () => (await store()).attach(scopedToCaller({ userId: context.userId }, data))),
   );
 
 export const removeSourceDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => selectionInput.parse(data))
   .handler(async ({ data, context }): Promise<SourceMutationResult> =>
-    mutation(async () => (await store()).remove({ userId: context.userId, ...data })),
+    mutation(async () => (await store()).remove(scopedToCaller({ userId: context.userId }, data))),
   );
 
 const metadataInput = z.object({
@@ -91,7 +93,7 @@ export const updateSourceDocumentDetails = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => metadataInput.parse(data))
   .handler(async ({ data, context }): Promise<SourceMutationResult> =>
     mutation(async () => {
-      await (await store()).updateMetadata({ userId: context.userId, ...data });
+      await (await store()).updateMetadata(scopedToCaller({ userId: context.userId }, data));
       return null;
     }),
   );
@@ -103,7 +105,7 @@ export const setSourceDocumentArchived = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<SourceMutationResult> =>
     mutation(async () => {
-      await (await store()).setArchived({ userId: context.userId, ...data });
+      await (await store()).setArchived(scopedToCaller({ userId: context.userId }, data));
       return null;
     }),
   );
@@ -119,5 +121,7 @@ export const deleteSourceDocument = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }): Promise<SourceMutationResult> =>
-    mutation(async () => (await store()).stageDeletion({ userId: context.userId, ...data })),
+    mutation(async () =>
+      (await store()).stageDeletion(scopedToCaller({ userId: context.userId }, data)),
+    ),
   );
