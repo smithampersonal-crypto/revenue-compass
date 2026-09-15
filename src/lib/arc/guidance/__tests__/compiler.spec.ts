@@ -40,25 +40,35 @@ function row(overrides: Partial<Record<number, unknown>> = {}, id = 1): RawRow {
 
 describe("guidance registry compiler", () => {
   it("rejects a duplicate Item No.", () => {
-    expect(() => compileRegistry(HEADERS, [row({}, 1), row({}, 1)], NO_COVERAGE)).toThrow(/Duplicate Item No/);
+    expect(() => compileRegistry(HEADERS, [row({}, 1), row({}, 1)], NO_COVERAGE)).toThrow(
+      /Duplicate Item No/,
+    );
   });
 
   it("rejects an invalid, non-numeric Item No.", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 0: "one" })], NO_COVERAGE)).toThrow(/Invalid Item No/);
+    expect(() => compileRegistry(HEADERS, [row({ 0: "one" })], NO_COVERAGE)).toThrow(
+      /Invalid Item No/,
+    );
   });
 
   it("rejects a missing required header", () => {
     const broken = [...HEADERS];
     broken[15] = "Tags";
-    expect(() => compileRegistry(broken, [row()], NO_COVERAGE)).toThrow(/required header at column 16/);
+    expect(() => compileRegistry(broken, [row()], NO_COVERAGE)).toThrow(
+      /required header at column 16/,
+    );
   });
 
   it("rejects a malformed Approved row", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 5: "   " })], NO_COVERAGE)).toThrow(/empty required field/);
+    expect(() => compileRegistry(HEADERS, [row({ 5: "   " })], NO_COVERAGE)).toThrow(
+      /empty required field/,
+    );
   });
 
   it("rejects an invalid Status value", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 16: "Final" })], NO_COVERAGE)).toThrow(/Invalid Status/);
+    expect(() => compileRegistry(HEADERS, [row({ 16: "Final" })], NO_COVERAGE)).toThrow(
+      /Invalid Status/,
+    );
   });
 
   it("rejects duplicate normalized retrieval tags", () => {

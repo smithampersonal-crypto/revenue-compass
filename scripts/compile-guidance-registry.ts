@@ -18,7 +18,11 @@ import path from "node:path";
 
 import ExcelJS from "exceljs";
 
-import { getGuidancePolicy, POLICY_CARD_IDS, referencedPolicyIds } from "../src/lib/arc/guidance/policy";
+import {
+  getGuidancePolicy,
+  POLICY_CARD_IDS,
+  referencedPolicyIds,
+} from "../src/lib/arc/guidance/policy";
 import type { GuidanceCard } from "../src/lib/arc/guidance/types";
 
 export const GUIDANCE_REGISTRY_VERSION = "arc.guidance.v1";
@@ -162,7 +166,6 @@ export function compileRegistry(
   rows: readonly RawRow[],
   options: CompileOptions = {},
 ): CompiledRegistry {
-
   const actual = headers.map((cell) => text(cell).trim());
   GUIDANCE_HEADERS.forEach((expected, index) => {
     if (actual[index] !== expected) {
@@ -262,7 +265,6 @@ export function compileRegistry(
     }
   }
 
-
   const hash = sha256(
     JSON.stringify([GUIDANCE_REGISTRY_VERSION, cards.map((card) => [card.id, card.contentHash])]),
   );
@@ -326,7 +328,9 @@ async function main(): Promise<void> {
     try {
       current = readFileSync(target, "utf8");
     } catch {
-      console.error("guidance:check — generated registry is missing. Run bun run guidance:compile.");
+      console.error(
+        "guidance:check — generated registry is missing. Run bun run guidance:compile.",
+      );
       process.exit(1);
     }
     if (current !== rendered) {

@@ -67,9 +67,7 @@ const DOMAIN_RANGES: ReadonlyArray<{ from: number; to: number; domains: readonly
  * ARC analysis (one card per authoritative engine gate), so they are supplied
  * to every Guidance Pack regardless of contract facts.
  */
-export const CORE_GUIDANCE_IDS: readonly number[] = [
-  1, 11, 18, 25, 44, 45, 58, 59, 69, 100,
-];
+export const CORE_GUIDANCE_IDS: readonly number[] = [1, 11, 18, 25, 44, 45, 58, 59, 69, 100];
 
 /** Areas where the deterministic ARC engines already own the calculation. */
 const FULL_SUPPORT_IDS = new Set<number>([
@@ -306,7 +304,10 @@ function engineSupportFor(id: number): GuidanceEngineSupport {
   return "advisory_only";
 }
 
-function finalizationImpactFor(id: number, support: GuidanceEngineSupport): GuidanceFinalizationImpact {
+function finalizationImpactFor(
+  id: number,
+  support: GuidanceEngineSupport,
+): GuidanceFinalizationImpact {
   if (BLOCKING_IDS.has(id)) return "block";
   if (support === "partial" || support === "not_supported") return "warn";
   return "none";

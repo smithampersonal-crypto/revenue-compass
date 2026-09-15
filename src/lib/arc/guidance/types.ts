@@ -11,12 +11,7 @@
  */
 
 export type GuidanceReviewSection =
-  | "step_1"
-  | "step_2"
-  | "step_3"
-  | "step_4"
-  | "step_5"
-  | "additional_topics";
+  "step_1" | "step_2" | "step_3" | "step_4" | "step_5" | "additional_topics";
 
 export type GuidanceEngineSupport = "full" | "partial" | "advisory_only" | "not_supported";
 

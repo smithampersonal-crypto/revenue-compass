@@ -109,16 +109,17 @@ describe("deterministic guidance pack retrieval", () => {
     const pack = buildGuidancePack({ normalizedEvidenceText: GENOMIX_FIXTURE });
     for (const id of [27, 32, 92, 100, 101, 110]) expect(ids(pack)).toContain(id);
     for (const id of [93, 94, 95]) expect(ids(pack)).not.toContain(id);
-    expect(
-      pack.inclusions.find((inclusion) => inclusion.cardId === 110)?.matchedSignals,
-    ).toContain("uptime");
+    expect(pack.inclusions.find((inclusion) => inclusion.cardId === 110)?.matchedSignals).toContain(
+      "uptime",
+    );
   });
 
   it("explains every inclusion without quoting the contract", () => {
     const pack = buildGuidancePack({ normalizedEvidenceText: GENOMIX_FIXTURE });
     for (const inclusion of pack.inclusions) {
       if (inclusion.reason === "core") expect(inclusion.matchedSignals).toEqual([]);
-      if (inclusion.reason === "retrieved") expect(inclusion.matchedSignals.length).toBeGreaterThan(0);
+      if (inclusion.reason === "retrieved")
+        expect(inclusion.matchedSignals.length).toBeGreaterThan(0);
       if (inclusion.reason === "dependency")
         expect(inclusion.matchedSignals[0]).toMatch(/^depends_on:\d+$/);
       for (const signal of inclusion.matchedSignals) expect(signal.length).toBeLessThan(60);
