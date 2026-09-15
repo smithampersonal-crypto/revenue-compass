@@ -127,6 +127,34 @@ function sourceMetadataText(evidence: AiDocumentEvidence, index: number): string
   ].join("\n");
 }
 
+/**
+ * Trusted ARC guidance prose for the retrieved cards, carried verbatim from the
+ * accounting-controlled registry. Counted and sent as one and the same text.
+ */
+function guidancePackText(guidance: GuidancePack): string {
+  const reasons = new Map(guidance.inclusions.map((i) => [i.cardId, i.reason]));
+  return [
+    "TRUSTED ARC GUIDANCE PACK (accountant-controlled ASC 606 guidance).",
+    `registryHash: ${guidance.registryHash}`,
+    ...guidance.cards.map((card) =>
+      [
+        `--- Guidance Card ${card.id} (${reasons.get(card.id) ?? "core"}) ---`,
+        `Topic: ${card.topic} — ${card.subtopic}`,
+        `Primary ASC reference: ${card.primaryAscReference}`,
+        `Related ASC references: ${card.relatedAscReferences}`,
+        `Rule summary: ${card.ruleSummary}`,
+        `Decision criteria: ${card.decisionCriteria}`,
+        `Facts required: ${card.factsRequired}`,
+        `Important nuances: ${card.importantNuances}`,
+        `When relevant: ${card.whenRelevant}`,
+        `AI may propose: ${card.aiMayPropose}`,
+        `Accountant must approve: ${card.accountantMustApprove}`,
+        `Revenue Compass engine behavior: ${card.engineBehavior}`,
+      ].join("\n"),
+    ),
+  ].join("\n");
+}
+
 function packageInstructions(): string {
   return [
     "You are analyzing contract PDFs supplied by ARC (Ayden's Revenue Compass).",
