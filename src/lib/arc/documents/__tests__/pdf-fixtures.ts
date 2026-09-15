@@ -54,8 +54,12 @@ export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
       exact !== undefined
         ? exact === ""
           ? "0 0 1 rg 10 10 100 100 re f"
-          : // Written verbatim: callers may embed PDF octal escapes (e.g. \351).
-            `BT /F1 12 Tf 20 140 Td (${exact}) Tj ET`
+          : // Written verbatim, one drawn line per "\n": callers may embed PDF
+            // octal escapes (e.g. \351).
+            exact
+              .split("\n")
+              .map((line, row) => `BT /F1 12 Tf 20 ${170 - row * 18} Td (${line}) Tj ET`)
+              .join("\n")
         : text
           ? [1, 2, 3]
               .map(
