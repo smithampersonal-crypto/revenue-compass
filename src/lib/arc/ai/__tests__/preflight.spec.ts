@@ -17,6 +17,7 @@ import { preflightAiRequest } from "../preflight.server";
 import {
   buildAiRequestPackage,
   type AiPackageDeps,
+  type ArcStructuredOutput,
   type AuthorizedSource,
 } from "../request-package.server";
 import type { CurrentAccountingContext } from "../types";
@@ -267,7 +268,9 @@ describe("canonical request envelope", () => {
     await buildAiRequestPackage({
       scope,
       currentContext,
-      additionalRequestParams: { text: representative.text },
+      requestOptions: { structuredOutput: representative.text as ArcStructuredOutput },
+
+
       deps: {
         loadAuthorizedSelectedSources: async () => authorized(pdfBytes.byteLength),
         download: async () => pdfBytes,

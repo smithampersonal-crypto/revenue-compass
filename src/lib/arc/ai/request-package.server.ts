@@ -70,11 +70,16 @@ export interface BuildAiRequestPackageArgs {
   /** Deterministic ARC fact signals fed to Phase 9A retrieval. */
   arcFactSignals?: readonly string[];
   /**
-   * Phase 9D seam: further canonical Responses parameters (structured-output
-   * configuration, prompt policy fields). They enter the ONE envelope that is
-   * both counted and later sent.
+   * Phase 9D: strict structured output, the trust-tier instruction builder and
+   * any genuinely optional extra parameters. They enter the ONE envelope that
+   * is both counted and later sent; ARC-controlled keys are rejected.
    */
-  additionalRequestParams?: Record<string, unknown>;
+  requestOptions?: {
+    structuredOutput?: ArcStructuredOutput | null;
+    safeAdditionalParams?: Record<string, unknown>;
+    buildInstructions?: (requestPackage: AiRequestPackage) => string;
+  };
+
   deps: AiPackageDeps;
 }
 
@@ -165,32 +170,88 @@ function packageInstructions(): string {
 }
 
 /**
+ * Phase 9D — ARC-controlled request invariants.
+ *
+ * No caller, seam or future extension may set these. They are applied LAST in
+ * the canonical envelope and any extension object containing one is rejected at
+ * runtime rather than silently overridden.
+ */
+export const ARC_PROTECTED_REQUEST_KEYS = [
+  "model",
+  "instructions",
+  "input",
+  "reasoning",
+  "store",
+  "truncation",
+  "tools",
+  "background",
+  "conversation",
+  "previous_response_id",
+  // Structured output is supplied through the dedicated typed option below,
+  // never through an arbitrary extension object.
+  "text",
+] as const;
+
+export class ArcProtectedRequestKeyError extends Error {
+  readonly key: string;
+  constructor(key: string) {
+    super(`ARC: request parameter "${key}" is ARC-controlled and cannot be overridden.`);
+    this.name = "ArcProtectedRequestKeyError";
+    this.key = key;
+  }
+}
+
+/** Strict structured-output configuration, supplied intentionally and typed. */
+export interface ArcStructuredOutput {
+  format: {
+    type: "json_schema";
+    name: string;
+    strict: true;
+    schema: Record<string, unknown>;
+  };
+}
+
+export interface CanonicalRequestOptions {
+  /** Phase 9D trust-tier instructions. Falls back to the Phase 9B preamble. */
+  instructions?: string;
+  structuredOutput?: ArcStructuredOutput | null;
+  /** Genuinely optional extra parameters. Protected keys are rejected. */
+  safeAdditionalParams?: Record<string, unknown>;
+}
+
+/**
  * Finding 1 — the ONE canonical Responses request envelope.
  *
- * Exact token preflight counts this object, and the eventual Phase 9D
- * generative call sends this same object. Phase 9D supplies its own
- * output-schema / prompt parameters through `additionalRequestParams`; they are
- * merged here rather than bolted onto a second, separately built request, so a
- * counted request can never diverge from the request that is actually sent.
+ * Exact token preflight counts this object and the Phase 9D generative call
+ * sends this same object. There is never a second, separately built request.
  */
 export function buildCanonicalResponsesRequest(
   requestPackage: AiRequestPackage,
   limits: AiLimits = AI_LIMITS,
-  additionalRequestParams: Record<string, unknown> = {},
+  options: CanonicalRequestOptions = {},
 ): Record<string, unknown> {
+  const safeAdditionalParams = options.safeAdditionalParams ?? {};
+  for (const key of Object.keys(safeAdditionalParams)) {
+    if ((ARC_PROTECTED_REQUEST_KEYS as readonly string[]).includes(key)) {
+      throw new ArcProtectedRequestKeyError(key);
+    }
+  }
+
   return {
+    // Extensions first; every ARC invariant below is applied last and wins.
+    ...safeAdditionalParams,
     model: limits.model,
-    instructions: packageInstructions(),
+    instructions: options.instructions ?? packageInstructions(),
     input: requestPackage.openAiInput,
     reasoning: { effort: limits.reasoningEffort },
     store: false,
     truncation: "disabled",
     tools: [],
-    // Phase 9D seam: structured-output/text configuration and any further
-    // token-bearing parameters travel in the same envelope.
-    ...additionalRequestParams,
+    background: false,
+    ...(options.structuredOutput ? { text: options.structuredOutput } : {}),
   };
 }
+
 
 /** Releases the large in-memory base64 references once the run is finished. */
 export function releaseRequestBytes(requestPackage: AiRequestPackage): void {
@@ -319,12 +380,20 @@ export async function buildAiRequestPackage(
   };
 
   // Preflight counts the ONE canonical envelope verbatim. There is no reduced
-  // count-only payload anywhere in this path.
-  const canonicalRequest = buildCanonicalResponsesRequest(
-    requestPackage,
-    limits,
-    args.additionalRequestParams ?? {},
-  );
+  // count-only payload anywhere in this path, and the object returned below is
+  // the very same object reference the generative call later sends.
+  const requestOptions = args.requestOptions ?? {};
+  const canonicalRequest = buildCanonicalResponsesRequest(requestPackage, limits, {
+    ...(requestOptions.buildInstructions
+      ? { instructions: requestOptions.buildInstructions(requestPackage) }
+      : {}),
+    ...(requestOptions.structuredOutput !== undefined
+      ? { structuredOutput: requestOptions.structuredOutput }
+      : {}),
+    ...(requestOptions.safeAdditionalParams
+      ? { safeAdditionalParams: requestOptions.safeAdditionalParams }
+      : {}),
+  });
   const check = await preflightAiRequest({
     requestParams: canonicalRequest,
     combinedFileBytes,
@@ -340,5 +409,11 @@ export async function buildAiRequestPackage(
     return failure(check.code, extra);
   }
 
-  return { ok: true, package: requestPackage, inputTokens: check.inputTokens };
+  return {
+    ok: true,
+    package: requestPackage,
+    inputTokens: check.inputTokens,
+    canonicalRequest,
+  };
+
 }
