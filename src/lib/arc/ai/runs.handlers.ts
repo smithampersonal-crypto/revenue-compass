@@ -128,9 +128,7 @@ export interface AiRunStore {
     userId: string,
   ): Promise<{ id: string; contractId: string; lockVersion: number } | null>;
   /** Active, unexpired temporary workspace for this credential hash. */
-  findActiveGuestWorkspace(
-    tokenHash: string,
-  ): Promise<{ id: string; lockVersion: number } | null>;
+  findActiveGuestWorkspace(tokenHash: string): Promise<{ id: string; lockVersion: number } | null>;
   findActiveRunForScope(scope: {
     revisionId: string | null;
     guestWorkspaceId: string | null;
@@ -192,8 +190,7 @@ export function runBelongsToCaller(run: AiRunRow, caller: AiCallerScope): boolea
     return run.revisionId === caller.revisionId && run.ownerUserId === caller.userId;
   }
   return (
-    run.guestWorkspaceId === caller.guestWorkspaceId &&
-    run.guestTokenHash === caller.guestTokenHash
+    run.guestWorkspaceId === caller.guestWorkspaceId && run.guestTokenHash === caller.guestTokenHash
   );
 }
 
@@ -246,8 +243,7 @@ export async function startAiAnalysisHandler(
   const runId = await deps.store.createRun({
     runId: deps.newRunId(),
     // Identity is taken from the derived caller, never from `input`.
-    ownerUserId:
-      caller.kind === "revision" ? caller.userId : (caller.authenticatedUserId ?? null),
+    ownerUserId: caller.kind === "revision" ? caller.userId : (caller.authenticatedUserId ?? null),
     guestTokenHash: caller.kind === "guest" ? caller.guestTokenHash : null,
     revisionId: caller.kind === "revision" ? caller.revisionId : null,
     guestWorkspaceId: caller.kind === "guest" ? caller.guestWorkspaceId : null,

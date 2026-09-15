@@ -122,7 +122,11 @@ async function callerFor(
 }
 
 const revisionTarget = (input: { revisionId?: string | null } | undefined) =>
-  z.string().uuid().nullable().parse(input?.revisionId ?? null);
+  z
+    .string()
+    .uuid()
+    .nullable()
+    .parse(input?.revisionId ?? null);
 
 /** Creates, or re-returns, the one active run for the caller's owner scope. */
 export const startAiAnalysis = createServerFn({ method: "POST" })

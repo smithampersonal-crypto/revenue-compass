@@ -75,10 +75,7 @@ export async function createAiRunStore(): Promise<AiRunStore> {
         )
         .eq("id", revisionId)
         .eq("status", "draft")
-        .eq(
-          "analyses.contracts.customers.owner_user_id",
-          userId,
-        )
+        .eq("analyses.contracts.customers.owner_user_id", userId)
         .maybeSingle();
       if (error) fail("revision", error);
       if (!data) return null;

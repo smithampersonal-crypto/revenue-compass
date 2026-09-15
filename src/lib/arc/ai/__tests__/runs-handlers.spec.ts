@@ -30,11 +30,13 @@ interface Fixture {
   guestUsed: Map<string, number>;
 }
 
-function fixture(options: {
-  revisions?: Array<{ id: string; userId: string; contractId: string }>;
-  guests?: Array<{ id: string; tokenHash: string }>;
-  now?: Date;
-} = {}): Fixture {
+function fixture(
+  options: {
+    revisions?: Array<{ id: string; userId: string; contractId: string }>;
+    guests?: Array<{ id: string; tokenHash: string }>;
+    now?: Date;
+  } = {},
+): Fixture {
   const runs: AiRunRow[] = [];
   const monthly = new Map<string, number>();
   const guestUsed = new Map<string, number>();
@@ -272,7 +274,10 @@ describe("starting an AI analysis", () => {
 describe("polling and allowance", () => {
   it("refuses a run the caller does not own, even with its id", async () => {
     const { deps } = fixture({
-      revisions: [REVISION, { id: "22222222-2222-4222-8222-222222222222", userId: "user-b", contractId: "c-2" }],
+      revisions: [
+        REVISION,
+        { id: "22222222-2222-4222-8222-222222222222", userId: "user-b", contractId: "c-2" },
+      ],
     });
     const ownerCaller: AiCallerScope = {
       kind: "revision",
