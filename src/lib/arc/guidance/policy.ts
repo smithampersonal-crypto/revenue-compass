@@ -309,6 +309,19 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   ],
 
   32: ["constrained", "significant revenue reversal"],
+  // Noncash consideration needs consideration/payment context: a bare "equity"
+  // is ordinarily corporate-affiliate boilerplate, not a payment fact.
+  40: [
+    "noncash consideration",
+    "non cash consideration",
+    "equity consideration",
+    "stock consideration",
+    "shares as consideration",
+    "equity issued as payment",
+    "shares issued in exchange",
+    "warrants issued as consideration",
+    "payment in kind",
+  ],
   35: ["interest rate", "deferred payment terms", "financing component"],
   42: ["marketing allowance", "coop funds", "payment to customer"],
   45: ["standalone selling price", "list price"],
