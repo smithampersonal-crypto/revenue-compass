@@ -6,17 +6,25 @@
  * the real production package builder.
  */
 
+import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 
+import { AI_LIMITS } from "../config.server";
 import {
   buildAiRequestPackage,
+  buildCanonicalResponsesRequest,
   releaseRequestBytes,
   type AuthorizedSource,
   type AiPackageDeps,
 } from "../request-package.server";
 import type { CurrentAccountingContext } from "../types";
+
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 const currentContext: CurrentAccountingContext = {
   manuallyEnteredFacts: { contractTitle: "Genomix master agreement" },
