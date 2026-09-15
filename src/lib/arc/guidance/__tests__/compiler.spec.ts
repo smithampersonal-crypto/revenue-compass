@@ -52,7 +52,7 @@ describe("guidance registry compiler", () => {
   });
 
   it("rejects a missing required header", () => {
-    const broken = [...HEADERS];
+    const broken: string[] = [...HEADERS];
     broken[15] = "Tags";
     expect(() => compileRegistry(broken, [row()], NO_COVERAGE)).toThrow(
       /required header at column 16/,

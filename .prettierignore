@@ -8,3 +8,4 @@ bun.lock
 routeTree.gen.ts
 src/integrations/supabase
 supabase/tests
+src/lib/arc/guidance/registry.generated.ts

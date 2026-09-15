@@ -290,7 +290,7 @@ export async function readWorkbook(
   filePath: string,
 ): Promise<{ headers: RawCell[]; rows: RawRow[] }> {
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(readFileSync(filePath));
+  await workbook.xlsx.readFile(filePath);
   const sheet = workbook.getWorksheet(CARDS_SHEET);
   if (!sheet) {
     throw new Error(`Workbook is missing the ${CARDS_SHEET} worksheet.`);
