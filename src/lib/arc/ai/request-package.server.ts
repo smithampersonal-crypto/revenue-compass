@@ -20,10 +20,12 @@
 import { createHash } from "node:crypto";
 
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
+import type { GuidancePack } from "@/lib/arc/guidance/types";
 
 import { AI_LIMITS, type AiLimits } from "./config.server";
 import { AiEvidenceError, extractPdfEvidence } from "./evidence.server";
 import type { OpenAiTokenCounter } from "./openai.server";
+import { preflightAiRequest } from "./preflight.server";
 import {
   AI_PREFLIGHT_MESSAGES,
   type AiDocumentEvidence,
@@ -67,6 +69,12 @@ export interface BuildAiRequestPackageArgs {
   priorContext?: PriorAccountingContext | null;
   /** Deterministic ARC fact signals fed to Phase 9A retrieval. */
   arcFactSignals?: readonly string[];
+  /**
+   * Phase 9D seam: further canonical Responses parameters (structured-output
+   * configuration, prompt policy fields). They enter the ONE envelope that is
+   * both counted and later sent.
+   */
+  additionalRequestParams?: Record<string, unknown>;
   deps: AiPackageDeps;
 }
 
