@@ -109,7 +109,7 @@ export interface AiRunCreateArgs {
   guestTokenHash: string | null;
   revisionId: string | null;
   guestWorkspaceId: string | null;
-  expectedLockVersion: number | null;
+  expectedLockVersion: number;
   quotaScope: AiQuotaScope;
   sourceSetFingerprint: string;
   preRunCanonicalInputs: unknown;
@@ -119,6 +119,24 @@ export interface AiRunCreateArgs {
   promptVersion: string;
   outputSchemaVersion: string;
   guidanceRegistryHash: string;
+}
+
+/**
+ * Everything immutable about a run that the server must author itself.
+ *
+ * Captured from authoritative persistence at a known lock version, so the
+ * create call either commits a consistent snapshot or is rejected as stale.
+ * Never exposed to the browser in any DTO.
+ */
+export interface AiRunCreationSnapshot {
+  /** Observed revision / temporary-workspace `lock_version`. */
+  expectedLockVersion: number;
+  /** SHA-256 over the selected documents' verified identity. */
+  sourceSetFingerprint: string;
+  /** Real canonical inputs (saved revision) or draft (temporary workspace). */
+  preRunCanonicalInputs: unknown;
+  /** Current AI sidecar state, or null when the scope has none. */
+  preRunAiState: unknown | null;
 }
 
 export interface AiRunStore {
@@ -134,11 +152,14 @@ export interface AiRunStore {
     guestWorkspaceId: string | null;
   }): Promise<AiRunRow | null>;
   findRun(runId: string): Promise<AiRunRow | null>;
+  /** Server-authored immutable creation provenance. Metadata only. */
+  loadRunCreationSnapshot(caller: AiCallerScope): Promise<AiRunCreationSnapshot>;
   /** Trusted `arc_create_ai_run`; returns the surviving active run id. */
   createRun(args: AiRunCreateArgs): Promise<string>;
   monthlyUsage(userId: string, utcMonth: string): Promise<number>;
   guestConsumed(guestWorkspaceId: string): Promise<number>;
 }
+
 
 export interface AiRunLimits {
   guestRunLimit: number;
@@ -219,6 +240,11 @@ function statusDto(run: AiRunRow, remaining: number): AiRunStatusDto {
 /**
  * Phase 9C `startAiAnalysis`: establishes the run foundation only.
  *
+ * The browser sends no provenance at all — it names a resource target and
+ * nothing else. Fingerprint, pre-run snapshots and the optimistic lock are
+ * read from authoritative persistence here, so no browser value can become
+ * immutable run history.
+ *
  * An owner scope that already has an active run gets that same run back — a
  * second click never starts a second analysis. The partial unique indexes in
  * Postgres are the final backstop; this reuse is deliberate control flow, not
@@ -227,7 +253,6 @@ function statusDto(run: AiRunRow, remaining: number): AiRunStatusDto {
 export async function startAiAnalysisHandler(
   deps: AiRunDeps,
   caller: AiCallerScope,
-  input: { sourceSetFingerprint?: string; preRunCanonicalInputs?: unknown } = {},
 ): Promise<AiRunStatusDto> {
   const scope =
     caller.kind === "revision"
@@ -240,24 +265,26 @@ export async function startAiAnalysisHandler(
   }
 
   const quotaScope = quotaScopeFor(caller);
+  const snapshot = await deps.store.loadRunCreationSnapshot(caller);
   const runId = await deps.store.createRun({
     runId: deps.newRunId(),
-    // Identity is taken from the derived caller, never from `input`.
+    // Identity and provenance are both server-derived.
     ownerUserId: caller.kind === "revision" ? caller.userId : (caller.authenticatedUserId ?? null),
     guestTokenHash: caller.kind === "guest" ? caller.guestTokenHash : null,
     revisionId: caller.kind === "revision" ? caller.revisionId : null,
     guestWorkspaceId: caller.kind === "guest" ? caller.guestWorkspaceId : null,
-    expectedLockVersion: null,
+    expectedLockVersion: snapshot.expectedLockVersion,
     quotaScope,
-    sourceSetFingerprint: input.sourceSetFingerprint ?? "",
-    preRunCanonicalInputs: input.preRunCanonicalInputs ?? {},
-    preRunAiState: null,
+    sourceSetFingerprint: snapshot.sourceSetFingerprint,
+    preRunCanonicalInputs: snapshot.preRunCanonicalInputs,
+    preRunAiState: snapshot.preRunAiState,
     model: deps.limits.model,
     reasoningEffort: deps.limits.reasoningEffort,
     promptVersion: deps.limits.promptVersion,
     outputSchemaVersion: deps.limits.outputSchemaVersion,
     guidanceRegistryHash: deps.limits.guidanceRegistryHash,
   });
+
 
   const run = await deps.store.findRun(runId);
   if (!run) throw new Error(AI_RUN_NOT_AVAILABLE);

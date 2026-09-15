@@ -10,7 +10,21 @@
  * ownership, allowance or lifecycle itself.
  */
 
-import type { AiRunRow, AiRunStage, AiRunStore, AiQuotaScope } from "./runs.handlers";
+import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
+
+import type {
+  AiCallerScope,
+  AiRunCreationSnapshot,
+  AiRunRow,
+  AiRunStage,
+  AiRunStore,
+  AiQuotaScope,
+} from "./runs.handlers";
+
+const AI_STATE_COLUMNS =
+  "last_successful_run_id, source_set_fingerprint, source_state, field_provenance, " +
+  "object_provenance, tombstones, review_items, lock_version";
+
 
 const RUN_COLUMNS =
   "id, stage, revision_id, guest_workspace_id, owner_user_id, guest_token_hash, quota_scope, " +
@@ -117,6 +131,79 @@ export async function createAiRunStore(): Promise<AiRunStore> {
       if (error) fail("run", error);
       return data ? toRow(data as unknown as RawRun) : null;
     },
+
+    loadRunCreationSnapshot: async (caller: AiCallerScope): Promise<AiRunCreationSnapshot> => {
+      // Metadata only: no PDF is downloaded, no page is parsed, no Guidance
+      // retrieval or token counting happens here.
+      const selectedSources = async (
+        table: "revision_source_documents" | "guest_source_document_selections",
+        column: "revision_id" | "guest_workspace_id",
+        value: string,
+      ): Promise<AiSourceIdentity[]> => {
+        const { data, error } = await supabaseAdmin
+          .from(table)
+          .select("source_document_id, source_documents!inner(id, sha256, archived_at)")
+          .eq(column, value);
+        if (error) fail("selected source documents", error);
+        return (data ?? [])
+          .map((row) => row.source_documents as unknown as { id: string; sha256: string })
+          .map((doc) => ({ documentId: doc.id, sha256: doc.sha256 }));
+      };
+
+      const aiState = async (
+        column: "revision_id" | "guest_workspace_id",
+        value: string,
+      ): Promise<unknown | null> => {
+        const { data, error } = await supabaseAdmin
+          .from("ai_analysis_state")
+          .select(AI_STATE_COLUMNS)
+          .eq(column, value)
+          .maybeSingle();
+        if (error) fail("AI analysis state", error);
+        return data ?? null;
+      };
+
+      if (caller.kind === "revision") {
+        const { data, error } = await supabaseAdmin
+          .from("analysis_revisions")
+          .select("canonical_inputs, lock_version")
+          .eq("id", caller.revisionId)
+          .maybeSingle();
+        if (error) fail("revision snapshot", error);
+        if (!data) throw new Error("The analysis is no longer open for editing.");
+        const sources = await selectedSources(
+          "revision_source_documents",
+          "revision_id",
+          caller.revisionId,
+        );
+        return {
+          expectedLockVersion: data.lock_version,
+          sourceSetFingerprint: await computeSourceSetFingerprint(sources),
+          preRunCanonicalInputs: data.canonical_inputs,
+          preRunAiState: await aiState("revision_id", caller.revisionId),
+        };
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from("guest_workspaces")
+        .select("draft_json, lock_version")
+        .eq("id", caller.guestWorkspaceId)
+        .maybeSingle();
+      if (error) fail("temporary workspace snapshot", error);
+      if (!data) throw new Error("This temporary workspace is no longer available.");
+      const sources = await selectedSources(
+        "guest_source_document_selections",
+        "guest_workspace_id",
+        caller.guestWorkspaceId,
+      );
+      return {
+        expectedLockVersion: data.lock_version,
+        sourceSetFingerprint: await computeSourceSetFingerprint(sources),
+        preRunCanonicalInputs: data.draft_json,
+        preRunAiState: await aiState("guest_workspace_id", caller.guestWorkspaceId),
+      };
+    },
+
 
     createRun: async (args) => {
       const { data, error } = await supabaseAdmin.rpc("arc_create_ai_run", {
