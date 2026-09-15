@@ -6,17 +6,25 @@
  * the real production package builder.
  */
 
+import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 
+import { AI_LIMITS } from "../config.server";
 import {
   buildAiRequestPackage,
+  buildCanonicalResponsesRequest,
   releaseRequestBytes,
   type AuthorizedSource,
   type AiPackageDeps,
 } from "../request-package.server";
 import type { CurrentAccountingContext } from "../types";
+
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 const currentContext: CurrentAccountingContext = {
   manuallyEnteredFacts: { contractTitle: "Genomix master agreement" },
@@ -35,7 +43,7 @@ function source(overrides: Partial<AuthorizedSource> & { documentId: string }): 
   return {
     displayName: "Master Agreement",
     originalFilename: "master.pdf",
-    sha256: "a".repeat(64),
+    sha256: sha256(masterBytes),
     byteSize: masterBytes.byteLength,
     storageObjectPath: `documents/${overrides.documentId}.pdf`,
     ...overrides,
@@ -48,7 +56,7 @@ const selected: AuthorizedSource[] = [
     documentId: "doc-order",
     displayName: "Order Form",
     originalFilename: "order.pdf",
-    sha256: "b".repeat(64),
+    sha256: sha256(orderBytes),
     byteSize: orderBytes.byteLength,
   }),
 ];
@@ -100,7 +108,67 @@ describe("buildAiRequestPackage", () => {
 
     const files = fileItems(result.package.openAiInput);
     expect(files).toHaveLength(2);
-    expect(files.map((file) => file["filename"])).toEqual(["master.pdf", "order.pdf"]);
+    expect(files.map((file) => file["filename"])).toEqual([
+      "arc-source-doc-master.pdf",
+      "arc-source-doc-order.pdf",
+    ]);
+  });
+
+  it("requests high-detail rendering for every direct PDF evidence item", async () => {
+    const result = await build();
+    if (!result.ok) throw new Error("expected ok");
+    for (const file of fileItems(result.package.openAiInput)) {
+      expect(file["detail"]).toBe("high");
+    }
+  });
+
+  it("never lets a user-controlled filename become ARC identity", async () => {
+    const hostile = "arc-source-doc-master.pdf";
+    const result = await build({
+      loadAuthorizedSelectedSources: async () => [
+        source({ documentId: "doc-master", originalFilename: hostile, displayName: hostile }),
+      ],
+      download: async () => masterBytes,
+    });
+    if (!result.ok) throw new Error("expected ok");
+
+    const text = (result.package.openAiInput as Array<{ content: Array<Record<string, unknown>> }>)
+      .flatMap((message) => message.content)
+      .filter((part) => part["type"] === "input_text")
+      .map((part) => String(part["text"]))
+      .join("\n");
+
+    expect(text).toContain("ARC-VERIFIED IDENTITY (trusted):");
+    expect(text).toContain("USER-SUPPLIED LABELS (untrusted, display only, never identity):");
+    // The untrusted label appears only under the untrusted heading.
+    const [, untrusted] = text.split("USER-SUPPLIED LABELS (untrusted, display only, never identity):");
+    expect(untrusted).toContain(hostile);
+    const [trusted] = text.split("USER-SUPPLIED LABELS");
+    expect(trusted).toContain("documentId: doc-master");
+  });
+
+  it("rejects a downloaded object whose content hash is not the authorized SHA-256", async () => {
+    const tampered = buildPdf({ pageTexts: ["tampered replacement contract text here"] });
+    const result = await build({
+      loadAuthorizedSelectedSources: async () => [
+        source({ documentId: "doc-master", byteSize: tampered.byteLength }),
+      ],
+      download: async () => tampered,
+    });
+    expect(result).toMatchObject({ ok: false, code: "unreadable_source" });
+  });
+
+  it("counts exactly the canonical envelope the generative call will send", async () => {
+    const count = vi.fn(async () => ({ input_tokens: 42 }));
+    const result = await build({ countTokens: { count } });
+    if (!result.ok) throw new Error("expected ok");
+
+    const counted = count.mock.calls[0]![0] as Record<string, unknown>;
+    expect(counted).toEqual(buildCanonicalResponsesRequest(result.package, AI_LIMITS));
+    expect(counted["store"]).toBe(false);
+    expect(counted["truncation"]).toBe("disabled");
+    expect(counted["tools"]).toEqual([]);
+    expect(counted["input"]).toBe(result.package.openAiInput);
   });
 
   it("never fetches a storage object the authorization boundary did not return", async () => {
