@@ -13,6 +13,15 @@
 import { createHash } from "node:crypto";
 
 import {
+  classifyParserError,
+  countMeaningfulCharacters,
+  loadPdfParser,
+  pdfDocumentOptions,
+  type LoadPdfParser,
+  type PdfDocument,
+  type PdfTextItem,
+} from "./pdf-parser.server";
+import {
   MAX_DOCUMENT_BYTES,
   MAX_DOCUMENT_PAGES,
   MIN_MEANINGFUL_TEXT_CHARACTERS,
@@ -20,56 +29,15 @@ import {
   type PdfValidationResult,
 } from "./types";
 
-interface PdfTextItem {
-  str?: string;
-}
-interface PdfPage {
-  getTextContent(): Promise<{ items: unknown[] }>;
-}
-interface PdfDocument {
-  numPages: number;
-  getPage(pageNumber: number): Promise<PdfPage>;
-  destroy?(): Promise<void>;
-}
-interface PdfParser {
-  getDocument(args: Record<string, unknown>): { promise: Promise<PdfDocument> };
-}
+export { countMeaningfulCharacters };
 
 export interface ValidatePdfOptions {
   /** Injected only by tests that must prove the parser was not reached. */
-  loadParser?: () => Promise<PdfParser>;
-}
-
-async function loadPdfParser(): Promise<PdfParser> {
-  // The deployed server runtime has no runtime module resolution, so pdf.js's
-  // "fake worker" fallback (a dynamic import of pdf.worker.mjs) fails there and
-  // every document is reported as unreadable. Registering the worker module up
-  // front — it is bundled because this import is static-equivalent — makes
-  // pdf.js reuse it instead of resolving a path at runtime.
-  const globals = globalThis as Record<string, unknown>;
-  if (!globals["pdfjsWorker"]) {
-    globals["pdfjsWorker"] = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-  }
-  const module = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as PdfParser;
-  return module;
+  loadParser?: LoadPdfParser;
 }
 
 function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
-}
-
-/** Counts Unicode letters and numbers only; whitespace and controls do not count. */
-export function countMeaningfulCharacters(value: string): number {
-  let count = 0;
-  for (const character of value) {
-    if (/\p{L}|\p{N}/u.test(character)) count += 1;
-  }
-  return count;
-}
-
-function classifyParserError(error: unknown): "password_protected" | "invalid_pdf" {
-  const name = (error as { name?: string } | null)?.name ?? "";
-  return name === "PasswordException" ? "password_protected" : "invalid_pdf";
 }
 
 export async function validatePdfBytes(
@@ -85,14 +53,7 @@ export async function validatePdfBytes(
 
   let document: PdfDocument;
   try {
-    document = await parser.getDocument({
-      // A copy: pdf.js transfers/detaches the buffer it is handed.
-      data: new Uint8Array(bytes),
-      isEvalSupported: false,
-      useSystemFonts: false,
-      disableFontFace: true,
-      useWorkerFetch: false,
-    }).promise;
+    document = await parser.getDocument(pdfDocumentOptions(bytes)).promise;
   } catch (error) {
     return pdfValidationFailure(classifyParserError(error));
   }

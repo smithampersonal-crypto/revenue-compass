@@ -17,13 +17,18 @@ export interface PdfFixtureOptions {
   pages?: number;
   /** Text drawn on every page; empty string produces a page with no text. */
   text?: string;
+  /**
+   * Exact per-page text, one entry per physical page. An empty entry produces a
+   * page that draws only a shape. Overrides `pages`/`text` when supplied.
+   */
+  pageTexts?: string[];
   /** Adds a Standard security handler dictionary (encrypted document). */
   encrypted?: boolean;
 }
 
 /** Builds a small, structurally valid PDF with a real cross-reference table. */
 export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
-  const pageCount = options.pages ?? 1;
+  const pageCount = options.pageTexts ? options.pageTexts.length : (options.pages ?? 1);
   const text = options.text ?? "ARC source document fixture text";
 
   const objects: string[] = [];
@@ -44,16 +49,23 @@ export function buildPdf(options: PdfFixtureOptions = {}): Uint8Array {
   for (let index = 0; index < pageCount; index += 1) {
     const contentNumber = firstPageObject + index * 2;
     const pageNumber = contentNumber + 1;
-    const lines = text
-      ? [1, 2, 3]
-          .map(
-            (line) =>
-              `BT /F1 12 Tf 20 ${160 - line * 20} Td (${escapePdfText(
-                `${text} ${index + 1} line ${line}`,
-              )}) Tj ET`,
-          )
-          .join("\n")
-      : "0 0 1 rg 10 10 100 100 re f";
+    const exact = options.pageTexts?.[index];
+    const lines =
+      exact !== undefined
+        ? exact === ""
+          ? "0 0 1 rg 10 10 100 100 re f"
+          : // Written verbatim: callers may embed PDF octal escapes (e.g. \351).
+            `BT /F1 12 Tf 20 140 Td (${exact}) Tj ET`
+        : text
+          ? [1, 2, 3]
+              .map(
+                (line) =>
+                  `BT /F1 12 Tf 20 ${160 - line * 20} Td (${escapePdfText(
+                    `${text} ${index + 1} line ${line}`,
+                  )}) Tj ET`,
+              )
+              .join("\n")
+          : "0 0 1 rg 10 10 100 100 re f";
     const stream = lines;
     objects[contentNumber] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
     objects[pageNumber] =
