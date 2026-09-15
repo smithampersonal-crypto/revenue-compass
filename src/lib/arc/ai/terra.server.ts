@@ -15,7 +15,13 @@ import {
   validateAiCitations,
   type AiCitationValidationResult,
 } from "./citations";
-import { parseAiContractAnalysis, type AiContractAnalysis } from "./schema";
+import type { ArcStructuredOutput } from "./request-package.server";
+import {
+  AI_OUTPUT_SCHEMA_NAME,
+  aiContractAnalysisJsonSchema,
+  parseAiContractAnalysis,
+  type AiContractAnalysis,
+} from "./schema";
 import type { AiDocumentEvidence } from "./types";
 
 export interface AiUsage {
@@ -177,6 +183,23 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
         usage: readUsage(response),
         validation,
       };
+    },
+  };
+}
+
+/**
+ * The strict Structured Output configuration ARC always sends. The installed
+ * SDK (openai 7.15.0) types this exactly as `text.format` with
+ * `{ type: "json_schema", name, strict, schema }`, so no shape adjustment was
+ * needed.
+ */
+export function arcStructuredOutput(): ArcStructuredOutput {
+  return {
+    format: {
+      type: "json_schema",
+      name: AI_OUTPUT_SCHEMA_NAME,
+      strict: true,
+      schema: aiContractAnalysisJsonSchema,
     },
   };
 }

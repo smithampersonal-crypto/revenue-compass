@@ -8,6 +8,7 @@
  */
 
 import { AI_LIMITS } from "./config.server";
+import { createTerraAnalyzer, type TerraAnalyzer } from "./terra.server";
 
 /** Injected everywhere so tests never depend on a live OpenAI request. */
 export interface OpenAiTokenCounter {
@@ -59,4 +60,9 @@ export function createTokenCounter(client: TokenCountingClient): OpenAiTokenCoun
 
 export async function productionTokenCounter(): Promise<OpenAiTokenCounter> {
   return createTokenCounter(await openAiClient());
+}
+
+/** The ONE generative boundary. Same client, same maxRetries: 0 configuration. */
+export async function productionTerraAnalyzer(): Promise<TerraAnalyzer> {
+  return createTerraAnalyzer(await openAiClient());
 }
