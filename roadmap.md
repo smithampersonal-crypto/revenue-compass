@@ -538,7 +538,7 @@ Acceptance patch applied. Seven review findings closed:
 
 Phase 9A and 9B accepted.
 
-## Phase 9C — AI persistence, quotas & ownership boundaries (complete, awaiting acceptance)
+## Phase 9C — AI persistence, quotas & ownership boundaries (accepted by director, 2026-09-15)
 
 Non-generative. Migration history: foundation
 `20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`; Phase 9C acceptance
