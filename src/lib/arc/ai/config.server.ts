@@ -20,6 +20,11 @@ export const AI_LIMITS = {
   /** Exact combined original-PDF byte cap. */
   maxCombinedFileBytes: numberFrom(process.env["ARC_AI_MAX_COMBINED_FILE_BYTES"], 50000000),
   requestTimeoutMs: numberFrom(process.env["ARC_AI_REQUEST_TIMEOUT_MS"], 240000),
+  /** Phase 9C allowances. Server-controlled; the browser never supplies these. */
+  guestRunLimit: numberFrom(process.env["ARC_AI_GUEST_RUN_LIMIT"], 3),
+  userMonthlyRunLimit: numberFrom(process.env["ARC_AI_USER_MONTHLY_RUN_LIMIT"], 10),
+  promptVersion: process.env["ARC_AI_PROMPT_VERSION"] ?? "arc.ai.prompt.v1",
+  outputSchemaVersion: process.env["ARC_AI_OUTPUT_SCHEMA_VERSION"] ?? "arc.ai.schema.v1",
 } as const;
 
 export type AiLimits = typeof AI_LIMITS;
