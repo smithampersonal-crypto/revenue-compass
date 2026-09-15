@@ -17,6 +17,8 @@
  * signed URLs or complete request bodies.
  */
 
+import { createHash } from "node:crypto";
+
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 
 import { AI_LIMITS, type AiLimits } from "./config.server";
