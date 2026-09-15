@@ -46,6 +46,25 @@ describe("AI run server isolation", () => {
     expect(functions).not.toContain("arc_mark_ai_run_failure");
   });
 
+  it("accepts no browser-authored run provenance", () => {
+    const functions = read("src/lib/arc/ai/runs.functions.ts");
+    for (const forbidden of [
+      "sourceSetFingerprint",
+      "preRunCanonicalInputs",
+      "preRunAiState",
+      "expectedLockVersion",
+      "ownerUserId",
+    ]) {
+      expect(functions).not.toContain(forbidden);
+    }
+  });
+
+  it("always forwards a real optimistic lock version", () => {
+    const handlers = read("src/lib/arc/ai/runs.handlers.ts");
+    expect(handlers).not.toContain("expectedLockVersion: null");
+    expect(handlers).toContain("expectedLockVersion: snapshot.expectedLockVersion");
+  });
+
   it("never merges request fields over a derived identity", () => {
     for (const file of ["src/lib/arc/ai/runs.handlers.ts", "src/lib/arc/ai/runs.functions.ts"]) {
       const contents = read(file);

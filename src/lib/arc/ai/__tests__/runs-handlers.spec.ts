@@ -1,5 +1,7 @@
 /**
- * Phase 9C — ownership, quota scope, idempotency and safe DTO regressions.
+ * Phase 9C — ownership, quota scope, idempotency and safe DTO regressions,
+ * plus the acceptance-patch rule that every immutable creation value is
+ * authored by the server.
  *
  * These exercise the handler layer against an in-memory store that behaves
  * like the trusted database routines: one active run per owner scope, and
@@ -18,6 +20,8 @@ import {
   usageSummaryHandler,
   utcMonthOf,
   type AiCallerScope,
+  type AiRunCreateArgs,
+  type AiRunCreationSnapshot,
   type AiRunDeps,
   type AiRunRow,
   type AiRunStore,
@@ -26,18 +30,28 @@ import {
 interface Fixture {
   deps: AiRunDeps;
   runs: AiRunRow[];
+  created: AiRunCreateArgs[];
   monthly: Map<string, number>;
   guestUsed: Map<string, number>;
 }
+
+const SNAPSHOT: AiRunCreationSnapshot = {
+  expectedLockVersion: 7,
+  sourceSetFingerprint: "f".repeat(64),
+  preRunCanonicalInputs: { step1: { contractTitle: "Genomix" } },
+  preRunAiState: { lastSuccessfulRunId: "run-0", sourceState: "stale" },
+};
 
 function fixture(
   options: {
     revisions?: Array<{ id: string; userId: string; contractId: string }>;
     guests?: Array<{ id: string; tokenHash: string }>;
+    snapshot?: Partial<AiRunCreationSnapshot>;
     now?: Date;
   } = {},
 ): Fixture {
   const runs: AiRunRow[] = [];
+  const created: AiRunCreateArgs[] = [];
   const monthly = new Map<string, number>();
   const guestUsed = new Map<string, number>();
   let counter = 0;
@@ -62,7 +76,9 @@ function fixture(
           r.stage === "created",
       ) ?? null,
     findRun: async (runId) => runs.find((r) => r.id === runId) ?? null,
+    loadRunCreationSnapshot: async () => ({ ...SNAPSHOT, ...(options.snapshot ?? {}) }),
     createRun: async (args) => {
+      created.push(args);
       const row: AiRunRow = {
         id: args.runId,
         stage: "created",
@@ -87,6 +103,7 @@ function fixture(
 
   return {
     runs,
+    created,
     monthly,
     guestUsed,
     deps: {
@@ -108,6 +125,12 @@ function fixture(
 
 const OWNER = "user-a";
 const REVISION = { id: "11111111-1111-4111-8111-111111111111", userId: OWNER, contractId: "c-1" };
+const OWNER_CALLER: AiCallerScope = {
+  kind: "revision",
+  userId: OWNER,
+  revisionId: REVISION.id,
+  contractId: "c-1",
+};
 
 describe("AI caller derivation", () => {
   it("accepts the authenticated owner of a draft revision", async () => {
@@ -117,12 +140,7 @@ describe("AI caller derivation", () => {
       guestTokenHash: null,
       requestedRevisionId: REVISION.id,
     });
-    expect(caller).toEqual({
-      kind: "revision",
-      userId: OWNER,
-      revisionId: REVISION.id,
-      contractId: "c-1",
-    });
+    expect(caller).toEqual(OWNER_CALLER);
   });
 
   it("denies a different authenticated user who knows the revision id", async () => {
@@ -198,13 +216,7 @@ describe("AI caller derivation", () => {
 describe("starting an AI analysis", () => {
   it("returns only approved safe fields", async () => {
     const { deps } = fixture({ revisions: [REVISION] });
-    const caller: AiCallerScope = {
-      kind: "revision",
-      userId: OWNER,
-      revisionId: REVISION.id,
-      contractId: "c-1",
-    };
-    const dto = await startAiAnalysisHandler(deps, caller);
+    const dto = await startAiAnalysisHandler(deps, OWNER_CALLER);
     expect(Object.keys(dto).sort()).toEqual(
       [
         "completedAt",
@@ -220,7 +232,7 @@ describe("starting an AI analysis", () => {
     );
     expect(dto.stage).toBe("created");
     const serialized = JSON.stringify(dto);
-    for (const forbidden of ["hash-1", "prompt", "base64", "service_role", "%PDF"]) {
+    for (const forbidden of ["hash-1", "prompt", "base64", "service_role", "%PDF", "Genomix"]) {
       expect(serialized).not.toContain(forbidden);
     }
   });
@@ -241,33 +253,73 @@ describe("starting an AI analysis", () => {
 
   it("returns the same run on a double click", async () => {
     const { deps, runs } = fixture({ revisions: [REVISION] });
-    const caller: AiCallerScope = {
-      kind: "revision",
-      userId: OWNER,
-      revisionId: REVISION.id,
-      contractId: "c-1",
-    };
-    const first = await startAiAnalysisHandler(deps, caller);
-    const second = await startAiAnalysisHandler(deps, caller);
+    const first = await startAiAnalysisHandler(deps, OWNER_CALLER);
+    const second = await startAiAnalysisHandler(deps, OWNER_CALLER);
     expect(second.runId).toBe(first.runId);
     expect(runs).toHaveLength(1);
   });
 
   it("takes identity from the server even when the payload claims another owner", async () => {
     const { deps, runs } = fixture({ revisions: [REVISION] });
-    const caller: AiCallerScope = {
-      kind: "revision",
-      userId: OWNER,
-      revisionId: REVISION.id,
-      contractId: "c-1",
-    };
-    await startAiAnalysisHandler(deps, caller, {
-      // Hostile extras on the request payload.
-      ...({ userId: "attacker", ownerUserId: "attacker", guestTokenHash: "stolen" } as object),
-      sourceSetFingerprint: "fp-1",
+    // The handler accepts no request payload at all, so hostile extras cannot
+    // reach it even if a caller invents them.
+    await (
+      startAiAnalysisHandler as unknown as (
+        deps: AiRunDeps,
+        caller: AiCallerScope,
+        hostile: unknown,
+      ) => Promise<unknown>
+    )(deps, OWNER_CALLER, {
+      userId: "attacker",
+      ownerUserId: "attacker",
+      guestTokenHash: "stolen",
+      sourceSetFingerprint: "attacker-fingerprint",
+      preRunCanonicalInputs: { step1: { contractTitle: "attacker" } },
+      expectedLockVersion: 999,
     });
     expect(runs[0]!.ownerUserId).toBe(OWNER);
     expect(runs[0]!.guestTokenHash).toBeNull();
+  });
+});
+
+describe("server-authored creation provenance", () => {
+  it("persists the server snapshot, not any browser value", async () => {
+    const { deps, created } = fixture({ revisions: [REVISION] });
+    await startAiAnalysisHandler(deps, OWNER_CALLER);
+    const args = created[0]!;
+    expect(args.sourceSetFingerprint).toBe(SNAPSHOT.sourceSetFingerprint);
+    expect(args.preRunCanonicalInputs).toEqual(SNAPSHOT.preRunCanonicalInputs);
+    expect(args.preRunAiState).toEqual(SNAPSHOT.preRunAiState);
+  });
+
+  it("forwards the observed optimistic lock, never null", async () => {
+    const { deps, created } = fixture({ revisions: [REVISION] });
+    await startAiAnalysisHandler(deps, OWNER_CALLER);
+    expect(created[0]!.expectedLockVersion).toBe(SNAPSHOT.expectedLockVersion);
+    expect(created[0]!.expectedLockVersion).not.toBeNull();
+  });
+
+  it("stores a null pre-run AI state when the scope has no sidecar yet", async () => {
+    const { deps, created } = fixture({
+      guests: [{ id: "ws-1", tokenHash: "h" }],
+      snapshot: { preRunAiState: null, preRunCanonicalInputs: { draft: true } },
+    });
+    await startAiAnalysisHandler(deps, {
+      kind: "guest",
+      guestTokenHash: "h",
+      guestWorkspaceId: "ws-1",
+      authenticatedUserId: null,
+    });
+    expect(created[0]!.preRunAiState).toBeNull();
+    expect(created[0]!.preRunCanonicalInputs).toEqual({ draft: true });
+  });
+
+  it("never exposes the creation snapshot to the browser", async () => {
+    const { deps } = fixture({ revisions: [REVISION] });
+    const dto = await startAiAnalysisHandler(deps, OWNER_CALLER);
+    expect(JSON.stringify(dto)).not.toContain(SNAPSHOT.sourceSetFingerprint);
+    expect(Object.keys(dto)).not.toContain("preRunCanonicalInputs");
+    expect(Object.keys(dto)).not.toContain("expectedLockVersion");
   });
 });
 
@@ -279,26 +331,22 @@ describe("polling and allowance", () => {
         { id: "22222222-2222-4222-8222-222222222222", userId: "user-b", contractId: "c-2" },
       ],
     });
-    const ownerCaller: AiCallerScope = {
-      kind: "revision",
-      userId: OWNER,
-      revisionId: REVISION.id,
-      contractId: "c-1",
-    };
     const other: AiCallerScope = {
       kind: "revision",
       userId: "user-b",
       revisionId: "22222222-2222-4222-8222-222222222222",
       contractId: "c-2",
     };
-    const run = await startAiAnalysisHandler(deps, ownerCaller);
+    const run = await startAiAnalysisHandler(deps, OWNER_CALLER);
 
     await expect(runStatusHandler(deps, other, { runId: run.runId })).rejects.toThrow(
       AI_RUN_NOT_AVAILABLE,
     );
-    await expect(runStatusHandler(deps, ownerCaller, { runId: run.runId })).resolves.toMatchObject({
-      runId: run.runId,
-    });
+    await expect(runStatusHandler(deps, OWNER_CALLER, { runId: run.runId })).resolves.toMatchObject(
+      {
+        runId: run.runId,
+      },
+    );
   });
 
   it("refuses another temporary workspace's run", async () => {

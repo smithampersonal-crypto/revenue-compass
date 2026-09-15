@@ -128,21 +128,21 @@ const revisionTarget = (input: { revisionId?: string | null } | undefined) =>
     .nullable()
     .parse(input?.revisionId ?? null);
 
-/** Creates, or re-returns, the one active run for the caller's owner scope. */
+/**
+ * Creates, or re-returns, the one active run for the caller's owner scope.
+ *
+ * The only accepted input is the requested resource target. Fingerprint,
+ * pre-run snapshots, lock version, owner identity and quota limits are all
+ * server-derived, so hostile extra payload fields are simply discarded.
+ */
 export const startAiAnalysis = createServerFn({ method: "POST" })
-  .inputValidator((input: { revisionId?: string | null; sourceSetFingerprint?: string }) => ({
+  .inputValidator((input: { revisionId?: string | null } | undefined) => ({
     revisionId: revisionTarget(input),
-    sourceSetFingerprint: z
-      .string()
-      .max(200)
-      .parse(input?.sourceSetFingerprint ?? ""),
   }))
   .handler(async ({ data }): Promise<AiRunStatusDto> => {
     const deps = await runDeps();
     const caller = await callerFor(deps, data.revisionId);
-    return startAiAnalysisHandler(deps, caller, {
-      sourceSetFingerprint: data.sourceSetFingerprint,
-    });
+    return startAiAnalysisHandler(deps, caller);
   });
 
 /** Safe polling for a run the caller owns. */

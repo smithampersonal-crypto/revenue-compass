@@ -231,9 +231,30 @@ begin
 
   /* ------------------------------------------- authenticated consumption */
 
+  -- Allowance is spent only at the preflight -> OpenAI boundary.
+  select reserved into v_reserved
+  from public.arc_reserve_ai_allowance(v_run, v_user_a, null, v_month, 10, 3);
+  insert into arc_test_results
+  select '17a a run that has not reached preflight cannot reserve allowance',
+         v_reserved is not true
+     and (select openai_started_at from public.ai_runs where id = v_run) is null
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user_a);
+
+  update public.ai_runs set stage = 'extracting' where id = v_run;
+  select reserved into v_reserved
+  from public.arc_reserve_ai_allowance(v_run, v_user_a, null, v_month, 10, 3);
+  insert into arc_test_results
+  select '17b a run still extracting cannot reserve allowance',
+         v_reserved is not true
+     and (select openai_started_at from public.ai_runs where id = v_run) is null
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user_a);
+
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run;
+
   select reserved, already_reserved, remaining_allowance
     into v_reserved, v_already, v_remaining
   from public.arc_reserve_ai_allowance(v_run, v_user_a, null, v_month, 10, 3);
+
 
   insert into arc_test_results
   select '18 reservation consumes one unit, stamps the OpenAI start and moves the run to analyzing',
@@ -299,6 +320,7 @@ begin
   v_run2 := gen_random_uuid();
   perform public.arc_create_ai_run(v_run2, v_user_a, null, v_revision, null, 1, 'authenticated',
                                    'fp-11', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run2;
   select reserved, remaining_allowance into v_reserved, v_remaining
   from public.arc_reserve_ai_allowance(v_run2, v_user_a, null, v_month, 10, 3);
 
@@ -306,7 +328,8 @@ begin
   select '24 the eleventh authenticated reservation in the same UTC month is rejected',
          v_reserved is not true and v_remaining = 0
      and (select openai_started_at from public.ai_runs where id = v_run2) is null
-     and (select stage from public.ai_runs where id = v_run2) = 'created'
+     and (select stage from public.ai_runs where id = v_run2) = 'preflight_ready'
+
      and (select runs_consumed from public.ai_monthly_usage
            where user_id = v_user_a and usage_month = v_month) = 10;
 
@@ -327,8 +350,10 @@ begin
     v_run2 := gen_random_uuid();
     perform public.arc_create_ai_run(v_run2, null, v_hash_a, null, v_guest_a, 1, 'guest',
                                      'fp-g', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+    update public.ai_runs set stage = 'preflight_ready' where id = v_run2;
     select reserved into v_reserved
     from public.arc_reserve_ai_allowance(v_run2, null, v_hash_a, v_month, 10, 3);
+
     if not v_reserved then
       raise exception 'guest reservation % unexpectedly rejected', v_i;
     end if;
@@ -344,8 +369,10 @@ begin
   v_run2 := gen_random_uuid();
   perform public.arc_create_ai_run(v_run2, null, v_hash_a, null, v_guest_a, 1, 'guest',
                                    'fp-g4', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run2;
   select reserved, remaining_allowance into v_reserved, v_remaining
   from public.arc_reserve_ai_allowance(v_run2, null, v_hash_a, v_month, 10, 3);
+
 
   insert into arc_test_results
   select '27 the fourth anonymous run in the same temporary workspace is rejected',
@@ -367,8 +394,10 @@ begin
   v_run2 := gen_random_uuid();
   perform public.arc_create_ai_run(v_run2, null, v_hash_b, null, v_guest_b, 1, 'guest',
                                    'fp-gb', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run2;
   select reserved into v_reserved
   from public.arc_reserve_ai_allowance(v_run2, null, v_hash_b, v_month, 10, 3);
+
   insert into arc_test_results
   select '29 a different temporary workspace has its own three-run allowance', v_reserved;
 
@@ -407,8 +436,10 @@ begin
   v_run2 := gen_random_uuid();
   perform public.arc_create_ai_run(v_run2, v_user_b, v_hash_b, null, v_guest_b, 1, 'authenticated',
                                    'fp-mixed', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run2;
   select reserved into v_reserved
   from public.arc_reserve_ai_allowance(v_run2, v_user_b, v_hash_b, v_month, 10, 3);
+
 
   insert into arc_test_results
   select '33 a signed-in caller in a temporary workspace debits the authenticated monthly allowance only',
@@ -505,6 +536,296 @@ begin
          not exists (select 1 from public.ai_monthly_usage
                       where usage_month <> date_trunc('month', usage_month)::date);
 end $phase9$;
+
+/* ================================================== Phase 9C acceptance patch
+   Lifecycle compatibility: one-way guest -> revision re-home, parent deletion,
+   the failure transition matrix and durable run provenance.
+   ========================================================================= */
+
+do $phase9c$
+declare
+  v_user_c uuid := gen_random_uuid();
+  v_user_d uuid := gen_random_uuid();
+  v_customer uuid;
+  v_contract uuid;
+  v_analysis uuid;
+  v_rev_a uuid;
+  v_rev_b uuid;
+  v_hash text;
+  v_guest uuid;
+  v_run uuid;
+  v_doc uuid;
+  v_reserved boolean;
+  ok boolean;
+  v_month date := date_trunc('month', now() at time zone 'utc')::date;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (v_user_c, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9c-patch-c@example.test', '', now(), now(), now()),
+         (v_user_d, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9c-patch-d@example.test', '', now(), now(), now());
+
+  insert into public.customers (owner_user_id, name) values (v_user_c, 'Patch Customer')
+    returning id into v_customer;
+  insert into public.contracts (customer_id, title) values (v_customer, 'Patch Contract')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_a;
+  -- A second contract, because one analysis holds only one open draft.
+  insert into public.contracts (customer_id, title) values (v_customer, 'Patch Contract 2')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
+
+
+  /* -------------------------------------- failure transition matrix */
+
+  v_hash := repeat('c', 64);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+
+  v_run := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run, null, v_hash, null, v_guest, 1, 'guest',
+                                   'fp', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  begin
+    perform public.arc_mark_ai_run_failure(v_run, 'openai', 'api', 'x', 'No API call was made.');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '44 a run that never reached the API cannot be recorded as an API failure', ok);
+
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run;
+  select reserved into v_reserved
+  from public.arc_reserve_ai_allowance(v_run, null, v_hash, v_month, 10, 3);
+  insert into arc_test_results values (
+    '45 a run that completed preflight may reserve allowance', v_reserved);
+
+  begin
+    perform public.arc_mark_ai_run_failure(v_run, 'preflight', 'preflight', 'x', 'Too late.');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '46 a run already analyzing cannot be recorded as a preflight failure', ok);
+
+  update public.ai_runs set stage = 'validating' where id = v_run;
+  begin
+    perform public.arc_mark_ai_run_failure(v_run, 'validate', 'api', 'x', 'Wrong stage.');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '47 a run being validated cannot be recorded as an API failure', ok);
+
+  insert into arc_test_results
+  select '48 a run being validated may be recorded as an invalid response',
+         public.arc_mark_ai_run_failure(v_run, 'validate', 'response', 'schema',
+                                        'The AI response did not match the required shape.')
+           = 'response_invalid';
+
+  -- A separate run proves the applying stage.
+  v_run := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run, null, v_hash, null, v_guest, 1, 'guest',
+                                   'fp2', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run;
+  perform public.arc_reserve_ai_allowance(v_run, null, v_hash, v_month, 10, 3);
+  update public.ai_runs set stage = 'applying' where id = v_run;
+  begin
+    perform public.arc_mark_ai_run_failure(v_run, 'apply', 'response', 'x', 'Wrong stage.');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '49 a run being applied cannot be recorded as an invalid response', ok);
+  insert into arc_test_results
+  select '50 a run being applied may be recorded as an application failure',
+         public.arc_mark_ai_run_failure(v_run, 'apply', 'application', 'conflict',
+                                        'The analysis changed while the AI result was applied.')
+           = 'application_failed';
+
+  /* ------------------------------------ one-way guest -> revision re-home */
+
+  update public.ai_runs
+     set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c
+   where id = v_run;
+
+  insert into arc_test_results
+  select '51 an anonymous run keeps its identity, stage and guest allowance after being saved',
+         (select revision_id from public.ai_runs where id = v_run) = v_rev_a
+     and (select guest_workspace_id from public.ai_runs where id = v_run) is null
+     and (select owner_user_id from public.ai_runs where id = v_run) = v_user_c
+     and (select quota_scope from public.ai_runs where id = v_run) = 'guest'
+     and (select stage from public.ai_runs where id = v_run) = 'application_failed'
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user_c);
+
+  delete from public.guest_workspaces where id = v_guest;
+  insert into arc_test_results
+  select '52 deleting the temporary workspace keeps the run that was already saved',
+         exists (select 1 from public.ai_runs where id = v_run);
+
+  begin
+    update public.ai_runs set revision_id = null, guest_workspace_id = v_guest where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '53 a saved run cannot be moved back to a temporary workspace', ok);
+
+  begin
+    update public.ai_runs set revision_id = v_rev_b where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '54 a saved run cannot be reassigned to a different revision', ok);
+
+  /* ------------------------ re-home rejects any other provenance rewrite */
+
+  v_hash := repeat('d', 64);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+  v_run := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run, null, v_hash, null, v_guest, 1, 'guest',
+                                   'fp3', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run;
+  perform public.arc_reserve_ai_allowance(v_run, null, v_hash, v_month, 10, 3);
+  update public.ai_runs set stage = 'succeeded', completed_at = now() where id = v_run;
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           quota_scope = 'authenticated'
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '55 saving an anonymous run cannot rewrite which allowance it consumed', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           source_set_fingerprint = 'rewritten'
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '56 saving an anonymous run cannot rewrite its source-set provenance', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '57 saving an anonymous run requires the saving account owner', ok);
+
+  /* ------------------------- unmigrated expired workspace still cleans up */
+
+  delete from public.guest_workspaces where id = v_guest;
+  insert into arc_test_results
+  select '58 deleting an expired temporary workspace also removes its unsaved AI run',
+         not exists (select 1 from public.ai_runs where id = v_run);
+
+  /* ------------------- signed-in temporary workspace keeps account quota */
+
+  v_hash := repeat('e', 64);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+  v_run := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run, v_user_d, v_hash, null, v_guest, 1, 'authenticated',
+                                   'fp4', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'preflight_ready' where id = v_run;
+  perform public.arc_reserve_ai_allowance(v_run, v_user_d, v_hash, v_month, 10, 3);
+  update public.ai_runs set stage = 'succeeded', completed_at = now() where id = v_run;
+
+  insert into public.customers (owner_user_id, name) values (v_user_d, 'Patch Customer D')
+    returning id into v_customer;
+  insert into public.contracts (customer_id, title) values (v_customer, 'Patch Contract D')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
+
+  update public.ai_runs
+     set revision_id = v_rev_b, guest_workspace_id = null
+   where id = v_run;
+  insert into arc_test_results
+  select '59 a signed-in temporary-workspace run keeps its account allowance when saved',
+         (select quota_scope from public.ai_runs where id = v_run) = 'authenticated'
+     and (select owner_user_id from public.ai_runs where id = v_run) = v_user_d
+     and (select runs_consumed from public.ai_monthly_usage
+           where user_id = v_user_d and usage_month = v_month) = 1;
+
+  begin
+    update public.ai_runs set owner_user_id = v_user_c where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '60 a saved run cannot be handed to a different account', ok);
+
+  /* --------------------------------------- durable run source provenance */
+
+  insert into public.source_documents (
+    guest_workspace_id, storage_bucket, storage_object_path, original_filename, display_name,
+    sha256, byte_size, page_count)
+  values (v_guest, 'arc-source-documents', 'guest/' || v_guest || '/doc.pdf', 'doc.pdf', 'Doc',
+          repeat('f', 64), 1024, 3)
+    returning id into v_doc;
+
+  insert into public.ai_run_sources (run_id, source_document_id, position, sha256, byte_size, page_count)
+  values (v_run, v_doc, 0, repeat('f', 64), 1024, 3);
+
+  delete from public.source_documents where id = v_doc;
+  insert into arc_test_results
+  select '61 removing a source document keeps the run''s historical record of it',
+         not exists (select 1 from public.source_documents where id = v_doc)
+     and exists (select 1 from public.ai_run_sources
+                  where run_id = v_run and source_document_id = v_doc
+                    and sha256 = repeat('f', 64) and byte_size = 1024 and page_count = 3);
+
+  /* ------------------------------------------------ guidance card typing */
+
+  insert into arc_test_results
+  select '62 guidance card provenance is stored as a number',
+         (select data_type from information_schema.columns
+           where table_schema = 'public' and table_name = 'ai_run_guidance'
+             and column_name = 'card_id') = 'integer';
+
+  insert into public.ai_run_guidance (run_id, card_id, inclusion_reason, matched_signals, registry_hash)
+  values (v_run, 17, 'signal', array['variable_consideration'], 'h1');
+  begin
+    insert into public.ai_run_guidance (run_id, card_id, inclusion_reason, matched_signals, registry_hash)
+    values (v_run, 0, 'signal', array['x'], 'h1');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values ('63 a guidance card reference must be a positive number', ok);
+
+  /* ------------------------------------------- AI sidecar source freshness */
+
+  insert into public.ai_analysis_state (revision_id, source_state) values (v_rev_a, 'stale');
+  begin
+    insert into public.ai_analysis_state (revision_id, source_state) values (v_rev_b, 'whatever');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '64 the AI sidecar records source freshness as none, current or stale only', ok);
+end $phase9c$;
+
+
 
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;

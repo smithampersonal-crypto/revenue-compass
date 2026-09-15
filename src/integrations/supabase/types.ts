@@ -26,7 +26,7 @@ export type Database = {
           review_items: Json
           revision_id: string | null
           source_set_fingerprint: string | null
-          source_state: Json
+          source_state: string
           tombstones: Json
           updated_at: string
         }
@@ -41,7 +41,7 @@ export type Database = {
           review_items?: Json
           revision_id?: string | null
           source_set_fingerprint?: string | null
-          source_state?: Json
+          source_state?: string
           tombstones?: Json
           updated_at?: string
         }
@@ -56,7 +56,7 @@ export type Database = {
           review_items?: Json
           revision_id?: string | null
           source_set_fingerprint?: string | null
-          source_state?: Json
+          source_state?: string
           tombstones?: Json
           updated_at?: string
         }
@@ -113,7 +113,7 @@ export type Database = {
       }
       ai_run_guidance: {
         Row: {
-          card_id: string
+          card_id: number
           created_at: string
           inclusion_reason: string
           matched_signals: string[]
@@ -121,7 +121,7 @@ export type Database = {
           run_id: string
         }
         Insert: {
-          card_id: string
+          card_id: number
           created_at?: string
           inclusion_reason: string
           matched_signals?: string[]
@@ -129,7 +129,7 @@ export type Database = {
           run_id: string
         }
         Update: {
-          card_id?: string
+          card_id?: number
           created_at?: string
           inclusion_reason?: string
           matched_signals?: string[]
@@ -180,13 +180,6 @@ export type Database = {
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "ai_runs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_run_sources_source_document_id_fkey"
-            columns: ["source_document_id"]
-            isOneToOne: false
-            referencedRelation: "source_documents"
             referencedColumns: ["id"]
           },
         ]

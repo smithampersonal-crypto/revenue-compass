@@ -554,4 +554,20 @@ Server layer: `src/lib/arc/ai/runs.store.server.ts`, `runs.handlers.ts`,
 3 runs per nine-hour temporary workspace, 10 runs per account per UTC month,
 consumed only at the reservation boundary.
 
+Acceptance patch (additive migration
+`20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`): quota provenance is
+separated from the current owner target, so a guest-funded run may later be
+re-homed once to a saved revision without rewriting its quota scope or debiting
+the account's monthly allowance; parent lifecycle deletion (expired temporary
+workspace, deleted contract, deleted account) cascades normally while update
+provenance stays immutable; allowance may be reserved only from
+`preflight_ready` with no OpenAI start recorded; failure marking validates the
+stage/category matrix; run source history survives deletion of the live source
+document; guidance card IDs are integers; AI sidecar source state is a
+constrained enum. Run provenance (lock version, source-set fingerprint,
+canonical inputs, AI sidecar snapshot) is derived entirely server-side in
+`runs.store.server.ts` with `src/lib/arc/ai/source-fingerprint.ts`; the browser
+supplies only the requested revision target.
+
 Phase 9D not started.
+
