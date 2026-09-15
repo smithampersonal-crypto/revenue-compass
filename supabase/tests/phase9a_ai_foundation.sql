@@ -829,6 +829,139 @@ begin
   end;
   insert into arc_test_results values (
     '64 the AI sidecar records source freshness as none, current or stale only', ok);
+
+  /* ------------------- re-home may change only the ownership target */
+
+  v_hash := repeat('9', 64);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+  v_run := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run, null, v_hash, null, v_guest, 1, 'guest',
+                                   'fp5', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs
+     set stage = 'succeeded', openai_started_at = now(), completed_at = now(),
+         source_count = 2, page_count = 40, review_issue_count = 3,
+         failure_stage = null, safe_message = null
+   where id = v_run;
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           source_count = 99
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '65 saving a run cannot rewrite how many documents it used', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           page_count = 99
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '66 saving a run cannot rewrite how many pages it read', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           failure_stage = 'apply', failure_category = 'application',
+           failure_code = 'late', safe_message = 'Invented failure.'
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '67 saving a run cannot invent failure details', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           review_issue_count = 0
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '68 saving a run cannot rewrite its review outcome count', ok);
+
+  begin
+    update public.ai_runs
+       set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c,
+           result_metadata = '{"rewritten": true}'::jsonb,
+           usage_metadata = '{"rewritten": true}'::jsonb
+     where id = v_run;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '69 saving a run cannot rewrite its result or usage provenance', ok);
+
+  update public.ai_runs
+     set revision_id = v_rev_a, guest_workspace_id = null, owner_user_id = v_user_c
+   where id = v_run;
+  insert into arc_test_results
+  select '70 a clean save changes only the owner target and keeps the allowance actually used',
+         (select quota_scope from public.ai_runs where id = v_run) = 'guest'
+     and (select revision_id from public.ai_runs where id = v_run) = v_rev_a
+     and (select guest_workspace_id from public.ai_runs where id = v_run) is null
+     and (select owner_user_id from public.ai_runs where id = v_run) = v_user_c
+     and (select source_count from public.ai_runs where id = v_run) = 2
+     and (select page_count from public.ai_runs where id = v_run) = 40
+     and (select review_issue_count from public.ai_runs where id = v_run) = 3;
+
+  /* ----------------------- an optimistic lock version is always required */
+
+  v_hash := repeat('8', 64);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+
+  v_run := gen_random_uuid();
+  begin
+    perform public.arc_create_ai_run(v_run, null, v_hash, null, v_guest, null, 'guest',
+                                     'fp6', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '71 a temporary-workspace run cannot be created without the workspace version it saw',
+    ok and not exists (select 1 from public.ai_runs where id = v_run));
+
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 2, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
+  v_run := gen_random_uuid();
+  begin
+    perform public.arc_create_ai_run(v_run, v_user_d, null, v_rev_b, null, null, 'authenticated',
+                                     'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '72 a saved-analysis run cannot be created without the version it saw',
+    ok and not exists (select 1 from public.ai_runs where id = v_run));
+
+  begin
+    perform public.arc_create_ai_run(v_run, v_user_d, null, v_rev_b, null, 99, 'authenticated',
+                                     'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results values (
+    '73 a saved-analysis run cannot be created from an out-of-date version',
+    ok and not exists (select 1 from public.ai_runs where id = v_run));
+
+  perform public.arc_create_ai_run(
+    v_run, v_user_d, null, v_rev_b, null,
+    (select lock_version from public.analysis_revisions where id = v_rev_b),
+    'authenticated', 'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  insert into arc_test_results
+  select '74 the current version is accepted', exists (select 1 from public.ai_runs where id = v_run);
 end $phase9c$;
 
 
