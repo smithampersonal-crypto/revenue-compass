@@ -14,6 +14,294 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_analysis_state: {
+        Row: {
+          created_at: string
+          field_provenance: Json
+          guest_workspace_id: string | null
+          id: string
+          last_successful_run_id: string | null
+          lock_version: number
+          object_provenance: Json
+          review_items: Json
+          revision_id: string | null
+          source_set_fingerprint: string | null
+          source_state: Json
+          tombstones: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          field_provenance?: Json
+          guest_workspace_id?: string | null
+          id?: string
+          last_successful_run_id?: string | null
+          lock_version?: number
+          object_provenance?: Json
+          review_items?: Json
+          revision_id?: string | null
+          source_set_fingerprint?: string | null
+          source_state?: Json
+          tombstones?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          field_provenance?: Json
+          guest_workspace_id?: string | null
+          id?: string
+          last_successful_run_id?: string | null
+          lock_version?: number
+          object_provenance?: Json
+          review_items?: Json
+          revision_id?: string | null
+          source_set_fingerprint?: string | null
+          source_state?: Json
+          tombstones?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analysis_state_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_analysis_state_last_successful_run_id_fkey"
+            columns: ["last_successful_run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_analysis_state_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_monthly_usage: {
+        Row: {
+          created_at: string
+          id: string
+          runs_consumed: number
+          updated_at: string
+          usage_month: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          runs_consumed?: number
+          updated_at?: string
+          usage_month: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          runs_consumed?: number
+          updated_at?: string
+          usage_month?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_run_guidance: {
+        Row: {
+          card_id: string
+          created_at: string
+          inclusion_reason: string
+          matched_signals: string[]
+          registry_hash: string
+          run_id: string
+        }
+        Insert: {
+          card_id: string
+          created_at?: string
+          inclusion_reason: string
+          matched_signals?: string[]
+          registry_hash: string
+          run_id: string
+        }
+        Update: {
+          card_id?: string
+          created_at?: string
+          inclusion_reason?: string
+          matched_signals?: string[]
+          registry_hash?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_run_guidance_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_run_sources: {
+        Row: {
+          byte_size: number
+          created_at: string
+          page_count: number
+          position: number
+          run_id: string
+          sha256: string
+          source_document_id: string
+        }
+        Insert: {
+          byte_size: number
+          created_at?: string
+          page_count: number
+          position?: number
+          run_id: string
+          sha256: string
+          source_document_id: string
+        }
+        Update: {
+          byte_size?: number
+          created_at?: string
+          page_count?: number
+          position?: number
+          run_id?: string
+          sha256?: string
+          source_document_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_run_sources_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ai_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_run_sources_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          failure_category: string | null
+          failure_code: string | null
+          failure_stage: string | null
+          guest_token_hash: string | null
+          guest_workspace_id: string | null
+          guidance_registry_hash: string
+          id: string
+          input_tokens: number | null
+          model: string
+          openai_started_at: string | null
+          output_schema_version: string
+          owner_user_id: string | null
+          page_count: number
+          pre_run_ai_state: Json | null
+          pre_run_canonical_inputs: Json
+          prompt_version: string
+          quota_scope: string
+          reasoning_effort: string
+          result_metadata: Json | null
+          review_issue_count: number
+          revision_id: string | null
+          safe_message: string | null
+          source_count: number
+          source_set_fingerprint: string
+          stage: string
+          updated_at: string
+          usage_metadata: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          failure_category?: string | null
+          failure_code?: string | null
+          failure_stage?: string | null
+          guest_token_hash?: string | null
+          guest_workspace_id?: string | null
+          guidance_registry_hash: string
+          id: string
+          input_tokens?: number | null
+          model: string
+          openai_started_at?: string | null
+          output_schema_version: string
+          owner_user_id?: string | null
+          page_count?: number
+          pre_run_ai_state?: Json | null
+          pre_run_canonical_inputs: Json
+          prompt_version: string
+          quota_scope: string
+          reasoning_effort: string
+          result_metadata?: Json | null
+          review_issue_count?: number
+          revision_id?: string | null
+          safe_message?: string | null
+          source_count?: number
+          source_set_fingerprint: string
+          stage?: string
+          updated_at?: string
+          usage_metadata?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          failure_category?: string | null
+          failure_code?: string | null
+          failure_stage?: string | null
+          guest_token_hash?: string | null
+          guest_workspace_id?: string | null
+          guidance_registry_hash?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          openai_started_at?: string | null
+          output_schema_version?: string
+          owner_user_id?: string | null
+          page_count?: number
+          pre_run_ai_state?: Json | null
+          pre_run_canonical_inputs?: Json
+          prompt_version?: string
+          quota_scope?: string
+          reasoning_effort?: string
+          result_metadata?: Json | null
+          review_issue_count?: number
+          revision_id?: string | null
+          safe_message?: string | null
+          source_count?: number
+          source_set_fingerprint?: string
+          stage?: string
+          updated_at?: string
+          usage_metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_runs_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_runs_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analyses: {
         Row: {
           contract_id: string
@@ -599,6 +887,26 @@ export type Database = {
         Args: { p_job_id: string }
         Returns: boolean
       }
+      arc_create_ai_run: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_guidance_registry_hash: string
+          p_model: string
+          p_output_schema_version: string
+          p_owner_user_id: string
+          p_pre_run_ai_state: Json
+          p_pre_run_canonical_inputs: Json
+          p_prompt_version: string
+          p_quota_scope: string
+          p_reasoning_effort: string
+          p_revision_id: string
+          p_run_id: string
+          p_source_set_fingerprint: string
+        }
+        Returns: string
+      }
       arc_create_contract_with_draft: {
         Args: {
           p_canonical_inputs: Json
@@ -638,6 +946,16 @@ export type Database = {
           p_reconciliation_snapshot: Json
           p_revision_id: string
           p_schema_version: string
+        }
+        Returns: string
+      }
+      arc_mark_ai_run_failure: {
+        Args: {
+          p_failure_category: string
+          p_failure_code: string
+          p_failure_stage: string
+          p_run_id: string
+          p_safe_message: string
         }
         Returns: string
       }
@@ -751,6 +1069,21 @@ export type Database = {
           p_source_document_id: string
         }
         Returns: number
+      }
+      arc_reserve_ai_allowance: {
+        Args: {
+          p_guest_limit: number
+          p_guest_token_hash: string
+          p_owner_user_id: string
+          p_run_id: string
+          p_user_monthly_limit: number
+          p_utc_month: string
+        }
+        Returns: {
+          already_reserved: boolean
+          remaining_allowance: number
+          reserved: boolean
+        }[]
       }
       arc_reset_amendment_draft: {
         Args: {
