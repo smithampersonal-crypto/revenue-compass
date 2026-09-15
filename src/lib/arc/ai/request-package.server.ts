@@ -282,15 +282,27 @@ export async function buildAiRequestPackage(
     combinedFileBytes,
   };
 
-  // Non-generative count over the ONE canonical envelope the eventual
-  // generative call will send. There is no reduced count-only payload.
-  const { input_tokens: inputTokens } = await args.deps.countTokens.count(
-    buildCanonicalResponsesRequest(requestPackage, limits),
+  // Preflight counts the ONE canonical envelope verbatim. There is no reduced
+  // count-only payload anywhere in this path.
+  const canonicalRequest = buildCanonicalResponsesRequest(
+    requestPackage,
+    limits,
+    args.additionalRequestParams ?? {},
   );
+  const check = await preflightAiRequest({
+    requestParams: canonicalRequest,
+    combinedFileBytes,
+    tokenCounter: args.deps.countTokens,
+    limits,
+  });
 
-  if (inputTokens > limits.maxInputTokens) {
-    return failure("input_tokens_exceeded", { combinedFileBytes, inputTokens });
+  if (!check.ok) {
+    const extra: { combinedFileBytes: number; inputTokens?: number } = {
+      combinedFileBytes: check.combinedFileBytes,
+    };
+    if (check.inputTokens !== undefined) extra.inputTokens = check.inputTokens;
+    return failure(check.code, extra);
   }
 
-  return { ok: true, package: requestPackage, inputTokens };
+  return { ok: true, package: requestPackage, inputTokens: check.inputTokens };
 }
