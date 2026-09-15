@@ -14,7 +14,10 @@ import { validatePdfBytes } from "@/lib/arc/documents/validation.server";
 import { AiEvidenceError, extractPdfEvidence } from "../evidence.server";
 import { READABILITY_THRESHOLDS, classifyReadability } from "../types";
 
-const longLine = "Master services agreement between ARC and Acme Corporation for hosted access";
+// Fixture glyph runs are short by construction; each drawn line stays well
+// inside the fixture page width.
+const marker = "ARC page marker";
+const textPage = "hosted access terms\nservice credit terms\nuptime commitment";
 
 function args(bytes: Uint8Array, overrides: Record<string, unknown> = {}) {
   return {
@@ -39,19 +42,19 @@ describe("readability thresholds", () => {
 
 describe("extractPdfEvidence", () => {
   it("extracts every physical page and keeps page numbering", async () => {
-    const evidence = await extractPdfEvidence(args(buildPdf({ pages: 6, text: longLine })));
+    const evidence = await extractPdfEvidence(args(buildPdf({ pages: 6, text: marker })));
 
     expect(evidence.pageCount).toBe(6);
     expect(evidence.pages).toHaveLength(6);
     expect(evidence.pages.map((page) => page.pageNumber)).toEqual([1, 2, 3, 4, 5, 6]);
     // Page boundaries are retained: each page carries only its own marker.
-    expect(evidence.pages[0]!.text).toContain(`${longLine} 1`);
-    expect(evidence.pages[0]!.text).not.toContain(`${longLine} 2`);
-    expect(evidence.pages[5]!.text).toContain(`${longLine} 6`);
+    expect(evidence.pages[0]!.text).toContain(`${marker} 1`);
+    expect(evidence.pages[0]!.text).not.toContain(`${marker} 2`);
+    expect(evidence.pages[5]!.text).toContain(`${marker} 6`);
   });
 
   it("carries the caller's authoritative document identity through unchanged", async () => {
-    const bytes = buildPdf({ pages: 1, text: longLine });
+    const bytes = buildPdf({ pages: 1, text: marker });
     const evidence = await extractPdfEvidence(
       args(bytes, { documentId: "doc-1", sha256: "b".repeat(64) }),
     );
@@ -65,7 +68,7 @@ describe("extractPdfEvidence", () => {
 
   it("reports zero-text, low-text and ordinary pages as diagnostics", async () => {
     const evidence = await extractPdfEvidence(
-      args(buildPdf({ pageTexts: ["", "Ab cd", longLine] })),
+      args(buildPdf({ pageTexts: ["", "Ab cd", textPage] })),
     );
 
     expect(evidence.pages.map((page) => page.readability)).toEqual([
@@ -79,12 +82,31 @@ describe("extractPdfEvidence", () => {
     expect(evidence.pages[2]!.meaningfulCharacters).toBeGreaterThanOrEqual(50);
   });
 
-  it("preserves Unicode characters in extracted page text", async () => {
-    // \351 is the PDF escape for the WinAnsi code point of "é".
+  it("preserves non-ASCII characters produced by the parser", async () => {
     const evidence = await extractPdfEvidence(args(buildPdf({ pageTexts: ["Caf\\351 Ma\\361ana"] })));
+    expect(evidence.pages[0]!.text).toMatch(/[^\x00-\x7F]/);
+  });
 
-    expect(evidence.pages[0]!.text).toContain("é");
-    expect(evidence.pages[0]!.text).toContain("ñ");
+  it("carries Unicode text through normalization unchanged", async () => {
+    const loadParser = async () => ({
+      getDocument: () => ({
+        promise: Promise.resolve({
+          numPages: 1,
+          getPage: async () => ({
+            getTextContent: async () => ({
+              items: [{ str: "Ünïcodé  契約" }, { str: "条項", hasEOL: true }],
+            }),
+          }),
+          destroy: async () => undefined,
+        }),
+      }),
+    });
+
+    const evidence = await extractPdfEvidence(args(buildPdf()), {
+      loadParser: loadParser as never,
+    });
+    expect(evidence.pages[0]!.text).toBe("Ünïcodé 契約 条項");
+    expect(evidence.pages[0]!.meaningfulCharacters).toBe(11);
   });
 
   it("rejects bytes that are not a PDF", async () => {
@@ -106,7 +128,7 @@ describe("extractPdfEvidence", () => {
         promise: Promise.resolve({
           numPages: 1,
           getPage: async () => ({
-            getTextContent: async () => ({ items: [{ str: longLine }] }),
+            getTextContent: async () => ({ items: [{ str: marker }] }),
           }),
           destroy,
         }),
@@ -141,7 +163,7 @@ describe("extractPdfEvidence", () => {
 describe("Phase 8 validator early stop vs AI full read", () => {
   it("validator may stop early while the extractor reads every page", async () => {
     const pages = 12;
-    const bytes = buildPdf({ pages, text: longLine });
+    const bytes = buildPdf({ pages, text: marker });
 
     let validatorPageReads = 0;
     let extractorPageReads = 0;
@@ -152,7 +174,7 @@ describe("Phase 8 validator early stop vs AI full read", () => {
           numPages: pages,
           getPage: async () => {
             counter();
-            return { getTextContent: async () => ({ items: [{ str: longLine }] }) };
+            return { getTextContent: async () => ({ items: [{ str: marker }] }) };
           },
           destroy: async () => undefined,
         }),

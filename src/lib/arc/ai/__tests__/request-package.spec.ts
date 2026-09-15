@@ -23,13 +23,12 @@ const currentContext: CurrentAccountingContext = {
   draftFingerprint: "draft-fingerprint-1",
 };
 
+// Short drawn lines: the fixture page is narrow, so each line stays intact.
 const masterBytes = buildPdf({
-  pages: 2,
-  text: "Hosted access subscription term with service credits and uptime commitment",
+  pageTexts: ["hosted access terms\nsubscription term", "service credits\nuptime commitment"],
 });
 const orderBytes = buildPdf({
-  pages: 1,
-  text: "Order form billed annually in advance net 30 invoice date with overages per sample",
+  pageTexts: ["billed annually in advance\nnet 30 invoice date"],
 });
 
 function source(overrides: Partial<AuthorizedSource> & { documentId: string }): AuthorizedSource {
@@ -172,7 +171,9 @@ describe("buildAiRequestPackage", () => {
   });
 
   it("keeps low-text and no-text pages as diagnostics rather than rejecting", async () => {
-    const mixed = buildPdf({ pageTexts: ["", "Ab cd", "Hosted access with service credits"] });
+    const mixed = buildPdf({
+      pageTexts: ["", "Ab cd", "hosted access terms\nservice credit terms\nuptime commitment"],
+    });
     const result = await build({
       loadAuthorizedSelectedSources: async () => [
         source({ documentId: "doc-master", byteSize: mixed.byteLength }),
