@@ -172,7 +172,7 @@ describe("buildAiRequestPackage", () => {
   });
 
   it("counts exactly the canonical envelope the generative call will send", async () => {
-    const count = vi.fn(async () => ({ input_tokens: 42 }));
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 42 }));
     const result = await build({ countTokens: { count } });
     if (!result.ok) throw new Error("expected ok");
 

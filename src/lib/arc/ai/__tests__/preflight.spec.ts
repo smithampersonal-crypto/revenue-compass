@@ -217,7 +217,7 @@ describe("canonical request envelope", () => {
   } as const;
 
   it("hands the request object to the counter unchanged, field for field", async () => {
-    const count = vi.fn(async () => ({ input_tokens: 5 }));
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 5 }));
     const result = await preflightAiRequest({
       requestParams: representative as unknown as Record<string, unknown>,
       combinedFileBytes: 100,
@@ -225,7 +225,7 @@ describe("canonical request envelope", () => {
     });
 
     expect(result.ok).toBe(true);
-    const counted = count.mock.calls[0]![0];
+    const counted = count.mock.calls[0]![0] as Record<string, unknown>;
     // Identity, not a copy: nothing was reconstructed or projected.
     expect(counted).toBe(representative);
     expect(counted["instructions"]).toContain("TRUSTED ARC POLICY");
@@ -263,7 +263,7 @@ describe("canonical request envelope", () => {
   });
 
   it("the package builder's counted envelope carries instructions, reasoning and 9D params", async () => {
-    const count = vi.fn(async () => ({ input_tokens: 12 }));
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 12 }));
     await buildAiRequestPackage({
       scope,
       currentContext,
