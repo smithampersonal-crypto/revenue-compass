@@ -272,12 +272,11 @@ export async function buildAiRequestPackage(
     combinedFileBytes,
   };
 
-  // Non-generative count over the materially complete proposed request.
-  const { input_tokens: inputTokens } = await args.deps.countTokens.count({
-    model: limits.model,
-    instructions: packageInstructions(),
-    input: openAiInput,
-  });
+  // Non-generative count over the ONE canonical envelope the eventual
+  // generative call will send. There is no reduced count-only payload.
+  const { input_tokens: inputTokens } = await args.deps.countTokens.count(
+    buildCanonicalResponsesRequest(requestPackage, limits),
+  );
 
   if (inputTokens > limits.maxInputTokens) {
     return failure("input_tokens_exceeded", { combinedFileBytes, inputTokens });
