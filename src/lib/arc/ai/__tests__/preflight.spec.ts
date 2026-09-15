@@ -267,13 +267,8 @@ describe("canonical request envelope", () => {
     await buildAiRequestPackage({
       scope,
       currentContext,
-      requestOptions: {
-        structuredOutput: representative.text as unknown as Parameters<
-          typeof buildAiRequestPackage
-        >[0]["requestOptions"] extends { structuredOutput?: infer S } | undefined
-          ? NonNullable<S>
-          : never,
-      },
+      requestOptions: { structuredOutput: representative.text as ArcStructuredOutput },
+
 
       deps: {
         loadAuthorizedSelectedSources: async () => authorized(pdfBytes.byteLength),
