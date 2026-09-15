@@ -346,6 +346,21 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   84: ["warranty", "warranty period"],
   85: ["reseller", "marketplace", "gross or net"],
   91: ["gift card", "prepaid credits", "breakage"],
+  // Repurchase guidance needs an actual buy-back construct: incidental "lease"
+  // or "call" wording in a usage restriction is not a repurchase fact pattern.
+  90: [
+    "repurchase",
+    "repurchase agreement",
+    "right to repurchase",
+    "obligation to repurchase",
+    "buyback",
+    "buy back",
+    "put option",
+    "call option",
+    "forward repurchase",
+    "sale and leaseback",
+    "repurchase the asset",
+  ],
   92: [
     "hosted",
     "hosted access",
