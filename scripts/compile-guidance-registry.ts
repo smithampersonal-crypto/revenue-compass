@@ -148,7 +148,21 @@ export interface CompiledRegistry {
 }
 
 /** Compiles validated header + data rows into the deterministic registry. */
-export function compileRegistry(headers: readonly RawCell[], rows: readonly RawRow[]): CompiledRegistry {
+export interface CompileOptions {
+  /**
+   * When false, the whole-registry policy coverage assertions are skipped so
+   * unit tests can exercise single-row validation. The real workbook compile
+   * always enforces coverage.
+   */
+  enforcePolicyCoverage?: boolean;
+}
+
+export function compileRegistry(
+  headers: readonly RawCell[],
+  rows: readonly RawRow[],
+  options: CompileOptions = {},
+): CompiledRegistry {
+
   const actual = headers.map((cell) => text(cell).trim());
   GUIDANCE_HEADERS.forEach((expected, index) => {
     if (actual[index] !== expected) {
@@ -235,16 +249,19 @@ export function compileRegistry(headers: readonly RawCell[], rows: readonly RawR
       }
     }
   }
-  for (const id of referencedPolicyIds()) {
-    if (!known.has(id)) {
-      throw new Error(`ARC machine policy references nonexistent guidance card ${id}.`);
+  if (options.enforcePolicyCoverage !== false) {
+    for (const id of referencedPolicyIds()) {
+      if (!known.has(id)) {
+        throw new Error(`ARC machine policy references nonexistent guidance card ${id}.`);
+      }
+    }
+    for (const id of POLICY_CARD_IDS) {
+      if (!known.has(id)) {
+        throw new Error(`Policy covers card ${id}, which the workbook does not contain.`);
+      }
     }
   }
-  for (const id of POLICY_CARD_IDS) {
-    if (!known.has(id)) {
-      throw new Error(`Policy covers card ${id}, which the workbook does not contain.`);
-    }
-  }
+
 
   const hash = sha256(
     JSON.stringify([GUIDANCE_REGISTRY_VERSION, cards.map((card) => [card.id, card.contentHash])]),
