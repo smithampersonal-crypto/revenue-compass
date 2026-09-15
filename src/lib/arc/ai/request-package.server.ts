@@ -132,13 +132,15 @@ function packageInstructions(): string {
  * Finding 1 — the ONE canonical Responses request envelope.
  *
  * Exact token preflight counts this object, and the eventual Phase 9D
- * generative call sends this same object (plus only the 9D output-schema
- * seam). Nothing may build a reduced count-only payload, so the counted
- * request cannot drift from the request that will actually be sent.
+ * generative call sends this same object. Phase 9D supplies its own
+ * output-schema / prompt parameters through `additionalRequestParams`; they are
+ * merged here rather than bolted onto a second, separately built request, so a
+ * counted request can never diverge from the request that is actually sent.
  */
 export function buildCanonicalResponsesRequest(
   requestPackage: AiRequestPackage,
   limits: AiLimits = AI_LIMITS,
+  additionalRequestParams: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
     model: limits.model,
@@ -148,6 +150,9 @@ export function buildCanonicalResponsesRequest(
     store: false,
     truncation: "disabled",
     tools: [],
+    // Phase 9D seam: structured-output/text configuration and any further
+    // token-bearing parameters travel in the same envelope.
+    ...additionalRequestParams,
   };
 }
 
