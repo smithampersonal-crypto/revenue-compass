@@ -520,3 +520,18 @@
   drain). Schedules live in `supabase/schedules/` and `.github/workflows/`.
 - Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
   implemented (no generative call, no quota). 9C not started.
+
+## Phase 9B acceptance patch (in progress)
+
+Seven review findings to close before Phase 9C:
+1. Preflight must share one canonical request envelope with the eventual 9D
+   generative request (no reduced count-only payload).
+2. Direct PDF evidence must request `detail: "high"`.
+3. Downloaded PDF bytes verified against the authorized stored SHA-256.
+4. Trusted ARC source identity separated from user-controlled filenames /
+   display names.
+5. Narrow Phase 9A retrieval false positives exposed by the full Genomix
+   contract (e.g. cards 17, 40, 90).
+6. Re-run the real/full Genomix acceptance case.
+7. Remove the stale roadmap statement about 9B not being started.
+No Phase 9C work.
