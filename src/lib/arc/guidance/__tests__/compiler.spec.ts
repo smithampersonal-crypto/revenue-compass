@@ -69,7 +69,7 @@ describe("guidance registry compiler", () => {
 
   it("excludes a Draft card from the authoritative registry", () => {
     expect(() => compileRegistry(HEADERS, [row({ 16: "Draft" })])).toThrow(
-      /Policy covers card 1, which the workbook does not contain/,
+      /nonexistent guidance card 1/,
     );
   });
 
