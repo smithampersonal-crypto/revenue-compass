@@ -780,7 +780,7 @@ begin
   insert into public.source_documents (
     guest_workspace_id, storage_bucket, storage_object_path, original_filename, display_name,
     sha256, byte_size, page_count)
-  values (v_guest, 'source-documents', 'guest/' || v_guest || '/doc.pdf', 'doc.pdf', 'Doc',
+  values (v_guest, 'arc-source-documents', 'guest/' || v_guest || '/doc.pdf', 'doc.pdf', 'Doc',
           repeat('f', 64), 1024, 3)
     returning id into v_doc;
 
