@@ -361,12 +361,19 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
     "sale and leaseback",
     "repurchase the asset",
   ],
+  // Scope/disambiguation card for hosted arrangements: an ordinary hosted SaaS
+  // contract may legitimately reach it, but generic "license"/"IP" wording
+  // alone may not (that is what 93–95 require real licence facts for).
   92: [
     "hosted",
     "hosted access",
     "hosted software",
     "software as a service",
+    "saas platform",
+    "cloud platform",
+    "cloud native",
     "access to the platform",
+    "access and use the platform",
     "platform access",
   ],
   93: ["license bundled", "license and implementation"],
