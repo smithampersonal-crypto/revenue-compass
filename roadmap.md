@@ -505,7 +505,7 @@
 - `policy.ts` holds explicit ARC machine policy keyed by stable Item No.;
   `retrieval.ts` builds deterministic, explainable Guidance Packs
   (core > retrieved > dependency). No embeddings, vector store or OpenAI.
-- Phase 9B onward (PDF evidence extraction, OpenAI/Terra, AI UI) not started.
+- Phase 9B (PDF evidence + exact AI preflight) implemented and patched; see below.
 
 ## Standing guardrails
 
@@ -519,11 +519,12 @@
 - 8F operations: hourly maintenance (stale uploads, 9h guest expiry, storage
   drain). Schedules live in `supabase/schedules/` and `.github/workflows/`.
 - Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
-  implemented (no generative call, no quota). 9C not started.
+  complete with acceptance patch applied (no generative call, no quota),
+  awaiting reviewer acceptance. 9C not started.
 
-## Phase 9B acceptance patch (in progress)
+## Phase 9B — PDF evidence & exact AI preflight (complete, awaiting acceptance)
 
-Seven review findings to close before Phase 9C:
+Acceptance patch applied. Seven review findings closed:
 1. Preflight must share one canonical request envelope with the eventual 9D
    generative request (no reduced count-only payload).
 2. Direct PDF evidence must request `detail: "high"`.
@@ -533,5 +534,7 @@ Seven review findings to close before Phase 9C:
 5. Narrow Phase 9A retrieval false positives exposed by the full Genomix
    contract (e.g. cards 17, 40, 90).
 6. Re-run the real/full Genomix acceptance case.
-7. Remove the stale roadmap statement about 9B not being started.
-No Phase 9C work.
+7. Roadmap status wording corrected.
+
+Phase 9A accepted. Phase 9B complete and awaiting reviewer acceptance.
+Phase 9C not started.
