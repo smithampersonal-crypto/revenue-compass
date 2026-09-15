@@ -5,6 +5,8 @@
  * only OpenAI interaction is the injected non-generative token counter.
  */
 
+import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
@@ -38,7 +40,7 @@ function authorized(byteSize: number): AuthorizedSource[] {
       documentId: "doc-1",
       displayName: "Master Agreement",
       originalFilename: "master.pdf",
-      sha256: "a".repeat(64),
+      sha256: createHash("sha256").update(pdfBytes).digest("hex"),
       byteSize,
       storageObjectPath: "documents/doc-1.pdf",
     },
