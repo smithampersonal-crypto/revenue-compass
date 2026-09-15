@@ -32,6 +32,29 @@ export type AiPreflightCheck =
       inputTokens?: number;
     };
 
+/**
+ * Phase 9D deviation, forced by the live API.
+ *
+ * `POST /v1/responses/input_tokens` rejects EXACTLY two of the canonical
+ * generation fields with `400 Unknown parameter`: `store` and `background`.
+ * Both are storage/execution control flags carrying no prompt tokens; the live
+ * count is byte-identical with and without them (verified against the real
+ * endpoint). Every token-bearing field — model, instructions, input (the PDFs
+ * included), reasoning, tools and the strict `text` schema — is passed through
+ * by reference, unchanged. This is the only difference between the counted
+ * body and the generated body, and it is never a whitelist: fields are
+ * removed by this fixed list, never selected into the count.
+ */
+export const COUNT_UNSUPPORTED_CONTROL_FLAGS = ["store", "background"] as const;
+
+export function countableRequestView(
+  requestParams: Record<string, unknown>,
+): Record<string, unknown> {
+  const view: Record<string, unknown> = { ...requestParams };
+  for (const key of COUNT_UNSUPPORTED_CONTROL_FLAGS) delete view[key];
+  return view;
+}
+
 export async function preflightAiRequest(args: AiPreflightArgs): Promise<AiPreflightCheck> {
   const limits = args.limits ?? AI_LIMITS;
   const { combinedFileBytes } = args;
@@ -46,8 +69,11 @@ export async function preflightAiRequest(args: AiPreflightArgs): Promise<AiPrefl
     };
   }
 
-  // The identical object, unchanged: no projection, no field list.
-  const { input_tokens: inputTokens } = await args.tokenCounter.count(args.requestParams);
+  // The same object, minus only the two control flags the count endpoint
+  // rejects. No projection, no field list, nothing token-bearing removed.
+  const { input_tokens: inputTokens } = await args.tokenCounter.count(
+    countableRequestView(args.requestParams),
+  );
 
   if (inputTokens > limits.maxInputTokens) {
     return {

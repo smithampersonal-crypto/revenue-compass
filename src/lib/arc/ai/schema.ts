@@ -86,7 +86,16 @@ const nullableShortText = z.string().max(AI_SCHEMA_BOUNDS.shortText).nullable();
  * treats these as computed engine values.
  */
 export const DECIMAL_INPUT_PATTERN = /^-?\d{1,15}(\.\d{1,6})?$/;
-const decimalInput = z.string().max(32).nullable();
+const DECIMAL_INPUT_DESCRIPTION =
+  "Bare decimal number only, e.g. 245000 or 1.35. No currency symbol, words, " +
+  "percent sign, thousands separator, range or unit. Put any wording in the " +
+  "surrounding descriptive fields. Use null when no single exact amount applies.";
+const decimalInput = z
+  .string()
+  .max(32)
+  .regex(DECIMAL_INPUT_PATTERN, "must be a bare decimal string")
+  .describe(DECIMAL_INPUT_DESCRIPTION)
+  .nullable();
 
 export const AI_REVIEW_STATES = [
   "supported",
@@ -110,9 +119,7 @@ export const citationSchema = z
 export type AiCitation = z.infer<typeof citationSchema>;
 
 const citations = z.array(citationSchema).max(AI_SCHEMA_BOUNDS.citationsPerItem);
-const guidanceIds = z
-  .array(z.number().int().positive())
-  .max(AI_SCHEMA_BOUNDS.guidanceIdsPerItem);
+const guidanceIds = z.array(z.number().int().positive()).max(AI_SCHEMA_BOUNDS.guidanceIdsPerItem);
 
 const outcomeSchema = z.enum(["yes", "no", "unknown"]);
 
@@ -479,58 +486,56 @@ export const aiContractAnalysisObjectSchema = z
  * Local validation schema. ARC re-validates every response independently: a
  * response is never trusted merely because the API accepted the JSON schema.
  */
-export const aiContractAnalysisSchema = aiContractAnalysisObjectSchema.superRefine(
-  (value, ctx) => {
-    const visitCitation = (citation: AiCitation, path: (string | number)[]) => {
-      if (citation.pageEnd < citation.pageStart) {
+export const aiContractAnalysisSchema = aiContractAnalysisObjectSchema.superRefine((value, ctx) => {
+  const visitCitation = (citation: AiCitation, path: (string | number)[]) => {
+    if (citation.pageEnd < citation.pageStart) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...path, "pageEnd"],
+        message: "pageEnd must be greater than or equal to pageStart",
+      });
+    }
+    if (citation.evidenceMode === "text") {
+      if (citation.excerpt === null || citation.excerpt.trim().length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: [...path, "pageEnd"],
-          message: "pageEnd must be greater than or equal to pageStart",
-        });
-      }
-      if (citation.evidenceMode === "text") {
-        if (citation.excerpt === null || citation.excerpt.trim().length === 0) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [...path, "excerpt"],
-            message: "a text citation requires a non-blank excerpt",
-          });
-        }
-      }
-    };
-
-    const walk = (node: unknown, path: (string | number)[]) => {
-      if (Array.isArray(node)) {
-        node.forEach((entry, index) => walk(entry, [...path, index]));
-        return;
-      }
-      if (node === null || typeof node !== "object") return;
-      const record = node as Record<string, unknown>;
-      if (
-        typeof record["documentId"] === "string" &&
-        typeof record["pageStart"] === "number" &&
-        typeof record["evidenceMode"] === "string"
-      ) {
-        visitCitation(record as unknown as AiCitation, path);
-        return;
-      }
-      for (const [key, child] of Object.entries(record)) walk(child, [...path, key]);
-    };
-
-    walk(value, []);
-
-    for (const amount of collectDecimalInputs(value)) {
-      if (amount !== null && !DECIMAL_INPUT_PATTERN.test(amount)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["transactionPrice"],
-          message: `amount "${amount}" is not a decimal-safe string`,
+          path: [...path, "excerpt"],
+          message: "a text citation requires a non-blank excerpt",
         });
       }
     }
-  },
-);
+  };
+
+  const walk = (node: unknown, path: (string | number)[]) => {
+    if (Array.isArray(node)) {
+      node.forEach((entry, index) => walk(entry, [...path, index]));
+      return;
+    }
+    if (node === null || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    if (
+      typeof record["documentId"] === "string" &&
+      typeof record["pageStart"] === "number" &&
+      typeof record["evidenceMode"] === "string"
+    ) {
+      visitCitation(record as unknown as AiCitation, path);
+      return;
+    }
+    for (const [key, child] of Object.entries(record)) walk(child, [...path, key]);
+  };
+
+  walk(value, []);
+
+  for (const amount of collectDecimalInputs(value)) {
+    if (amount !== null && !DECIMAL_INPUT_PATTERN.test(amount)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["transactionPrice"],
+        message: `amount "${amount}" is not a decimal-safe string`,
+      });
+    }
+  }
+});
 
 const DECIMAL_FIELD_NAMES = new Set([
   "fixedConsiderationInput",
@@ -589,9 +594,14 @@ export function toStrictJsonSchema(schema: z.ZodTypeAny): JsonSchema {
     }
     case "ZodString": {
       const out: JsonSchema = { type: "string" };
-      for (const check of (def["checks"] as Array<{ kind: string; value: number }>) ?? []) {
+      for (const check of (def["checks"] as Array<{
+        kind: string;
+        value: number;
+        regex?: RegExp;
+      }>) ?? []) {
         if (check.kind === "min") out["minLength"] = check.value;
         if (check.kind === "max") out["maxLength"] = check.value;
+        if (check.kind === "regex" && check.regex) out["pattern"] = check.regex.source;
       }
       return out;
     }
@@ -609,7 +619,10 @@ export function toStrictJsonSchema(schema: z.ZodTypeAny): JsonSchema {
     case "ZodEnum":
       return { type: "string", enum: [...(def["values"] as string[])] };
     case "ZodNullable": {
-      const inner = toStrictJsonSchema(def["innerType"] as z.ZodTypeAny);
+      const innerSchema = def["innerType"] as z.ZodTypeAny;
+      const inner = toStrictJsonSchema(innerSchema);
+      const described = (innerSchema._def as { description?: string }).description;
+      if (described) inner["description"] = described;
       const type = inner["type"];
       return {
         ...inner,

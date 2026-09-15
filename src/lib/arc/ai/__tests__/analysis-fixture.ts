@@ -178,7 +178,8 @@ export function validAnalysisFixture(): AiContractAnalysis {
           reviewState: "needs_user_input",
         },
       ],
-      discountOrVariableAllocationConsiderations: "No explicit discount is stated in the order form.",
+      discountOrVariableAllocationConsiderations:
+        "No explicit discount is stated in the order form.",
     },
     recognitionProposals: [
       {

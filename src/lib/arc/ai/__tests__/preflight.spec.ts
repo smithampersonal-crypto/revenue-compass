@@ -13,7 +13,11 @@ import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 
 import { AI_LIMITS } from "../config.server";
 import { createTokenCounter } from "../openai.server";
-import { preflightAiRequest } from "../preflight.server";
+import {
+  COUNT_UNSUPPORTED_CONTROL_FLAGS,
+  countableRequestView,
+  preflightAiRequest,
+} from "../preflight.server";
 import {
   buildAiRequestPackage,
   type AiPackageDeps,
@@ -227,8 +231,18 @@ describe("canonical request envelope", () => {
 
     expect(result.ok).toBe(true);
     const counted = count.mock.calls[0]![0] as Record<string, unknown>;
-    // Identity, not a copy: nothing was reconstructed or projected.
-    expect(counted).toBe(representative);
+    // The counted body is the canonical object minus ONLY the two control
+    // flags the live count endpoint rejects. Everything token-bearing is the
+    // same reference, and nothing was reconstructed or projected.
+    expect(counted).not.toBe(representative);
+    expect(counted).toEqual(
+      countableRequestView(representative as unknown as Record<string, unknown>),
+    );
+    expect(counted["input"]).toBe(representative.input);
+    expect(counted["text"]).toBe(representative.text);
+    expect(counted["store"]).toBeUndefined();
+    expect(counted["background"]).toBeUndefined();
+    expect(COUNT_UNSUPPORTED_CONTROL_FLAGS).toEqual(["store", "background"]);
     expect(counted["instructions"]).toContain("TRUSTED ARC POLICY");
     expect(counted["reasoning"]).toEqual({ effort: "high" });
     expect(counted["text"]).toEqual(representative.text);
@@ -270,7 +284,6 @@ describe("canonical request envelope", () => {
       currentContext,
       requestOptions: { structuredOutput: representative.text as ArcStructuredOutput },
 
-
       deps: {
         loadAuthorizedSelectedSources: async () => authorized(pdfBytes.byteLength),
         download: async () => pdfBytes,
@@ -282,7 +295,7 @@ describe("canonical request envelope", () => {
     expect(counted["model"]).toBe(AI_LIMITS.model);
     expect(String(counted["instructions"])).toContain("ARC");
     expect(counted["reasoning"]).toEqual({ effort: AI_LIMITS.reasoningEffort });
-    expect(counted["store"]).toBe(false);
+    expect(counted["store"]).toBeUndefined();
     expect(counted["truncation"]).toBe("disabled");
     expect(counted["text"]).toEqual(representative.text);
     const serialized = JSON.stringify(counted);

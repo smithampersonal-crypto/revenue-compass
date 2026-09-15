@@ -252,7 +252,6 @@ export function buildCanonicalResponsesRequest(
   };
 }
 
-
 /** Releases the large in-memory base64 references once the run is finished. */
 export function releaseRequestBytes(requestPackage: AiRequestPackage): void {
   for (const message of requestPackage.openAiInput as Array<{ content?: unknown[] }>) {
@@ -415,5 +414,4 @@ export async function buildAiRequestPackage(
     inputTokens: check.inputTokens,
     canonicalRequest,
   };
-
 }
