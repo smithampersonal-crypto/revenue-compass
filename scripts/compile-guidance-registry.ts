@@ -64,7 +64,6 @@ export const GUIDANCE_STATUSES = [
 export type RawCell = string | number | Date | null | undefined;
 export type RawRow = readonly RawCell[];
 
-
 const REVIEW_SECTION_TOPIC: Record<string, string> = {
   "Step 1": "step_1",
   "Step 2": "step_2",
@@ -220,7 +219,6 @@ export function compileRegistry(
 
     if (status !== "Approved") continue; // non-authoritative card
 
-
     const base: Omit<GuidanceCard, "contentHash"> = {
       id,
       topic: text(row[1]).trim(),
@@ -338,7 +336,6 @@ export async function readWorkbook(
   const rows: RawRow[] = [];
   for (let rowNumber = 3; rowNumber <= sheet.rowCount; rowNumber += 1) {
     rows.push(columns.map((column) => cell(rowNumber, column)));
-
   }
   return { headers, rows };
 }

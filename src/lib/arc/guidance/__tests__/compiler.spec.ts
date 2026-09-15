@@ -99,11 +99,7 @@ describe("guidance registry compiler", () => {
 
   it("excludes valid non-Approved cards from the authoritative registry", () => {
     for (const status of ["Draft — user review required", "Reviewed", "Needs revision"]) {
-      const registry = compileRegistry(
-        HEADERS,
-        [row({}, 1), row({ 16: status }, 2)],
-        NO_COVERAGE,
-      );
+      const registry = compileRegistry(HEADERS, [row({}, 1), row({ 16: status }, 2)], NO_COVERAGE);
       expect(registry.cards.map((card) => card.id)).toEqual([1]);
       expect(registry.cards.every((card) => card.status === "Approved")).toBe(true);
     }
@@ -114,8 +110,6 @@ describe("guidance registry compiler", () => {
       /Duplicate normalized retrieval tag/,
     );
   });
-
-
 
   it("normalizes retrieval tags and splits source URLs deterministically", () => {
     expect(normalizeTag("  Contract   Criteria ")).toBe("contract criteria");

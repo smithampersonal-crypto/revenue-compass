@@ -69,9 +69,7 @@ const DOMAIN_RANGES: ReadonlyArray<{ from: number; to: number; domains: readonly
  * because SSP determination is a universal Step 4 input and contract wording
  * cannot be relied upon to retrieve it.
  */
-export const CORE_GUIDANCE_IDS: readonly number[] = [
-  1, 11, 18, 25, 44, 45, 46, 58, 59, 69, 100,
-];
+export const CORE_GUIDANCE_IDS: readonly number[] = [1, 11, 18, 25, 44, 45, 46, 58, 59, 69, 100];
 
 /** Areas where the deterministic ARC engines already own the calculation. */
 const FULL_SUPPORT_IDS = new Set<number>([
@@ -197,7 +195,6 @@ export function assertPolicyClassificationsTotal(): void {
     }
   }
 }
-
 
 /**
  * Broad, contextual vocabulary. A workbook tag in this set describes the
@@ -431,7 +428,6 @@ function finalizationImpactFor(id: number): GuidanceFinalizationImpact {
   if (FINALIZATION_WARN_IDS.has(id)) return "warn";
   return "none";
 }
-
 
 /** Resolves the reviewed machine policy for a stable card ID. Fails closed. */
 export function getGuidancePolicy(id: number): GuidanceMachinePolicy {
