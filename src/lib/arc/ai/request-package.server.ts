@@ -380,12 +380,20 @@ export async function buildAiRequestPackage(
   };
 
   // Preflight counts the ONE canonical envelope verbatim. There is no reduced
-  // count-only payload anywhere in this path.
-  const canonicalRequest = buildCanonicalResponsesRequest(
-    requestPackage,
-    limits,
-    args.additionalRequestParams ?? {},
-  );
+  // count-only payload anywhere in this path, and the object returned below is
+  // the very same object reference the generative call later sends.
+  const requestOptions = args.requestOptions ?? {};
+  const canonicalRequest = buildCanonicalResponsesRequest(requestPackage, limits, {
+    ...(requestOptions.buildInstructions
+      ? { instructions: requestOptions.buildInstructions(requestPackage) }
+      : {}),
+    ...(requestOptions.structuredOutput !== undefined
+      ? { structuredOutput: requestOptions.structuredOutput }
+      : {}),
+    ...(requestOptions.safeAdditionalParams
+      ? { safeAdditionalParams: requestOptions.safeAdditionalParams }
+      : {}),
+  });
   const check = await preflightAiRequest({
     requestParams: canonicalRequest,
     combinedFileBytes,
@@ -401,5 +409,11 @@ export async function buildAiRequestPackage(
     return failure(check.code, extra);
   }
 
-  return { ok: true, package: requestPackage, inputTokens: check.inputTokens };
+  return {
+    ok: true,
+    package: requestPackage,
+    inputTokens: check.inputTokens,
+    canonicalRequest,
+  };
+
 }
