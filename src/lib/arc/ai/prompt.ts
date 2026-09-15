@@ -43,10 +43,20 @@ export interface BuildAiInstructionsArgs {
   outputSchemaVersion?: string;
 }
 
-/** Literal control characters are stripped; content is never reinterpreted. */
+const SECTION_MARKER_PATTERN = /SECTION\s*\d+\s*[—-]\s*(TRUSTED|AUTHENTICATED|UNTRUSTED|TASK)[^\n]*/gi;
+
+/**
+ * Control characters are stripped and any text imitating an ARC section
+ * heading is neutralised, so no user-controlled or PDF-derived string can open
+ * what looks like a second trusted region.
+ */
 function asEvidenceLine(value: string): string {
-  return value.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 400);
+  return value
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(SECTION_MARKER_PATTERN, "[redacted-section-marker]")
+    .slice(0, 400);
 }
+
 
 function policySection(): string {
   return [
