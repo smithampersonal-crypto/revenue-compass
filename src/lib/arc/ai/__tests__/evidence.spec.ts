@@ -86,7 +86,7 @@ describe("extractPdfEvidence", () => {
     const evidence = await extractPdfEvidence(
       args(buildPdf({ pageTexts: ["Caf\\351 Ma\\361ana"] })),
     );
-    expect(evidence.pages[0]!.text).toMatch(/[^\x00-\x7F]/);
+    expect(/[^\u0020-\u007e]/u.test(evidence.pages[0]!.text)).toBe(true);
   });
 
   it("carries Unicode text through normalization unchanged", async () => {

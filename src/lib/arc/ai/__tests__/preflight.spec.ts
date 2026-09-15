@@ -125,10 +125,10 @@ describe("token preflight", () => {
   });
 
   it("counts over the materially complete proposed request", async () => {
-    const count = vi.fn(async () => ({ input_tokens: 7 }));
+    const count = vi.fn(async (_payload: Record<string, unknown>) => ({ input_tokens: 7 }));
     await run({ countTokens: { count } });
 
-    const payload = count.mock.calls[0]![0] as unknown as Record<string, unknown>;
+    const payload = count.mock.calls[0]![0];
     expect(payload["model"]).toBe(AI_LIMITS.model);
     expect(JSON.stringify(payload)).toContain("data:application/pdf;base64,");
     expect(JSON.stringify(payload)).toContain("doc-1");
