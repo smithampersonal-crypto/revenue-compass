@@ -80,7 +80,16 @@ export type AiPreflightFailureCode =
   | "input_tokens_exceeded";
 
 export type AiPreflightResult =
-  | { ok: true; package: AiRequestPackage; inputTokens: number }
+  | {
+      ok: true;
+      package: AiRequestPackage;
+      inputTokens: number;
+      /**
+       * The exact counted envelope. The generative call sends this same object
+       * reference — never a rebuilt one.
+       */
+      canonicalRequest: Record<string, unknown>;
+    }
   | {
       ok: false;
       code: AiPreflightFailureCode;
