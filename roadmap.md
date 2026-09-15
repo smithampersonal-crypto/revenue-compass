@@ -494,6 +494,19 @@
   Verification: 797 tests across 74 files, typecheck clean, ESLint 0 errors,
   build OK, bundle audit clean.
 
+## Phase 9A — Guidance Registry & Deterministic Retrieval (complete)
+
+- Master workbook copied unchanged to
+  `guidance/Revenue_Compass_ASC606_Master_Library.xlsx`
+  (sha256 86d1a19ec1d7d222c2d05e60bebb0f9c61784a0016e7828de3a702414906c8cf).
+- `scripts/compile-guidance-registry.ts` compiles the Guidance Cards sheet into
+  `src/lib/arc/guidance/registry.generated.ts` (`guidance:compile` /
+  `guidance:check`). `exceljs` is a devDependency and never ships to the browser.
+- `policy.ts` holds explicit ARC machine policy keyed by stable Item No.;
+  `retrieval.ts` builds deterministic, explainable Guidance Packs
+  (core > retrieved > dependency). No embeddings, vector store or OpenAI.
+- Phase 9B onward (PDF evidence extraction, OpenAI/Terra, AI UI) not started.
+
 ## Standing guardrails
 
 - No accounting engine or sample fixture change.

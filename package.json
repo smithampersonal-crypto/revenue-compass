@@ -15,6 +15,8 @@
     "db:start": "bunx --bun supabase start",
     "db:test": "bash scripts/run-sql-suites.sh",
     "audit:bundle": "bash scripts/audit-bundle.sh",
+    "guidance:compile": "bun scripts/compile-guidance-registry.ts",
+    "guidance:check": "bun scripts/compile-guidance-registry.ts --check",
     "verify": "bun run test && bun run typecheck && bun run lint && bun run build && bun run audit:bundle",
     "db:stop": "bunx --bun supabase stop --no-backup",
     "db:test:gate-proof": "bash scripts/gate-proof.sh"
@@ -93,6 +95,7 @@
     "eslint-plugin-prettier": "^5.2.6",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
+    "exceljs": "^4.4.0",
     "globals": "^15.15.0",
     "jsdom": "^30.0.1",
     "nitro": "3.0.260603-beta",
