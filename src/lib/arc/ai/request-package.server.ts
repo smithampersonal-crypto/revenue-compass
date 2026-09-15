@@ -236,9 +236,10 @@ export async function buildAiRequestPackage(
   const content: Array<Record<string, unknown>> = [
     {
       type: "input_text",
+      // Trusted ARC identity only: no user-controlled label appears here.
       text: [
-        "ARC selected source documents for this analysis run:",
-        ...evidence.map((document) => `- ${document.documentId} (${document.displayName})`),
+        "ARC selected source documents for this analysis run (trusted ARC document IDs):",
+        ...evidence.map((document) => `- ${document.documentId}`),
       ].join("\n"),
     },
   ];
