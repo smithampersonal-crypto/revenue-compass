@@ -1,3 +1,4 @@
+/* eslint-disable no-irregular-whitespace -- verbatim extracted PDF text */
 /**
  * Full four-page Genomix / Synthesis BioAnalytics acceptance fixture.
  *

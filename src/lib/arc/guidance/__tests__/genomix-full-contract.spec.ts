@@ -85,8 +85,12 @@ describe("full Genomix contract — contextual false positives stay out", () => 
 });
 
 describe("general retrieval rules, proven without this contract", () => {
-  const only = (text: string) => new Set(buildGuidancePack({ normalizedEvidenceText: text })
-    .inclusions.filter((i) => i.reason === "retrieved").map((i) => i.cardId));
+  const only = (text: string) =>
+    new Set(
+      buildGuidancePack({ normalizedEvidenceText: text })
+        .inclusions.filter((i) => i.reason === "retrieved")
+        .map((i) => i.cardId),
+    );
 
   it("equity alone is contextual; equity paid as consideration is not", () => {
     expect(only("the affiliate holds a majority equity interest")).not.toContain(40);
