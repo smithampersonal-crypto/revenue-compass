@@ -53,6 +53,14 @@ export const GUIDANCE_HEADERS = [
   "Last Reviewed",
 ] as const;
 
+/** The workbook's controlled Status vocabulary. Only Approved is authoritative. */
+export const GUIDANCE_STATUSES = [
+  "Draft — user review required",
+  "Reviewed",
+  "Approved",
+  "Needs revision",
+] as const;
+
 export type RawCell = string | number | Date | null | undefined;
 export type RawRow = readonly RawCell[];
 
@@ -176,27 +184,40 @@ export function compileRegistry(
       );
     }
   });
+  for (let index = GUIDANCE_HEADERS.length; index < actual.length; index += 1) {
+    if (actual[index] !== "") {
+      throw new Error(
+        `Unexpected extra header at column ${index + 1}: ${JSON.stringify(actual[index])}.`,
+      );
+    }
+  }
 
   const cards: GuidanceCard[] = [];
   const seenIds = new Set<number>();
 
   for (const row of rows) {
+    const cells = GUIDANCE_HEADERS.map((_, index) => text(row[index]).trim());
+    // A row may only be ignored when every guidance-card cell is blank.
+    if (cells.every((cell) => cell === "")) continue;
+
     const rawId = row[0];
-    const status = text(row[16]).trim();
-    if (status === "") continue; // blank spacer row
-    if (status !== "Approved" && status !== "Draft" && status !== "Retired") {
+    const status = cells[16]!;
+    if (!(GUIDANCE_STATUSES as readonly string[]).includes(status)) {
       throw new Error(`Invalid Status value: ${JSON.stringify(status)}`);
     }
-    if (status !== "Approved") continue; // non-authoritative card
 
-    const id = typeof rawId === "number" ? rawId : Number(text(rawId).trim());
+    // Stable Item No. uniqueness is enforced across every nonblank row,
+    // regardless of status.
+    const id = typeof rawId === "number" ? rawId : Number(cells[0]);
     if (!Number.isInteger(id) || id < 1) {
-      throw new Error(`Invalid Item No.: ${JSON.stringify(text(rawId))}`);
+      throw new Error(`Invalid Item No.: ${JSON.stringify(cells[0])}`);
     }
     if (seenIds.has(id)) {
       throw new Error(`Duplicate Item No.: ${id}`);
     }
     seenIds.add(id);
+
+    if (status !== "Approved") continue; // non-authoritative card
 
     const base: Omit<GuidanceCard, "contentHash"> = {
       id,
@@ -307,10 +328,14 @@ export async function readWorkbook(
     if (typeof value === "object" && "result" in value) return String(value.result ?? "");
     return String(value);
   };
-  const headers = GUIDANCE_HEADERS.map((_, index) => cell(2, index + 1));
+  // One column past the authoritative 18 is read so an unexpected extra
+  // column fails compilation instead of being silently ignored.
+  const width = GUIDANCE_HEADERS.length + 1;
+  const columns = Array.from({ length: width }, (_, index) => index + 1);
+  const headers = columns.map((column) => cell(2, column));
   const rows: RawRow[] = [];
   for (let rowNumber = 3; rowNumber <= sheet.rowCount; rowNumber += 1) {
-    rows.push(GUIDANCE_HEADERS.map((_, index) => cell(rowNumber, index + 1)));
+    rows.push(columns.map((column) => cell(rowNumber, column)));
   }
   return { headers, rows };
 }

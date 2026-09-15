@@ -65,29 +65,53 @@ const DOMAIN_RANGES: ReadonlyArray<{ from: number; to: number; domains: readonly
 /**
  * The minimal core pack. These cards are the deterministic backbone of every
  * ARC analysis (one card per authoritative engine gate), so they are supplied
- * to every Guidance Pack regardless of contract facts.
+ * to every Guidance Pack regardless of contract facts. Card 46 is included
+ * because SSP determination is a universal Step 4 input and contract wording
+ * cannot be relied upon to retrieve it.
  */
-export const CORE_GUIDANCE_IDS: readonly number[] = [1, 11, 18, 25, 44, 45, 58, 59, 69, 100];
+export const CORE_GUIDANCE_IDS: readonly number[] = [1, 11, 18, 25, 44, 45, 46, 58, 59, 69, 100];
 
 /** Areas where the deterministic ARC engines already own the calculation. */
 const FULL_SUPPORT_IDS = new Set<number>([
-  1, 3, 11, 12, 18, 19, 20, 21, 22, 25, 27, 28, 29, 30, 32, 33, 34, 44, 45, 46, 47, 50, 52, 53, 54,
-  58, 59, 62, 69, 70, 71, 77, 78, 79, 80, 81, 96, 97, 98, 99, 100, 101, 105, 106, 107, 110, 115,
+  1, 11, 12, 18, 19, 20, 21, 22, 27, 28, 29, 30, 32, 34, 44, 45, 46, 47, 50, 52, 53, 54, 77, 78, 79,
+  81, 96, 97, 98, 99, 100, 101, 106, 107, 108, 110, 115,
 ]);
 
 /** Areas the engines model only in part. */
 const PARTIAL_SUPPORT_IDS = new Set<number>([
-  9, 10, 42, 43, 48, 49, 51, 55, 56, 57, 67, 68, 73, 75, 82, 93, 94, 95, 108, 109, 111, 114,
+  3, 9, 10, 25, 33, 42, 43, 48, 49, 51, 55, 56, 57, 58, 59, 62, 67, 68, 69, 70, 71, 73, 75, 82, 93,
+  94, 95, 105, 111, 113, 114,
 ]);
+
+/**
+ * Topics ARC presents as reviewed guidance while claiming no engine authority
+ * over the calculation. Explicit: there is no implicit fallback tier.
+ */
+const ADVISORY_ONLY_IDS = new Set<number>([2, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 23, 24, 60, 92]);
 
 /** Accounting the ARC engines deliberately do not implement today. */
 const NOT_SUPPORTED_IDS = new Set<number>([
-  26, 31, 35, 36, 37, 38, 39, 40, 41, 61, 63, 64, 65, 66, 72, 74, 76, 83, 84, 85, 86, 87, 88, 89,
-  90, 91, 102, 103, 104, 112, 113, 116,
+  26, 31, 35, 36, 37, 38, 39, 40, 41, 61, 63, 64, 65, 66, 72, 74, 76, 80, 83, 84, 85, 86, 87, 88,
+  89, 90, 91, 102, 103, 104, 109, 112, 116,
 ]);
 
-/** Cards whose unresolved review state blocks finalization. */
-const BLOCKING_IDS = new Set<number>(CORE_GUIDANCE_IDS);
+/**
+ * Explicitly reviewed finalization impact.
+ *
+ * Governing principle: if a detected material topic can change the ASC 606
+ * revenue amount, allocation, recognition timing or presentation and ARC
+ * cannot safely model the required treatment, unresolved review must be able
+ * to block finalization rather than only warn. Contract-cost cards 102–104 and
+ * the portfolio expedient (116) sit outside the core revenue engine, so they
+ * remain warning-only.
+ */
+const FINALIZATION_WARN_IDS = new Set<number>([102, 103, 104, 116]);
+
+const FINALIZATION_BLOCK_IDS = new Set<number>([
+  1, 3, 9, 10, 11, 18, 25, 26, 31, 33, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 48, 49, 51,
+  55, 56, 57, 58, 59, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 80, 82, 83,
+  84, 85, 86, 87, 88, 89, 90, 91, 93, 94, 95, 100, 105, 109, 111, 112, 113, 114,
+]);
 
 /**
  * Dependency expansion. Expansion runs only from cards that were actually
@@ -99,7 +123,7 @@ const RELATED_GUIDANCE: Readonly<Record<number, readonly number[]>> = {
   12: [22, 77],
   18: [19, 20],
   22: [77],
-  27: [28, 29, 32, 34],
+  27: [28, 29, 30, 32, 34],
   32: [33],
   35: [36, 37, 38],
   42: [43],
@@ -127,10 +151,62 @@ const RELATED_GUIDANCE: Readonly<Record<number, readonly number[]>> = {
 };
 
 /**
+ * Engine-support and finalization classifications must be total and mutually
+ * exclusive over the Approved card ID space. Validated at module load so a
+ * missing or doubly classified ID can never reach runtime.
+ */
+export function assertPolicyClassificationsTotal(): void {
+  const tiers: ReadonlyArray<[string, ReadonlySet<number>]> = [
+    ["full", FULL_SUPPORT_IDS],
+    ["partial", PARTIAL_SUPPORT_IDS],
+    ["advisory_only", ADVISORY_ONLY_IDS],
+    ["not_supported", NOT_SUPPORTED_IDS],
+  ];
+  for (const id of POLICY_CARD_IDS) {
+    const hits = tiers.filter(([, set]) => set.has(id)).map(([name]) => name);
+    if (hits.length === 0) {
+      throw new Error(`Guidance card ${id} has no engine-support classification.`);
+    }
+    if (hits.length > 1) {
+      throw new Error(
+        `Guidance card ${id} is classified in multiple engine-support tiers: ${hits.join(", ")}.`,
+      );
+    }
+    const impacts = [
+      FINALIZATION_BLOCK_IDS.has(id) ? "block" : null,
+      FINALIZATION_WARN_IDS.has(id) ? "warn" : null,
+    ].filter((impact) => impact !== null);
+    if (impacts.length > 1) {
+      throw new Error(`Guidance card ${id} has more than one finalization impact.`);
+    }
+  }
+  for (const [name, set] of tiers) {
+    for (const id of set) {
+      if (id < 1 || id > POLICY_CARD_ID_COUNT) {
+        throw new Error(`Engine-support tier ${name} references unknown card ${id}.`);
+      }
+    }
+  }
+  for (const set of [FINALIZATION_BLOCK_IDS, FINALIZATION_WARN_IDS]) {
+    for (const id of set) {
+      if (id < 1 || id > POLICY_CARD_ID_COUNT) {
+        throw new Error(`Finalization policy references unknown card ${id}.`);
+      }
+    }
+  }
+}
+
+/**
  * Broad, contextual vocabulary. A workbook tag in this set describes the
  * general setting of an arrangement and can never by itself select a
  * specialised card: "SaaS" must not pull SLA-credit guidance, and "discount"
  * must not pull the material-right package.
+ *
+ * Umbrella accounting labels ("variable consideration", "contract
+ * modification", "material right", "renewal", "overage", …) are contextual for
+ * the same reason: they are routed through a single reviewed gateway card
+ * whose dependency chain supplies the foundational package, instead of letting
+ * every card carrying the label match directly.
  */
 export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "ai",
@@ -138,15 +214,21 @@ export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "approval",
   "bundle",
   "cloud",
+  "contract asset",
+  "contract modification",
   "control",
   "credit",
   "discount",
   "distinct",
   "hosting",
   "license",
+  "material right",
   "materiality",
   "option",
+  "overage",
+  "overages",
   "penalty",
+  "performance obligation",
   "phase 5a",
   "phase 5b",
   "phase 5b limitation",
@@ -154,12 +236,16 @@ export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "policy",
   "policy election",
   "presentation",
+  "renewal",
   "revenue",
   "rights",
   "saas",
   "series",
   "service",
   "special topic",
+  "stand-ready",
+  "stand ready",
+
   "step1",
   "step2",
   "step3",
@@ -168,6 +254,8 @@ export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "support",
   "technology",
   "usage",
+  "variable consideration",
+
   "32 40",
   "25 27",
   "25 30",
@@ -194,7 +282,10 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   17: ["shipping and handling", "freight"],
   22: ["stand ready", "continuous access", "hosted access"],
   23: ["implementation", "configuration services"],
+  // Gateway card for the umbrella label "variable consideration": the
+  // foundational VC package (28, 29, 30, 32, 34) arrives by dependency.
   27: [
+    "variable consideration",
     "overage",
     "overages",
     "service credit",
@@ -206,6 +297,7 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
     "rebate",
     "performance bonus",
   ],
+
   32: ["constrained", "significant revenue reversal"],
   35: ["interest rate", "deferred payment terms", "financing component"],
   42: ["marketing allowance", "coop funds", "payment to customer"],
@@ -214,7 +306,9 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   58: [],
   71: ["percentage of completion", "milestone billing"],
   77: ["daily ratable", "ratable recognition"],
+  // Gateway card for the umbrella label "material right": 79–81 by dependency.
   78: [
+    "material right",
     "renewal option",
     "option to renew",
     "discounted renewal",
@@ -223,6 +317,7 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
     "future purchase option",
     "option to purchase additional",
   ],
+
   82: ["nonrefundable upfront fee", "activation fee", "setup fee", "one time fee"],
   83: ["right of return", "return the product"],
   84: ["warranty", "warranty period"],
@@ -239,7 +334,10 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   93: ["license bundled", "license and implementation"],
   94: ["right to access", "right to use", "functional intellectual property"],
   95: ["royalty", "sales based royalty", "usage based royalty"],
+  // Gateway card for the umbrella label "contract modification": 97–99 by
+  // dependency.
   96: [
+    "contract modification",
     "amendment",
     "amended agreement",
     "change order",
@@ -249,6 +347,7 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
     "addendum",
     "additional goods or services",
   ],
+
   100: [],
   101: [
     "net 30",
@@ -262,11 +361,32 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
     "payment due",
     "unconditional right",
   ],
+  // Contract-cost context only: a renewal by itself is not a Card 104 fact.
+  104: [
+    "commission asset",
+    "contract cost asset",
+    "capitalized commission",
+    "amortization period",
+    "impairment",
+  ],
   105: ["hosted service", "cloud service", "software as a service", "hosted access"],
   106: ["continuous access", "daily service"],
   107: ["usage based", "metered", "per unit fee", "per sample", "overage"],
   108: ["per token", "token pricing", "api calls"],
-  109: ["minimum commitment", "overage", "tiered pricing", "volume discount", "committed volume"],
+  // A plain per-unit overage is ordinary usage-based VC (27/107). Card 109
+  // requires evidence of a complex commitment/tier structure.
+  109: [
+    "minimum commitment",
+    "committed spend",
+    "committed volume",
+    "annual pool",
+    "cumulative volume",
+    "tiered pricing",
+    "tiered usage",
+    "volume discount",
+    "retrospective volume discount",
+  ],
+
   110: [
     "sla",
     "service level agreement",
@@ -298,18 +418,14 @@ function rangeValue<T>(
 function engineSupportFor(id: number): GuidanceEngineSupport {
   if (FULL_SUPPORT_IDS.has(id)) return "full";
   if (PARTIAL_SUPPORT_IDS.has(id)) return "partial";
+  if (ADVISORY_ONLY_IDS.has(id)) return "advisory_only";
   if (NOT_SUPPORTED_IDS.has(id)) return "not_supported";
-  // Conservative default: ARC presents the guidance but claims no engine
-  // authority over the topic.
-  return "advisory_only";
+  throw new Error(`Guidance card ${id} has no engine-support classification.`);
 }
 
-function finalizationImpactFor(
-  id: number,
-  support: GuidanceEngineSupport,
-): GuidanceFinalizationImpact {
-  if (BLOCKING_IDS.has(id)) return "block";
-  if (support === "partial" || support === "not_supported") return "warn";
+function finalizationImpactFor(id: number): GuidanceFinalizationImpact {
+  if (FINALIZATION_BLOCK_IDS.has(id)) return "block";
+  if (FINALIZATION_WARN_IDS.has(id)) return "warn";
   return "none";
 }
 
@@ -326,7 +442,8 @@ export function getGuidancePolicy(id: number): GuidanceMachinePolicy {
     proposalDomains,
     reviewSection,
     engineSupport,
-    finalizationImpact: finalizationImpactFor(id, engineSupport),
+    finalizationImpact: finalizationImpactFor(id),
+
     enginePolicyCodes:
       engineSupport === "not_supported"
         ? []
@@ -338,7 +455,14 @@ export function getGuidancePolicy(id: number): GuidanceMachinePolicy {
 /** Every stable ID referenced anywhere in this policy module. */
 export function referencedPolicyIds(): number[] {
   const ids = new Set<number>(CORE_GUIDANCE_IDS);
-  for (const set of [FULL_SUPPORT_IDS, PARTIAL_SUPPORT_IDS, NOT_SUPPORTED_IDS, BLOCKING_IDS]) {
+  for (const set of [
+    FULL_SUPPORT_IDS,
+    PARTIAL_SUPPORT_IDS,
+    ADVISORY_ONLY_IDS,
+    NOT_SUPPORTED_IDS,
+    FINALIZATION_BLOCK_IDS,
+    FINALIZATION_WARN_IDS,
+  ]) {
     for (const id of set) ids.add(id);
   }
   for (const [key, related] of Object.entries(RELATED_GUIDANCE)) {
@@ -348,3 +472,6 @@ export function referencedPolicyIds(): number[] {
   for (const key of Object.keys(CURATED_RETRIEVAL_SIGNALS)) ids.add(Number(key));
   return [...ids].sort((a, b) => a - b);
 }
+
+// Fail closed at module load: classifications must be total and exclusive.
+assertPolicyClassificationsTotal();
