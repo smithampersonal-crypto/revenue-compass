@@ -70,11 +70,16 @@ export interface BuildAiRequestPackageArgs {
   /** Deterministic ARC fact signals fed to Phase 9A retrieval. */
   arcFactSignals?: readonly string[];
   /**
-   * Phase 9D seam: further canonical Responses parameters (structured-output
-   * configuration, prompt policy fields). They enter the ONE envelope that is
-   * both counted and later sent.
+   * Phase 9D: strict structured output, the trust-tier instruction builder and
+   * any genuinely optional extra parameters. They enter the ONE envelope that
+   * is both counted and later sent; ARC-controlled keys are rejected.
    */
-  additionalRequestParams?: Record<string, unknown>;
+  requestOptions?: {
+    structuredOutput?: ArcStructuredOutput | null;
+    safeAdditionalParams?: Record<string, unknown>;
+    buildInstructions?: (requestPackage: AiRequestPackage) => string;
+  };
+
   deps: AiPackageDeps;
 }
 
