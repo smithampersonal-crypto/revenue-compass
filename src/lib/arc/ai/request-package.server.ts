@@ -20,10 +20,12 @@
 import { createHash } from "node:crypto";
 
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
+import type { GuidancePack } from "@/lib/arc/guidance/types";
 
 import { AI_LIMITS, type AiLimits } from "./config.server";
 import { AiEvidenceError, extractPdfEvidence } from "./evidence.server";
 import type { OpenAiTokenCounter } from "./openai.server";
+import { preflightAiRequest } from "./preflight.server";
 import {
   AI_PREFLIGHT_MESSAGES,
   type AiDocumentEvidence,
@@ -67,6 +69,12 @@ export interface BuildAiRequestPackageArgs {
   priorContext?: PriorAccountingContext | null;
   /** Deterministic ARC fact signals fed to Phase 9A retrieval. */
   arcFactSignals?: readonly string[];
+  /**
+   * Phase 9D seam: further canonical Responses parameters (structured-output
+   * configuration, prompt policy fields). They enter the ONE envelope that is
+   * both counted and later sent.
+   */
+  additionalRequestParams?: Record<string, unknown>;
   deps: AiPackageDeps;
 }
 
@@ -119,6 +127,34 @@ function sourceMetadataText(evidence: AiDocumentEvidence, index: number): string
   ].join("\n");
 }
 
+/**
+ * Trusted ARC guidance prose for the retrieved cards, carried verbatim from the
+ * accounting-controlled registry. Counted and sent as one and the same text.
+ */
+function guidancePackText(guidance: GuidancePack): string {
+  const reasons = new Map(guidance.inclusions.map((i) => [i.cardId, i.reason]));
+  return [
+    "TRUSTED ARC GUIDANCE PACK (accountant-controlled ASC 606 guidance).",
+    `registryHash: ${guidance.registryHash}`,
+    ...guidance.cards.map((card) =>
+      [
+        `--- Guidance Card ${card.id} (${reasons.get(card.id) ?? "core"}) ---`,
+        `Topic: ${card.topic} — ${card.subtopic}`,
+        `Primary ASC reference: ${card.primaryAscReference}`,
+        `Related ASC references: ${card.relatedAscReferences}`,
+        `Rule summary: ${card.ruleSummary}`,
+        `Decision criteria: ${card.decisionCriteria}`,
+        `Facts required: ${card.factsRequired}`,
+        `Important nuances: ${card.importantNuances}`,
+        `When relevant: ${card.whenRelevant}`,
+        `AI may propose: ${card.aiMayPropose}`,
+        `Accountant must approve: ${card.accountantMustApprove}`,
+        `Revenue Compass engine behavior: ${card.engineBehavior}`,
+      ].join("\n"),
+    ),
+  ].join("\n");
+}
+
 function packageInstructions(): string {
   return [
     "You are analyzing contract PDFs supplied by ARC (Ayden's Revenue Compass).",
@@ -132,13 +168,15 @@ function packageInstructions(): string {
  * Finding 1 — the ONE canonical Responses request envelope.
  *
  * Exact token preflight counts this object, and the eventual Phase 9D
- * generative call sends this same object (plus only the 9D output-schema
- * seam). Nothing may build a reduced count-only payload, so the counted
- * request cannot drift from the request that will actually be sent.
+ * generative call sends this same object. Phase 9D supplies its own
+ * output-schema / prompt parameters through `additionalRequestParams`; they are
+ * merged here rather than bolted onto a second, separately built request, so a
+ * counted request can never diverge from the request that is actually sent.
  */
 export function buildCanonicalResponsesRequest(
   requestPackage: AiRequestPackage,
   limits: AiLimits = AI_LIMITS,
+  additionalRequestParams: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
     model: limits.model,
@@ -148,6 +186,9 @@ export function buildCanonicalResponsesRequest(
     store: false,
     truncation: "disabled",
     tools: [],
+    // Phase 9D seam: structured-output/text configuration and any further
+    // token-bearing parameters travel in the same envelope.
+    ...additionalRequestParams,
   };
 }
 
@@ -231,9 +272,10 @@ export async function buildAiRequestPackage(
   const content: Array<Record<string, unknown>> = [
     {
       type: "input_text",
+      // Trusted ARC identity only: no user-controlled label appears here.
       text: [
-        "ARC selected source documents for this analysis run:",
-        ...evidence.map((document) => `- ${document.documentId} (${document.displayName})`),
+        "ARC selected source documents for this analysis run (trusted ARC document IDs):",
+        ...evidence.map((document) => `- ${document.documentId}`),
       ].join("\n"),
     },
   ];
@@ -250,6 +292,10 @@ export async function buildAiRequestPackage(
       file_data: fileData[index]!,
     });
   });
+
+  // Trusted ARC guidance: the retrieved cards' accounting prose travels in the
+  // counted envelope, so preflight measures the request generation will send.
+  content.push({ type: "input_text", text: guidancePackText(guidance) });
 
   content.push({
     type: "input_text",
@@ -272,15 +318,27 @@ export async function buildAiRequestPackage(
     combinedFileBytes,
   };
 
-  // Non-generative count over the ONE canonical envelope the eventual
-  // generative call will send. There is no reduced count-only payload.
-  const { input_tokens: inputTokens } = await args.deps.countTokens.count(
-    buildCanonicalResponsesRequest(requestPackage, limits),
+  // Preflight counts the ONE canonical envelope verbatim. There is no reduced
+  // count-only payload anywhere in this path.
+  const canonicalRequest = buildCanonicalResponsesRequest(
+    requestPackage,
+    limits,
+    args.additionalRequestParams ?? {},
   );
+  const check = await preflightAiRequest({
+    requestParams: canonicalRequest,
+    combinedFileBytes,
+    tokenCounter: args.deps.countTokens,
+    limits,
+  });
 
-  if (inputTokens > limits.maxInputTokens) {
-    return failure("input_tokens_exceeded", { combinedFileBytes, inputTokens });
+  if (!check.ok) {
+    const extra: { combinedFileBytes: number; inputTokens?: number } = {
+      combinedFileBytes: check.combinedFileBytes,
+    };
+    if (check.inputTokens !== undefined) extra.inputTokens = check.inputTokens;
+    return failure(check.code, extra);
   }
 
-  return { ok: true, package: requestPackage, inputTokens };
+  return { ok: true, package: requestPackage, inputTokens: check.inputTokens };
 }

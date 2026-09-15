@@ -220,7 +220,17 @@ export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "credit",
   "discount",
   "distinct",
+  // Umbrella labels exposed as contextual false positives by full contracts:
+  // incidental corporate-affiliate wording ("equity interest"), incidental
+  // usage restrictions ("lease or white-label"), a bare "call", and generic
+  // IP/licence vocabulary in an ordinary hosted SaaS agreement. Each of these
+  // now needs an accounting-specific curated phrase to select a card.
+  "call",
+  "equity",
   "hosting",
+  "intellectual property",
+  "ip",
+  "lease",
   "license",
   "material right",
   "materiality",
@@ -299,6 +309,19 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   ],
 
   32: ["constrained", "significant revenue reversal"],
+  // Noncash consideration needs consideration/payment context: a bare "equity"
+  // is ordinarily corporate-affiliate boilerplate, not a payment fact.
+  40: [
+    "noncash consideration",
+    "non cash consideration",
+    "equity consideration",
+    "stock consideration",
+    "shares as consideration",
+    "equity issued as payment",
+    "shares issued in exchange",
+    "warrants issued as consideration",
+    "payment in kind",
+  ],
   35: ["interest rate", "deferred payment terms", "financing component"],
   42: ["marketing allowance", "coop funds", "payment to customer"],
   45: ["standalone selling price", "list price"],
@@ -323,12 +346,34 @@ export const CURATED_RETRIEVAL_SIGNALS: Readonly<Record<number, readonly string[
   84: ["warranty", "warranty period"],
   85: ["reseller", "marketplace", "gross or net"],
   91: ["gift card", "prepaid credits", "breakage"],
+  // Repurchase guidance needs an actual buy-back construct: incidental "lease"
+  // or "call" wording in a usage restriction is not a repurchase fact pattern.
+  90: [
+    "repurchase",
+    "repurchase agreement",
+    "right to repurchase",
+    "obligation to repurchase",
+    "buyback",
+    "buy back",
+    "put option",
+    "call option",
+    "forward repurchase",
+    "sale and leaseback",
+    "repurchase the asset",
+  ],
+  // Scope/disambiguation card for hosted arrangements: an ordinary hosted SaaS
+  // contract may legitimately reach it, but generic "license"/"IP" wording
+  // alone may not (that is what 93–95 require real licence facts for).
   92: [
     "hosted",
     "hosted access",
     "hosted software",
     "software as a service",
+    "saas platform",
+    "cloud platform",
+    "cloud native",
     "access to the platform",
+    "access and use the platform",
     "platform access",
   ],
   93: ["license bundled", "license and implementation"],

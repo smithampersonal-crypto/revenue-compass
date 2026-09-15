@@ -5,12 +5,15 @@
  * only OpenAI interaction is the injected non-generative token counter.
  */
 
+import { createHash } from "node:crypto";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 
 import { AI_LIMITS } from "../config.server";
 import { createTokenCounter } from "../openai.server";
+import { preflightAiRequest } from "../preflight.server";
 import {
   buildAiRequestPackage,
   type AiPackageDeps,
@@ -38,7 +41,7 @@ function authorized(byteSize: number): AuthorizedSource[] {
       documentId: "doc-1",
       displayName: "Master Agreement",
       originalFilename: "master.pdf",
-      sha256: "a".repeat(64),
+      sha256: createHash("sha256").update(pdfBytes).digest("hex"),
       byteSize,
       storageObjectPath: "documents/doc-1.pdf",
     },
@@ -172,5 +175,115 @@ describe("no generative call", () => {
     const result = await run({ countTokens: createTokenCounter(client as never) });
     expect(result.ok).toBe(true);
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Finding 1 — preflight counts the canonical envelope verbatim. It owns no
+ * field list, so a future token-bearing parameter cannot be dropped silently.
+ */
+describe("canonical request envelope", () => {
+  const representative = {
+    model: "gpt-5.6-terra",
+    instructions: "TRUSTED ARC POLICY: analyze the attached contract PDFs.",
+    input: [
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "ARC guidance prose" },
+          {
+            type: "input_file",
+            filename: "arc-source-doc-1.pdf",
+            detail: "high",
+            file_data: "data:application/pdf;base64,AAAA",
+          },
+        ],
+      },
+    ],
+    reasoning: { effort: "high" },
+    text: {
+      format: {
+        type: "json_schema",
+        name: "arc_contract_analysis",
+        strict: true,
+        schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+      },
+    },
+    store: false,
+    truncation: "disabled",
+    tools: [],
+    // Stands in for any Phase 9D parameter that does not exist yet.
+    future_token_bearing_field: "must survive preflight untouched",
+  } as const;
+
+  it("hands the request object to the counter unchanged, field for field", async () => {
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 5 }));
+    const result = await preflightAiRequest({
+      requestParams: representative as unknown as Record<string, unknown>,
+      combinedFileBytes: 100,
+      tokenCounter: { count },
+    });
+
+    expect(result.ok).toBe(true);
+    const counted = count.mock.calls[0]![0] as Record<string, unknown>;
+    // Identity, not a copy: nothing was reconstructed or projected.
+    expect(counted).toBe(representative);
+    expect(counted["instructions"]).toContain("TRUSTED ARC POLICY");
+    expect(counted["reasoning"]).toEqual({ effort: "high" });
+    expect(counted["text"]).toEqual(representative.text);
+    expect(counted["future_token_bearing_field"]).toBe("must survive preflight untouched");
+    expect(JSON.stringify(counted)).toContain("data:application/pdf;base64,");
+  });
+
+  it("rejects over the token cap and permits exactly the cap", async () => {
+    const over = await preflightAiRequest({
+      requestParams: { model: "m" },
+      combinedFileBytes: 1,
+      tokenCounter: { count: async () => ({ input_tokens: AI_LIMITS.maxInputTokens + 1 }) },
+    });
+    expect(over).toMatchObject({ ok: false, code: "input_tokens_exceeded" });
+
+    const exact = await preflightAiRequest({
+      requestParams: { model: "m" },
+      combinedFileBytes: 1,
+      tokenCounter: { count: async () => ({ input_tokens: AI_LIMITS.maxInputTokens }) },
+    });
+    expect(exact.ok).toBe(true);
+  });
+
+  it("fails the byte cap before any counting happens", async () => {
+    const count = vi.fn(async () => ({ input_tokens: 1 }));
+    const result = await preflightAiRequest({
+      requestParams: { model: "m" },
+      combinedFileBytes: AI_LIMITS.maxCombinedFileBytes + 1,
+      tokenCounter: { count },
+    });
+    expect(result).toMatchObject({ ok: false, code: "combined_bytes_exceeded" });
+    expect(count).not.toHaveBeenCalled();
+  });
+
+  it("the package builder's counted envelope carries instructions, reasoning and 9D params", async () => {
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 12 }));
+    await buildAiRequestPackage({
+      scope,
+      currentContext,
+      additionalRequestParams: { text: representative.text },
+      deps: {
+        loadAuthorizedSelectedSources: async () => authorized(pdfBytes.byteLength),
+        download: async () => pdfBytes,
+        countTokens: { count },
+      },
+    });
+
+    const counted = count.mock.calls[0]![0] as Record<string, unknown>;
+    expect(counted["model"]).toBe(AI_LIMITS.model);
+    expect(String(counted["instructions"])).toContain("ARC");
+    expect(counted["reasoning"]).toEqual({ effort: AI_LIMITS.reasoningEffort });
+    expect(counted["store"]).toBe(false);
+    expect(counted["truncation"]).toBe("disabled");
+    expect(counted["text"]).toEqual(representative.text);
+    const serialized = JSON.stringify(counted);
+    expect(serialized).toContain("data:application/pdf;base64,");
+    expect(serialized).toContain("TRUSTED ARC GUIDANCE PACK");
   });
 });
