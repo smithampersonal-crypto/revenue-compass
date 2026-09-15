@@ -168,13 +168,14 @@ describe("Phase 8 validator early stop vs AI full read", () => {
     let validatorPageReads = 0;
     let extractorPageReads = 0;
 
+    const pageItem = "Master services agreement between ARC and Acme Corporation";
     const parserFor = (counter: () => void) => async () => ({
       getDocument: () => ({
         promise: Promise.resolve({
           numPages: pages,
           getPage: async () => {
             counter();
-            return { getTextContent: async () => ({ items: [{ str: marker }] }) };
+            return { getTextContent: async () => ({ items: [{ str: pageItem }] }) };
           },
           destroy: async () => undefined,
         }),
