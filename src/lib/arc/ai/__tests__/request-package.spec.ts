@@ -242,7 +242,11 @@ describe("buildAiRequestPackage", () => {
     });
     const result = await build({
       loadAuthorizedSelectedSources: async () => [
-        source({ documentId: "doc-master", byteSize: mixed.byteLength }),
+        source({
+          documentId: "doc-master",
+          byteSize: mixed.byteLength,
+          sha256: sha256(mixed),
+        }),
       ],
       download: async () => mixed,
     });
