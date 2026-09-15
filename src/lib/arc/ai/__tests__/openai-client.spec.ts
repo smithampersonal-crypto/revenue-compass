@@ -53,7 +53,11 @@ const currentContext: CurrentAccountingContext = {
   draftFingerprint: "fingerprint-1",
 };
 
-function deps(count = vi.fn(async () => ({ input_tokens: 4242 }))): AiPackageDeps {
+type CountMock = (request: Record<string, unknown>) => Promise<{ input_tokens: number }>;
+
+const counter = (): CountMock => async () => ({ input_tokens: 4242 });
+
+function deps(count = vi.fn<CountMock>(counter())): AiPackageDeps {
   return {
     loadAuthorizedSelectedSources: async () => [source],
     download: async () => pdfBytes,
@@ -61,7 +65,7 @@ function deps(count = vi.fn(async () => ({ input_tokens: 4242 }))): AiPackageDep
   };
 }
 
-async function buildPackage(count = vi.fn(async () => ({ input_tokens: 4242 }))) {
+async function buildPackage(count = vi.fn<CountMock>(counter())) {
   const result = await buildAiRequestPackage({
     scope: { kind: "guest", guestTokenHash: "hash-1" },
     currentContext,
@@ -122,12 +126,12 @@ describe("canonical Phase 9D request", () => {
   });
 
   it("counts and generates from the SAME object reference", async () => {
-    const count = vi.fn(async () => ({ input_tokens: 4242 }));
+    const count = vi.fn<CountMock>(counter());
     const { canonicalRequest } = await buildPackage(count);
     const counted = count.mock.calls[0]![0] as Record<string, unknown>;
     expect(counted).toBe(canonicalRequest);
 
-    const create = vi.fn(async () => generativeResponse());
+    const create = vi.fn(async (_body: Record<string, unknown>) => generativeResponse());
     await createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient).analyze({
       canonicalRequest,
       evidence: evidence(),
