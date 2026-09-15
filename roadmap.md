@@ -574,5 +574,13 @@ canonical inputs, AI sidecar snapshot) is derived entirely server-side in
 `runs.store.server.ts` with `src/lib/arc/ai/source-fingerprint.ts`; the browser
 supplies only the requested revision target.
 
+Final CI/hardening micro-patch: a guest → revision re-home may change only
+`revision_id`, `guest_workspace_id`, `owner_user_id` (plus the automatic
+`updated_at`), with every other historical field — counts, failure metadata,
+review outcome, result/usage provenance — explicitly protected; and
+`arc_create_ai_run` rejects a null expected lock version for both owner scopes.
+The obsolete "a consumed run cannot be deleted" assertion is replaced by a
+dedicated deletable run, keeping the immutability target row alive.
+
 Phase 9D not started.
 
