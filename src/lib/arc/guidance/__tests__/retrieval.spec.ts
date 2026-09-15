@@ -44,6 +44,76 @@ describe("deterministic guidance pack retrieval", () => {
     for (const id of [78, 79, 80, 81]) expect(ids(pack)).not.toContain(id);
   });
 
+  it("does not retrieve contract-cost amortization guidance from a renewal alone", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText(
+        "The subscription renews for a further renewal term unless either party gives notice.",
+      ),
+    });
+    expect(ids(pack)).not.toContain(104);
+  });
+
+  it("retrieves contract-cost guidance only with commission-asset context", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText(
+        "The capitalized commission asset is amortized over the expected period and tested for impairment.",
+      ),
+    });
+    expect(ids(pack)).toContain(104);
+  });
+
+  it("routes the umbrella label variable consideration through gateway Card 27", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText(
+        "The arrangement includes variable consideration.",
+      ),
+    });
+    const retrieved = ids(pack, "retrieved");
+    expect(retrieved).toEqual([27]);
+    for (const id of [28, 29, 30, 32, 34]) {
+      expect(pack.inclusions.find((i) => i.cardId === id)?.reason).toBe("dependency");
+    }
+  });
+
+  it("routes the umbrella label contract modification through gateway Card 96", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText("There was a contract modification."),
+    });
+    expect(ids(pack, "retrieved")).toEqual([96]);
+    for (const id of [97, 98, 99]) {
+      expect(pack.inclusions.find((i) => i.cardId === id)?.reason).toBe("dependency");
+    }
+  });
+
+  it("routes the umbrella label material right through gateway Card 78", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText("The option conveys a material right."),
+    });
+    expect(ids(pack, "retrieved")).toEqual([78]);
+    for (const id of [79, 80, 81]) {
+      expect(pack.inclusions.find((i) => i.cardId === id)?.reason).toBe("dependency");
+    }
+  });
+
+  it("does not retrieve Card 109 from simple per-unit overage pricing", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText(
+        "Usage above the included volume is billed as overages at $1.35 per sample.",
+      ),
+    });
+    expect(ids(pack)).not.toContain(109);
+    expect(ids(pack)).toContain(27);
+  });
+
+  it("retrieves Card 109 for a minimum commitment with tiered overage structure", () => {
+    const pack = buildGuidancePack({
+      normalizedEvidenceText: normalizeSignalText(
+        "Customer has an annual minimum commitment with tiered pricing and a retrospective volume discount on overages.",
+      ),
+    });
+    expect(ids(pack)).toContain(109);
+  });
+
   it("retrieves modification guidance for an approved amendment or change order", () => {
     const pack = buildGuidancePack({
       normalizedEvidenceText: normalizeSignalText(

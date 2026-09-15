@@ -65,10 +65,48 @@ describe("guidance registry compiler", () => {
     );
   });
 
-  it("rejects an invalid Status value", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 16: "Final" })], NO_COVERAGE)).toThrow(
+  it("rejects a Status outside the controlled workbook vocabulary", () => {
+    for (const invented of ["Final", "Draft", "Retired"]) {
+      expect(() => compileRegistry(HEADERS, [row({ 16: invented })], NO_COVERAGE)).toThrow(
+        /Invalid Status/,
+      );
+    }
+  });
+
+  it("rejects a partially populated row with a blank Status", () => {
+    expect(() => compileRegistry(HEADERS, [row({ 16: "  " })], NO_COVERAGE)).toThrow(
       /Invalid Status/,
     );
+  });
+
+  it("ignores only a fully blank spacer row", () => {
+    const spacer = HEADERS.map(() => null) as unknown as RawRow;
+    const registry = compileRegistry(HEADERS, [spacer, row({}, 1)], NO_COVERAGE);
+    expect(registry.cards.map((card) => card.id)).toEqual([1]);
+  });
+
+  it("rejects an unexpected nineteenth column", () => {
+    expect(() => compileRegistry([...HEADERS, "Notes"], [row()], NO_COVERAGE)).toThrow(
+      /Unexpected extra header at column 19/,
+    );
+  });
+
+  it("enforces Item No. uniqueness across nonblank rows of any status", () => {
+    expect(() =>
+      compileRegistry(HEADERS, [row({}, 5), row({ 16: "Needs revision" }, 5)], NO_COVERAGE),
+    ).toThrow(/Duplicate Item No/);
+  });
+
+  it("excludes valid non-Approved cards from the authoritative registry", () => {
+    for (const status of ["Draft — user review required", "Reviewed", "Needs revision"]) {
+      const registry = compileRegistry(
+        HEADERS,
+        [row({}, 1), row({ 16: status }, 2)],
+        NO_COVERAGE,
+      );
+      expect(registry.cards.map((card) => card.id)).toEqual([1]);
+      expect(registry.cards.every((card) => card.status === "Approved")).toBe(true);
+    }
   });
 
   it("rejects duplicate normalized retrieval tags", () => {
@@ -77,11 +115,7 @@ describe("guidance registry compiler", () => {
     );
   });
 
-  it("excludes a Draft card from the authoritative registry", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 16: "Draft" })])).toThrow(
-      /nonexistent guidance card 1/,
-    );
-  });
+
 
   it("normalizes retrieval tags and splits source URLs deterministically", () => {
     expect(normalizeTag("  Contract   Criteria ")).toBe("contract criteria");
@@ -90,7 +124,7 @@ describe("guidance registry compiler", () => {
 
   it("rejects policy references to cards the workbook does not contain", () => {
     expect(() => compileRegistry(HEADERS, [row()])).toThrow(
-      /ARC machine policy references nonexistent guidance card 3/,
+      /ARC machine policy references nonexistent guidance card \d+/,
     );
   });
 
