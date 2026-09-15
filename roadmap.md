@@ -540,7 +540,13 @@ Phase 9A and 9B accepted.
 
 ## Phase 9C — AI persistence, quotas & ownership boundaries (complete, awaiting acceptance)
 
-Non-generative. Migration `20260915000100_phase9_ai_foundation.sql` adds
+Non-generative. Migration history: foundation
+`20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`; Phase 9C acceptance
+patch `20260915221346_c2102180-d15d-47a3-93ec-56bc7fec3efa.sql`; final
+CI/hardening micro-patch
+`20260915223847_161e985e-9d02-4b7e-a2f9-18f71cce9eec.sql`.
+
+The foundation migration adds
 `ai_runs`, `ai_run_sources`, `ai_run_guidance`, `ai_analysis_state` and
 `ai_monthly_usage` (service-role only, RLS on, no policies), the trusted
 routines `arc_create_ai_run`, `arc_reserve_ai_allowance`,
