@@ -14,18 +14,25 @@ export interface OpenAiTokenCounter {
   count(input: Record<string, unknown>): Promise<{ input_tokens: number }>;
 }
 
-interface TokenCountingClient {
+/**
+ * Phase 9D — the same single client serves the non-generative token count and
+ * the one deliberate generative call, so both travel over one configuration.
+ */
+interface ArcOpenAiClient {
   responses: {
     inputTokens: {
       count(body: Record<string, unknown>): Promise<{ input_tokens: number }>;
     };
+    create(body: Record<string, unknown>): Promise<unknown>;
   };
 }
 
-let cachedClient: TokenCountingClient | null = null;
+type TokenCountingClient = ArcOpenAiClient;
+
+let cachedClient: ArcOpenAiClient | null = null;
 
 /** Lazily created inside server code only. Never imported by browser modules. */
-export async function openAiClient(): Promise<TokenCountingClient> {
+export async function openAiClient(): Promise<ArcOpenAiClient> {
   if (cachedClient) return cachedClient;
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) throw new Error("AI analysis is not configured.");
@@ -36,9 +43,10 @@ export async function openAiClient(): Promise<TokenCountingClient> {
     // At most one deliberate request per run: the SDK never retries this path.
     maxRetries: 0,
     timeout: AI_LIMITS.requestTimeoutMs,
-  }) as unknown as TokenCountingClient;
+  }) as unknown as ArcOpenAiClient;
   return cachedClient;
 }
+
 
 export function createTokenCounter(client: TokenCountingClient): OpenAiTokenCounter {
   return {
