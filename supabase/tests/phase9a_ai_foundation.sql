@@ -280,13 +280,13 @@ begin
   -- Ten reservations per UTC month, the eleventh rejected.
   for v_i in 2..10 loop
     v_run2 := gen_random_uuid();
-    insert into public.ai_runs (id, guest_workspace_id, quota_scope, guest_token_hash,
+    insert into public.ai_runs (id, revision_id, quota_scope,
                                 source_set_fingerprint, pre_run_canonical_inputs, model,
                                 reasoning_effort, prompt_version, output_schema_version,
                                 guidance_registry_hash, owner_user_id, stage)
-    values (v_run2, null, 'authenticated', null, 'fp', '{}'::jsonb, 'm', 'high', 'p1', 's1',
+    values (v_run2, v_revision, 'authenticated', 'fp', '{}'::jsonb, 'm', 'high', 'p1', 's1',
             'h1', v_user_a, 'preflight_ready');
-    update public.ai_runs set revision_id = v_revision where id = v_run2;
+
     perform public.arc_reserve_ai_allowance(v_run2, v_user_a, null, v_month, 10, 3);
     update public.ai_runs set stage = 'succeeded', completed_at = now() where id = v_run2;
   end loop;
