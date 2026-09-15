@@ -560,8 +560,7 @@ Server layer: `src/lib/arc/ai/runs.store.server.ts`, `runs.handlers.ts`,
 3 runs per nine-hour temporary workspace, 10 runs per account per UTC month,
 consumed only at the reservation boundary.
 
-Acceptance patch (additive migration
-`20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`): quota provenance is
+Acceptance patch: quota provenance is
 separated from the current owner target, so a guest-funded run may later be
 re-homed once to a saved revision without rewriting its quota scope or debiting
 the account's monthly allowance; parent lifecycle deletion (expired temporary
