@@ -477,13 +477,19 @@ begin
   end;
   insert into arc_test_results values ('36 completed model and source-set provenance cannot be rewritten', ok);
 
-  begin
-    delete from public.ai_runs where id = v_other;
-    ok := false;
-  exception when others then ok := true;
-  end;
+  -- A dedicated second consumed run proves lifecycle deletion, so the run used
+  -- by the immutability assertions stays alive and none of them can pass
+  -- merely because their target row disappeared.
+  v_run2 := gen_random_uuid();
+  perform public.arc_create_ai_run(v_run2, null, v_hash_a, null, v_guest_a, 1, 'guest',
+                                   'fp-deletable', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
+  update public.ai_runs set stage = 'succeeded', openai_started_at = now(), completed_at = now()
+   where id = v_run2;
+  delete from public.ai_runs where id = v_run2;
   insert into arc_test_results values (
-    '37 a consumed run cannot be deleted', ok and exists (select 1 from public.ai_runs where id = v_other));
+    '37 trusted lifecycle deletion may remove a consumed run',
+    not exists (select 1 from public.ai_runs where id = v_run2)
+    and exists (select 1 from public.ai_runs where id = v_other));
 
   begin
     perform public.arc_mark_ai_run_failure(v_other, 'apply', 'application', 'late',
