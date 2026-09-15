@@ -43,7 +43,7 @@ function source(overrides: Partial<AuthorizedSource> & { documentId: string }): 
   return {
     displayName: "Master Agreement",
     originalFilename: "master.pdf",
-    sha256: "a".repeat(64),
+    sha256: sha256(masterBytes),
     byteSize: masterBytes.byteLength,
     storageObjectPath: `documents/${overrides.documentId}.pdf`,
     ...overrides,
@@ -56,7 +56,7 @@ const selected: AuthorizedSource[] = [
     documentId: "doc-order",
     displayName: "Order Form",
     originalFilename: "order.pdf",
-    sha256: "b".repeat(64),
+    sha256: sha256(orderBytes),
     byteSize: orderBytes.byteLength,
   }),
 ];
