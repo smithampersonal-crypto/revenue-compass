@@ -540,7 +540,13 @@ Phase 9A and 9B accepted.
 
 ## Phase 9C — AI persistence, quotas & ownership boundaries (complete, awaiting acceptance)
 
-Non-generative. Migration `20260915000100_phase9_ai_foundation.sql` adds
+Non-generative. Migration history: foundation
+`20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`; Phase 9C acceptance
+patch `20260915221346_c2102180-d15d-47a3-93ec-56bc7fec3efa.sql`; final
+CI/hardening micro-patch
+`20260915223847_161e985e-9d02-4b7e-a2f9-18f71cce9eec.sql`.
+
+The foundation migration adds
 `ai_runs`, `ai_run_sources`, `ai_run_guidance`, `ai_analysis_state` and
 `ai_monthly_usage` (service-role only, RLS on, no policies), the trusted
 routines `arc_create_ai_run`, `arc_reserve_ai_allowance`,
@@ -554,8 +560,7 @@ Server layer: `src/lib/arc/ai/runs.store.server.ts`, `runs.handlers.ts`,
 3 runs per nine-hour temporary workspace, 10 runs per account per UTC month,
 consumed only at the reservation boundary.
 
-Acceptance patch (additive migration
-`20260915215119_0aa0698c-ceb3-4ec1-af3b-b640bd0ebe78.sql`): quota provenance is
+Acceptance patch: quota provenance is
 separated from the current owner target, so a guest-funded run may later be
 re-homed once to a saved revision without rewriting its quota scope or debiting
 the account's monthly allowance; parent lifecycle deletion (expired temporary
@@ -568,6 +573,14 @@ constrained enum. Run provenance (lock version, source-set fingerprint,
 canonical inputs, AI sidecar snapshot) is derived entirely server-side in
 `runs.store.server.ts` with `src/lib/arc/ai/source-fingerprint.ts`; the browser
 supplies only the requested revision target.
+
+Final CI/hardening micro-patch: a guest → revision re-home may change only
+`revision_id`, `guest_workspace_id`, `owner_user_id` (plus the automatic
+`updated_at`), with every other historical field — counts, failure metadata,
+review outcome, result/usage provenance — explicitly protected; and
+`arc_create_ai_run` rejects a null expected lock version for both owner scopes.
+The obsolete "a consumed run cannot be deleted" assertion is replaced by a
+dedicated deletable run, keeping the immutability target row alive.
 
 Phase 9D not started.
 
