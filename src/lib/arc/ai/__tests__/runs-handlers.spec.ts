@@ -34,12 +34,13 @@ interface Fixture {
   guestUsed: Map<string, number>;
 }
 
-const SNAPSHOT = {
+const SNAPSHOT: AiRunCreationSnapshot = {
   expectedLockVersion: 7,
   sourceSetFingerprint: "f".repeat(64),
   preRunCanonicalInputs: { step1: { contractTitle: "Genomix" } },
   preRunAiState: { lastSuccessfulRunId: "run-0", sourceState: "stale" },
 };
+
 
 function fixture(
   options: {
