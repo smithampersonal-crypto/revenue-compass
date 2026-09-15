@@ -9,6 +9,7 @@ import {
 } from "../../../../../scripts/compile-guidance-registry";
 
 const HEADERS = [...GUIDANCE_HEADERS];
+const NO_COVERAGE = { enforcePolicyCoverage: false } as const;
 
 function row(overrides: Partial<Record<number, unknown>> = {}, id = 1): RawRow {
   const base: unknown[] = [
@@ -39,29 +40,29 @@ function row(overrides: Partial<Record<number, unknown>> = {}, id = 1): RawRow {
 
 describe("guidance registry compiler", () => {
   it("rejects a duplicate Item No.", () => {
-    expect(() => compileRegistry(HEADERS, [row({}, 1), row({}, 1)])).toThrow(/Duplicate Item No/);
+    expect(() => compileRegistry(HEADERS, [row({}, 1), row({}, 1)], NO_COVERAGE)).toThrow(/Duplicate Item No/);
   });
 
   it("rejects an invalid, non-numeric Item No.", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 0: "one" })])).toThrow(/Invalid Item No/);
+    expect(() => compileRegistry(HEADERS, [row({ 0: "one" })], NO_COVERAGE)).toThrow(/Invalid Item No/);
   });
 
   it("rejects a missing required header", () => {
     const broken = [...HEADERS];
     broken[15] = "Tags";
-    expect(() => compileRegistry(broken, [row()])).toThrow(/required header at column 16/);
+    expect(() => compileRegistry(broken, [row()], NO_COVERAGE)).toThrow(/required header at column 16/);
   });
 
   it("rejects a malformed Approved row", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 5: "   " })])).toThrow(/empty required field/);
+    expect(() => compileRegistry(HEADERS, [row({ 5: "   " })], NO_COVERAGE)).toThrow(/empty required field/);
   });
 
   it("rejects an invalid Status value", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 16: "Final" })])).toThrow(/Invalid Status/);
+    expect(() => compileRegistry(HEADERS, [row({ 16: "Final" })], NO_COVERAGE)).toThrow(/Invalid Status/);
   });
 
   it("rejects duplicate normalized retrieval tags", () => {
-    expect(() => compileRegistry(HEADERS, [row({ 15: "step1, STEP1" })])).toThrow(
+    expect(() => compileRegistry(HEADERS, [row({ 15: "step1, STEP1" })], NO_COVERAGE)).toThrow(
       /Duplicate normalized retrieval tag/,
     );
   });
@@ -78,13 +79,15 @@ describe("guidance registry compiler", () => {
   });
 
   it("rejects policy references to cards the workbook does not contain", () => {
-    expect(() => compileRegistry(HEADERS, [row()])).toThrow(/does not contain/);
+    expect(() => compileRegistry(HEADERS, [row()])).toThrow(
+      /ARC machine policy references nonexistent guidance card 3/,
+    );
   });
 
   it("produces stable card and registry hashes for identical input", () => {
     const rows = [row()];
-    const first = compileRegistry(HEADERS, rows);
-    const second = compileRegistry(HEADERS, rows);
+    const first = compileRegistry(HEADERS, rows, NO_COVERAGE);
+    const second = compileRegistry(HEADERS, rows, NO_COVERAGE);
     expect(first.hash).toBe(second.hash);
     expect(first.cards[0]!.contentHash).toBe(second.cards[0]!.contentHash);
   });
