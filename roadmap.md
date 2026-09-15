@@ -518,3 +518,5 @@
 - Phase 8: stages 8A, 8B, 8C, 8D, 8E and 8F complete; 8G not implemented.
 - 8F operations: hourly maintenance (stale uploads, 9h guest expiry, storage
   drain). Schedules live in `supabase/schedules/` and `.github/workflows/`.
+- Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
+  implemented (no generative call, no quota). 9C not started.
