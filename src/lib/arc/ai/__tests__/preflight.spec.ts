@@ -17,6 +17,7 @@ import { preflightAiRequest } from "../preflight.server";
 import {
   buildAiRequestPackage,
   type AiPackageDeps,
+  type ArcStructuredOutput,
   type AuthorizedSource,
 } from "../request-package.server";
 import type { CurrentAccountingContext } from "../types";
