@@ -257,6 +257,10 @@ export async function buildAiRequestPackage(
     });
   });
 
+  // Trusted ARC guidance: the retrieved cards' accounting prose travels in the
+  // counted envelope, so preflight measures the request generation will send.
+  content.push({ type: "input_text", text: guidancePackText(guidance) });
+
   content.push({
     type: "input_text",
     text: JSON.stringify({
