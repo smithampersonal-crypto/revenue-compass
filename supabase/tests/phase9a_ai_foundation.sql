@@ -933,11 +933,9 @@ begin
     '71 a temporary-workspace run cannot be created without the workspace version it saw',
     ok and not exists (select 1 from public.ai_runs where id = v_run));
 
-  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
-  values (v_analysis, 2, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
   v_run := gen_random_uuid();
   begin
-    perform public.arc_create_ai_run(v_run, v_user_d, null, v_rev_b, null, null, 'authenticated',
+    perform public.arc_create_ai_run(v_run, v_user_c, null, v_rev_a, null, null, 'authenticated',
                                      'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
     ok := false;
   exception when others then ok := true;
@@ -947,7 +945,7 @@ begin
     ok and not exists (select 1 from public.ai_runs where id = v_run));
 
   begin
-    perform public.arc_create_ai_run(v_run, v_user_d, null, v_rev_b, null, 99, 'authenticated',
+    perform public.arc_create_ai_run(v_run, v_user_c, null, v_rev_a, null, 99, 'authenticated',
                                      'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
     ok := false;
   exception when others then ok := true;
@@ -957,8 +955,8 @@ begin
     ok and not exists (select 1 from public.ai_runs where id = v_run));
 
   perform public.arc_create_ai_run(
-    v_run, v_user_d, null, v_rev_b, null,
-    (select lock_version from public.analysis_revisions where id = v_rev_b),
+    v_run, v_user_c, null, v_rev_a, null,
+    (select lock_version from public.analysis_revisions where id = v_rev_a),
     'authenticated', 'fp7', '{}'::jsonb, null, 'm', 'high', 'p1', 's1', 'h1');
   insert into arc_test_results
   select '74 the current version is accepted', exists (select 1 from public.ai_runs where id = v_run);
