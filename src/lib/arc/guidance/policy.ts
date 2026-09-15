@@ -220,7 +220,17 @@ export const BROAD_SIGNALS: ReadonlySet<string> = new Set([
   "credit",
   "discount",
   "distinct",
+  // Umbrella labels exposed as contextual false positives by full contracts:
+  // incidental corporate-affiliate wording ("equity interest"), incidental
+  // usage restrictions ("lease or white-label"), a bare "call", and generic
+  // IP/licence vocabulary in an ordinary hosted SaaS agreement. Each of these
+  // now needs an accounting-specific curated phrase to select a card.
+  "call",
+  "equity",
   "hosting",
+  "intellectual property",
+  "ip",
+  "lease",
   "license",
   "material right",
   "materiality",
