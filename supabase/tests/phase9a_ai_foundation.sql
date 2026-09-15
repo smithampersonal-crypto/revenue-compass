@@ -573,8 +573,13 @@ begin
   insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
   values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_a;
+  -- A second contract, because one analysis holds only one open draft.
+  insert into public.contracts (customer_id, title) values (v_customer, 'Patch Contract 2')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
-  values (v_analysis, 2, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev_b;
+
 
   /* -------------------------------------- failure transition matrix */
 
