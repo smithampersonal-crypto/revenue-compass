@@ -25,7 +25,6 @@ const AI_STATE_COLUMNS =
   "last_successful_run_id, source_set_fingerprint, source_state, field_provenance, " +
   "object_provenance, tombstones, review_items, lock_version";
 
-
 const RUN_COLUMNS =
   "id, stage, revision_id, guest_workspace_id, owner_user_id, guest_token_hash, quota_scope, " +
   "source_count, page_count, input_tokens, review_issue_count, completed_at, safe_message";
@@ -137,7 +136,9 @@ export async function createAiRunStore(): Promise<AiRunStore> {
       // retrieval or token counting happens here.
       const identities = (rows: unknown[]): AiSourceIdentity[] =>
         rows
-          .map((row) => (row as { source_documents: { id: string; sha256: string } }).source_documents)
+          .map(
+            (row) => (row as { source_documents: { id: string; sha256: string } }).source_documents,
+          )
           .map((doc) => ({ documentId: doc.id, sha256: doc.sha256 }));
 
       const aiState = async (
@@ -195,7 +196,6 @@ export async function createAiRunStore(): Promise<AiRunStore> {
         preRunAiState: await aiState("guest_workspace_id", caller.guestWorkspaceId),
       };
     },
-
 
     createRun: async (args) => {
       const { data, error } = await supabaseAdmin.rpc("arc_create_ai_run", {

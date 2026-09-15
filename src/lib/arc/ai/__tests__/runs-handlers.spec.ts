@@ -21,6 +21,7 @@ import {
   utcMonthOf,
   type AiCallerScope,
   type AiRunCreateArgs,
+  type AiRunCreationSnapshot,
   type AiRunDeps,
   type AiRunRow,
   type AiRunStore,
@@ -41,12 +42,11 @@ const SNAPSHOT: AiRunCreationSnapshot = {
   preRunAiState: { lastSuccessfulRunId: "run-0", sourceState: "stale" },
 };
 
-
 function fixture(
   options: {
     revisions?: Array<{ id: string; userId: string; contractId: string }>;
     guests?: Array<{ id: string; tokenHash: string }>;
-    snapshot?: Partial<typeof SNAPSHOT>;
+    snapshot?: Partial<AiRunCreationSnapshot>;
     now?: Date;
   } = {},
 ): Fixture {
@@ -342,9 +342,11 @@ describe("polling and allowance", () => {
     await expect(runStatusHandler(deps, other, { runId: run.runId })).rejects.toThrow(
       AI_RUN_NOT_AVAILABLE,
     );
-    await expect(runStatusHandler(deps, OWNER_CALLER, { runId: run.runId })).resolves.toMatchObject({
-      runId: run.runId,
-    });
+    await expect(runStatusHandler(deps, OWNER_CALLER, { runId: run.runId })).resolves.toMatchObject(
+      {
+        runId: run.runId,
+      },
+    );
   });
 
   it("refuses another temporary workspace's run", async () => {

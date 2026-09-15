@@ -30,7 +30,10 @@ describe("source-set fingerprint", () => {
       computeSourceSetFingerprint([A, { ...B, sha256: "c".repeat(64) }]),
     ).resolves.not.toBe(base);
     await expect(
-      computeSourceSetFingerprint([A, { ...B, documentId: "33333333-3333-4333-8333-333333333333" }]),
+      computeSourceSetFingerprint([
+        A,
+        { ...B, documentId: "33333333-3333-4333-8333-333333333333" },
+      ]),
     ).resolves.not.toBe(base);
   });
 

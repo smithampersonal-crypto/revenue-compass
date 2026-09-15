@@ -160,7 +160,6 @@ export interface AiRunStore {
   guestConsumed(guestWorkspaceId: string): Promise<number>;
 }
 
-
 export interface AiRunLimits {
   guestRunLimit: number;
   userMonthlyRunLimit: number;
@@ -284,7 +283,6 @@ export async function startAiAnalysisHandler(
     outputSchemaVersion: deps.limits.outputSchemaVersion,
     guidanceRegistryHash: deps.limits.guidanceRegistryHash,
   });
-
 
   const run = await deps.store.findRun(runId);
   if (!run) throw new Error(AI_RUN_NOT_AVAILABLE);

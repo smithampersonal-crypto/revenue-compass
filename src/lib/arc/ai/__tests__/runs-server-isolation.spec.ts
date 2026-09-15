@@ -54,8 +54,6 @@ describe("AI run server isolation", () => {
       "preRunAiState",
       "expectedLockVersion",
       "ownerUserId",
-
-
     ]) {
       expect(functions).not.toContain(forbidden);
     }
@@ -66,7 +64,6 @@ describe("AI run server isolation", () => {
     expect(handlers).not.toContain("expectedLockVersion: null");
     expect(handlers).toContain("expectedLockVersion: snapshot.expectedLockVersion");
   });
-
 
   it("never merges request fields over a derived identity", () => {
     for (const file of ["src/lib/arc/ai/runs.handlers.ts", "src/lib/arc/ai/runs.functions.ts"]) {
