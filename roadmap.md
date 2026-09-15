@@ -519,8 +519,8 @@
 - 8F operations: hourly maintenance (stale uploads, 9h guest expiry, storage
   drain). Schedules live in `supabase/schedules/` and `.github/workflows/`.
 - Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
-  complete with acceptance patch applied (no generative call, no quota),
-  awaiting reviewer acceptance. 9C not started.
+  accepted; 9C AI persistence, quotas and ownership boundaries complete and
+  awaiting reviewer acceptance (still non-generative). 9D not started.
 
 ## Phase 9B — PDF evidence & exact AI preflight (complete, awaiting acceptance)
 
@@ -536,5 +536,22 @@ Acceptance patch applied. Seven review findings closed:
 6. Re-run the real/full Genomix acceptance case.
 7. Roadmap status wording corrected.
 
-Phase 9A accepted. Phase 9B complete and awaiting reviewer acceptance.
-Phase 9C not started.
+Phase 9A and 9B accepted.
+
+## Phase 9C — AI persistence, quotas & ownership boundaries (complete, awaiting acceptance)
+
+Non-generative. Migration `20260915000100_phase9_ai_foundation.sql` adds
+`ai_runs`, `ai_run_sources`, `ai_run_guidance`, `ai_analysis_state` and
+`ai_monthly_usage` (service-role only, RLS on, no policies), the trusted
+routines `arc_create_ai_run`, `arc_reserve_ai_allowance`,
+`arc_mark_ai_run_failure`, a completed-provenance immutability trigger and
+partial unique indexes giving one active run per revision and per temporary
+workspace. SQL acceptance suite: `supabase/tests/phase9a_ai_foundation.sql`.
+
+Server layer: `src/lib/arc/ai/runs.store.server.ts`, `runs.handlers.ts`,
+`runs.functions.ts`. Exactly three browser-callable functions —
+`startAiAnalysis`, `getAiRunStatus`, `getAiUsageSummary`. Allowances:
+3 runs per nine-hour temporary workspace, 10 runs per account per UTC month,
+consumed only at the reservation boundary.
+
+Phase 9D not started.
