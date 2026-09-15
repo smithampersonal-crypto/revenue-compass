@@ -54,9 +54,7 @@ export async function loadAuthorizedSelectedSources(
 
     const { data: revision, error: revisionError } = await supabaseAdmin
       .from("analysis_revisions")
-      .select(
-        "id, status, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)",
-      )
+      .select("id, status, analyses!analysis_revisions_analysis_id_fkey!inner(contract_id)")
       .eq("id", scope.revisionId)
       .maybeSingle();
     if (revisionError) fail("revision", revisionError);
@@ -71,7 +69,9 @@ export async function loadAuthorizedSelectedSources(
       .eq("revision_id", scope.revisionId);
     if (error) fail("selection", error);
 
-    const rows = ((data ?? []) as unknown as { source_documents: SourceRow & { contract_id: string } }[])
+    const rows = (
+      (data ?? []) as unknown as { source_documents: SourceRow & { contract_id: string } }[]
+    )
       .map((entry) => entry.source_documents)
       .filter((row) => row.contract_id === scope.contractId)
       .sort((a, b) => a.id.localeCompare(b.id));

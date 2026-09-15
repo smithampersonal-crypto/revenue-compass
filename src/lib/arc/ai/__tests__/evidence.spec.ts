@@ -8,7 +8,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { buildPdf, corruptBytes, passwordProtectedPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
+import {
+  buildPdf,
+  corruptBytes,
+  passwordProtectedPdf,
+} from "@/lib/arc/documents/__tests__/pdf-fixtures";
 import { validatePdfBytes } from "@/lib/arc/documents/validation.server";
 
 import { AiEvidenceError, extractPdfEvidence } from "../evidence.server";
@@ -71,11 +75,7 @@ describe("extractPdfEvidence", () => {
       args(buildPdf({ pageTexts: ["", "Ab cd", textPage] })),
     );
 
-    expect(evidence.pages.map((page) => page.readability)).toEqual([
-      "no_text",
-      "low_text",
-      "text",
-    ]);
+    expect(evidence.pages.map((page) => page.readability)).toEqual(["no_text", "low_text", "text"]);
     expect(evidence.pages[0]!.meaningfulCharacters).toBe(0);
     expect(evidence.pages[0]!.text).toBe("");
     expect(evidence.pages[1]!.meaningfulCharacters).toBe(4);
@@ -83,7 +83,9 @@ describe("extractPdfEvidence", () => {
   });
 
   it("preserves non-ASCII characters produced by the parser", async () => {
-    const evidence = await extractPdfEvidence(args(buildPdf({ pageTexts: ["Caf\\351 Ma\\361ana"] })));
+    const evidence = await extractPdfEvidence(
+      args(buildPdf({ pageTexts: ["Caf\\351 Ma\\361ana"] })),
+    );
     expect(evidence.pages[0]!.text).toMatch(/[^\x00-\x7F]/);
   });
 

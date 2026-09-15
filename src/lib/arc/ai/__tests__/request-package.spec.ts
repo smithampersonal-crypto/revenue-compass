@@ -148,9 +148,7 @@ describe("buildAiRequestPackage", () => {
   it("reports combined bytes equal to the actual selected original files", async () => {
     const result = await build();
     if (!result.ok) throw new Error("expected ok");
-    expect(result.package.combinedFileBytes).toBe(
-      masterBytes.byteLength + orderBytes.byteLength,
-    );
+    expect(result.package.combinedFileBytes).toBe(masterBytes.byteLength + orderBytes.byteLength);
   });
 
   it("retrieves guidance from every selected PDF and every page, with explainability", async () => {

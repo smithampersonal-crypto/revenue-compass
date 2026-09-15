@@ -179,7 +179,7 @@ export async function buildAiRequestPackage(
     .join("\n");
   const guidance = buildGuidancePack({
     normalizedEvidenceText: corpus,
-    arcFactSignals: args.arcFactSignals,
+    ...(args.arcFactSignals ? { arcFactSignals: args.arcFactSignals } : {}),
   });
 
   const content: Array<Record<string, unknown>> = [
