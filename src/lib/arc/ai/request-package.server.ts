@@ -193,6 +193,11 @@ export async function buildAiRequestPackage(
 
     // Deterministic control: the object must be exactly the authorized file.
     if (bytes.byteLength !== source.byteSize) return failure("unreadable_source");
+    // Finding 3 — content identity, not just length: the downloaded object must
+    // hash to the SHA-256 recorded when Phase 8 validated the upload.
+    if (createHash("sha256").update(bytes).digest("hex") !== source.sha256) {
+      return failure("unreadable_source");
+    }
 
     try {
       evidence.push(
@@ -237,7 +242,10 @@ export async function buildAiRequestPackage(
     content.push({ type: "input_text", text: sourceMetadataText(document, index) });
     content.push({
       type: "input_file",
-      filename: document.originalFilename,
+      // ARC-generated, never the user-controlled original filename.
+      filename: trustedAttachmentFilename(document.documentId),
+      // Finding 2 — full-fidelity page rendering for direct PDF evidence.
+      detail: "high",
       // Transient in-request bytes. Never a persistent OpenAI file id.
       file_data: fileData[index]!,
     });
