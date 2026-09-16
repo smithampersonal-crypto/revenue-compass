@@ -519,8 +519,10 @@
 - 8F operations: hourly maintenance (stale uploads, 9h guest expiry, storage
   drain). Schedules live in `supabase/schedules/` and `.github/workflows/`.
 - Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
-  accepted; 9C AI persistence, quotas and ownership boundaries complete and
-  awaiting reviewer acceptance (still non-generative). 9D not started.
+  accepted; 9C AI persistence, quotas and ownership boundaries accepted;
+  9D Terra generative boundary accepted; 9E deterministic adapter, provenance,
+  merge policy and projected collections complete and awaiting acceptance;
+  9F not started.
 
 ## Phase 9B — PDF evidence & exact AI preflight (complete, awaiting acceptance)
 
