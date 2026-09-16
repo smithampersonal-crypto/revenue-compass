@@ -456,8 +456,8 @@ export async function executeAiRunHandler(
           expectedLockVersion: latest.lockVersion,
           canonicalInputs: merged.draft,
           schemaVersion: latest.schemaVersion,
-          aiState: merged.aiState,
-          sourceSetFingerprint: await sourceFingerprintOf(sources),
+          aiState: appliedAiState,
+          sourceSetFingerprint: currentSourceSetFingerprint,
           structuredResult: result.analysis,
           usageMetadata: {
             responseId: result.responseId,
