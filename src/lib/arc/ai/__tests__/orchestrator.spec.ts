@@ -26,14 +26,20 @@ import {
   AI_PREFLIGHT_FAILED,
   AiApplyConflictError,
   executeAiRunHandler,
+  failureCategoryFor,
   outstandingIssueCount,
   type AiExecutionContext,
   type AiExecutionDeps,
   type AiRunExecutionStore,
 } from "../orchestrator";
 import { createEmptyAiAnalysisState } from "../merge";
+import type { AiFailureCategory } from "../orchestrator";
 import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
-import { TerraAnalysisError } from "../terra.server";
+import {
+  TERRA_SAFE_MESSAGES,
+  TerraAnalysisError,
+  type TerraFailureCategory,
+} from "../terra.server";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
@@ -390,6 +396,39 @@ describe("Phase 9F — AI run orchestration", () => {
     expect(status.stage).toBe("response_invalid");
     expect(h.applied).toBeNull();
     expect(h.restored).toBe(0);
+  });
+
+  it("terminalizes a citation anchor failure as a response failure at validating", async () => {
+    const h = harness({
+      analyzeError: new TerraAnalysisError("citation_anchor_failure", "anchors unresolved"),
+    });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+    expect(h.failure?.stage).toBe("validating");
+    expect(h.failure?.code).toBe("citation_anchor_failure");
+    expect(status.stage).toBe("response_invalid");
+    expect(h.applied).toBeNull();
+    expect(h.restored).toBe(0);
+  });
+
+  it("maps every Terra failure category exhaustively", () => {
+    const table: Record<TerraFailureCategory, AiFailureCategory> = {
+      authentication_or_configuration: "api",
+      model_access: "api",
+      request_validation: "api",
+      token_limit: "api",
+      api_failure: "api",
+      structured_output_parse_failure: "response",
+      response_invalid: "response",
+      citation_anchor_failure: "response",
+      citation_validation_failure: "response",
+    };
+    for (const [category, expected] of Object.entries(table)) {
+      expect(
+        failureCategoryFor(new TerraAnalysisError(category as TerraFailureCategory, "x")),
+      ).toBe(expected);
+    }
+    // Every category ARC knows about is covered by the table above.
+    expect(Object.keys(table).sort()).toEqual([...Object.keys(TERRA_SAFE_MESSAGES)].sort());
   });
 
   it("merges against the newest accountant draft inside applying", async () => {
