@@ -343,10 +343,16 @@ describe("buildAiRequestPackage", () => {
     expect(locators).toHaveLength(pages);
     expect(result.package.transientMirrorParts).toHaveLength(pages);
 
-    // Every payload is byte-identical to ARC's own local page text, which is
-    // exactly what the citation validator matches against.
+    // Every payload reconstructs ARC's own local page text exactly, which is
+    // what the citation validator matches against.
     const localText = result.package.sources.flatMap((s) => s.pages.map((p) => p.text));
-    expect(result.package.transientMirrorParts!.map((part) => part.text)).toEqual(localText);
+    expect(
+      result.package.transientMirrorParts!.map((part) =>
+        (JSON.parse(part.text) as { anchors: Array<{ text: string }> }).anchors
+          .map((anchor) => anchor.text)
+          .join(""),
+      ),
+    ).toEqual(localText);
 
     // The mirror for a document follows that document's own attachment.
     const firstFile = parts.indexOf(files[0]!);
@@ -370,7 +376,9 @@ describe("buildAiRequestPackage", () => {
     const result = await build();
     if (!result.ok) throw new Error("expected ok");
     const sample = result.package.sources[0]!.pages[0]!.text;
-    expect(result.package.transientMirrorParts![0]!.text).toBe(sample);
+    expect(result.package.transientMirrorParts![0]!.text).toContain(
+      JSON.stringify(sample).slice(1, -1),
+    );
 
     releaseRequestSensitivePayload(result.package);
 

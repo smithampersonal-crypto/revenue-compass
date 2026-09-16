@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 /** Single source of truth for the output-schema version (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v1";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v2";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -565,7 +565,7 @@ export type AiContractAnalysis = z.infer<typeof aiContractAnalysisObjectSchema>;
 
 /* ----------------------------------------------------- JSON Schema output */
 
-type JsonSchema = Record<string, unknown>;
+export type JsonSchema = Record<string, unknown>;
 
 /**
  * Minimal deterministic zod -> strict JSON Schema conversion for exactly the
@@ -645,9 +645,142 @@ export function toStrictJsonSchema(schema: z.ZodTypeAny): JsonSchema {
   }
 }
 
-/** The exact strict JSON Schema sent as the Responses structured-output format. */
+/** The internal strict JSON Schema, mirroring the local Zod contract exactly. */
 export const aiContractAnalysisJsonSchema: JsonSchema = toStrictJsonSchema(
   aiContractAnalysisObjectSchema,
+);
+
+/* -------------------------------------------------------- anchored schema */
+
+/**
+ * Phase 9F. The model no longer writes excerpt text: ARC owns the exact
+ * excerpt. On the wire every citation becomes an ANCHOR SELECTOR referencing
+ * ARC-generated anchor ids from the local citation mirror.
+ *
+ * `anchorStart` / `anchorEnd` are required-but-nullable: a `text` citation
+ * supplies two non-null anchors on one physical page; a `visual` citation
+ * supplies null for both. The materializer enforces that contract; the schema
+ * only guarantees the fields are always present.
+ */
+const INTERNAL_CITATION_KEYS = [
+  "documentId",
+  "pageStart",
+  "pageEnd",
+  "evidenceMode",
+  "excerpt",
+] as const;
+
+export const ANCHORED_CITATION_KEYS = [
+  "documentId",
+  "pageStart",
+  "pageEnd",
+  "evidenceMode",
+  "anchorStart",
+  "anchorEnd",
+] as const;
+
+function isCitationSchemaNode(node: unknown): node is JsonSchema {
+  if (node === null || typeof node !== "object" || Array.isArray(node)) return false;
+  const properties = (node as JsonSchema)["properties"];
+  if (properties === null || typeof properties !== "object") return false;
+  const keys = Object.keys(properties as Record<string, unknown>);
+  return INTERNAL_CITATION_KEYS.every((key) => keys.includes(key));
+}
+
+/** Independent traversal count of internal citation schema nodes. */
+export function countCitationSchemaNodes(schema: JsonSchema): number {
+  let count = 0;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (node === null || typeof node !== "object") return;
+    if (isCitationSchemaNode(node)) {
+      count += 1;
+      return;
+    }
+    for (const child of Object.values(node as Record<string, unknown>)) walk(child);
+  };
+  walk(schema);
+  return count;
+}
+
+function anchoredCitationNode(node: JsonSchema): JsonSchema {
+  const properties = node["properties"] as Record<string, JsonSchema>;
+  const keys = Object.keys(properties);
+  // Fail closed: a citation node whose shape is not exactly the known one is
+  // never partially transformed.
+  if (
+    keys.length !== INTERNAL_CITATION_KEYS.length ||
+    !keys.every((key) => (INTERNAL_CITATION_KEYS as readonly string[]).includes(key))
+  ) {
+    throw new Error(
+      `ARC anchored schema transform: unexpected citation node shape [${keys.join(", ")}]`,
+    );
+  }
+  const anchorSelector: JsonSchema = {
+    type: ["string", "null"],
+    maxLength: 32,
+    pattern: "^P[0-9]{4}-S[0-9]{4}$",
+  };
+  return {
+    type: "object",
+    properties: {
+      documentId: properties["documentId"]!,
+      pageStart: properties["pageStart"]!,
+      pageEnd: properties["pageEnd"]!,
+      evidenceMode: properties["evidenceMode"]!,
+      anchorStart: { ...anchorSelector },
+      anchorEnd: { ...anchorSelector },
+    },
+    required: [...ANCHORED_CITATION_KEYS],
+    additionalProperties: false,
+  };
+}
+
+/**
+ * Deep-clones the internal schema and structurally replaces every citation
+ * node. Requires exact parity between the independent node count and the
+ * number of replacements, and rejects any surviving provider-facing
+ * `excerpt`; any mismatch throws rather than emitting a partial schema.
+ */
+export function toAnchoredProviderSchema(schema: JsonSchema): JsonSchema {
+  const expected = countCitationSchemaNodes(schema);
+  if (expected === 0) {
+    throw new Error("ARC anchored schema transform: no citation nodes found");
+  }
+
+  let replaced = 0;
+  const clone = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(clone);
+    if (node === null || typeof node !== "object") return node;
+    if (isCitationSchemaNode(node)) {
+      replaced += 1;
+      return anchoredCitationNode(node as JsonSchema);
+    }
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
+      out[key] = clone(child);
+    }
+    return out;
+  };
+
+  const anchored = clone(schema) as JsonSchema;
+  if (replaced !== expected) {
+    throw new Error(
+      `ARC anchored schema transform: citation node parity mismatch (${replaced} of ${expected})`,
+    );
+  }
+  if (JSON.stringify(anchored).includes('"excerpt"')) {
+    throw new Error("ARC anchored schema transform: provider schema still exposes an excerpt");
+  }
+  return anchored;
+}
+
+/** The exact strict JSON Schema sent as the Responses structured-output format. */
+export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProviderSchema(
+  aiContractAnalysisJsonSchema,
 );
 
 /** Safe parse helper used by the client after every generation. */
