@@ -569,9 +569,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const promiseIdBySemanticKey = new Map<string, string>();
   const manualPromiseByText = new Map<string, PromiseDraft>();
-  for (const promise of draft.promises) {
-    const owned = Object.values(objectProvenance).some((p) => p.canonicalId === promise.id);
-    if (!owned) manualPromiseByText.set(normalizedText(promise.description), promise);
+  for (const promise of manualPromises) {
+    const text = normalizedText(promise.description);
+    if (text !== "" && !manualPromiseByText.has(text)) manualPromiseByText.set(text, promise);
   }
 
   for (const aiPromise of analysis.promises) {
@@ -600,7 +600,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis proposes a promise that matches one you entered manually. Your promise was kept and no duplicate was created.",
         guidanceIds: aiPromise.guidanceIds,
-        value: manualTwin.description,
+        value: {
+          manualPromiseId: manualTwin.id,
+          semanticKey: aiPromise.semanticKey,
+          proposed: aiPromise.description.slice(0, 120),
+        },
         aiReviewState: aiPromise.reviewState,
       });
       promiseIdBySemanticKey.set(aiPromise.semanticKey, manualTwin.id);
@@ -610,15 +614,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const canonicalId = canonicalIdFor("promise", aiPromise.semanticKey);
     promiseIdBySemanticKey.set(aiPromise.semanticKey, canonicalId);
 
-    let row = draft.promises.find((promise) => promise.id === canonicalId);
-    if (row === undefined) {
-      row = {
-        ...createPromiseDraft(draft.promises.length + 1, canonicalId),
-        kind: aiPromise.promiseType === "option" ? "customer_option" : "good_or_service",
-      };
-      draft.promises = [...draft.promises, row];
+    let createdRow = false;
+    if (draft.promises.every((promise) => promise.id !== canonicalId)) {
+      draft.promises = [
+        ...draft.promises,
+        createPromiseDraft(draft.promises.length + 1, canonicalId),
+      ];
+      createdRow = true;
     }
-    const index = draft.promises.findIndex((promise) => promise.id === canonicalId);
     const section = sectionFor(aiPromise.guidanceIds, "step_2");
 
     const update = (patch: Partial<PromiseDraft>) => {
@@ -626,7 +629,23 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         promise.id === canonicalId ? { ...promise, ...patch } : promise,
       );
     };
-    const current = () => draft.promises[index]!;
+    const current = () => draft.promises.find((promise) => promise.id === canonicalId)!;
+
+    // The promise kind is AI-owned and refreshes on re-analysis: a later
+    // analysis that reclassifies a promise as a customer option must not be
+    // silently ignored, because it changes the material-right question below.
+    mergeScalar<PromiseDraft["kind"]>({
+      key: fieldKeys.promise(canonicalId, "kind"),
+      semanticKey: aiPromise.semanticKey,
+      current: current().kind,
+      proposed: aiPromise.promiseType === "option" ? "customer_option" : "good_or_service",
+      unclaimed: createdRow,
+      apply: (value) => update({ kind: value }),
+      section,
+      guidanceIds: aiPromise.guidanceIds,
+      aiReviewState: aiPromise.reviewState,
+      label: "Promise type",
+    });
 
     mergeText({
       key: fieldKeys.promise(canonicalId, "description"),
@@ -694,13 +713,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(promiseFingerprintValue(current()));
-    recordObject(
-      aiPromise.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(aiPromise.semanticKey, fingerprint),
-    );
+    claimObject(aiPromise.semanticKey, canonicalId);
   }
 
   /* ------------------------------------------------ performance obligations */
