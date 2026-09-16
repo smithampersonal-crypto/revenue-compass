@@ -255,10 +255,10 @@ export async function executeAiRunHandler(
         byteSize: source.byteSize,
         pageCount: source.pageCount,
       })),
-      guidance: preflight.package.guidance.cards.map((card) => ({
-        cardId: card.id,
-        inclusionReason: card.inclusionReason ?? "retrieved",
-        matchedSignals: [...(card.matchedSignals ?? [])],
+      guidance: preflight.package.guidance.inclusions.map((inclusion) => ({
+        cardId: inclusion.cardId,
+        inclusionReason: inclusion.reason,
+        matchedSignals: [...inclusion.matchedSignals],
       })),
       sourceCount: sources.length,
       pageCount,
@@ -347,7 +347,7 @@ export async function executeAiRunHandler(
         canonicalInputs: merged.draft,
         schemaVersion: context.schemaVersion,
         aiState: merged.aiState,
-        sourceSetFingerprint: run.id === "" ? "" : await sourceFingerprintOf(sources),
+        sourceSetFingerprint: await sourceFingerprintOf(sources),
         structuredResult: result.analysis,
         usageMetadata: {
           responseId: result.responseId,
