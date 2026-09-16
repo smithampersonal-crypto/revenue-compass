@@ -6,5 +6,5 @@ import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "@/lib/arc/ai/__te
 describe("probe", () => { it("shows", () => {
   const { draft } = mergeAiAnalysis({ currentDraft: createEmptyDraft(), currentAiState: createEmptyAiAnalysisState(), analysis: fixtureAAnalysis(), runId: RUN_ID, guidancePack: guidancePackFixture(), priorContext: null });
   const w = buildWorkpaper(draft);
-  console.log(JSON.stringify(w.workflow.validation ?? w.workflow.issues ?? Object.keys(w.workflow), null, 1).slice(0,3000));
+  console.log(w.workflow.blockedReason, JSON.stringify(w.workflow.workflowValidation), JSON.stringify(w.workflow.adapterErrors));
 }); });
