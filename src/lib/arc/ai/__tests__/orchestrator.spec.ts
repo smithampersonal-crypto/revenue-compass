@@ -56,7 +56,13 @@ interface Harness {
   run: AiRunRow;
   stages: AiRunStage[];
   events: string[];
-  applied: { draft: WorkflowDraft; lockVersion: number; reviewIssueCount: number } | null;
+  applied: {
+    draft: WorkflowDraft;
+    lockVersion: number;
+    reviewIssueCount: number;
+    aiState: AiAnalysisState;
+    sourceSetFingerprint: string;
+  } | null;
   failure: { code: string; stage: string; message: string } | null;
   restored: number;
   analyzeCalls: number;
