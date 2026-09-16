@@ -376,35 +376,17 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     return id;
   }
 
-  function recordObject(
-    semanticKey: string,
-    canonicalId: string,
-    fingerprint: string,
-    userModified: boolean,
-  ): void {
-    const prior = objectProvenance[semanticKey];
-    objectProvenance[semanticKey] = {
-      state: userModified
-        ? "ai_generated_user_edited"
-        : prior === undefined
-          ? "ai_generated_untouched"
-          : prior.state === "manual_from_start"
-            ? "manual_from_start"
-            : "ai_generated_untouched",
-      semanticKey,
-      lastAiRunId: userModified ? (prior?.lastAiRunId ?? runId) : runId,
-      valueFingerprint: userModified ? (prior?.valueFingerprint ?? fingerprint) : fingerprint,
-      canonicalId,
-      userModified,
-    };
-  }
-
-  /** Was an AI-owned object edited by the user since ARC last wrote it? */
-  function objectUserModified(semanticKey: string, currentFingerprint: string): boolean {
-    const prior = objectProvenance[semanticKey];
-    if (prior === undefined) return false;
-    if (prior.userModified) return true;
-    return prior.valueFingerprint !== currentFingerprint;
+  /**
+   * Registers an object ARC mapped in this run. The fingerprint and the
+   * user-edit conclusion are NOT computed here: an object is only final once
+   * every dependent mapping step has run (a promise needs its performance
+   * obligation, a performance obligation needs its recognition and
+   * standalone selling price). Both are resolved in one pass at the end.
+   */
+  const claimedObjects: Array<{ semanticKey: string; canonicalId: string }> = [];
+  function claimObject(semanticKey: string, canonicalId: string): void {
+    if (claimedObjects.some((entry) => entry.semanticKey === semanticKey)) return;
+    claimedObjects.push({ semanticKey, canonicalId });
   }
 
   const proposedSemanticKeys = new Set<string>();
