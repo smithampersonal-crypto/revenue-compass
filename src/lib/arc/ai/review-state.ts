@@ -113,9 +113,24 @@ export function classifyReviewState(input: ReviewDerivationInput): AiReviewItemS
     return "yellow";
   }
   if (policyRequiresReview(ids)) return "yellow";
+  // Something ARC did NOT apply is always worth seeing, however confident the
+  // model was: a preserved manual value or structure, an omitted or
+  // tombstoned proposal, and every advisory topic.
+  if (ALWAYS_VISIBLE.has(input.reasonCode)) return "yellow";
   // A fully supported conclusion with fully supported guidance needs nothing.
   return input.aiReviewState === "supported" ? null : "yellow";
 }
+
+/** Reason codes that always deserve at least an affirmation item. */
+const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
+  "manual_value_preserved",
+  "manual_structure_preserved",
+  "prior_finalized_conflict",
+  "ai_proposal_omitted",
+  "ai_proposal_tombstoned",
+  "advisory_topic",
+  "accountant_affirmation_required",
+]);
 
 /** Builds the deterministic review item, or null when none is warranted. */
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
@@ -156,8 +171,10 @@ export function rankReviewItems(items: readonly AiReviewItem[]): AiReviewItem[] 
 
 /**
  * Carries a prior resolution forward only when the item's identity AND the
- * exact reviewed value are unchanged. A changed value invalidates the old
- * affirmation: an accountant never affirms accounting they have not seen.
+ * exact reviewed value are unchanged, AND the newly derived item is still a
+ * yellow affirmation item. A changed value invalidates the old affirmation —
+ * an accountant never affirms accounting they have not seen — and a red issue
+ * can never be affirmed away by a historical resolution of a yellow one.
  */
 export function applyPriorAffirmations(
   next: readonly AiReviewItem[],
@@ -169,6 +186,9 @@ export function applyPriorAffirmations(
     if (
       prior === undefined ||
       prior.state !== "resolved" ||
+      // Only a still-yellow item may inherit a resolution. A newly blocking
+      // item keeps its red state and carries no affirmation metadata.
+      item.state !== "yellow" ||
       prior.targetKey !== item.targetKey ||
       prior.valueFingerprint !== item.valueFingerprint
     ) {

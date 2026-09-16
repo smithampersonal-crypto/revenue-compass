@@ -34,11 +34,11 @@ import {
   type PromiseDraft,
   type Step1CriterionId,
   type VcComponentDraft,
+  type VcMeterDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
 import {
-  addDays,
   deriveBillingSchedule,
   deriveProjectedCollectionDate,
   isUnclaimedString,
@@ -188,6 +188,39 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...draft.contractBalances.cashCollections.map((row) => row.id),
   ]);
 
+  /* ------------------------------------------- pre-merge canonical baseline */
+
+  // Every canonical row whose ID no AI run has ever owned belongs to the
+  // accountant. Manual structure is stronger than AI structure: ARC preserves
+  // it and never stands a duplicate beside it.
+  const aiOwnedIds = new Set(
+    Object.values(previousState.objectProvenance).map((provenance) => provenance.canonicalId),
+  );
+  const isManualRow = (id: string) => !aiOwnedIds.has(id);
+  const manualPromises = args.currentDraft.promises.filter((row) => isManualRow(row.id));
+  const manualPoIds = new Set(
+    args.currentDraft.performanceObligations.filter((row) => isManualRow(row.id)).map((r) => r.id),
+  );
+  const manualVcComponents = args.currentDraft.variableConsiderationComponents.filter((row) =>
+    isManualRow(row.id),
+  );
+  const manualModifications = args.currentDraft.contractModifications.filter((row) =>
+    isManualRow(row.id),
+  );
+  const manualConsiderationEvents = args.currentDraft.contractBalances.considerationEvents.filter(
+    (row) => isManualRow(row.id),
+  );
+
+  // Each AI-owned object as it stood BEFORE this merge. Comparing THIS with
+  // the fingerprint ARC last wrote is the only sound test of a user edit: a
+  // difference measured after ARC applied the new analysis would simply be
+  // ARC's own work misread as the accountant's.
+  const preMergeFingerprints = new Map<string, string>();
+  for (const [semanticKey, provenance] of Object.entries(previousState.objectProvenance)) {
+    const fingerprint = aiObjectFingerprint(args.currentDraft, provenance.canonicalId);
+    if (fingerprint !== null) preMergeFingerprints.set(semanticKey, fingerprint);
+  }
+
   /* ---------------------------------------------- prior finalized context */
 
   // Prior finalized accounting is read-only history. Seeding its keys before
@@ -280,7 +313,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
             state === "prior_finalized" ? "prior_finalized_conflict" : "manual_value_preserved",
           reason: `${input.label}: the recorded value was kept; the AI analysis proposed a different value.`,
           guidanceIds,
-          value: input.current,
+          // A difference item is reviewed as a DIFFERENCE: the affirmation an
+          // accountant gave to "keep 125,000 over the AI's 150,000" must not
+          // survive the AI later proposing 180,000.
+          value: { preservedValue: input.current, proposedValue: input.proposed },
           aiReviewState: input.aiReviewState ?? null,
           blocking: state === "prior_finalized",
         });
@@ -340,7 +376,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_value_preserved",
         reason: `${input.label}: your edited value was kept; the AI analysis proposed a different value.`,
         guidanceIds,
-        value: input.current,
+        value: { preservedValue: input.current, proposedValue: input.proposed },
         aiReviewState: input.aiReviewState ?? null,
       });
     }
@@ -376,35 +412,17 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     return id;
   }
 
-  function recordObject(
-    semanticKey: string,
-    canonicalId: string,
-    fingerprint: string,
-    userModified: boolean,
-  ): void {
-    const prior = objectProvenance[semanticKey];
-    objectProvenance[semanticKey] = {
-      state: userModified
-        ? "ai_generated_user_edited"
-        : prior === undefined
-          ? "ai_generated_untouched"
-          : prior.state === "manual_from_start"
-            ? "manual_from_start"
-            : "ai_generated_untouched",
-      semanticKey,
-      lastAiRunId: userModified ? (prior?.lastAiRunId ?? runId) : runId,
-      valueFingerprint: userModified ? (prior?.valueFingerprint ?? fingerprint) : fingerprint,
-      canonicalId,
-      userModified,
-    };
-  }
-
-  /** Was an AI-owned object edited by the user since ARC last wrote it? */
-  function objectUserModified(semanticKey: string, currentFingerprint: string): boolean {
-    const prior = objectProvenance[semanticKey];
-    if (prior === undefined) return false;
-    if (prior.userModified) return true;
-    return prior.valueFingerprint !== currentFingerprint;
+  /**
+   * Registers an object ARC mapped in this run. The fingerprint and the
+   * user-edit conclusion are NOT computed here: an object is only final once
+   * every dependent mapping step has run (a promise needs its performance
+   * obligation, a performance obligation needs its recognition and
+   * standalone selling price). Both are resolved in one pass at the end.
+   */
+  const claimedObjects: Array<{ semanticKey: string; canonicalId: string }> = [];
+  function claimObject(semanticKey: string, canonicalId: string): void {
+    if (claimedObjects.some((entry) => entry.semanticKey === semanticKey)) return;
+    claimedObjects.push({ semanticKey, canonicalId });
   }
 
   const proposedSemanticKeys = new Set<string>();
@@ -569,9 +587,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const promiseIdBySemanticKey = new Map<string, string>();
   const manualPromiseByText = new Map<string, PromiseDraft>();
-  for (const promise of draft.promises) {
-    const owned = Object.values(objectProvenance).some((p) => p.canonicalId === promise.id);
-    if (!owned) manualPromiseByText.set(normalizedText(promise.description), promise);
+  for (const promise of manualPromises) {
+    const text = normalizedText(promise.description);
+    if (text !== "" && !manualPromiseByText.has(text)) manualPromiseByText.set(text, promise);
   }
 
   for (const aiPromise of analysis.promises) {
@@ -600,7 +618,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis proposes a promise that matches one you entered manually. Your promise was kept and no duplicate was created.",
         guidanceIds: aiPromise.guidanceIds,
-        value: manualTwin.description,
+        value: {
+          manualPromiseId: manualTwin.id,
+          semanticKey: aiPromise.semanticKey,
+          proposed: aiPromise.description.slice(0, 120),
+        },
         aiReviewState: aiPromise.reviewState,
       });
       promiseIdBySemanticKey.set(aiPromise.semanticKey, manualTwin.id);
@@ -610,15 +632,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const canonicalId = canonicalIdFor("promise", aiPromise.semanticKey);
     promiseIdBySemanticKey.set(aiPromise.semanticKey, canonicalId);
 
-    let row = draft.promises.find((promise) => promise.id === canonicalId);
-    if (row === undefined) {
-      row = {
-        ...createPromiseDraft(draft.promises.length + 1, canonicalId),
-        kind: aiPromise.promiseType === "option" ? "customer_option" : "good_or_service",
-      };
-      draft.promises = [...draft.promises, row];
+    let createdRow = false;
+    if (draft.promises.every((promise) => promise.id !== canonicalId)) {
+      draft.promises = [
+        ...draft.promises,
+        createPromiseDraft(draft.promises.length + 1, canonicalId),
+      ];
+      createdRow = true;
     }
-    const index = draft.promises.findIndex((promise) => promise.id === canonicalId);
     const section = sectionFor(aiPromise.guidanceIds, "step_2");
 
     const update = (patch: Partial<PromiseDraft>) => {
@@ -626,7 +647,23 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         promise.id === canonicalId ? { ...promise, ...patch } : promise,
       );
     };
-    const current = () => draft.promises[index]!;
+    const current = () => draft.promises.find((promise) => promise.id === canonicalId)!;
+
+    // The promise kind is AI-owned and refreshes on re-analysis: a later
+    // analysis that reclassifies a promise as a customer option must not be
+    // silently ignored, because it changes the material-right question below.
+    mergeScalar<PromiseDraft["kind"]>({
+      key: fieldKeys.promise(canonicalId, "kind"),
+      semanticKey: aiPromise.semanticKey,
+      current: current().kind,
+      proposed: aiPromise.promiseType === "option" ? "customer_option" : "good_or_service",
+      unclaimed: createdRow,
+      apply: (value) => update({ kind: value }),
+      section,
+      guidanceIds: aiPromise.guidanceIds,
+      aiReviewState: aiPromise.reviewState,
+      label: "Promise type",
+    });
 
     mergeText({
       key: fieldKeys.promise(canonicalId, "description"),
@@ -694,13 +731,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(promiseFingerprintValue(current()));
-    recordObject(
-      aiPromise.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(aiPromise.semanticKey, fingerprint),
-    );
+    claimObject(aiPromise.semanticKey, canonicalId);
   }
 
   /* ------------------------------------------------ performance obligations */
@@ -723,16 +754,89 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
-    const canonicalId = canonicalIdFor("performance_obligation", aiPo.semanticKey);
-    poIdBySemanticKey.set(aiPo.semanticKey, canonicalId);
     const section = sectionFor(aiPo.guidanceIds, "step_2");
 
-    if (draft.performanceObligations.every((po) => po.id !== canonicalId)) {
-      draft.performanceObligations = [
-        ...draft.performanceObligations,
-        createPoDraft(draft.performanceObligations.length + 1, canonicalId),
-      ];
+    // Promise membership is resolved BEFORE any canonical performance
+    // obligation is created. A grouping the accountant has already recorded
+    // manually must never gain a duplicate AI twin beside it.
+    const mappedPromiseIds: string[] = [];
+    for (const promiseKey of aiPo.promiseKeys) {
+      const promiseId = promiseIdBySemanticKey.get(promiseKey);
+      if (promiseId === undefined) {
+        raise({
+          targetKey: `po:${aiPo.semanticKey}.promiseKeys`,
+          section,
+          reasonCode: "unsafe_semantic_relationship",
+          reason: `The AI analysis groups an unknown promise (${promiseKey}) into this performance obligation. The relationship was not applied.`,
+          guidanceIds: aiPo.guidanceIds,
+          value: promiseKey,
+          aiReviewState: aiPo.reviewState,
+          blocking: true,
+        });
+        continue;
+      }
+      mappedPromiseIds.push(promiseId);
     }
+
+    const hostManualPoIds = new Set(
+      mappedPromiseIds
+        .map((id) => draft.promises.find((row) => row.id === id)?.performanceObligationId ?? null)
+        .filter((id): id is string => id !== null && manualPoIds.has(id)),
+    );
+
+    if (hostManualPoIds.size > 1) {
+      // The model's grouping contradicts the accountant's own structure. ARC
+      // neither re-points their promises nor adds a third performance
+      // obligation; it refuses and asks.
+      raise({
+        targetKey: `po:${aiPo.semanticKey}`,
+        section,
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The AI analysis groups promises you have already assigned to different performance obligations. Nothing was changed and no new performance obligation was created.",
+        guidanceIds: aiPo.guidanceIds,
+        value: {
+          manualPoIds: [...hostManualPoIds].sort(),
+          semanticKey: aiPo.semanticKey,
+          proposed: aiPo.description.slice(0, 120),
+        },
+        aiReviewState: aiPo.reviewState,
+        blocking: true,
+      });
+      continue;
+    }
+
+    let canonicalId: string;
+    let manualHost = false;
+    const singleManualHost = [...hostManualPoIds][0];
+    if (singleManualHost !== undefined && objectProvenance[aiPo.semanticKey] === undefined) {
+      canonicalId = singleManualHost;
+      manualHost = true;
+      raise({
+        targetKey: `po:${canonicalId}`,
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis proposes a performance obligation grouping you have already recorded. Your performance obligation and its promise assignments were kept and no duplicate was created.",
+        guidanceIds: aiPo.guidanceIds,
+        value: {
+          manualPoId: canonicalId,
+          semanticKey: aiPo.semanticKey,
+          proposed: aiPo.description.slice(0, 120),
+        },
+        aiReviewState: aiPo.reviewState,
+      });
+    } else {
+      canonicalId = canonicalIdFor("performance_obligation", aiPo.semanticKey);
+      if (draft.performanceObligations.every((po) => po.id !== canonicalId)) {
+        draft.performanceObligations = [
+          ...draft.performanceObligations,
+          createPoDraft(draft.performanceObligations.length + 1, canonicalId),
+        ];
+      }
+    }
+    poIdBySemanticKey.set(aiPo.semanticKey, canonicalId);
+
     const update = (patch: Partial<PoDraft>) => {
       draft.performanceObligations = draft.performanceObligations.map((po) =>
         po.id === canonicalId ? { ...po, ...patch } : po,
@@ -754,23 +858,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     // Promise → PO relationships always travel through canonical IDs; a Terra
     // semantic key is never written into `performanceObligationId`.
-    const mappedPromiseIds: string[] = [];
-    for (const promiseKey of aiPo.promiseKeys) {
-      const promiseId = promiseIdBySemanticKey.get(promiseKey);
-      if (promiseId === undefined) {
-        raise({
-          targetKey: fieldKeys.po(canonicalId, "promiseKeys"),
-          section,
-          reasonCode: "unsafe_semantic_relationship",
-          reason: `The AI analysis groups an unknown promise (${promiseKey}) into this performance obligation. The relationship was not applied.`,
-          guidanceIds: aiPo.guidanceIds,
-          value: promiseKey,
-          aiReviewState: aiPo.reviewState,
-          blocking: true,
-        });
-        continue;
-      }
-      mappedPromiseIds.push(promiseId);
+    for (const promiseId of mappedPromiseIds) {
       const promiseRow = draft.promises.find((promise) => promise.id === promiseId)!;
       mergeScalar<string | null>({
         key: fieldKeys.promise(promiseId, "performanceObligationId"),
@@ -818,17 +906,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: aiPo.reviewState,
         label: "Performance obligation classification",
       });
-      mergeText({
-        key: fieldKeys.po(canonicalId, "classificationRationale"),
-        semanticKey: aiPo.semanticKey,
-        current: current().classificationRationale,
-        proposed: aiPo.groupingRationale,
-        apply: (value) => update({ classificationRationale: value }),
-        section,
-        guidanceIds: aiPo.guidanceIds,
-        aiReviewState: aiPo.reviewState,
-        label: "Classification rationale",
-      });
+      // The grouping rationale explains the classification. It is written only
+      // where ARC owns the classification it purports to explain.
+      if (
+        fieldProvenance[fieldKeys.po(canonicalId, "classification")]?.state ===
+        "ai_generated_untouched"
+      ) {
+        mergeText({
+          key: fieldKeys.po(canonicalId, "classificationRationale"),
+          semanticKey: aiPo.semanticKey,
+          current: current().classificationRationale,
+          proposed: aiPo.groupingRationale,
+          apply: (value) => update({ classificationRationale: value }),
+          section,
+          guidanceIds: aiPo.guidanceIds,
+          aiReviewState: aiPo.reviewState,
+          label: "Classification rationale",
+        });
+      }
     } else if (current().classification === null) {
       raise({
         targetKey: fieldKeys.po(canonicalId, "classification"),
@@ -843,13 +938,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(poFingerprintValue(current()));
-    recordObject(
-      aiPo.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(aiPo.semanticKey, fingerprint),
-    );
+    // A preserved manual performance obligation stays manual: ARC does not
+    // claim ownership of a row the accountant built.
+    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId);
   }
 
   /* ----------------------------------------------------------- recognition */
@@ -913,22 +1004,29 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: proposal.reviewState,
       label: "Recognition method",
     });
-    mergeText({
-      key: fieldKeys.po(canonicalId, "recognitionRationale"),
-      semanticKey: proposal.performanceObligationKey,
-      current: current().recognitionRationale,
-      proposed: proposal.rationale,
-      apply: (value) => update({ recognitionRationale: value }),
-      section,
-      guidanceIds: proposal.guidanceIds,
-      aiReviewState: proposal.reviewState,
-      label: "Recognition rationale",
-    });
+    // The rationale and the AI-derived service dates explain the AI method.
+    // If the accountant owns the method, none of them may be attached to it.
+    const methodIsAiOwned =
+      fieldProvenance[fieldKeys.po(canonicalId, "recognitionMethod")]?.state ===
+      "ai_generated_untouched";
+    if (methodIsAiOwned) {
+      mergeText({
+        key: fieldKeys.po(canonicalId, "recognitionRationale"),
+        semanticKey: proposal.performanceObligationKey,
+        current: current().recognitionRationale,
+        proposed: proposal.rationale,
+        apply: (value) => update({ recognitionRationale: value }),
+        section,
+        guidanceIds: proposal.guidanceIds,
+        aiReviewState: proposal.reviewState,
+        label: "Recognition rationale",
+      });
+    }
 
     if (mapping.method === "over_time_ratable") {
       const start = parseIsoDate(proposal.serviceStartDate);
       const end = parseIsoDate(proposal.serviceEndDate);
-      if (start !== null && end !== null) {
+      if (start !== null && end !== null && methodIsAiOwned) {
         mergeText({
           key: fieldKeys.po(canonicalId, "serviceStart"),
           semanticKey: proposal.performanceObligationKey,
@@ -966,7 +1064,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     } else {
       const date = parseIsoDate(proposal.recognitionDateIfContractuallyDeterminable);
-      if (date !== null) {
+      if (date !== null && methodIsAiOwned) {
         mergeText({
           key: fieldKeys.po(canonicalId, "recognitionDate"),
           semanticKey: proposal.performanceObligationKey,
@@ -1034,17 +1132,22 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: item.reviewState,
         label: "Standalone selling price",
       });
-      mergeText({
-        key: fieldKeys.po(canonicalId, "sspBasis"),
-        semanticKey: item.semanticKey,
-        current: current().sspBasis,
-        proposed: item.methodRationale,
-        apply: (value) => update({ sspBasis: value }),
-        section,
-        guidanceIds: item.guidanceIds,
-        aiReviewState: item.reviewState,
-        label: "Standalone selling price basis",
-      });
+      // The basis explains the amount; it is only written when ARC owns it.
+      if (
+        fieldProvenance[fieldKeys.po(canonicalId, "sspInput")]?.state === "ai_generated_untouched"
+      ) {
+        mergeText({
+          key: fieldKeys.po(canonicalId, "sspBasis"),
+          semanticKey: item.semanticKey,
+          current: current().sspBasis,
+          proposed: item.methodRationale,
+          apply: (value) => update({ sspBasis: value }),
+          section,
+          guidanceIds: item.guidanceIds,
+          aiReviewState: item.reviewState,
+          label: "Standalone selling price basis",
+        });
+      }
     } else if (isUnclaimedString(current().sspInput)) {
       raise({
         targetKey: fieldKeys.po(canonicalId, "sspInput"),
@@ -1079,19 +1182,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
       label: "Fixed transaction price",
     });
-    mergeText({
-      key: fieldKeys.transactionPrice("notes"),
-      semanticKey: "transaction-price:fixed",
-      current: draft.transactionPriceNotes,
-      proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
-      apply: (value) => {
-        draft.transactionPriceNotes = value;
-      },
-      section: "step_3",
-      guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
-      aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
-      label: "Transaction price notes",
-    });
+    // An AI explanation is only ever written for an AI-owned amount. Attaching
+    // the model's reasoning about a different number to the accountant's own
+    // transaction price would make the audit trail self-contradictory.
+    if (fieldProvenance[fieldKeys.transactionPrice("input")]?.state === "ai_generated_untouched") {
+      mergeText({
+        key: fieldKeys.transactionPrice("notes"),
+        semanticKey: "transaction-price:fixed",
+        current: draft.transactionPriceNotes,
+        proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
+        apply: (value) => {
+          draft.transactionPriceNotes = value;
+        },
+        section: "step_3",
+        guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+        aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
+        label: "Transaction price notes",
+      });
+    }
   } else if (isUnclaimedString(draft.transactionPriceInput)) {
     raise({
       targetKey: fieldKeys.transactionPrice("input"),
@@ -1137,6 +1245,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* --------------------------------------------------- variable consideration */
 
+  const manualVcByText = new Map<string, VcComponentDraft>();
+  for (const row of manualVcComponents) {
+    const text = normalizedText(row.description);
+    if (text !== "" && !manualVcByText.has(text)) manualVcByText.set(text, row);
+  }
+
   for (const component of analysis.transactionPrice.variableConsiderationComponents) {
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
@@ -1171,16 +1285,41 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
+    // An exact normalized description match with an unowned manual component
+    // is a duplicate, not a new component. No fuzzy matching is performed.
+    const manualVcTwin = manualVcByText.get(normalizedText(component.description));
+    if (manualVcTwin !== undefined && objectProvenance[component.semanticKey] === undefined) {
+      raise({
+        targetKey: `vc:${manualVcTwin.id}`,
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis proposes a variable-consideration component that matches one you entered manually. Yours was kept and no duplicate was created.",
+        guidanceIds: component.guidanceIds,
+        value: {
+          manualVcId: manualVcTwin.id,
+          semanticKey: component.semanticKey,
+          proposed: component.description.slice(0, 120),
+        },
+        aiReviewState: component.reviewState,
+      });
+      continue;
+    }
+
     const isUsage = component.type === "usage";
+    const proposedTreatment: VcComponentDraft["treatment"] = isUsage
+      ? "usage_as_incurred"
+      : "estimated";
     const canonicalId = canonicalIdFor("variable_component", component.semanticKey);
-    if (draft.variableConsiderationComponents.every((row) => row.id !== canonicalId)) {
+    const existingRow = draft.variableConsiderationComponents.find((row) => row.id === canonicalId);
+    if (existingRow === undefined) {
       draft.variableConsiderationComponents = [
         ...draft.variableConsiderationComponents,
         {
           ...createVcComponentDraft(
             draft.variableConsiderationComponents.length + 1,
             canonicalId,
-            isUsage ? "usage_as_incurred" : "estimated",
+            proposedTreatment,
           ),
           effect,
         },
@@ -1188,6 +1327,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // A structural default flag may become true only because ARC added a
       // valid AI-owned child object to an otherwise empty structure.
       draft.hasVariableConsideration = true;
+    } else if (existingRow.treatment !== proposedTreatment) {
+      // Usage-as-incurred and estimated are different treatment families with
+      // different nested structures. Repurposing one into the other would
+      // either strand stale values or destroy nested work, so ARC preserves
+      // the canonical component and surfaces the structural change instead.
+      raise({
+        targetKey: fieldKeys.vc(canonicalId, "treatment"),
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The latest AI analysis treats this variable consideration as a different kind of component than the one in your workpaper. ARC kept the existing component — review the change yourself.",
+        guidanceIds: component.guidanceIds,
+        value: { current: existingRow.treatment, proposed: proposedTreatment },
+        aiReviewState: component.reviewState,
+        blocking: true,
+      });
+      claimObject(component.semanticKey, canonicalId);
+      continue;
     }
     const update = (patch: Partial<VcComponentDraft>) => {
       draft.variableConsiderationComponents = draft.variableConsiderationComponents.map((row) =>
@@ -1211,21 +1368,50 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     if (isUsage) {
       const rate = usableAmount(component.contractualRateOrAmountInput);
-      if (rate !== null && current().meters.length === 0) {
-        update({
-          meters: [
+      const meterId = `${canonicalId}-m1`;
+      if (rate !== null) {
+        let meterCreated = false;
+        if (current().meters.length === 0) {
+          // Future usage volume is never invented, so no usage period is added.
+          update({ meters: [createVcMeterDraft(1, meterId)], usagePeriods: [] });
+          meterCreated = true;
+        }
+        const meter = () => current().meters.find((row) => row.id === meterId);
+        if (meter() !== undefined) {
+          const patchMeter = (patch: Partial<VcMeterDraft>) =>
+            update({
+              meters: current().meters.map((row) =>
+                row.id === meterId ? { ...row, ...patch } : row,
+              ),
+            });
+          // Every meter field is tracked through field provenance, so a later
+          // contractual rate change refreshes an untouched AI meter instead of
+          // silently going stale — and never overwrites an edited one.
+          const meterFields = [
+            { field: "name" as const, proposed: component.description.slice(0, 120) },
+            { field: "rateAmountInput" as const, proposed: rate },
+            // A contractual per-unit rate is a one-unit rate.
+            { field: "rateQuantityInput" as const, proposed: "1" },
             {
-              ...createVcMeterDraft(1, `${canonicalId}-m1`),
-              name: component.description.slice(0, 120),
-              rateAmountInput: rate,
-              // A contractual per-unit rate is a one-unit rate.
-              rateQuantityInput: "1",
-              unit: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
+              field: "unit" as const,
+              proposed: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
             },
-          ],
-          // Future usage volume is never invented.
-          usagePeriods: [],
-        });
+          ];
+          for (const spec of meterFields) {
+            mergeScalar<string>({
+              key: fieldKeys.vc(canonicalId, `meter.${spec.field}`),
+              semanticKey: component.semanticKey,
+              current: meter()![spec.field],
+              proposed: spec.proposed,
+              unclaimed: meterCreated || isUnclaimedString(meter()![spec.field]),
+              apply: (value) => patchMeter({ [spec.field]: value } as Partial<VcMeterDraft>),
+              section,
+              guidanceIds: component.guidanceIds,
+              aiReviewState: component.reviewState,
+              label: `Usage meter ${spec.field}`,
+            });
+          }
+        }
       }
       raise({
         targetKey: fieldKeys.vc(canonicalId, "usagePeriods"),
@@ -1269,13 +1455,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(vcFingerprintValue(current()));
-    recordObject(
-      component.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(component.semanticKey, fingerprint),
-    );
+    claimObject(component.semanticKey, canonicalId);
   }
 
   /* ------------------------------------------------------------ modifications */
@@ -1285,7 +1465,29 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   if (modifications.hasModification === "yes") {
     const semanticKey = "modification:primary";
     proposedSemanticKeys.add(semanticKey);
-    if (!tombstones.has(semanticKey)) {
+    // The semantic schema carries one high-level modification conclusion while
+    // the canonical workpaper may already hold richer manual modifications.
+    // ARC will not guess which manual modification the model meant, and it
+    // will not stand a second shell beside them.
+    const manualModificationConflict =
+      manualModifications.length > 0 && objectProvenance[semanticKey] === undefined;
+    if (manualModificationConflict) {
+      raise({
+        targetKey: "modification:manual",
+        section: modificationSection,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis also identifies a contract modification. Your own modification workpaper was kept and no duplicate was created — confirm they describe the same amendment.",
+        guidanceIds: modifications.guidanceIds,
+        value: {
+          manualModificationIds: manualModifications.map((row) => row.id).sort(),
+          semanticKey,
+          proposed: modifications.rationale.slice(0, 120),
+        },
+        aiReviewState: modifications.reviewState,
+      });
+    }
+    if (!tombstones.has(semanticKey) && !manualModificationConflict) {
       const canonicalId = canonicalIdFor("modification", semanticKey);
       if (draft.contractModifications.every((row) => row.id !== canonicalId)) {
         draft.contractModifications = [
@@ -1375,13 +1577,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
 
-      const fingerprint = valueFingerprint(modificationFingerprintValue(current()));
-      recordObject(
-        semanticKey,
-        canonicalId,
-        fingerprint,
-        objectUserModified(semanticKey, fingerprint),
-      );
+      claimObject(semanticKey, canonicalId);
     }
   } else if (
     modifications.hasModification === "no" &&
@@ -1421,6 +1617,26 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: [],
         value: semanticKey,
         aiReviewState: "needs_review",
+      });
+      continue;
+    }
+
+    // The accountant's own billing events are stronger than any derived
+    // schedule. ARC will not layer a synthetic recurring invoice run on top of
+    // them, and it never attempts fuzzy invoice-by-invoice matching.
+    if (manualConsiderationEvents.length > 0 && objectProvenance[semanticKey] === undefined) {
+      raise({
+        targetKey: `billing:${semanticKey}`,
+        section: "additional_topics",
+        reasonCode: "manual_structure_preserved",
+        reason: `You have already entered billing events, so ARC did not create a second schedule for "${term.description.slice(0, 100)}". Compare the AI billing terms with your own events.`,
+        guidanceIds: [],
+        value: {
+          manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
+          semanticKey,
+          proposed: term.description.slice(0, 120),
+        },
+        aiReviewState: term.reviewState,
       });
       continue;
     }
@@ -1467,30 +1683,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ...draft.contractBalances,
           considerationEvents: [...draft.contractBalances.considerationEvents, created],
         };
-        recordObject(
-          eventSemanticKey,
-          eventId,
-          valueFingerprint(considerationFingerprintValue(created)),
-          false,
-        );
         fieldProvenance[fieldKeys.billing(eventId, "invoiceDate")] = {
           state: "ai_generated_untouched",
           semanticKey: eventSemanticKey,
           lastAiRunId: runId,
           valueFingerprint: valueFingerprint(event.invoiceDate),
         };
-      } else {
-        const existing = draft.contractBalances.considerationEvents.find(
-          (row) => row.id === eventId,
-        )!;
-        const fingerprint = valueFingerprint(considerationFingerprintValue(existing));
-        recordObject(
-          eventSemanticKey,
-          eventId,
-          fingerprint,
-          objectUserModified(eventSemanticKey, fingerprint),
-        );
       }
+      claimObject(eventSemanticKey, eventId);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -1528,22 +1728,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ...draft.contractBalances,
           cashCollections: [...draft.contractBalances.cashCollections, created],
         };
-        recordObject(
-          cashSemanticKey,
-          cashId,
-          valueFingerprint(cashFingerprintValue(created)),
-          false,
-        );
-      } else {
-        const existing = draft.contractBalances.cashCollections.find((row) => row.id === cashId)!;
-        const fingerprint = valueFingerprint(cashFingerprintValue(existing));
-        recordObject(
-          cashSemanticKey,
-          cashId,
-          fingerprint,
-          objectUserModified(cashSemanticKey, fingerprint),
-        );
       }
+      claimObject(cashSemanticKey, cashId);
     }
   }
 
@@ -1626,6 +1812,41 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       value: semanticKey,
       aiReviewState: "needs_review",
     });
+  }
+
+  /* -------------------------------------------- final AI object fingerprints */
+
+  // Object provenance is finalized only now, after EVERY dependent mapping
+  // step has run. A promise is fingerprinted with its final performance
+  // obligation assignment; a performance obligation with its final
+  // classification, recognition and standalone selling price. Recording an
+  // intermediate fingerprint would make an identical re-run look like a user
+  // edit on the next merge.
+  for (const { semanticKey, canonicalId } of claimedObjects) {
+    const prior = previousState.objectProvenance[semanticKey];
+    const preMerge = preMergeFingerprints.get(semanticKey);
+    // User-edit detection compares the PRE-merge canonical object with what
+    // ARC last wrote. A difference created by ARC applying this very analysis
+    // proves nothing about the user, so it is never consulted here.
+    const userModified =
+      prior !== undefined &&
+      (prior.userModified || (preMerge !== undefined && preMerge !== prior.valueFingerprint));
+    const finalFingerprint =
+      aiObjectFingerprint(draft, canonicalId) ?? valueFingerprint(canonicalId);
+    objectProvenance[semanticKey] = {
+      state: userModified
+        ? "ai_generated_user_edited"
+        : prior?.state === "manual_from_start"
+          ? "manual_from_start"
+          : "ai_generated_untouched",
+      semanticKey,
+      lastAiRunId: userModified ? (prior?.lastAiRunId ?? runId) : runId,
+      valueFingerprint: userModified
+        ? (prior?.valueFingerprint ?? finalFingerprint)
+        : finalFingerprint,
+      canonicalId,
+      userModified,
+    };
   }
 
   /* ---------------------------------------------------------------- finalize */
@@ -1720,6 +1941,12 @@ function cashFingerprintValue(row: CashCollectionDraft) {
 /**
  * The contract-level service period, taken from canonical over-time
  * performance obligations only. It is never parsed from prose.
+ *
+ * It exists ONLY when every qualifying performance obligation shares exactly
+ * the same start and end. The accepted Phase 9D billing schema does not say
+ * which performance obligation a billing term belongs to, so widening several
+ * different periods into one min/max window would manufacture a continuous
+ * service period the contract never states.
  */
 function deriveContractServicePeriod(
   draft: WorkflowDraft,
@@ -1732,13 +1959,31 @@ function deriveContractServicePeriod(
         period.start !== null && period.end !== null,
     );
   if (periods.length === 0) return null;
-  const start = periods.reduce(
-    (min, period) => (period.start < min ? period.start : min),
-    periods[0]!.start,
-  );
-  const end = periods.reduce(
-    (max, period) => (period.end > max ? period.end : max),
-    periods[0]!.end,
-  );
-  return { start, end: addDays(end, 0) };
+  const distinct = new Set(periods.map((period) => `${period.start}\u0000${period.end}`));
+  if (distinct.size !== 1) return null;
+  return periods[0]!;
+}
+
+/**
+ * The AI-owned fingerprint subset of whichever canonical object carries this
+ * ID, or null when no canonical row does. One helper serves both the
+ * pre-merge user-edit baseline and the post-merge AI baseline, so the two can
+ * never drift apart.
+ */
+export function aiObjectFingerprint(draft: WorkflowDraft, canonicalId: string): string | null {
+  const promise = draft.promises.find((row) => row.id === canonicalId);
+  if (promise !== undefined) return valueFingerprint(promiseFingerprintValue(promise));
+  const po = draft.performanceObligations.find((row) => row.id === canonicalId);
+  if (po !== undefined) return valueFingerprint(poFingerprintValue(po));
+  const vc = draft.variableConsiderationComponents.find((row) => row.id === canonicalId);
+  if (vc !== undefined) return valueFingerprint(vcFingerprintValue(vc));
+  const modification = draft.contractModifications.find((row) => row.id === canonicalId);
+  if (modification !== undefined) {
+    return valueFingerprint(modificationFingerprintValue(modification));
+  }
+  const event = draft.contractBalances.considerationEvents.find((row) => row.id === canonicalId);
+  if (event !== undefined) return valueFingerprint(considerationFingerprintValue(event));
+  const cash = draft.contractBalances.cashCollections.find((row) => row.id === canonicalId);
+  if (cash !== undefined) return valueFingerprint(cashFingerprintValue(cash));
+  return null;
 }

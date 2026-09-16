@@ -164,7 +164,13 @@ describe("Fixture C — re-analysis preserves user work", () => {
     };
 
     const unchanged = run(fixtureAAnalysis(), first.draft, affirmedState, RUN_2);
-    expect(unchanged.issues.every((item) => item.state === "resolved")).toBe(true);
+    // Every affirmable (yellow) item carries its resolution forward. A
+    // blocking item never does, however it was affirmed in the past.
+    expect(unchanged.issues.some((item) => item.state === "resolved")).toBe(true);
+    expect(unchanged.issues.every((item) => item.state !== "yellow")).toBe(true);
+    expect(
+      unchanged.issues.find((item) => item.targetKey === "contract.contractNumber")?.state,
+    ).toBe("red");
 
     const changed = run(secondRun(), first.draft, affirmedState, RUN_2);
     const refreshed = itemFor(changed.issues, "transactionPrice.input");

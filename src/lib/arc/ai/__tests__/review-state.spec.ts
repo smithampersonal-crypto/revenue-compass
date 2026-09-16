@@ -32,8 +32,26 @@ describe("review classification", () => {
   });
 
   it("raises nothing for a fully supported conclusion with no policy trigger", () => {
-    expect(classifyReviewState({ ...base, aiReviewState: "supported" })).toBeNull();
-    expect(deriveReviewItem({ ...base, aiReviewState: "supported" })).toBeNull();
+    const supported = {
+      ...base,
+      reasonCode: "missing_required_input" as const,
+      aiReviewState: "supported" as const,
+    };
+    expect(classifyReviewState(supported)).toBeNull();
+    expect(deriveReviewItem(supported)).toBeNull();
+  });
+
+  it("always shows something ARC chose not to apply", () => {
+    // A preserved manual value or structure is worth seeing however confident
+    // the model was about its own proposal.
+    expect(classifyReviewState({ ...base, aiReviewState: "supported" })).toBe("yellow");
+    expect(
+      classifyReviewState({
+        ...base,
+        reasonCode: "manual_structure_preserved",
+        aiReviewState: "supported",
+      }),
+    ).toBe("yellow");
   });
 
   it("gives an item a deterministic identity and sorted guidance references", () => {
