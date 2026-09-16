@@ -40,6 +40,7 @@ import {
   TerraAnalysisError,
   type TerraFailureCategory,
 } from "../terra.server";
+import { computeSourceSetFingerprint } from "../source-fingerprint";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
