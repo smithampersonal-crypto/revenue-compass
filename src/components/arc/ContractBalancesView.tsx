@@ -63,7 +63,6 @@ export function ContractBalancesView({
     />
   );
 
-
   if (balances.finalized && balances.grouped) {
     return (
       <div className="space-y-6">

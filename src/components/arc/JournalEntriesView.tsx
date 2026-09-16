@@ -68,7 +68,6 @@ export function JournalEntriesView({
     );
   }
 
-
   return (
     <Section title="Journal Entries">
       <Notice tone="warning">

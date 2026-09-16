@@ -535,7 +535,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
               ...draft.contract,
               criteria: {
                 ...draft.contract.criteria,
-                [entry.criterion]: { ...draft.contract.criteria[entry.criterion], rationale: value },
+                [entry.criterion]: {
+                  ...draft.contract.criteria[entry.criterion],
+                  rationale: value,
+                },
               },
             };
           },
@@ -1068,7 +1071,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => {
         draft.transactionPriceInput = value;
       },
-      section: sectionFor(analysis.transactionPrice.transactionPriceConclusion.guidanceIds, "step_3"),
+      section: sectionFor(
+        analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+        "step_3",
+      ),
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
       aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
       label: "Fixed transaction price",
@@ -1101,9 +1107,21 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   }
 
   for (const judgment of [
-    { key: "financing", value: analysis.transactionPrice.financingAssessment, label: "Significant financing component" },
-    { key: "noncash", value: analysis.transactionPrice.noncashConsideration, label: "Noncash consideration" },
-    { key: "payableToCustomer", value: analysis.transactionPrice.considerationPayableToCustomer, label: "Consideration payable to the customer" },
+    {
+      key: "financing",
+      value: analysis.transactionPrice.financingAssessment,
+      label: "Significant financing component",
+    },
+    {
+      key: "noncash",
+      value: analysis.transactionPrice.noncashConsideration,
+      label: "Noncash consideration",
+    },
+    {
+      key: "payableToCustomer",
+      value: analysis.transactionPrice.considerationPayableToCustomer,
+      label: "Consideration payable to the customer",
+    },
   ]) {
     // ARC has no canonical field for these; they are advisory review state only.
     raise({
@@ -1176,7 +1194,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         row.id === canonicalId ? { ...row, ...patch } : row,
       );
     };
-    const current = () => draft.variableConsiderationComponents.find((row) => row.id === canonicalId)!;
+    const current = () =>
+      draft.variableConsiderationComponents.find((row) => row.id === canonicalId)!;
 
     mergeText({
       key: fieldKeys.vc(canonicalId, "description"),
@@ -1244,7 +1263,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
         guidanceIds: component.guidanceIds,
         value: null,
-        aiReviewState: component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
+        aiReviewState:
+          component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
         blocking: true,
       });
     }
@@ -1508,7 +1528,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ...draft.contractBalances,
           cashCollections: [...draft.contractBalances.cashCollections, created],
         };
-        recordObject(cashSemanticKey, cashId, valueFingerprint(cashFingerprintValue(created)), false);
+        recordObject(
+          cashSemanticKey,
+          cashId,
+          valueFingerprint(cashFingerprintValue(created)),
+          false,
+        );
       } else {
         const existing = draft.contractBalances.cashCollections.find((row) => row.id === cashId)!;
         const fingerprint = valueFingerprint(cashFingerprintValue(existing));
@@ -1702,11 +1727,18 @@ function deriveContractServicePeriod(
   const periods = draft.performanceObligations
     .filter((po) => po.recognitionMethod === "over_time_ratable")
     .map((po) => ({ start: parseIsoDate(po.serviceStart), end: parseIsoDate(po.serviceEnd) }))
-    .filter((period): period is { start: IsoDate; end: IsoDate } =>
-      period.start !== null && period.end !== null,
+    .filter(
+      (period): period is { start: IsoDate; end: IsoDate } =>
+        period.start !== null && period.end !== null,
     );
   if (periods.length === 0) return null;
-  const start = periods.reduce((min, period) => (period.start < min ? period.start : min), periods[0]!.start);
-  const end = periods.reduce((max, period) => (period.end > max ? period.end : max), periods[0]!.end);
+  const start = periods.reduce(
+    (min, period) => (period.start < min ? period.start : min),
+    periods[0]!.start,
+  );
+  const end = periods.reduce(
+    (max, period) => (period.end > max ? period.end : max),
+    periods[0]!.end,
+  );
   return { start, end: addDays(end, 0) };
 }

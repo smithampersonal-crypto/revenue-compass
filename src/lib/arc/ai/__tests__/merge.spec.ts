@@ -9,10 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildWorkpaper } from "@/lib/arc/persistence/snapshot";
-import {
-  answerAllStep1,
-  scenarioADraft,
-} from "@/lib/asc606-workflow/__tests__/fixtures";
+import { answerAllStep1, scenarioADraft } from "@/lib/asc606-workflow/__tests__/fixtures";
 import {
   createCashCollectionDraft,
   createConsiderationEventDraft,
@@ -92,8 +89,7 @@ function manualEquivalent(): WorkflowDraft {
         recognitionMethod: "over_time_ratable",
         serviceStart: "2027-01-01",
         serviceEnd: "2027-12-31",
-        recognitionRationale:
-          "Customer simultaneously receives and consumes the hosted service.",
+        recognitionRationale: "Customer simultaneously receives and consumes the hosted service.",
       },
     ],
     contractBalances: {
@@ -164,9 +160,9 @@ describe("Fixture A — AI-adapted and manual canonical inputs are equivalent", 
     expect(cash!.collectionDate).toBe("2027-01-31");
     expect(cash!.basis).toBe("projected_contract_due_date");
     // No actual cash is ever inferred from a contract.
-    expect(
-      draft.contractBalances.cashCollections.every((row) => row.basis !== "actual"),
-    ).toBe(true);
+    expect(draft.contractBalances.cashCollections.every((row) => row.basis !== "actual")).toBe(
+      true,
+    );
   });
 
   it("never writes AI metadata into the canonical draft", () => {
@@ -191,7 +187,14 @@ describe("Fixture A — AI-adapted and manual canonical inputs are equivalent", 
     const guidancePack = guidancePackFixture();
     const before = JSON.stringify({ currentDraft, currentAiState, analysis, guidancePack });
 
-    const args = { currentDraft, currentAiState, analysis, runId: RUN_ID, guidancePack, priorContext: null };
+    const args = {
+      currentDraft,
+      currentAiState,
+      analysis,
+      runId: RUN_ID,
+      guidancePack,
+      priorContext: null,
+    };
     const first = mergeAiAnalysis(args);
     const second = mergeAiAnalysis(args);
 
@@ -211,7 +214,9 @@ describe("Fixture A — AI-adapted and manual canonical inputs are equivalent", 
     });
     expect(draft.contract.criteria.collectibility_probable.answer).toBe(false);
     expect(
-      issues.some((issue) => issue.targetKey === "contract.criteria.collectibility_probable.answer"),
+      issues.some(
+        (issue) => issue.targetKey === "contract.criteria.collectibility_probable.answer",
+      ),
     ).toBe(true);
   });
 });

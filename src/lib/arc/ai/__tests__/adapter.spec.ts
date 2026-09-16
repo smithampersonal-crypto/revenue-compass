@@ -155,7 +155,12 @@ describe("deterministic billing schedules", () => {
       deriveBillingSchedule({ ...base, frequency: "on_event", billingTiming: "advance" }),
     ).toEqual({ ok: false, reason: "unsupported_frequency" });
     expect(
-      deriveBillingSchedule({ ...base, amountOrRateInput: null, frequency: "annual", billingTiming: "advance" }),
+      deriveBillingSchedule({
+        ...base,
+        amountOrRateInput: null,
+        frequency: "annual",
+        billingTiming: "advance",
+      }),
     ).toEqual({ ok: false, reason: "missing_amount" });
     expect(
       deriveBillingSchedule({

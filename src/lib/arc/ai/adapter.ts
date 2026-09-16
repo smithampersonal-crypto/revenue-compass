@@ -113,7 +113,8 @@ export type RecognitionMapping =
  * ratable over-time — that would be ARC inventing an accounting policy.
  */
 export function mapRecognitionMethod(
-  method: "ratable_over_time" | "input_method" | "output_method" | "point_in_time_transfer" | "unknown",
+  method:
+    "ratable_over_time" | "input_method" | "output_method" | "point_in_time_transfer" | "unknown",
 ): RecognitionMapping {
   if (method === "ratable_over_time") return { supported: true, method: "over_time_ratable" };
   if (method === "point_in_time_transfer") return { supported: true, method: "point_in_time" };
@@ -143,7 +144,8 @@ const VC_EFFECT: Partial<
 };
 
 export function mapVcEffect(
-  type: "usage" | "service_credit" | "rebate" | "refund" | "bonus" | "penalty" | "discount" | "other",
+  type:
+    "usage" | "service_credit" | "rebate" | "refund" | "bonus" | "penalty" | "discount" | "other",
 ): VcEffect | null {
   return VC_EFFECT[type] ?? null;
 }
@@ -157,13 +159,7 @@ export function mapEstimationMethod(
 /* ----------------------------------------------------------------- billing */
 
 export type BillingFrequency =
-  | "one_time"
-  | "monthly"
-  | "quarterly"
-  | "semiannual"
-  | "annual"
-  | "on_event"
-  | "unknown";
+  "one_time" | "monthly" | "quarterly" | "semiannual" | "annual" | "on_event" | "unknown";
 
 const MONTHS_PER_PERIOD: Partial<Record<BillingFrequency, number>> = {
   monthly: 1,
@@ -227,8 +223,7 @@ export function deriveBillingSchedule(input: BillingScheduleInput): BillingSched
   const exclusiveEnd = addDays(input.serviceEnd, 1);
 
   if (input.frequency === "one_time") {
-    const invoiceDate =
-      input.billingTiming === "advance" ? input.serviceStart : input.serviceEnd;
+    const invoiceDate = input.billingTiming === "advance" ? input.serviceStart : input.serviceEnd;
     return {
       ok: true,
       events: [
@@ -277,7 +272,8 @@ export type ProjectedCollectionResult =
  */
 export function deriveProjectedCollectionDate(args: {
   invoiceDate: IsoDate;
-  contractualDueDateBasis: "invoice_date_plus_terms" | "fixed_calendar_date" | "milestone_event" | "unknown";
+  contractualDueDateBasis:
+    "invoice_date_plus_terms" | "fixed_calendar_date" | "milestone_event" | "unknown";
   paymentTermsDays: number | null;
 }): ProjectedCollectionResult {
   if (args.contractualDueDateBasis !== "invoice_date_plus_terms") {

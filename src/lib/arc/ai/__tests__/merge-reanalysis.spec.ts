@@ -37,10 +37,7 @@ function run(
   });
 }
 
-function itemFor(
-  issues: readonly { targetKey: string; state: string }[],
-  targetKey: string,
-) {
+function itemFor(issues: readonly { targetKey: string; state: string }[], targetKey: string) {
   return issues.find((issue) => issue.targetKey === targetKey);
 }
 
@@ -211,9 +208,9 @@ describe("Fixture D — a modification ARC cannot complete", () => {
       expect(modification.priceReflectsAddedGoodsSsp).toBeNull();
       expect(modification.priceReflectsSspRationale).not.toContain("assumed");
     }
-    expect(issues.some((issue) => issue.state === "red" && issue.targetKey.startsWith("modification"))).toBe(
-      true,
-    );
+    expect(
+      issues.some((issue) => issue.state === "red" && issue.targetKey.startsWith("modification")),
+    ).toBe(true);
   });
 });
 
