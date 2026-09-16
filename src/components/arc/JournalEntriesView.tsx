@@ -28,6 +28,16 @@ export function JournalEntriesView({
     ...result.revenueSources.map((source) => [source.id, source.name] as const),
   ]);
 
+  // Presentation only: which cash rows the accountant's recorded canonical
+  // input marks as contract-derived projections. Basis always comes from the
+  // recorded input, including for finalized and superseded revisions — a date
+  // in the past is never treated as evidence that cash was received.
+  const projectedCollectionIds = new Set(
+    draft.contractBalances.cashCollections
+      .filter((collection) => isProjectedCollection(collection))
+      .map((collection) => collection.id),
+  );
+
   if (journals?.kind === "grouped") {
     const grouped = journals.analysis;
     return (
@@ -38,6 +48,7 @@ export function JournalEntriesView({
             analysis={group.analysis}
             poNames={sourceNames}
             title={`Journal Entries — ${group.label}`}
+            projectedCollectionIds={projectedCollectionIds}
           />
         ))}
         <GroupedJournalReconciliation grouped={grouped} />
@@ -46,8 +57,15 @@ export function JournalEntriesView({
   }
 
   if (journals?.kind === "ordinary") {
-    return <JournalEntryOutputs analysis={journals.analysis} poNames={sourceNames} />;
+    return (
+      <JournalEntryOutputs
+        analysis={journals.analysis}
+        poNames={sourceNames}
+        projectedCollectionIds={projectedCollectionIds}
+      />
+    );
   }
+
 
   return (
     <Section title="Journal Entries">
