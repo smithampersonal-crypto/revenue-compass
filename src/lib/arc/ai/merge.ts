@@ -973,7 +973,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     } else {
       const date = parseIsoDate(proposal.recognitionDateIfContractuallyDeterminable);
-      if (date !== null) {
+      if (date !== null && methodIsAiOwned) {
         mergeText({
           key: fieldKeys.po(canonicalId, "recognitionDate"),
           semanticKey: proposal.performanceObligationKey,
