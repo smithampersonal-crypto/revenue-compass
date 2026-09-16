@@ -35,12 +35,17 @@ describe("AI run server isolation", () => {
     }
   });
 
-  it("exposes exactly three AI server functions to the browser", () => {
+  it("exposes exactly the four AI server functions to the browser", () => {
     const functions = read("src/lib/arc/ai/runs.functions.ts");
     const exported = [...functions.matchAll(/export const (\w+) = createServerFn/g)].map(
       (match) => match[1],
     );
-    expect(exported.sort()).toEqual(["getAiRunStatus", "getAiUsageSummary", "startAiAnalysis"]);
+    expect(exported.sort()).toEqual([
+      "executeAiAnalysis",
+      "getAiRunStatus",
+      "getAiUsageSummary",
+      "startAiAnalysis",
+    ]);
     // No allowance reservation, raw table read or structured-result API.
     expect(functions).not.toContain("arc_reserve_ai_allowance");
     expect(functions).not.toContain("arc_mark_ai_run_failure");
@@ -74,11 +79,13 @@ describe("AI run server isolation", () => {
     }
   });
 
-  it("starts no OpenAI work and reserves no allowance in Phase 9C", () => {
+  // Phase 9F moved orchestration into `orchestrator.ts` and the OpenAI/allowance
+  // boundaries into the server-only store. The browser-facing halves must still
+  // contain none of it.
+  it("keeps OpenAI work and allowance reservation out of the browser surface", () => {
     const sources = [
       read("src/lib/arc/ai/runs.handlers.ts"),
       read("src/lib/arc/ai/runs.functions.ts"),
-      read("src/lib/arc/ai/runs.store.server.ts"),
     ].join("\n");
     for (const forbidden of [
       "responses.create",
