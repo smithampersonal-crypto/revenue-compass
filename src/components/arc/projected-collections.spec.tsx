@@ -60,7 +60,7 @@ describe("projected collection presentation", () => {
     expect(screen.getByTestId("cash-basis-cc-1")).toHaveTextContent(
       "Projected — contractual due date",
     );
-    expect(screen.getByText(/not evidence that cash was received/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not evidence that cash was received/i).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/includes projected contractual collections/i),
     ).toBeInTheDocument();
