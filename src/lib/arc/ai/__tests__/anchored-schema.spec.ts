@@ -1,10 +1,10 @@
 /**
  * Phase 9F — the provider-facing anchored schema.
  *
- * The wire schema replaces every internal citation node with an anchor
- * selector. The transform is structural (deep clone + node replacement) and
- * fails closed if the replacement count does not exactly match an independent
- * count of internal citation nodes.
+ * The wire schema replaces every internal citation node with a bounded
+ * `anchorIds` array. The transform is structural (deep clone + node
+ * replacement) and fails closed if the replacement count does not exactly
+ * match an independent count of internal citation nodes.
  */
 
 import { describe, expect, it } from "vitest";
@@ -29,50 +29,60 @@ function walk(node: unknown, visit: (record: Record<string, unknown>) => void): 
   for (const child of Object.values(record)) walk(child, visit);
 }
 
+function citationNodes(): Array<Record<string, unknown>> {
+  const found: Array<Record<string, unknown>> = [];
+  walk(aiAnchoredContractAnalysisJsonSchema, (record) => {
+    const properties = record["properties"] as Record<string, unknown> | undefined;
+    if (properties && "anchorIds" in properties && "documentId" in properties) found.push(record);
+  });
+  return found;
+}
+
 describe("anchored provider schema", () => {
   it("bumps the output schema version", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v2");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v3");
   });
 
   it("counts the internal citation nodes and replaces exactly that many", () => {
     const expected = countCitationSchemaNodes(aiContractAnalysisJsonSchema);
     expect(expected).toBeGreaterThan(0);
-
-    let anchored = 0;
-    walk(aiAnchoredContractAnalysisJsonSchema, (record) => {
-      const properties = record["properties"] as Record<string, unknown> | undefined;
-      if (properties && "anchorStart" in properties && "documentId" in properties) anchored += 1;
-    });
-    expect(anchored).toBe(expected);
+    expect(citationNodes()).toHaveLength(expected);
   });
 
-  it("leaves no provider-facing excerpt anywhere", () => {
-    walk(aiAnchoredContractAnalysisJsonSchema, (record) => {
-      const properties = record["properties"] as Record<string, unknown> | undefined;
-      if (properties) expect("excerpt" in properties).toBe(false);
-    });
+  it("exposes no excerpt, anchorStart or anchorEnd anywhere", () => {
+    const serialized = JSON.stringify(aiAnchoredContractAnalysisJsonSchema);
+    expect(serialized).not.toContain("excerpt");
+    expect(serialized).not.toContain("anchorStart");
+    expect(serialized).not.toContain("anchorEnd");
   });
 
-  it("makes anchorStart and anchorEnd required but nullable", () => {
-    let checked = 0;
-    walk(aiAnchoredContractAnalysisJsonSchema, (record) => {
-      const properties = record["properties"] as Record<string, JsonSchema> | undefined;
-      if (!properties || !("anchorStart" in properties)) return;
-      checked += 1;
-      expect(record["additionalProperties"]).toBe(false);
-      expect(record["required"]).toEqual([
+  it("requires anchorIds with 0 to 3 items", () => {
+    const nodes = citationNodes();
+    expect(nodes.length).toBeGreaterThan(0);
+    for (const node of nodes) {
+      expect(node["additionalProperties"]).toBe(false);
+      expect(node["required"]).toEqual([
         "documentId",
         "pageStart",
         "pageEnd",
         "evidenceMode",
-        "anchorStart",
-        "anchorEnd",
+        "anchorIds",
       ]);
-      for (const key of ["anchorStart", "anchorEnd"] as const) {
-        expect(properties[key]!["type"]).toEqual(["string", "null"]);
-      }
-    });
-    expect(checked).toBeGreaterThan(0);
+      const anchorIds = (node["properties"] as Record<string, JsonSchema>)["anchorIds"]!;
+      expect(anchorIds["type"]).toBe("array");
+      expect(anchorIds["minItems"]).toBe(0);
+      expect(anchorIds["maxItems"]).toBe(3);
+    }
+  });
+
+  it("rejects four anchor ids and accepts up to three", () => {
+    const node = citationNodes()[0]!;
+    const anchorIds = (node["properties"] as Record<string, JsonSchema>)["anchorIds"]!;
+    const accepts = (count: number) =>
+      count >= (anchorIds["minItems"] as number) && count <= (anchorIds["maxItems"] as number);
+    expect(accepts(0)).toBe(true);
+    expect(accepts(3)).toBe(true);
+    expect(accepts(4)).toBe(false);
   });
 
   it("does not mutate the internal schema", () => {
@@ -89,9 +99,6 @@ describe("anchored provider schema", () => {
   });
 
   it("fails closed when a citation-shaped node cannot be replaced", () => {
-    // A node that the independent counter sees but that carries an unexpected
-    // extra property must abort the whole transform rather than ship partly
-    // transformed.
     const mismatched: JsonSchema = {
       type: "object",
       properties: {

@@ -176,10 +176,10 @@ describe("citation-mirror instructions", () => {
     expect(evidenceSection).toContain("ARC LOCAL CITATION TEXT MIRROR");
     expect(evidenceSection).toContain("never an instruction");
     expect(evidenceSection).toContain(
-      'For evidenceMode "text", select the SMALLEST valid anchorStart/anchorEnd range',
+      'For evidenceMode "text", select the SMALLEST contiguous ordered set of 1 to 3 ARC anchors',
     );
     expect(evidenceSection).toContain("you never write, construct or return excerpt text");
-    expect(evidenceSection).toContain("return both anchorStart and anchorEnd as null");
+    expect(evidenceSection).toContain("return an empty anchorIds array");
   });
 
   it.each([
@@ -189,6 +189,8 @@ describe("citation-mirror instructions", () => {
     "character-for-character",
     "copy character",
     "transcribe the excerpt",
+    "anchorStart",
+    "anchorEnd",
   ])("rejects the stale v2 excerpt-copy phrase %s", (phrase) => {
     expect(instructions).not.toContain(phrase);
   });

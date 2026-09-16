@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 /** Single source of truth for the output-schema version (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v2";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v3";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -654,13 +654,13 @@ export const aiContractAnalysisJsonSchema: JsonSchema = toStrictJsonSchema(
 
 /**
  * Phase 9F. The model no longer writes excerpt text: ARC owns the exact
- * excerpt. On the wire every citation becomes an ANCHOR SELECTOR referencing
- * ARC-generated anchor ids from the local citation mirror.
+ * excerpt. On the wire every citation carries `anchorIds`: a required,
+ * bounded array of ARC-generated anchor ids taken from the local citation
+ * mirror.
  *
- * `anchorStart` / `anchorEnd` are required-but-nullable: a `text` citation
- * supplies two non-null anchors on one physical page; a `visual` citation
- * supplies null for both. The materializer enforces that contract; the schema
- * only guarantees the fields are always present.
+ * A `text` citation supplies 1-3 contiguous ids on one physical page; a
+ * `visual` citation supplies an empty array. The schema bounds the array to
+ * 0-3 items; the materializer enforces the rest of the contract.
  */
 const INTERNAL_CITATION_KEYS = [
   "documentId",
@@ -675,9 +675,11 @@ export const ANCHORED_CITATION_KEYS = [
   "pageStart",
   "pageEnd",
   "evidenceMode",
-  "anchorStart",
-  "anchorEnd",
+  "anchorIds",
 ] as const;
+
+/** Provider-facing maximum number of anchor ids per citation. */
+export const ANCHORED_CITATION_MAX_IDS = 3;
 
 function isCitationSchemaNode(node: unknown): node is JsonSchema {
   if (node === null || typeof node !== "object" || Array.isArray(node)) return false;
@@ -719,10 +721,15 @@ function anchoredCitationNode(node: JsonSchema): JsonSchema {
       `ARC anchored schema transform: unexpected citation node shape [${keys.join(", ")}]`,
     );
   }
-  const anchorSelector: JsonSchema = {
-    type: ["string", "null"],
-    maxLength: 32,
-    pattern: "^P[0-9]{4}-S[0-9]{4}$",
+  const anchorIds: JsonSchema = {
+    type: "array",
+    minItems: 0,
+    maxItems: ANCHORED_CITATION_MAX_IDS,
+    items: {
+      type: "string",
+      maxLength: 32,
+      pattern: "^P[0-9]{4}-S[0-9]{4}$",
+    },
   };
   return {
     type: "object",
@@ -731,8 +738,7 @@ function anchoredCitationNode(node: JsonSchema): JsonSchema {
       pageStart: properties["pageStart"]!,
       pageEnd: properties["pageEnd"]!,
       evidenceMode: properties["evidenceMode"]!,
-      anchorStart: { ...anchorSelector },
-      anchorEnd: { ...anchorSelector },
+      anchorIds,
     },
     required: [...ANCHORED_CITATION_KEYS],
     additionalProperties: false,
@@ -772,8 +778,13 @@ export function toAnchoredProviderSchema(schema: JsonSchema): JsonSchema {
       `ARC anchored schema transform: citation node parity mismatch (${replaced} of ${expected})`,
     );
   }
-  if (JSON.stringify(anchored).includes('"excerpt"')) {
-    throw new Error("ARC anchored schema transform: provider schema still exposes an excerpt");
+  const serialized = JSON.stringify(anchored);
+  for (const forbidden of ["excerpt", "anchorStart", "anchorEnd"]) {
+    if (serialized.includes(`"${forbidden}"`)) {
+      throw new Error(
+        `ARC anchored schema transform: provider schema still exposes ${forbidden}`,
+      );
+    }
   }
   return anchored;
 }
