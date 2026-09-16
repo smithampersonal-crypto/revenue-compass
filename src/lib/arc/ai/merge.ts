@@ -34,11 +34,11 @@ import {
   type PromiseDraft,
   type Step1CriterionId,
   type VcComponentDraft,
+  type VcMeterDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
 import {
-  addDays,
   deriveBillingSchedule,
   deriveProjectedCollectionDate,
   isUnclaimedString,
