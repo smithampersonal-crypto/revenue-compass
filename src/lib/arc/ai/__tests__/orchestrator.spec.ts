@@ -15,8 +15,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
+import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
+
+import { buildAiRequestPackage } from "../request-package.server";
 import {
   AI_ALLOWANCE_EXHAUSTED,
+  AI_PREFLIGHT_FAILED,
   AiApplyConflictError,
   executeAiRunHandler,
   outstandingIssueCount,
@@ -28,6 +35,8 @@ import { createEmptyAiAnalysisState } from "../merge";
 import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
 import { TerraAnalysisError } from "../terra.server";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
+
+const read = (relative: string) => readFileSync(relative, "utf8");
 
 const CALLER: AiCallerScope = {
   kind: "revision",
@@ -438,5 +447,121 @@ describe("Phase 9F — AI run orchestration", () => {
         { state: "resolved" },
       ] as never),
     ).toBe(2);
+  });
+  /* ------------------------------------- unpaid preflight terminalization */
+
+  it("terminalizes an unexpected package-builder exception without paying", async () => {
+    const h = harness({ buildPackageThrows: true });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+    expect(status.stage).toBe("preflight_failed");
+    expect(h.failure).toEqual({
+      code: "preflight_failed",
+      stage: "extracting",
+      message: AI_PREFLIGHT_FAILED,
+    });
+    expect(h.events).not.toContain("reserve");
+    expect(h.analyzeCalls).toBe(0);
+  });
+
+  it("terminalizes a token-counter exception raised inside the real builder", async () => {
+    const bytes = buildPdf({ pageTexts: ["hosted access terms"] });
+    const realBuilder: AiExecutionDeps["buildPackage"] = (args) =>
+      buildAiRequestPackage({
+        scope: args.scope,
+        currentContext: args.currentContext,
+        priorContext: args.priorContext,
+        arcFactSignals: args.arcFactSignals,
+        deps: {
+          loadAuthorizedSelectedSources: async () => [
+            {
+              documentId: "doc-1",
+              displayName: "Master Agreement",
+              originalFilename: "master.pdf",
+              sha256: createHash("sha256").update(bytes).digest("hex"),
+              byteSize: bytes.byteLength,
+              storageObjectPath: "documents/doc-1.pdf",
+            },
+          ],
+          download: async () => bytes,
+          countTokens: {
+            count: async () => {
+              throw new Error("token counter exploded");
+            },
+          },
+        },
+      }) as never;
+
+    const h = harness({ buildPackage: realBuilder });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+    expect(status.stage).toBe("preflight_failed");
+    expect(h.failure?.code).toBe("preflight_failed");
+    expect(h.failure?.message).toBe(AI_PREFLIGHT_FAILED);
+    expect(h.events).not.toContain("reserve");
+    expect(h.analyzeCalls).toBe(0);
+  });
+
+  it("terminalizes an unexpected recordPreflight exception without paying", async () => {
+    const h = harness({ recordPreflightThrows: true });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+    expect(status.stage).toBe("preflight_failed");
+    expect(h.failure?.code).toBe("preflight_failed");
+    expect(h.events).not.toContain("reserve");
+    expect(h.analyzeCalls).toBe(0);
+  });
+
+  it("keeps a typed preflight refusal on its own safe code", async () => {
+    const h = harness({
+      buildPackage: async () =>
+        ({
+          ok: false,
+          code: "no_sources",
+          message: "Select at least one document first.",
+        }) as never,
+    });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+    expect(status.stage).toBe("preflight_failed");
+    expect(h.failure?.code).toBe("no_sources");
+    expect(h.failure?.message).not.toBe(AI_PREFLIGHT_FAILED);
+    expect(h.events).not.toContain("reserve");
+    expect(h.analyzeCalls).toBe(0);
+  });
+
+  /* ------------------------------------------------ diagnostic isolation */
+
+  it("never asks the analyzer for excerpt diagnostics in production", async () => {
+    const h = harness();
+    await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+    const request = (h.deps.analyzer.analyze as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0]?.[0] as Record<string, unknown>;
+    expect(request["includeExcerptDiagnostics"]).toBeFalsy();
+
+    const boundaries = read("src/lib/arc/ai/orchestrator.server.ts");
+    expect(boundaries).not.toContain("includeExcerptDiagnostics");
+  });
+
+  it("lets a developer-only wrapper opt into bounded diagnostics", async () => {
+    const h = harness();
+    const seen: unknown[] = [];
+    const inner = h.deps.analyzer;
+    const wrapped = {
+      analyze: async (args: Record<string, unknown>) => {
+        seen.push(args["includeExcerptDiagnostics"]);
+        return inner.analyze({ ...args, includeExcerptDiagnostics: true } as never);
+      },
+    };
+    await executeAiRunHandler(
+      { ...h.deps, analyzer: wrapped as never },
+      CALLER,
+      { runId: RUN_ID },
+    );
+    expect(seen).toEqual([undefined]);
+
+    // The one live developer script is the only opt-in site.
+    const script = read("scripts/phase9f-live.ts");
+    expect(script).toContain("includeExcerptDiagnostics: true");
   });
 });
