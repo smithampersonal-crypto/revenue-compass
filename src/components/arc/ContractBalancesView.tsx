@@ -38,6 +38,21 @@ export function ContractBalancesView({
   // complete" from "the billing workpaper itself is incomplete". No accounting.
   const revenueComplete = result.finalized;
 
+  // Disclosure only. The balance engine treats a projected row exactly like any
+  // other dated collection; ARC simply refuses to present the result as if
+  // every collection were observed cash.
+  const hasProjected = draft.contractBalances.cashCollections.some((collection) =>
+    isProjectedCollection(collection),
+  );
+
+  const projectedNotice = hasProjected ? (
+    <Notice tone="warning">
+      This workpaper includes projected contractual collections derived from the contract&apos;s
+      billing and payment terms. Those amounts are not evidence that cash was received, and the
+      balances shown are a forecast to that extent.
+    </Notice>
+  ) : null;
+
   const editor = (
     <BillingAndBalances
       draft={draft}
@@ -46,6 +61,7 @@ export function ContractBalancesView({
       contractGroups={result.contractGroups}
     />
   );
+
 
   if (balances.finalized && balances.grouped) {
     return (
