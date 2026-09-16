@@ -108,13 +108,37 @@ export function buildPriorAccountingContext(source: PriorRevisionRecord): PriorA
     recognitionDate: po.recognitionDate,
   }));
 
+  // The real canonical ModificationDraft fields — never invented names.
   const modificationSummary = list(draft["contractModifications"]).map((mod) => ({
     id: mod["id"] ?? null,
     seq: mod["seq"] ?? null,
     modificationDate: mod["modificationDate"] ?? null,
-    classification: mod["classification"] ?? null,
-    additionalConsiderationInput: mod["additionalConsiderationInput"] ?? null,
+    scopeChangeDescription: mod["scopeChangeDescription"] ?? null,
+    approvedAndEnforceable: mod["approvedAndEnforceable"] ?? null,
+    considerationEffect: mod["considerationEffect"] ?? null,
+    considerationMagnitudeInput: mod["considerationMagnitudeInput"] ?? null,
+    priceReflectsAddedGoodsSsp: mod["priceReflectsAddedGoodsSsp"] ?? null,
+    mixedAllocationPolicy: mod["mixedAllocationPolicy"] ?? null,
   }));
+
+  // The authoritative derived treatment is ARC's own finalized engine output,
+  // not anything the accountant typed and not anything the model may restate.
+  const modification = record(workflow["modification"]);
+  const classification = record(modification["classification"]);
+  const modTotals = record(modification["totals"]);
+  const modificationTreatment =
+    classification["treatment"] === undefined
+      ? null
+      : {
+          treatment: classification["treatment"] ?? null,
+          label: classification["label"] ?? null,
+          rationale: classification["rationale"] ?? null,
+          considerationChangeCents: modTotals["considerationChangeCents"] ?? null,
+          historicalRevenueCents: modTotals["historicalRevenueCents"] ?? null,
+          remainingTransactionPriceCents: modTotals["remainingTransactionPriceCents"] ?? null,
+          catchUpCents: modTotals["catchUpCents"] ?? null,
+          futureRevenueCents: modTotals["futureRevenueCents"] ?? null,
+        };
 
   const price = centsOf(totals["transactionPriceCents"]);
   const revenue = centsOf(totals["revenueCents"]);
@@ -130,7 +154,10 @@ export function buildPriorAccountingContext(source: PriorRevisionRecord): PriorA
     transactionPriceInput: text(draft["transactionPriceInput"]),
     recognitionSummary,
     modificationSummary,
+    modificationTreatment,
     revenueRecognizedThroughDate: dateOnly(source.finalizedAt),
+    // Stated outright: the model never derives revenue-to-date by subtraction.
+    revenueRecognizedInput: revenue !== null ? dollars(revenue) : null,
     remainingConsiderationInput: remaining,
   };
 }

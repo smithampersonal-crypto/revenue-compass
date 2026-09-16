@@ -68,8 +68,16 @@ export interface PriorAccountingContext {
   allocation: Array<Record<string, unknown>>;
   transactionPriceInput: string;
   recognitionSummary: Array<Record<string, unknown>>;
+  /** Canonical modification drafts as the accountant entered them. */
   modificationSummary: Array<Record<string, unknown>>;
+  /**
+   * The AUTHORITATIVE derived ASC 606 treatment from the finalized engine
+   * output. Null when the finalized revision had no modification event.
+   */
+  modificationTreatment: Record<string, unknown> | null;
   revenueRecognizedThroughDate: string | null;
+  /** Revenue recognized through that date, USD decimal string. */
+  revenueRecognizedInput: string | null;
   remainingConsiderationInput: string | null;
 }
 
