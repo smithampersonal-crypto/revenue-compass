@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   const listed = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (listed.error) throw new Error("fixture accounts could not be listed");
+  if (listed.error) throw new Error(`fixture accounts could not be listed: ${listed.error.name} ${listed.error.status}`);
   const fixtures = listed.data.users.filter((user) =>
     (user.email ?? "").endsWith(FIXTURE_SUFFIX),
   );
