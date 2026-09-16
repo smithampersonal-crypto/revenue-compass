@@ -9,6 +9,7 @@ import {
   validateAiCitations,
   MAX_VALIDATION_DETAILS,
 } from "../citations";
+import { CITATION_MIRROR_LOCATOR_HEADER, buildCitationMirrorParts } from "../citation-mirror";
 import { classifyReadability, type AiDocumentEvidence } from "../types";
 
 import {
@@ -255,5 +256,91 @@ describe("bounded developer diagnostics", () => {
     expect(validation.ok).toBe(false);
     expect(diagnostic?.difference).toBe("paraphrase_or_absent");
     expect(diagnostic?.foundOnPage).toBeNull();
+  });
+});
+
+/* ----------- Phase 9F — the mirror helps the model, never the validator */
+
+describe("ARC local citation text mirror round-trip", () => {
+  const mirrorTextFor = (page: number) => {
+    const { parts, payloadParts } = buildCitationMirrorParts(evidence());
+    // The payload for a page is the part following its ARC-authored locator.
+    const locatorIndex = parts.findIndex(
+      (part) =>
+        part.text.startsWith(CITATION_MIRROR_LOCATOR_HEADER) &&
+        part.text.includes(`physicalPage: ${page}`),
+    );
+    expect(locatorIndex).toBeGreaterThan(-1);
+    expect(payloadParts).toContain(parts[locatorIndex + 1]);
+    return parts[locatorIndex + 1]!.text;
+  };
+
+  it("verifies a short contiguous span copied out of the mirror", () => {
+    const span = mirrorTextFor(1).slice(60, 140);
+    const analysis = validAnalysisFixture();
+    const citation = analysis.promises[0]!.citations[0]!;
+    citation.pageStart = 1;
+    citation.pageEnd = 1;
+    citation.evidenceMode = "text";
+    citation.excerpt = span;
+
+    const result = validateAiCitations(analysis, evidence(), pack);
+    expect(result.citationIssues).toEqual([]);
+    expect(
+      result.verifiedCitations.find((entry) => entry.path.startsWith("promises[0]"))?.verification,
+    ).toBe("text_matched");
+  });
+
+  it("keeps a table relationship valid as a visual page reference", () => {
+    const analysis = validAnalysisFixture();
+    const citation = analysis.transactionPrice.fixedConsiderationCitations[0]!;
+    citation.evidenceMode = "visual";
+    citation.excerpt = null;
+    citation.pageStart = 3;
+    citation.pageEnd = 3;
+
+    const result = validateAiCitations(analysis, evidence(), pack);
+    expect(result.citationIssues).toEqual([]);
+    expect(
+      result.verifiedCitations.find((entry) =>
+        entry.path.startsWith("transactionPrice.fixedConsiderationCitations[0]"),
+      )?.verification,
+    ).toBe("visual_page_reference");
+  });
+
+  it.each([
+    ["a trailing period that is not in the local text", "Effective Date: November 1, 2026 ."],
+    ["stitched table-cell text", "Annual Advance ($245,000/yr Net 30); Tier 2 overage"],
+    ["an ellipsis with omitted words", "Effective Term Nov 1, 2026 ... Oct 31, 2028"],
+    ["a fabricated excerpt", "Provider grants Customer a perpetual irrevocable licence"],
+  ])("still rejects %s even though the mirror was supplied", (_label, excerpt) => {
+    const analysis = validAnalysisFixture();
+    const citation = analysis.promises[0]!.citations[0]!;
+    citation.pageStart = 3;
+    citation.pageEnd = 3;
+    citation.evidenceMode = "text";
+    citation.excerpt = excerpt;
+
+    const result = validateAiCitations(analysis, evidence(), pack);
+    expect(result.ok).toBe(false);
+    expect(result.citationIssues.map((issue) => issue.code)).toContain("excerpt_not_found");
+  });
+
+  it("still rejects an exact mirror span cited on the wrong physical page", () => {
+    const span = mirrorTextFor(3).slice(20, 70);
+    const analysis = validAnalysisFixture();
+    const citation = analysis.promises[0]!.citations[0]!;
+    citation.pageStart = 1;
+    citation.pageEnd = 1;
+    citation.evidenceMode = "text";
+    citation.excerpt = span;
+
+    const result = validateAiCitations(analysis, evidence(), pack);
+    expect(result.ok).toBe(false);
+    expect(result.citationIssues.map((issue) => issue.code)).toContain("excerpt_not_found");
+    // Diagnosis (developer-only) can say where it really is; validation cannot.
+    expect(diagnoseExcerptMismatches(analysis, evidence(), result.citationIssues)[0]).toMatchObject(
+      { difference: "wrong_page", foundOnPage: 3 },
+    );
   });
 });

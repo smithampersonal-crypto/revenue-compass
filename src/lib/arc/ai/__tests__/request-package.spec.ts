@@ -12,11 +12,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 
+import { CITATION_MIRROR_LOCATOR_HEADER } from "../citation-mirror";
 import { AI_LIMITS } from "../config.server";
 import {
   buildAiRequestPackage,
   buildCanonicalResponsesRequest,
-  releaseRequestBytes,
+  releaseRequestSensitivePayload,
   type AuthorizedSource,
   type AiPackageDeps,
 } from "../request-package.server";
@@ -315,8 +316,68 @@ describe("buildAiRequestPackage", () => {
   it("releases PDF byte references after the package has been used", async () => {
     const result = await build();
     if (!result.ok) throw new Error("expected ok");
-    releaseRequestBytes(result.package);
+    releaseRequestSensitivePayload(result.package);
     expect(JSON.stringify(result.package.openAiInput)).not.toContain("base64,");
+  });
+
+  /* ----------------------------- Phase 9F — ARC local citation text mirror */
+
+  it("carries one locator/payload mirror pair per physical page beside each PDF", async () => {
+    const result = await build();
+    if (!result.ok) throw new Error("expected ok");
+
+    const pages = result.package.sources.reduce((total, s) => total + s.pages.length, 0);
+    const parts = (result.package.openAiInput[0] as { content: Array<Record<string, unknown>> })
+      .content;
+
+    // The PDFs are still attached exactly once each, transiently.
+    const files = fileItems(result.package.openAiInput);
+    expect(files).toHaveLength(2);
+    expect(files.every((file) => file["file_id"] === undefined)).toBe(true);
+
+    const locators = parts.filter(
+      (part) =>
+        part["type"] === "input_text" &&
+        String(part["text"]).startsWith(CITATION_MIRROR_LOCATOR_HEADER),
+    );
+    expect(locators).toHaveLength(pages);
+    expect(result.package.transientMirrorParts).toHaveLength(pages);
+
+    // Every payload is byte-identical to ARC's own local page text, which is
+    // exactly what the citation validator matches against.
+    const localText = result.package.sources.flatMap((s) => s.pages.map((p) => p.text));
+    expect(result.package.transientMirrorParts!.map((part) => part.text)).toEqual(localText);
+
+    // The mirror for a document follows that document's own attachment.
+    const firstFile = parts.indexOf(files[0]!);
+    const secondFile = parts.indexOf(files[1]!);
+    expect(parts.indexOf(locators[0]!)).toBeGreaterThan(firstFile);
+    expect(parts.indexOf(locators[0]!)).toBeLessThan(secondFile);
+  });
+
+  it("counts the canonical envelope including the mirror and sends that same object", async () => {
+    const count = vi.fn(async (_request: Record<string, unknown>) => ({ input_tokens: 99 }));
+    const result = await build({ countTokens: { count } });
+    if (!result.ok) throw new Error("expected ok");
+
+    const counted = count.mock.calls[0]![0] as Record<string, unknown>;
+    expect(counted["input"]).toBe(result.package.openAiInput);
+    expect(JSON.stringify(counted)).toContain(CITATION_MIRROR_LOCATOR_HEADER);
+    expect(result.canonicalRequest["input"]).toBe(result.package.openAiInput);
+  });
+
+  it("releases the mirror transcriptions along with the PDF bytes", async () => {
+    const result = await build();
+    if (!result.ok) throw new Error("expected ok");
+    const sample = result.package.sources[0]!.pages[0]!.text;
+    expect(result.package.transientMirrorParts![0]!.text).toBe(sample);
+
+    releaseRequestSensitivePayload(result.package);
+
+    expect(JSON.stringify(result.package.openAiInput)).not.toContain("base64,");
+    expect(result.package.transientMirrorParts!.every((part) => part.text === "")).toBe(true);
+    // The ARC-authored locators stay: they carry no contract text.
+    expect(JSON.stringify(result.package.openAiInput)).toContain(CITATION_MIRROR_LOCATOR_HEADER);
   });
 });
 

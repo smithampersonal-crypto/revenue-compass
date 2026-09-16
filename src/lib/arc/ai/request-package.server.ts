@@ -22,6 +22,7 @@ import { createHash } from "node:crypto";
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 import type { GuidancePack } from "@/lib/arc/guidance/types";
 
+import { buildDocumentCitationMirrorParts, type CitationMirrorPart } from "./citation-mirror";
 import { AI_LIMITS, type AiLimits } from "./config.server";
 import { AiEvidenceError, extractPdfEvidence } from "./evidence.server";
 import type { OpenAiTokenCounter } from "./openai.server";
@@ -132,7 +133,7 @@ function sourceMetadataText(evidence: AiDocumentEvidence, index: number): string
     // visually open another ARC-VERIFIED IDENTITY / trusted-section block.
     `  displayName: "${sanitizeUntrustedLabel(evidence.displayName)}"`,
     `  originalFilename: "${sanitizeUntrustedLabel(evidence.originalFilename)}"`,
-    "The attached PDF immediately below is this document. Cite it by its ARC documentId and physical page number.",
+    "The attached PDF immediately below is this document, followed by ARC's local citation text mirror for each of its physical pages. Cite it by its ARC documentId and physical page number.",
   ].join("\n");
 }
 
@@ -256,8 +257,14 @@ export function buildCanonicalResponsesRequest(
   };
 }
 
-/** Releases the large in-memory base64 references once the run is finished. */
-export function releaseRequestBytes(requestPackage: AiRequestPackage): void {
+/**
+ * Releases the large/sensitive in-memory payloads once the run is finished:
+ * the transient PDF base64 and the ARC local citation text mirror bodies.
+ *
+ * Mirror payload parts are cleared through the references recorded at build
+ * time — never by matching page content, which is attacker-controlled.
+ */
+export function releaseRequestSensitivePayload(requestPackage: AiRequestPackage): void {
   for (const message of requestPackage.openAiInput as Array<{ content?: unknown[] }>) {
     for (const part of message.content ?? []) {
       const record = part as Record<string, unknown>;
@@ -265,6 +272,9 @@ export function releaseRequestBytes(requestPackage: AiRequestPackage): void {
         record["file_data"] = "";
       }
     }
+  }
+  for (const part of requestPackage.transientMirrorParts ?? []) {
+    part.text = "";
   }
 }
 
@@ -344,6 +354,7 @@ export async function buildAiRequestPackage(
     },
   ];
 
+  const mirrorPayloadParts: CitationMirrorPart[] = [];
   evidence.forEach((document, index) => {
     content.push({ type: "input_text", text: sourceMetadataText(document, index) });
     content.push({
@@ -355,6 +366,11 @@ export async function buildAiRequestPackage(
       // Transient in-request bytes. Never a persistent OpenAI file id.
       file_data: fileData[index]!,
     });
+    // Phase 9F — the ARC local citation text mirror for this same document:
+    // supplemental citation-copy material, never a replacement for the PDF.
+    const mirror = buildDocumentCitationMirrorParts(document);
+    content.push(...mirror.parts);
+    mirrorPayloadParts.push(...mirror.payloadParts);
   });
 
   // Trusted ARC guidance: the retrieved cards' accounting prose travels in the
@@ -380,6 +396,7 @@ export async function buildAiRequestPackage(
     priorContext: args.priorContext ?? null,
     openAiInput,
     combinedFileBytes,
+    transientMirrorParts: mirrorPayloadParts,
   };
 
   // Preflight counts the ONE canonical envelope verbatim. There is no reduced

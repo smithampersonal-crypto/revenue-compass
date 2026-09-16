@@ -89,6 +89,12 @@ export interface AiRequestPackage {
   /** Responses API input items, including each original PDF exactly once. */
   openAiInput: unknown[];
   combinedFileBytes: number;
+  /**
+   * Phase 9F — references to the ARC local citation text mirror payload parts
+   * carried inside `openAiInput`, recorded at build time so the transient page
+   * transcriptions can be released without matching page content.
+   */
+  transientMirrorParts?: Array<{ type: "input_text"; text: string }>;
 }
 
 export type AiPreflightFailureCode =
