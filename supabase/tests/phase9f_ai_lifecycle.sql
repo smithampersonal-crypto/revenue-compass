@@ -90,13 +90,18 @@ begin
   insert into public.contracts (customer_id, title) values (v_customer, 'Phase 9F Contract')
     returning id into v_contract;
   insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  -- Revision 1 is finalized through the trusted routine; revision 2 is the
+  -- editable draft every Phase 9F assertion below works against.
   insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
-  values (v_analysis, 1, '{"origin":"accountant"}'::jsonb, 'arc.workflow.v1')
-    returning id into v_rev;
-  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs,
-                                         schema_version, status, finalized_at)
-  values (v_analysis, 2, '{"origin":"finalized"}'::jsonb, 'arc.workflow.v1', 'finalized', now())
+  values (v_analysis, 1, '{"origin":"finalized"}'::jsonb, 'arc.workflow.v1')
     returning id into v_final_rev;
+  perform public.arc_finalize_revision(v_user, v_final_rev, 1, '{"engine":true}'::jsonb,
+                                       '{"reconciled":true}'::jsonb, 'arc.workflow.v1', 'engine-9f');
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs,
+                                         schema_version, supersedes_revision_id)
+  values (v_analysis, 2, '{"origin":"accountant"}'::jsonb, 'arc.workflow.v1', v_final_rev)
+    returning id into v_rev;
+
 
   insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
   values (v_hash, '{"origin":"visitor"}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
