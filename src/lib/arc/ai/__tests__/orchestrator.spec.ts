@@ -86,6 +86,8 @@ function harness(
     recordPreflightThrows?: boolean;
     /** Replaces the package builder entirely (typed refusal, real builder...). */
     buildPackage?: AiExecutionDeps["buildPackage"];
+    /** Source state already recorded on the accountant's sidecar. */
+    priorSourceState?: AiAnalysisState["sourceState"];
   } = {},
 ): Harness {
   const stages: AiRunStage[] = [];
