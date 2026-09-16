@@ -439,6 +439,15 @@ export async function executeAiRunHandler(
         return finish(deps, caller, run.id);
       }
 
+      // Source freshness is a lifecycle concern, not merge policy: the merge
+      // carries the previous state forward, and only a successful apply marks
+      // the analyzed selection as current.
+      const appliedAiState: AiAnalysisState = {
+        ...merged.aiState,
+        sourceSetFingerprint: currentSourceSetFingerprint,
+        sourceState: "current",
+      };
+
       try {
         await deps.store.applyRun({
           runId: run.id,
