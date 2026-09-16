@@ -272,7 +272,10 @@ describe("ARC local citation text mirror round-trip", () => {
     );
     expect(locatorIndex).toBeGreaterThan(-1);
     expect(payloadParts).toContain(parts[locatorIndex + 1]);
-    return parts[locatorIndex + 1]!.text;
+    const payload = JSON.parse(parts[locatorIndex + 1]!.text) as {
+      anchors: Array<{ text: string }>;
+    };
+    return payload.anchors.map((anchor) => anchor.text).join("");
   };
 
   it("verifies a short contiguous span copied out of the mirror", () => {

@@ -721,6 +721,35 @@ changed, so the database suites are unaffected. One allowance consumed
 Phase 9G not started.
 
 
+### Phase 9F — ARC-owned citation anchors (Tasks 1–8 complete, awaiting live acceptance)
+
+The model no longer transcribes excerpts. ARC segments each physical page into
+deterministic, page-scoped anchors (`P0001-S0001`, ≤160 chars, preferred
+boundary ≥80 chars), exposes them through the untrusted JSON mirror payload,
+and the model selects an anchor range (≤3, one physical page) instead of
+copying text. ARC materializes the excerpt byte-for-byte from local page text
+before validation, so `validateAiCitations()` and `normalizeCitationText()`
+remain unchanged and unweakened.
+
+New modules: `citation-anchors.ts`, `citation-anchor-materializer.ts`; rewritten
+`citation-mirror.ts` (trusted ARC locator part + JSON-framed untrusted payload,
+no delimiter parsing); `schema.ts` provider transform `toAnchoredProviderSchema`
+with exact citation-node replacement parity (fails closed on mismatch, zero
+nodes, or a surviving provider-facing excerpt); `anchorStart`/`anchorEnd` are
+required-but-nullable and the materializer enforces text vs visual nullability.
+`outputSchemaVersion` → `arc.ai.schema.v2`, `promptVersion` → `arc.ai.prompt.v3`,
+new Terra failure category `citation_anchor_failure` (bounded code + schema path
+diagnostics only).
+
+Verification: 1,250 tests / 113 files pass, typecheck clean, lint 0 errors
+(10 pre-existing warnings), build OK, `audit:bundle` clean, `guidance:check`
+116 approved cards, hash `352bcf79…5d56`. SQL unchanged; the database suites run
+in CI. Preflight only (no generative call): Genomix fixture, 4 pages, 99 anchors,
+**38,890 input tokens**, cap 200,000, truncation disabled, no source dropped.
+
+Phase 9F still awaiting final live acceptance; Task 9 not run; Phase 9G not
+started.
+
 
 
 ## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (accepted)

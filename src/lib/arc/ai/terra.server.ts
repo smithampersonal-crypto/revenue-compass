@@ -22,10 +22,11 @@ import {
   validateAiCitations,
   type AiCitationValidationResult,
 } from "./citations";
+import { materializeAiCitationAnchors } from "./citation-anchor-materializer";
 import type { ArcStructuredOutput } from "./request-package.server";
 import {
   AI_OUTPUT_SCHEMA_NAME,
-  aiContractAnalysisJsonSchema,
+  aiAnchoredContractAnalysisJsonSchema,
   parseAiContractAnalysis,
   type AiContractAnalysis,
 } from "./schema";
@@ -82,6 +83,7 @@ export type TerraFailureCategory =
   | "api_failure"
   | "structured_output_parse_failure"
   | "response_invalid"
+  | "citation_anchor_failure"
   | "citation_validation_failure";
 
 export class TerraAnalysisError extends Error {
@@ -116,6 +118,7 @@ export const TERRA_SAFE_MESSAGES: Record<TerraFailureCategory, string> = {
   api_failure: "The AI service request failed.",
   structured_output_parse_failure: "The model returned output ARC could not parse.",
   response_invalid: "The model response failed ARC's local schema validation.",
+  citation_anchor_failure: "The model response selected citation anchors ARC could not resolve.",
   citation_validation_failure: "The model response failed ARC provenance validation.",
 };
 
@@ -225,9 +228,21 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
         );
       }
 
+      // Phase 9F. The model selected ARC anchors; ARC — not the model — now
+      // writes the exact excerpt from its own local page extraction. Fails
+      // closed: no repair, no retry, no fallback.
+      const materialized = materializeAiCitationAnchors(parsed, args.evidence);
+      if (!materialized.ok) {
+        throw new TerraAnalysisError(
+          "citation_anchor_failure",
+          TERRA_SAFE_MESSAGES.citation_anchor_failure,
+          materialized.issues.map((issue) => `${issue.code} at ${issue.path}`),
+        );
+      }
+
       // Independent local validation: strict Structured Outputs acceptance by
       // the API is never sufficient on its own.
-      const validated = parseAiContractAnalysis(parsed);
+      const validated = parseAiContractAnalysis(materialized.value);
       if (!validated.ok) {
         throw new TerraAnalysisError(
           "response_invalid",
@@ -277,7 +292,7 @@ export function arcStructuredOutput(): ArcStructuredOutput {
       type: "json_schema",
       name: AI_OUTPUT_SCHEMA_NAME,
       strict: true,
-      schema: aiContractAnalysisJsonSchema,
+      schema: aiAnchoredContractAnalysisJsonSchema,
     },
   };
 }

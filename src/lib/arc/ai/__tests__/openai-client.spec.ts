@@ -21,7 +21,7 @@ import {
   type AiPackageDeps,
   type AuthorizedSource,
 } from "../request-package.server";
-import { aiContractAnalysisJsonSchema } from "../schema";
+import { aiAnchoredContractAnalysisJsonSchema } from "../schema";
 import {
   arcStructuredOutput,
   createTerraAnalyzer,
@@ -116,7 +116,7 @@ describe("canonical Phase 9D request", () => {
         type: "json_schema",
         name: "arc_ai_contract_analysis",
         strict: true,
-        schema: aiContractAnalysisJsonSchema,
+        schema: aiAnchoredContractAnalysisJsonSchema,
       },
     });
   });

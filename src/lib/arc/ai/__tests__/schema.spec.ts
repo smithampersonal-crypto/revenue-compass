@@ -34,15 +34,15 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("pins the output schema version to the 9C constant", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v1");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v2");
   });
 
   it("accepts only the authoritative schema version literal", () => {
     const good = validAnalysisFixture();
-    good.schemaVersion = "arc.ai.schema.v1";
+    good.schemaVersion = "arc.ai.schema.v2";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
-    for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v2", ""]) {
+    for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
       const bad = validAnalysisFixture() as unknown as { schemaVersion: string };
       bad.schemaVersion = wrong;
       expect(parseAiContractAnalysis(bad).ok).toBe(false);
