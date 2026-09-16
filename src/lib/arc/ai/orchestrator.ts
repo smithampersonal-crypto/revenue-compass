@@ -145,6 +145,26 @@ export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
   analyzer: TerraAnalyzer;
   /** Frees the in-memory base64 attachments as soon as the run is finished. */
   releaseBytes?: (requestPackage: unknown) => void;
+  /**
+   * Developer-only, in-memory, bounded merge diagnostic. Production
+   * orchestration never supplies this. It receives the failing error's class
+   * name and the top code frames only — never the model response, page text,
+   * draft values, prompt or credentials — and nothing here is persisted.
+   */
+  onMergeDiagnostic?: (diagnostic: { errorName: string; frames: readonly string[] }) => void;
+}
+
+/** Bounded, non-sensitive frames: file, line and column only. */
+function mergeDiagnosticOf(error: unknown): { errorName: string; frames: readonly string[] } {
+  const errorName = error instanceof Error ? error.name : typeof error;
+  const stack = error instanceof Error && typeof error.stack === "string" ? error.stack : "";
+  const frames = stack
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("at "))
+    .slice(0, 5)
+    .map((line) => line.replace(/^at\s+/, "").slice(0, 160));
+  return { errorName, frames };
 }
 
 export const AI_ALLOWANCE_EXHAUSTED =
