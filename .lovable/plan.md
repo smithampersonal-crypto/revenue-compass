@@ -30,6 +30,11 @@ validator runs.
    `aiAnchoredContractAnalysisJsonSchema`, built by deep-cloning the internal strict JSON schema and
    structurally replacing every citation node's `excerpt` with `anchorStart`/`anchorEnd`. Bump
    `AI_OUTPUT_SCHEMA_VERSION` to `arc.ai.schema.v2`; point `arcStructuredOutput()` at it.
+   The transform first counts the internal citation schema nodes by an independent traversal, then
+   requires exact parity between that count and the number of nodes it replaced: any mismatch (or a
+   count of zero, or any surviving provider-facing `excerpt`) throws and fails closed rather than
+   emitting a partially transformed schema. Regressions cover parity, zero-node rejection, and a
+   deliberately mismatched fixture.
 4. **Materializer** — new `citation-anchor-materializer.ts`: builds the anchor index from evidence,
    walks the raw model object, converts only provider-shaped citation objects into internal
    excerpt citations, and fails closed with bounded issue codes (`anchor_unknown`,
