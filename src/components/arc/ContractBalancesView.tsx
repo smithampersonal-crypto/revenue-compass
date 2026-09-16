@@ -1,3 +1,4 @@
+import { isProjectedCollection } from "@/lib/asc606-workflow";
 import type {
   ContractBalanceWorkflowResult,
   WorkflowAnalysisResult,
@@ -38,6 +39,21 @@ export function ContractBalancesView({
   // complete" from "the billing workpaper itself is incomplete". No accounting.
   const revenueComplete = result.finalized;
 
+  // Disclosure only. The balance engine treats a projected row exactly like any
+  // other dated collection; ARC simply refuses to present the result as if
+  // every collection were observed cash.
+  const hasProjected = draft.contractBalances.cashCollections.some((collection) =>
+    isProjectedCollection(collection),
+  );
+
+  const projectedNotice = hasProjected ? (
+    <Notice tone="warning">
+      This workpaper includes projected contractual collections derived from the contract&apos;s
+      billing and payment terms. Those amounts are not evidence that cash was received, and the
+      balances shown are a forecast to that extent.
+    </Notice>
+  ) : null;
+
   const editor = (
     <BillingAndBalances
       draft={draft}
@@ -47,10 +63,12 @@ export function ContractBalancesView({
     />
   );
 
+
   if (balances.finalized && balances.grouped) {
     return (
       <div className="space-y-6">
         {editor}
+        {projectedNotice}
         {balances.grouped.groups.map((group) => (
           <div key={group.groupId} className="space-y-4">
             <Section
@@ -74,6 +92,7 @@ export function ContractBalancesView({
     return (
       <div className="space-y-6">
         {editor}
+        {projectedNotice}
         <ContractBalanceOutputs analysis={balances.analysis} />
       </div>
     );
@@ -82,6 +101,7 @@ export function ContractBalancesView({
   return (
     <div className="space-y-6">
       {editor}
+      {projectedNotice}
       <Section title="Billing, receivables and contract balances">
         <Notice tone="warning">
           {revenueComplete

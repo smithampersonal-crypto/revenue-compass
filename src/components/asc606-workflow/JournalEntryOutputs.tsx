@@ -48,11 +48,17 @@ export function JournalEntryOutputs({
   analysis,
   poNames,
   title = "Journal Entries",
+  projectedCollectionIds,
 }: {
   analysis: JournalAnalysis;
   poNames: ReadonlyMap<string, string>;
   /** Identifies the contract these entries belong to in a grouped analysis. */
   title?: string;
+  /**
+   * Cash-collection draft IDs whose recorded basis is a contract-derived
+   * projection. Presentation only: the engine arithmetic is untouched.
+   */
+  projectedCollectionIds?: ReadonlySet<string>;
 }) {
   const { entries, reconciliation, validation } = analysis;
   const finalized = entries !== null && reconciliation.reconciled === true;
@@ -69,7 +75,11 @@ export function JournalEntryOutputs({
               <div key={entry.id} className="rounded-md border border-border p-3">
                 <p className="text-sm font-semibold text-foreground">{entry.date}</p>
                 <p className="text-sm font-medium text-foreground">
-                  {EVENT_LABELS[entry.eventType]}
+                  {entry.eventType === "cash_collection" &&
+                  entry.sourceId !== null &&
+                  projectedCollectionIds?.has(entry.sourceId)
+                    ? "Projected Cash Collection — Illustrative"
+                    : EVENT_LABELS[entry.eventType]}
                 </p>
                 <p className="text-sm text-muted-foreground">{entry.description}</p>
                 <table className="mt-2 w-full border-collapse text-sm">
