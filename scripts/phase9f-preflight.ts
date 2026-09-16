@@ -19,6 +19,7 @@ import path from "node:path";
 import { AI_LIMITS } from "@/lib/arc/ai/config.server";
 import { productionTokenCounter } from "@/lib/arc/ai/openai.server";
 import {
+  arcCanonicalInstructions,
   buildAiRequestPackage,
   releaseRequestSensitivePayload,
   type AuthorizedSource,
