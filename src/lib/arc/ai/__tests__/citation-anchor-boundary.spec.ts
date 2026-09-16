@@ -57,9 +57,17 @@ describe("citation anchor prompt boundary", () => {
     expect(text).toContain("anchorStart");
     expect(text).toContain("anchorEnd");
     expect(text).toContain("ARC owns the excerpt");
-    expect(text).not.toContain("character-for-character");
-    expect(text).not.toContain("copy character");
+    for (const stale of [
+      "copy the excerpt",
+      "excerpt = null",
+      "character for character",
+      "character-for-character",
+      "copy character",
+    ]) {
+      expect(text).not.toContain(stale);
+    }
   });
+
 
   it("keeps the anchor rules inside the trusted policy section", () => {
     const text = instructions();
