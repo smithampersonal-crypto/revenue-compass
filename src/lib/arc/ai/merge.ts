@@ -188,6 +188,39 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...draft.contractBalances.cashCollections.map((row) => row.id),
   ]);
 
+  /* ------------------------------------------- pre-merge canonical baseline */
+
+  // Every canonical row whose ID no AI run has ever owned belongs to the
+  // accountant. Manual structure is stronger than AI structure: ARC preserves
+  // it and never stands a duplicate beside it.
+  const aiOwnedIds = new Set(
+    Object.values(previousState.objectProvenance).map((provenance) => provenance.canonicalId),
+  );
+  const isManualRow = (id: string) => !aiOwnedIds.has(id);
+  const manualPromises = args.currentDraft.promises.filter((row) => isManualRow(row.id));
+  const manualPoIds = new Set(
+    args.currentDraft.performanceObligations.filter((row) => isManualRow(row.id)).map((r) => r.id),
+  );
+  const manualVcComponents = args.currentDraft.variableConsiderationComponents.filter((row) =>
+    isManualRow(row.id),
+  );
+  const manualModifications = args.currentDraft.contractModifications.filter((row) =>
+    isManualRow(row.id),
+  );
+  const manualConsiderationEvents = args.currentDraft.contractBalances.considerationEvents.filter(
+    (row) => isManualRow(row.id),
+  );
+
+  // Each AI-owned object as it stood BEFORE this merge. Comparing THIS with
+  // the fingerprint ARC last wrote is the only sound test of a user edit: a
+  // difference measured after ARC applied the new analysis would simply be
+  // ARC's own work misread as the accountant's.
+  const preMergeFingerprints = new Map<string, string>();
+  for (const [semanticKey, provenance] of Object.entries(previousState.objectProvenance)) {
+    const fingerprint = fingerprintCanonicalObject(args.currentDraft, provenance.canonicalId);
+    if (fingerprint !== null) preMergeFingerprints.set(semanticKey, fingerprint);
+  }
+
   /* ---------------------------------------------- prior finalized context */
 
   // Prior finalized accounting is read-only history. Seeding its keys before
