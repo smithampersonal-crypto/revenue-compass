@@ -222,10 +222,20 @@ export function validateAiCitations(
 
 /**
  * Developer-only, bounded diagnosis of `excerpt_not_found` issues, used by the
- * fictional Phase 9D acceptance fixture to tell a whitespace/punctuation
- * difference apart from an actual paraphrase. It never returns full page text
- * and never returns the model response; the excerpt preview is hard-bounded.
+ * fictional Phase 9F acceptance fixture to tell a whitespace/punctuation
+ * difference, a wrong-page citation and an actual paraphrase apart. It never
+ * returns full page text and never returns the model response; the excerpt
+ * preview is hard-bounded.
+ *
+ * Diagnosis ONLY. None of these classifications makes a citation valid: the
+ * strict validator above is unchanged and still rejects every one of them.
  */
+export type AiExcerptDifference =
+  | "normalized_match_unexpected"
+  | "punctuation_or_whitespace"
+  | "wrong_page"
+  | "paraphrase_or_absent";
+
 export interface AiExcerptDiagnostic {
   path: string;
   documentId: string;
@@ -233,7 +243,9 @@ export interface AiExcerptDiagnostic {
   pageEnd: number;
   evidenceMode: "text" | "visual";
   excerptPreview: string;
-  difference: "punctuation_or_whitespace" | "paraphrase_or_absent";
+  difference: AiExcerptDifference;
+  /** For `wrong_page`: the first page of the same ARC document that contains it. */
+  foundOnPage: number | null;
 }
 
 const EXCERPT_PREVIEW_LENGTH = 120;
@@ -251,35 +263,124 @@ export function diagnoseExcerptMismatches(
   const failedPaths = new Set(
     issues.filter((issue) => issue.code === "excerpt_not_found").map((issue) => issue.path),
   );
-  const pages = new Map(
-    evidence.map((document) => [
-      document.documentId,
-      new Map(document.pages.map((page) => [page.pageNumber, page.text])),
-    ]),
-  );
+  const documents = new Map(evidence.map((document) => [document.documentId, document]));
 
   const out: AiExcerptDiagnostic[] = [];
   for (const { path, citation } of collectCitations(analysis)) {
     if (!failedPaths.has(path) || out.length >= limit) continue;
-    const documentPages = pages.get(citation.documentId);
+    const document = documents.get(citation.documentId);
+    const pageText = new Map((document?.pages ?? []).map((page) => [page.pageNumber, page.text]));
+
     const parts: string[] = [];
     for (let page = citation.pageStart; page <= citation.pageEnd; page += 1) {
-      parts.push(documentPages?.get(page) ?? "");
+      parts.push(pageText.get(page) ?? "");
     }
-    const folded = alphanumericFold(parts.join(" "));
-    const needle = alphanumericFold(citation.excerpt ?? "");
+    const excerpt = citation.excerpt ?? "";
+    const citedNormalized = normalizeCitationText(parts.join(" "));
+    const citedFolded = alphanumericFold(parts.join(" "));
+    const needleNormalized = normalizeCitationText(excerpt);
+    const needleFolded = alphanumericFold(excerpt);
+
+    let difference: AiExcerptDifference = "paraphrase_or_absent";
+    let foundOnPage: number | null = null;
+
+    if (needleNormalized.length > 0 && citedNormalized.includes(needleNormalized)) {
+      // Should be unreachable while validation and diagnosis agree.
+      difference = "normalized_match_unexpected";
+    } else if (needleFolded.length > 0 && citedFolded.includes(needleFolded)) {
+      difference = "punctuation_or_whitespace";
+    } else if (needleFolded.length > 0) {
+      for (const page of document?.pages ?? []) {
+        if (page.pageNumber >= citation.pageStart && page.pageNumber <= citation.pageEnd) continue;
+        if (
+          normalizeCitationText(page.text).includes(needleNormalized) ||
+          alphanumericFold(page.text).includes(needleFolded)
+        ) {
+          difference = "wrong_page";
+          foundOnPage = page.pageNumber;
+          break;
+        }
+      }
+    }
+
     out.push({
       path,
       documentId: citation.documentId,
       pageStart: citation.pageStart,
       pageEnd: citation.pageEnd,
       evidenceMode: citation.evidenceMode,
-      excerptPreview: (citation.excerpt ?? "").slice(0, EXCERPT_PREVIEW_LENGTH),
-      difference:
-        needle.length > 0 && folded.includes(needle)
-          ? "punctuation_or_whitespace"
-          : "paraphrase_or_absent",
+      excerptPreview: excerpt.slice(0, EXCERPT_PREVIEW_LENGTH),
+      difference,
+      foundOnPage,
     });
   }
   return out;
+}
+
+/* --------------------------------------------- bounded failure detail budget */
+
+/** Hard privacy bound on the detail strings carried by a validation failure. */
+export const MAX_VALIDATION_DETAILS = 40;
+const MAX_ORDINARY_PATHS = 10;
+
+export interface ValidationFailureDetailArgs {
+  validation: AiCitationValidationResult;
+  analysis: AiContractAnalysis;
+  evidence: readonly AiDocumentEvidence[];
+  includeExcerptDiagnostics?: boolean;
+}
+
+/**
+ * Allocates the bounded 40-slot detail budget.
+ *
+ * Diagnostics OFF (production): the existing safe `code at path` summaries.
+ * Diagnostics ON (developer-only): 1 aggregate count line, at most 10
+ * representative ordinary issue paths, and ALL remaining slots reserved for
+ * excerpt mismatch classification — so an `excerpt_not_found` storm can never
+ * starve the classification lines.
+ */
+export function buildValidationFailureDetails(args: ValidationFailureDetailArgs): string[] {
+  const { validation, analysis, evidence, includeExcerptDiagnostics } = args;
+  const ordinary = [
+    ...validation.citationIssues,
+    ...validation.guidanceIssues,
+    ...validation.provenanceIssues,
+  ].map((issue) => `${issue.code} at ${issue.path}`);
+
+  if (!includeExcerptDiagnostics) return ordinary.slice(0, MAX_VALIDATION_DETAILS);
+
+  const counts = new Map<string, number>();
+  for (const issue of [
+    ...validation.citationIssues,
+    ...validation.guidanceIssues,
+    ...validation.provenanceIssues,
+  ]) {
+    counts.set(issue.code, (counts.get(issue.code) ?? 0) + 1);
+  }
+  const countLine = `validation counts: ${[...counts.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([code, total]) => `${code}=${total}`)
+    .join(" ")}`;
+
+  const details: string[] = [countLine];
+  details.push(...ordinary.slice(0, MAX_ORDINARY_PATHS));
+
+  const remaining = MAX_VALIDATION_DETAILS - details.length;
+  if (remaining <= 0) return details.slice(0, MAX_VALIDATION_DETAILS);
+
+  for (const diagnostic of diagnoseExcerptMismatches(
+    analysis,
+    evidence,
+    validation.citationIssues,
+    remaining,
+  )) {
+    const found = diagnostic.foundOnPage === null ? "" : ` found p${diagnostic.foundOnPage}`;
+    details.push(
+      `mismatch ${diagnostic.path} cited p${diagnostic.pageStart}-${diagnostic.pageEnd}` +
+        `${found} [${diagnostic.evidenceMode}] ${diagnostic.difference} ` +
+        `excerpt="${diagnostic.excerptPreview}"`,
+    );
+  }
+
+  return details.slice(0, MAX_VALIDATION_DETAILS);
 }
