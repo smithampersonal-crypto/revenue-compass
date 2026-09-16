@@ -32,7 +32,7 @@ import {
   type AiExecutionDeps,
   type AiRunExecutionStore,
 } from "../orchestrator";
-import { createEmptyAiAnalysisState } from "../merge";
+import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import type { AiFailureCategory } from "../orchestrator";
 import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
 import {
@@ -40,6 +40,7 @@ import {
   TerraAnalysisError,
   type TerraFailureCategory,
 } from "../terra.server";
+import { computeSourceSetFingerprint } from "../source-fingerprint";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
@@ -56,7 +57,13 @@ interface Harness {
   run: AiRunRow;
   stages: AiRunStage[];
   events: string[];
-  applied: { draft: WorkflowDraft; lockVersion: number; reviewIssueCount: number } | null;
+  applied: {
+    draft: WorkflowDraft;
+    lockVersion: number;
+    reviewIssueCount: number;
+    aiState: AiAnalysisState;
+    sourceSetFingerprint: string;
+  } | null;
   failure: { code: string; stage: string; message: string } | null;
   restored: number;
   analyzeCalls: number;
@@ -80,6 +87,8 @@ function harness(
     recordPreflightThrows?: boolean;
     /** Replaces the package builder entirely (typed refusal, real builder...). */
     buildPackage?: AiExecutionDeps["buildPackage"];
+    /** Source state already recorded on the accountant's sidecar. */
+    priorSourceState?: AiAnalysisState["sourceState"];
   } = {},
 ): Harness {
   const stages: AiRunStage[] = [];
@@ -111,7 +120,12 @@ function harness(
 
   const context: AiExecutionContext = {
     draft: createEmptyDraft(),
-    aiState: createEmptyAiAnalysisState(),
+    aiState: {
+      ...createEmptyAiAnalysisState(),
+      ...(options.priorSourceState
+        ? { sourceState: options.priorSourceState, sourceSetFingerprint: "b".repeat(64) }
+        : {}),
+    },
     priorContext: null,
     schemaVersion: "arc-workflow-1",
     lockVersion: 3,
@@ -179,6 +193,8 @@ function harness(
         draft: args.canonicalInputs,
         lockVersion: args.expectedLockVersion,
         reviewIssueCount: args.reviewIssueCount,
+        aiState: args.aiState,
+        sourceSetFingerprint: args.sourceSetFingerprint,
       };
       run.stage = "succeeded";
       run.reviewIssueCount = args.reviewIssueCount;
@@ -598,5 +614,60 @@ describe("Phase 9F — AI run orchestration", () => {
     // The one live developer script is the only opt-in site.
     const script = read("scripts/phase9f-live.ts");
     expect(script).toContain("includeExcerptDiagnostics: true");
+  });
+
+  /* --------------------------------------------- source-state transitions */
+
+  describe("source freshness is owned by orchestration", () => {
+    const expectedFingerprint = () =>
+      computeSourceSetFingerprint([{ documentId: "doc-1", sha256: "a".repeat(64) }]);
+
+    it("marks the source set current after the first successful run", async () => {
+      const h = harness();
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      expect(h.applied?.aiState.sourceState).toBe("current");
+    });
+
+    it("marks stale sources current after a successful re-analysis", async () => {
+      const h = harness({ priorSourceState: "stale" });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      expect(h.applied?.aiState.sourceState).toBe("current");
+    });
+
+    it("applies the exact fingerprint of the analyzed source set", async () => {
+      const h = harness();
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      const fingerprint = await expectedFingerprint();
+      expect(h.applied?.aiState.sourceSetFingerprint).toBe(fingerprint);
+      expect(h.applied?.sourceSetFingerprint).toBe(fingerprint);
+    });
+
+    it("never marks the source set current when the run fails", async () => {
+      const rejected = new TerraAnalysisError("response_invalid", "rejected");
+      const failed = harness({ analyzeError: rejected, priorSourceState: "stale" });
+      await executeAiRunHandler(failed.deps, CALLER, { runId: RUN_ID });
+      expect(failed.applied).toBeNull();
+
+      const broken = harness({ applyThrows: true, priorSourceState: "stale" });
+      await executeAiRunHandler(broken.deps, CALLER, { runId: RUN_ID });
+      expect(broken.applied).toBeNull();
+    });
+
+    it("keeps merge itself carrying the previous source state", () => {
+      const merged = mergeAiAnalysis({
+        currentDraft: createEmptyDraft(),
+        currentAiState: {
+          ...createEmptyAiAnalysisState(),
+          sourceState: "stale",
+          sourceSetFingerprint: "b".repeat(64),
+        },
+        analysis: fixtureAAnalysis(),
+        runId: RUN_ID,
+        guidancePack: guidancePackFixture(),
+        priorContext: null,
+      });
+      expect(merged.aiState.sourceState).toBe("stale");
+      expect(merged.aiState.sourceSetFingerprint).toBe("b".repeat(64));
+    });
   });
 });

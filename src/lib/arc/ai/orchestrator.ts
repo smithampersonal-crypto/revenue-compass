@@ -350,6 +350,9 @@ export async function executeAiRunHandler(
     }
 
     const sources = preflight.package.sources;
+    // The one deterministic identity of the source set actually analyzed. It
+    // is reused verbatim for the apply argument and the applied sidecar state.
+    const currentSourceSetFingerprint = await sourceFingerprintOf(sources);
 
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
@@ -436,6 +439,15 @@ export async function executeAiRunHandler(
         return finish(deps, caller, run.id);
       }
 
+      // Source freshness is a lifecycle concern, not merge policy: the merge
+      // carries the previous state forward, and only a successful apply marks
+      // the analyzed selection as current.
+      const appliedAiState: AiAnalysisState = {
+        ...merged.aiState,
+        sourceSetFingerprint: currentSourceSetFingerprint,
+        sourceState: "current",
+      };
+
       try {
         await deps.store.applyRun({
           runId: run.id,
@@ -444,8 +456,8 @@ export async function executeAiRunHandler(
           expectedLockVersion: latest.lockVersion,
           canonicalInputs: merged.draft,
           schemaVersion: latest.schemaVersion,
-          aiState: merged.aiState,
-          sourceSetFingerprint: await sourceFingerprintOf(sources),
+          aiState: appliedAiState,
+          sourceSetFingerprint: currentSourceSetFingerprint,
           structuredResult: result.analysis,
           usageMetadata: {
             responseId: result.responseId,
