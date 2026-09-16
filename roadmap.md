@@ -655,9 +655,9 @@ routines in place — plain-text source state in `arc_mark_ai_sources_stale`,
 `arc_affirm_ai_review_scope` — with signatures, lock order, ownership checks and
 service-role-only grants preserved.
 
-Coverage: `supabase/tests/phase9f_ai_lifecycle.sql` (35 assertions, run by the
+Coverage: `supabase/tests/phase9f_ai_lifecycle.sql` (53 assertions, run by the
 database job with every other suite) and the fake-model
-`__tests__/orchestrator.spec.ts` (16 tests). No live OpenAI call was made in
+`__tests__/orchestrator.spec.ts` (22 tests). No live OpenAI call was made in
 this phase. No Resend, custom-domain, auth or email work.
 
 
