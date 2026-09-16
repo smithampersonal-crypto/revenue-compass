@@ -384,4 +384,3 @@ export function buildValidationFailureDetails(args: ValidationFailureDetailArgs)
 
   return details.slice(0, MAX_VALIDATION_DETAILS);
 }
-
