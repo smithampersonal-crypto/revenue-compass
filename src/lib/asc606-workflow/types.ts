@@ -163,13 +163,34 @@ export interface ConsiderationEventDraft {
   sourceMonth?: string;
 }
 
+/**
+ * Phase 9E: what a cash row represents. `actual` is real cash the accountant
+ * recorded. `projected_contract_due_date` is a contract-derived expectation —
+ * never evidence that cash was received. Absent (historical rows) means
+ * `actual`; it is never inferred as unknown or projected.
+ */
+export type CashCollectionBasis = "actual" | "projected_contract_due_date";
+
 export interface CashCollectionDraft {
   id: string;
   seq: number;
   considerationEventId: string | null;
   amountInput: string;
   collectionDate: IsoDate | "";
+  /** Provenance/presentation only. Never changes balance or journal arithmetic. */
+  basis?: CashCollectionBasis;
 }
+
+/** True when the cash row represents a contract-derived projection. */
+export function isProjectedCollection(collection: Pick<CashCollectionDraft, "basis">): boolean {
+  return collection.basis === "projected_contract_due_date";
+}
+
+export const CASH_COLLECTION_BASIS_LABELS: Record<CashCollectionBasis, string> = {
+  actual: "Actual cash",
+  projected_contract_due_date: "Projected — contractual due date",
+};
+
 
 export interface ContractBalanceDraft {
   considerationEvents: ConsiderationEventDraft[];
