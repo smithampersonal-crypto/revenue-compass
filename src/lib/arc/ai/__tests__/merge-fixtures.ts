@@ -211,3 +211,66 @@ export function fixtureAAnalysis(): AiContractAnalysis {
     issues: [],
   };
 }
+
+/* ------------------------------ Fixture F — multi-element / manual overlap */
+
+/**
+ * Two promises, two performance obligations and a semantic promise → PO
+ * mapping. `secondServicePeriod` lets a test choose whether the two
+ * performance obligations share one unambiguous contract service period or
+ * describe two different ones.
+ */
+export function fixtureMultiElementAnalysis(
+  secondServicePeriod: { start: string; end: string } = {
+    start: "2027-01-01",
+    end: "2027-12-31",
+  },
+): AiContractAnalysis {
+  const analysis = fixtureAAnalysis();
+  const promise = analysis.promises[0]!;
+  const po = analysis.performanceObligations[0]!;
+  const proposal = analysis.recognitionProposals[0]!;
+  const ssp = analysis.sspAndAllocation.items[0]!;
+
+  analysis.promises = [
+    promise,
+    {
+      ...promise,
+      semanticKey: "promise:support",
+      description: "Premium support services",
+      distinctnessRationale: "Support is sold separately and is not integrated with the platform.",
+    },
+  ];
+  analysis.performanceObligations = [
+    po,
+    {
+      ...po,
+      semanticKey: "po:support",
+      promiseKeys: ["promise:support"],
+      description: "Premium support",
+      groupingRationale: "A single distinct support service.",
+    },
+  ];
+  analysis.recognitionProposals = [
+    proposal,
+    {
+      ...proposal,
+      performanceObligationKey: "po:support",
+      serviceStartDate: secondServicePeriod.start,
+      serviceEndDate: secondServicePeriod.end,
+      rationale: "The customer simultaneously receives and consumes the support service.",
+    },
+  ];
+  analysis.sspAndAllocation.items = [
+    ssp,
+    {
+      ...ssp,
+      semanticKey: "ssp:support",
+      appliesToKey: "po:support",
+      observedAmountInput: "30000",
+      methodRationale: "Observable standalone support renewal pricing.",
+    },
+  ];
+  analysis.transactionPrice.fixedConsiderationInput = "150000";
+  return analysis;
+}
