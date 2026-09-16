@@ -27,6 +27,7 @@ import { AI_LIMITS, type AiLimits } from "./config.server";
 import { AiEvidenceError, extractPdfEvidence } from "./evidence.server";
 import type { OpenAiTokenCounter } from "./openai.server";
 import { preflightAiRequest } from "./preflight.server";
+import { buildAiInstructions } from "./prompt";
 import { sanitizeUntrustedLabel } from "./untrusted-text";
 import {
   AI_PREFLIGHT_MESSAGES,

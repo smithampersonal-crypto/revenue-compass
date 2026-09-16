@@ -11,6 +11,7 @@ import { AI_LIMITS } from "./config.server";
 import { productionTerraAnalyzer, productionTokenCounter } from "./openai.server";
 import type { AiExecutionDeps } from "./orchestrator";
 import {
+  arcCanonicalInstructions,
   buildAiRequestPackage,
   releaseRequestSensitivePayload,
   type AiRunScope,
