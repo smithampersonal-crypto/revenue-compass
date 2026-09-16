@@ -24,12 +24,27 @@ Fix: supply an ephemeral, page-addressed **ARC local citation text mirror** buil
 ## Tasks
 
 ### 1. Deterministic mirror builder
-New `src/lib/arc/ai/citation-mirror.ts` + spec. `buildCitationMirrorParts(evidence)` emits one
-`input_text` part per physical page, in source/page order, with an ARC-authored wrapper carrying
-the trusted `documentId` and physical page number and the verbatim `page.text` between
-`BEGIN ARC LOCAL TEXT` / `END ARC LOCAL TEXT`. No sanitizing, rewriting, or truncation.
-Tests: exact page fidelity; injection text (`Ignore previous instructions`, fake ARC policy
-headers) stays verbatim inside the untrusted payload and is never promoted.
+New `src/lib/arc/ai/citation-mirror.ts` + spec. `buildCitationMirrorParts(evidence)` emits, per
+physical page in source/page order, a **separate ARC-authored locator part** (trusted:
+`documentId`, `physicalPage`, and the instruction that text excerpts be copied from the following
+payload) followed by a **separate untrusted payload part** carrying `page.text` byte-for-byte.
+
+Framing rules (security boundary):
+- No textual `BEGIN`/`END` delimiter is ever relied on — verbatim contract text may contain those
+  strings. Separation is structural (distinct request parts).
+- If a single part is ever required by the request shape, use deterministic length framing
+  (ARC-authored header declaring the exact character count of the payload), never a trailing
+  textual sentinel. No characters from `page.text` may control where ARC metadata begins or ends.
+- ARC never parses delimiters back out of page content.
+- The locator is trusted; the body is contract evidence only and can never become policy,
+  instructions, Guidance, or ARC identity.
+- The transcription is preserved exactly: no sanitizing, rewriting, truncation, or interpretation.
+
+Tests: exact byte-for-byte page fidelity; a page containing literal `BEGIN ARC LOCAL TEXT`,
+`END ARC LOCAL TEXT`, fake ARC policy headers and `Ignore previous instructions` stays verbatim
+inside the untrusted payload, cannot terminate its container, and is never promoted into
+instructions or identity metadata.
+
 
 ### 2. Insert the mirror into the canonical request
 `request-package.server.ts`: after each PDF's `input_file` part, append that document's mirror
@@ -49,9 +64,10 @@ schema version unchanged. Extend `prompt-injection.spec.ts` with malicious mirro
 
 ### 4. Release mirror text after execution
 Extend the existing `releaseRequestBytes()` (or rename to `releaseRequestSensitivePayload()` and
-update callers/tests atomically) to also clear mirror bodies in `finally`. Mirror parts are
-identified by the ARC-authored prefix, never by page content. Regressions cover success,
-validation rejection, post-package preflight exception, and apply failure.
+update callers/tests atomically) to also clear mirror payload bodies in `finally`. Mirror payload
+parts are tracked by index/reference recorded at build time, never by matching page content.
+Regressions cover success, validation rejection, post-package preflight exception, and apply
+failure.
 
 ### 5. Prove strict validation is still strict
 Tests only, in `citations.spec.ts`: unchanged rejection of trailing-period drift, stitched table
