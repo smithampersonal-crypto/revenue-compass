@@ -71,9 +71,20 @@ export interface AiApplyArgs {
   reviewIssueCount: number;
 }
 
+/** A lost optimistic lock (Postgres 40001) during application. */
+export class AiApplyConflictError extends Error {
+  constructor() {
+    super("The analysis changed while the AI result was being applied.");
+    this.name = "AiApplyConflictError";
+  }
+}
+
 export interface AiRunExecutionStore extends AiRunStore {
-  /** `arc_advance_ai_run_stage`: one atomic adjacent-stage claim. */
-  advanceStage(runId: string, from: AiRunStage, to: AiRunStage): Promise<void>;
+  /**
+   * `arc_advance_ai_run_stage`: one atomic adjacent-stage claim.
+   * `false` means another caller already claimed it — the loser must stop.
+   */
+  advanceStage(runId: string, from: AiRunStage, to: AiRunStage): Promise<boolean>;
   loadExecutionContext(caller: AiCallerScope): Promise<AiExecutionContext>;
   /** `arc_record_ai_preflight`: source + guidance provenance, one transition. */
   recordPreflight(args: {
@@ -85,7 +96,10 @@ export interface AiRunExecutionStore extends AiRunStore {
     pageCount: number;
     inputTokens: number;
   }): Promise<void>;
-  /** `arc_reserve_ai_allowance`: the only place allowance is consumed. */
+  /**
+   * `arc_reserve_ai_allowance`: the only place allowance is consumed, and the
+   * only transition into `analyzing` — the charge and the stage commit together.
+   */
   reserveAllowance(args: {
     runId: string;
     ownerUserId: string | null;
@@ -96,7 +110,11 @@ export interface AiRunExecutionStore extends AiRunStore {
   }): Promise<{ reserved: boolean; alreadyReserved: boolean; remainingAllowance: number }>;
   /** `arc_apply_ai_run`: canonical inputs + sidecar + run success, atomically. */
   applyRun(args: AiApplyArgs): Promise<void>;
-  /** `arc_restore_pre_ai_run`: exact pre-run canonical inputs and sidecar. */
+  /**
+   * `arc_restore_pre_ai_run`: exact pre-run canonical inputs and sidecar.
+   * Reserved for the EXPLICIT, user-initiated whole-run restore only — the
+   * orchestrator never calls it on its own.
+   */
   restorePreRun(args: {
     runId: string;
     ownerUserId: string | null;
@@ -111,6 +129,7 @@ export interface AiRunExecutionStore extends AiRunStore {
     safeMessage: string;
   }): Promise<void>;
 }
+
 
 export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
   store: AiRunExecutionStore;
