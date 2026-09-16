@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 
-import { normalizeCitationText, validateAiCitations } from "../citations";
+import {
+  buildValidationFailureDetails,
+  diagnoseExcerptMismatches,
+  normalizeCitationText,
+  validateAiCitations,
+  MAX_VALIDATION_DETAILS,
+} from "../citations";
 import { classifyReadability, type AiDocumentEvidence } from "../types";
 
 import {
@@ -149,5 +155,105 @@ describe("validateAiCitations", () => {
     expect(normalizeCitationText("“Annual Advance”")).toBe('"annual advance"');
     // Deterministic normalization only: a paraphrase never matches.
     expect(normalizeCitationText("30-day payment terms")).not.toBe("net thirty (30) days");
+  });
+});
+
+describe("bounded developer diagnostics", () => {
+  function fabricatedStorm() {
+    const analysis = validAnalysisFixture();
+    const template = analysis.promises[0]!;
+    analysis.promises = [...Array(52).keys()].map((index) => ({
+      ...structuredClone(template),
+      semanticKey: `promise:fabricated-${index}`,
+      citations: [
+        {
+          documentId: FIXTURE_DOCUMENT_ID,
+          pageStart: 1,
+          pageEnd: 1,
+          evidenceMode: "text" as const,
+          excerpt: `Provider shall deliver fabricated clause number ${index} on demand`,
+        },
+      ],
+    }));
+    return analysis;
+  }
+
+  it("keeps mismatch classification alive during an excerpt_not_found storm", () => {
+    const analysis = fabricatedStorm();
+    const validation = validateAiCitations(analysis, evidence(), pack);
+    expect(validation.citationIssues.length).toBeGreaterThanOrEqual(50);
+
+    const details = buildValidationFailureDetails({
+      validation,
+      analysis,
+      evidence: evidence(),
+      includeExcerptDiagnostics: true,
+    });
+
+    expect(details.length).toBeLessThanOrEqual(MAX_VALIDATION_DETAILS);
+    expect(details[0]).toMatch(/^validation counts: .*excerpt_not_found=\d+/);
+    expect(details.some((line) => line.startsWith("excerpt_not_found at "))).toBe(true);
+    expect(details.some((line) => line.startsWith("mismatch "))).toBe(true);
+  });
+
+  it("leaves production detail allocation unchanged when diagnostics are off", () => {
+    const analysis = fabricatedStorm();
+    const validation = validateAiCitations(analysis, evidence(), pack);
+    const details = buildValidationFailureDetails({ validation, analysis, evidence: evidence() });
+    expect(details.length).toBe(MAX_VALIDATION_DETAILS);
+    expect(details.every((line) => /^[a-z_]+ at /.test(line))).toBe(true);
+    expect(details.some((line) => line.startsWith("mismatch "))).toBe(false);
+  });
+
+  function diagnose(excerpt: string, pageStart: number) {
+    const analysis = validAnalysisFixture();
+    analysis.promises = [
+      {
+        ...structuredClone(analysis.promises[0]!),
+        citations: [
+          {
+            documentId: FIXTURE_DOCUMENT_ID,
+            pageStart,
+            pageEnd: pageStart,
+            evidenceMode: "text" as const,
+            excerpt,
+          },
+        ],
+      },
+    ];
+    const validation = validateAiCitations(analysis, evidence(), pack);
+    const [first] = diagnoseExcerptMismatches(analysis, evidence(), validation.citationIssues);
+    return { validation, diagnostic: first };
+  }
+
+  it("classifies a punctuation-only difference while still rejecting the citation", () => {
+    const { validation, diagnostic } = diagnose(
+      "Fees are invoiced net thirty (30) days; from-invoice date!",
+      1,
+    );
+    expect(validation.ok).toBe(false);
+    expect(validation.citationIssues[0]).toMatchObject({ code: "excerpt_not_found" });
+    expect(diagnostic?.difference).toBe("punctuation_or_whitespace");
+  });
+
+  it("classifies a wrong-page citation while still rejecting it", () => {
+    const { validation, diagnostic } = diagnose(
+      "Nothing herein transfers source code to Customer",
+      1,
+    );
+    expect(validation.ok).toBe(false);
+    expect(validation.citationIssues[0]).toMatchObject({ code: "excerpt_not_found" });
+    expect(diagnostic?.difference).toBe("wrong_page");
+    expect(diagnostic?.foundOnPage).toBe(2);
+  });
+
+  it("classifies a true paraphrase while still rejecting it", () => {
+    const { validation, diagnostic } = diagnose(
+      "Provider grants a perpetual irrevocable licence to all source code",
+      1,
+    );
+    expect(validation.ok).toBe(false);
+    expect(diagnostic?.difference).toBe("paraphrase_or_absent");
+    expect(diagnostic?.foundOnPage).toBeNull();
   });
 });
