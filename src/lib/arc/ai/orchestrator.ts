@@ -151,6 +151,8 @@ export const AI_ALLOWANCE_EXHAUSTED =
   "You have used all of your AI analyses for now. ARC still works fully without AI.";
 export const AI_SOURCES_CHANGED =
   "The selected documents changed while the analysis was starting. Start it again.";
+export const AI_PREFLIGHT_FAILED =
+  "ARC could not prepare the AI analysis. No AI allowance was used.";
 export const AI_APPLY_FAILED =
   "ARC could not apply the AI analysis, so nothing was changed. Please try again.";
 
