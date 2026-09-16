@@ -1,3 +1,4 @@
+import { isProjectedCollection } from "@/lib/asc606-workflow";
 import type {
   ContractBalanceWorkflowResult,
   WorkflowAnalysisResult,
@@ -67,6 +68,7 @@ export function ContractBalancesView({
     return (
       <div className="space-y-6">
         {editor}
+        {projectedNotice}
         {balances.grouped.groups.map((group) => (
           <div key={group.groupId} className="space-y-4">
             <Section
@@ -90,6 +92,7 @@ export function ContractBalancesView({
     return (
       <div className="space-y-6">
         {editor}
+        {projectedNotice}
         <ContractBalanceOutputs analysis={balances.analysis} />
       </div>
     );
@@ -98,6 +101,7 @@ export function ContractBalancesView({
   return (
     <div className="space-y-6">
       {editor}
+      {projectedNotice}
       <Section title="Billing, receivables and contract balances">
         <Notice tone="warning">
           {revenueComplete
