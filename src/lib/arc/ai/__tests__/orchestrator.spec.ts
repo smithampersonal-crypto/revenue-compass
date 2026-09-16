@@ -26,14 +26,19 @@ import {
   AI_PREFLIGHT_FAILED,
   AiApplyConflictError,
   executeAiRunHandler,
+  failureCategoryFor,
   outstandingIssueCount,
   type AiExecutionContext,
   type AiExecutionDeps,
   type AiRunExecutionStore,
 } from "../orchestrator";
 import { createEmptyAiAnalysisState } from "../merge";
-import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
-import { TerraAnalysisError } from "../terra.server";
+import type { AiCallerScope, AiFailureCategory, AiRunRow, AiRunStage } from "../runs.handlers";
+import {
+  TERRA_SAFE_MESSAGES,
+  TerraAnalysisError,
+  type TerraFailureCategory,
+} from "../terra.server";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
