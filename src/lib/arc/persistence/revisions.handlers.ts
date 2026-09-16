@@ -137,6 +137,15 @@ export async function finalizeRevisionHandler(
   const snapshot = buildFinalizationSnapshot(parsed.draft);
   if (!snapshot.ok) return { ok: false, reason: "blocked", issues: snapshot.issues };
 
+  // Phase 9F AI gate, evaluated on the server immediately before the trusted
+  // transaction. A manual-only analysis has no AI state and is unaffected.
+  if (deps.readAiFinalizationState) {
+    const aiIssues = aiFinalizationIssues(await deps.readAiFinalizationState(data.revisionId));
+    if (aiIssues.length > 0) return { ok: false, reason: "blocked", issues: aiIssues };
+  }
+
+
+
   const { error: rpcError } = await deps.finalizeTransaction({
     p_owner_user_id: deps.userId,
     p_revision_id: data.revisionId,
