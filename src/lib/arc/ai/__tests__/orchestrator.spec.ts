@@ -59,6 +59,12 @@ function harness(
     initialStage?: AiRunStage;
     /** Simulates another caller having already claimed created -> extracting. */
     claimLost?: boolean;
+    /** Unexpected exception out of the Phase 9B package builder. */
+    buildPackageThrows?: boolean;
+    /** Unexpected exception out of the provenance persistence routine. */
+    recordPreflightThrows?: boolean;
+    /** Replaces the package builder entirely (typed refusal, real builder...). */
+    buildPackage?: AiExecutionDeps["buildPackage"];
   } = {},
 ): Harness {
   const stages: AiRunStage[] = [];
@@ -132,6 +138,7 @@ function harness(
     },
     recordPreflight: async (args) => {
       events.push("preflight");
+      if (options.recordPreflightThrows) throw new Error("preflight persistence exploded");
       run.stage = "preflight_ready";
       run.inputTokens = args.inputTokens;
       stages.push("preflight_ready");
@@ -226,7 +233,10 @@ function harness(
     now: () => new Date("2026-09-16T00:00:00.000Z"),
     newRunId: () => RUN_ID,
     analyzer: analyzer as never,
-    buildPackage: async () => ({
+    buildPackage: async (args) => {
+      if (options.buildPackageThrows) throw new Error("package builder exploded");
+      if (options.buildPackage) return options.buildPackage(args);
+      return {
       ok: true,
       inputTokens: 1234,
       canonicalRequest: { model: "gpt-5.6-terra" },
@@ -248,7 +258,8 @@ function harness(
         openAiInput: [],
         combinedFileBytes: 100,
       },
-    }),
+      } as never;
+    },
   };
 
   return {
