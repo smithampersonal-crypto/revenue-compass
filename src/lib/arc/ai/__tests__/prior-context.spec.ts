@@ -187,16 +187,49 @@ describe("prior finalized accounting context", () => {
     expect(context.recognitionSummary[1]).toMatchObject({ recognitionDate: "2026-02-15" });
   });
 
-  it("includes the prior transaction price and modification history", () => {
+  it("includes the prior transaction price and the canonical modification fields", () => {
     const context = buildPriorAccountingContext(PRIOR);
     expect(context.transactionPriceInput).toBe("120000.00");
     expect(context.modificationSummary).toHaveLength(1);
-    expect(context.modificationSummary[0]!["classification"]).toBe("separate_contract");
+    expect(context.modificationSummary[0]).toEqual({
+      id: "mod-1",
+      seq: 1,
+      modificationDate: "2026-02-01",
+      scopeChangeDescription: "Adds a second region",
+      approvedAndEnforceable: "yes",
+      considerationEffect: "increase",
+      considerationMagnitudeInput: "10000.00",
+      priceReflectsAddedGoodsSsp: "yes",
+      mixedAllocationPolicy: null,
+    });
   });
 
-  it("includes revenue recognized through the finalized date", () => {
+  it("carries the finalized Phase 5C derived treatment, not an entered value", () => {
+    const context = buildPriorAccountingContext(PRIOR);
+    expect(context.modificationTreatment).toEqual({
+      treatment: "separate_contract",
+      label: "Separate contract",
+      rationale: "The added region is distinct and priced at its standalone selling price.",
+      considerationChangeCents: 1000000,
+      historicalRevenueCents: 3000000,
+      remainingTransactionPriceCents: 9000000,
+      catchUpCents: 0,
+      futureRevenueCents: 9000000,
+    });
+  });
+
+  it("reports no derived treatment when the finalized revision had no modification", () => {
+    const context = buildPriorAccountingContext({
+      ...PRIOR,
+      engineOutputs: { workflow: { allocation: [], modification: null } },
+    });
+    expect(context.modificationTreatment).toBeNull();
+  });
+
+  it("includes revenue recognized through the finalized date and its amount", () => {
     const context = buildPriorAccountingContext(PRIOR);
     expect(context.revenueRecognizedThroughDate).toBe("2026-03-31");
+    expect(context.revenueRecognizedInput).toBe("90000.00");
   });
 
   it("includes the remaining consideration", () => {
@@ -219,5 +252,7 @@ describe("prior finalized accounting context", () => {
     });
     expect(context.allocation).toEqual([]);
     expect(context.remainingConsiderationInput).toBeNull();
+    expect(context.revenueRecognizedInput).toBeNull();
+    expect(context.modificationTreatment).toBeNull();
   });
 });
