@@ -6,6 +6,8 @@
  * reachable from the browser.
  */
 
+import { AI_OUTPUT_SCHEMA_VERSION } from "./schema";
+
 function numberFrom(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -24,7 +26,12 @@ export const AI_LIMITS = {
   guestRunLimit: numberFrom(process.env["ARC_AI_GUEST_RUN_LIMIT"], 3),
   userMonthlyRunLimit: numberFrom(process.env["ARC_AI_USER_MONTHLY_RUN_LIMIT"], 10),
   promptVersion: process.env["ARC_AI_PROMPT_VERSION"] ?? "arc.ai.prompt.v1",
-  outputSchemaVersion: process.env["ARC_AI_OUTPUT_SCHEMA_VERSION"] ?? "arc.ai.schema.v1",
+  /**
+   * NOT environment-configurable. The recorded run provenance must state the
+   * schema version the code actually enforces, so it reads the single
+   * authoritative constant compiled into the semantic schema itself.
+   */
+  outputSchemaVersion: AI_OUTPUT_SCHEMA_VERSION,
 } as const;
 
 export type AiLimits = typeof AI_LIMITS;

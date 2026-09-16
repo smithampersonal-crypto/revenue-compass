@@ -7,6 +7,11 @@
  *   - one LIVE non-generative responses.inputTokens.count call, and
  *   - one LIVE responses.create call, only if the token preflight passes.
  *
+ * The fixture is the ORIGINAL four-page fictional Genomix Clinical Diagnostics
+ * LLC / Synthesis BioAnalytics Inc. contract package used throughout 9A/9B —
+ * byte-identity verified before it is used. It is synthetic test material and
+ * never a real client contract.
+ *
  * It reserves no ARC allowance and writes nothing: no ai_runs, no
  * ai_monthly_usage, no ai_analysis_state, no WorkflowDraft. It prints no API
  * key, no prompt, no PDF bytes, no base64, no page text, no signed URL and no
@@ -14,6 +19,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 import { AI_LIMITS } from "@/lib/arc/ai/config.server";
 import { openAiClient, createTokenCounter } from "@/lib/arc/ai/openai.server";
@@ -25,7 +32,13 @@ import {
   TerraAnalysisError,
 } from "@/lib/arc/ai/terra.server";
 
-import { buildGenomixAcceptancePdf } from "./genomix-acceptance-pdf";
+/** The original fictional package. Identity is asserted, never assumed. */
+const FIXTURE_PATH =
+  process.env["ARC_PHASE9D_FIXTURE_PDF"] ??
+  path.join(process.cwd(), "fixtures", "genomix-synthesis-contract-package.pdf");
+const FIXTURE_SHA256 = "7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7";
+const FIXTURE_BYTES = 56598;
+const FIXTURE_PAGES = 4;
 
 function fail(message: string): never {
   console.error(`\nPhase 9D smoke refused: ${message}\n`);
@@ -38,15 +51,23 @@ async function main(): Promise<void> {
     fail("ARC_ALLOW_LIVE_PHASE9D=1 is required for a live Phase 9D acceptance run.");
   }
 
-  // 1. The fictional Genomix package (developer fixture, never a real client).
-  const pdfBytes = buildGenomixAcceptancePdf();
+  // 1. The original fictional Genomix package, verified byte-for-byte.
+  let pdfBytes: Uint8Array;
+  try {
+    pdfBytes = new Uint8Array(await readFile(FIXTURE_PATH));
+  } catch {
+    fail(`the fictional Genomix acceptance PDF was not found at ${FIXTURE_PATH}`);
+  }
   const sha256 = createHash("sha256").update(pdfBytes).digest("hex");
+  if (pdfBytes.byteLength !== FIXTURE_BYTES || sha256 !== FIXTURE_SHA256) {
+    fail("the acceptance PDF does not match the expected fictional Genomix fixture identity.");
+  }
   const documentId = "genomix-acceptance";
 
   console.log("ARC Phase 9D live acceptance");
   console.log("-".repeat(60));
-  console.log(`fixture bytes           ${pdfBytes.byteLength}`);
-  console.log(`fixture sha256          ${sha256.slice(0, 16)}...`);
+  console.log(`fixture bytes           ${pdfBytes.byteLength} (expected ${FIXTURE_BYTES})`);
+  console.log(`fixture sha256          ${sha256}`);
 
   // 2-9. Extraction, Guidance pack, instructions, strict schema, ONE canonical
   // request, the 50 MB byte cap and the LIVE input-token count all happen
@@ -81,7 +102,7 @@ async function main(): Promise<void> {
         {
           documentId,
           displayName: "Genomix / Synthesis BioAnalytics contract package",
-          originalFilename: "genomix-synthesis-package.pdf",
+          originalFilename: "SaaS_Sales_Contract_Package_Genomix_Synthesis.pdf",
           sha256,
           byteSize: pdfBytes.byteLength,
           storageObjectPath: "developer-fixture/genomix.pdf",
@@ -100,7 +121,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`pages extracted         ${built.package.sources[0]?.pageCount}`);
+  const extractedPages = built.package.sources[0]?.pageCount;
+  console.log(`pages extracted         ${extractedPages} (expected ${FIXTURE_PAGES})`);
   console.log(`guidance cards supplied ${built.package.guidance.cards.length}`);
   console.log(
     `guidance card ids       ${built.package.guidance.cards.map((card) => card.id).join(", ")}`,
@@ -119,9 +141,16 @@ async function main(): Promise<void> {
       canonicalRequest: built.canonicalRequest,
       evidence: built.package.sources,
       guidance: built.package.guidance,
+      // Fictional developer fixture only: bounded mismatch diagnostics.
+      includeExcerptDiagnostics: true,
     });
 
     const { analysis, validation } = result;
+    const text = validation.verifiedCitations.filter((c) => c.verification === "text_matched");
+    const visual = validation.verifiedCitations.filter(
+      (c) => c.verification === "visual_page_reference",
+    );
+
     console.log("-".repeat(60));
     console.log(`model                   ${result.model}`);
     console.log(`response id             ${result.responseId}`);
@@ -132,7 +161,9 @@ async function main(): Promise<void> {
     console.log(`local schema valid      yes`);
     console.log(`citation issues         ${validation.citationIssues.length}`);
     console.log(`guidance issues         ${validation.guidanceIssues.length}`);
-    console.log(`verified citations      ${validation.verifiedCitations.length}`);
+    console.log(`provenance issues       ${validation.provenanceIssues.length}`);
+    console.log(`text citations verified ${text.length}`);
+    console.log(`visual page references  ${visual.length}`);
     console.log(`logical documents       ${analysis.logicalDocuments.length}`);
     console.log(`promises                ${analysis.promises.length}`);
     console.log(`PO proposals            ${analysis.performanceObligations.length}`);
@@ -141,13 +172,6 @@ async function main(): Promise<void> {
     );
     console.log(`additional topics       ${analysis.additionalTopics.length}`);
     console.log(`issues raised           ${analysis.issues.length}`);
-
-    for (const issue of validation.citationIssues.slice(0, 20)) {
-      console.log(`  citation issue: ${issue.code} (${issue.path})`);
-    }
-    for (const issue of validation.guidanceIssues.slice(0, 10)) {
-      console.log(`  guidance issue: ${issue.code} card ${issue.guidanceId}`);
-    }
 
     console.log("\nbounded reviewer summary");
     console.log(`  ${analysis.analysisSummary.slice(0, 400)}`);
@@ -163,10 +187,19 @@ async function main(): Promise<void> {
           `${po.satisfactionPattern} ${po.reviewState}`,
       );
     }
+    console.log(
+      `  fixed consideration ${analysis.transactionPrice.fixedConsiderationInput ?? "-"}`,
+    );
     for (const component of analysis.transactionPrice.variableConsiderationComponents) {
       console.log(
         `  variable ${component.semanticKey} [${component.type}] ` +
           `${component.contractualRateOrAmountInput ?? "-"} ${component.reviewState}`,
+      );
+    }
+    for (const term of analysis.billingTerms) {
+      console.log(
+        `  billing ${term.semanticKey} ${term.billingTiming}/${term.frequency} ` +
+          `${term.amountOrRateInput ?? "-"} net ${term.paymentTermsDays ?? "-"}`,
       );
     }
     for (const issue of analysis.issues.slice(0, 15)) {
@@ -176,8 +209,9 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     if (error instanceof TerraAnalysisError) {
+      // Fail closed: nothing is applied, nothing is persisted, nothing retried.
       console.error(`\nlive call failed (${error.category}): ${error.message}`);
-      for (const detail of error.details.slice(0, 10)) console.error(`  ${detail}`);
+      for (const detail of error.details) console.error(`  ${detail}`);
     } else {
       console.error(`\nlive call failed: ${(error as Error).message.slice(0, 300)}`);
     }

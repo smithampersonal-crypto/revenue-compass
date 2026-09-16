@@ -15,6 +15,7 @@
 import { getGuidanceCard } from "@/lib/arc/guidance/registry";
 import type { GuidancePack } from "@/lib/arc/guidance/types";
 
+import { validateMaterialProvenance, type AiProvenanceIssue } from "./provenance";
 import { collectCitations, collectGuidanceIds, type AiContractAnalysis } from "./schema";
 import type { AiDocumentEvidence } from "./types";
 
@@ -25,7 +26,8 @@ export type AiValidationIssueCode =
   | "missing_excerpt"
   | "excerpt_not_found"
   | "guidance_not_in_pack"
-  | "guidance_not_in_registry";
+  | "guidance_not_in_registry"
+  | "missing_material_citation";
 
 export interface AiValidationIssue {
   code: AiValidationIssueCode;
@@ -51,6 +53,8 @@ export interface AiCitationValidationResult {
   ok: boolean;
   citationIssues: AiValidationIssue[];
   guidanceIssues: AiValidationIssue[];
+  /** Material conclusions asserted without any contract provenance. */
+  provenanceIssues: AiValidationIssue[];
   verifiedCitations: AiVerifiedCitation[];
 }
 
@@ -197,10 +201,88 @@ export function validateAiCitations(
     }
   }
 
+  const provenanceIssues: AiValidationIssue[] = validateMaterialProvenance(analysis).map(
+    (issue: AiProvenanceIssue) => ({
+      code: issue.code,
+      path: issue.path,
+      message: issue.message,
+    }),
+  );
+
   return {
-    ok: citationIssues.length === 0 && guidanceIssues.length === 0,
+    ok:
+      citationIssues.length === 0 &&
+      guidanceIssues.length === 0 &&
+      provenanceIssues.length === 0,
     citationIssues,
     guidanceIssues,
+    provenanceIssues,
     verifiedCitations,
   };
+}
+
+/* ------------------------------------------------------------ diagnostics */
+
+/**
+ * Developer-only, bounded diagnosis of `excerpt_not_found` issues, used by the
+ * fictional Phase 9D acceptance fixture to tell a whitespace/punctuation
+ * difference apart from an actual paraphrase. It never returns full page text
+ * and never returns the model response; the excerpt preview is hard-bounded.
+ */
+export interface AiExcerptDiagnostic {
+  path: string;
+  documentId: string;
+  pageStart: number;
+  pageEnd: number;
+  evidenceMode: "text" | "visual";
+  excerptPreview: string;
+  difference: "punctuation_or_whitespace" | "paraphrase_or_absent";
+}
+
+const EXCERPT_PREVIEW_LENGTH = 120;
+
+function alphanumericFold(value: string): string {
+  return normalizeCitationText(value).replace(/[^a-z0-9]/g, "");
+}
+
+export function diagnoseExcerptMismatches(
+  analysis: AiContractAnalysis,
+  evidence: readonly AiDocumentEvidence[],
+  issues: readonly AiValidationIssue[],
+  limit = 25,
+): AiExcerptDiagnostic[] {
+  const failedPaths = new Set(
+    issues.filter((issue) => issue.code === "excerpt_not_found").map((issue) => issue.path),
+  );
+  const pages = new Map(
+    evidence.map((document) => [
+      document.documentId,
+      new Map(document.pages.map((page) => [page.pageNumber, page.text])),
+    ]),
+  );
+
+  const out: AiExcerptDiagnostic[] = [];
+  for (const { path, citation } of collectCitations(analysis)) {
+    if (!failedPaths.has(path) || out.length >= limit) continue;
+    const documentPages = pages.get(citation.documentId);
+    const parts: string[] = [];
+    for (let page = citation.pageStart; page <= citation.pageEnd; page += 1) {
+      parts.push(documentPages?.get(page) ?? "");
+    }
+    const folded = alphanumericFold(parts.join(" "));
+    const needle = alphanumericFold(citation.excerpt ?? "");
+    out.push({
+      path,
+      documentId: citation.documentId,
+      pageStart: citation.pageStart,
+      pageEnd: citation.pageEnd,
+      evidenceMode: citation.evidenceMode,
+      excerptPreview: (citation.excerpt ?? "").slice(0, EXCERPT_PREVIEW_LENGTH),
+      difference:
+        needle.length > 0 && folded.includes(needle)
+          ? "punctuation_or_whitespace"
+          : "paraphrase_or_absent",
+    });
+  }
+  return out;
 }
