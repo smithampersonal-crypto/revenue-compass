@@ -32,7 +32,7 @@ import {
   type AiExecutionDeps,
   type AiRunExecutionStore,
 } from "../orchestrator";
-import { createEmptyAiAnalysisState } from "../merge";
+import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import type { AiFailureCategory } from "../orchestrator";
 import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
 import {
