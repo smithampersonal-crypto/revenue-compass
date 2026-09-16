@@ -1,14 +1,19 @@
 /**
  * Phase 9F — ARC materializes the excerpt; the model only selects anchors.
  *
- * The materializer fails closed, never repairs, and never lets contract text
+ * The provider contract is a bounded `anchorIds` array (0-3 ids). The
+ * materializer fails closed, never repairs, and never lets contract text
  * create anchor authority. Its invariant: any excerpt it produces passes the
  * unchanged strict citation validator.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { CITATION_ANCHOR_MAX_RANGE, buildCitationAnchorPages } from "../citation-anchors";
+import {
+  CITATION_ANCHOR_MAX_CHARS,
+  CITATION_ANCHOR_MAX_RANGE,
+  buildCitationAnchorPages,
+} from "../citation-anchors";
 import {
   FIXTURE_DOCUMENT_ID,
   FIXTURE_PAGE_COUNT,
@@ -19,7 +24,7 @@ import { materializeAiCitationAnchors } from "../citation-anchor-materializer";
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 
 import { validateAiCitations } from "../citations";
-import { parseAiContractAnalysis } from "../schema";
+import { AI_SCHEMA_BOUNDS, parseAiContractAnalysis } from "../schema";
 import type { AiDocumentEvidence } from "../types";
 
 const PAGE_1 =
@@ -46,6 +51,16 @@ const pack = buildGuidancePack({ normalizedEvidenceText: "saas subscription host
 const anchorPages = buildCitationAnchorPages(evidence);
 const page1 = anchorPages[0]!.anchors;
 
+/** A page long enough to expose ranges beyond the allowed maximum. */
+const wideEvidence: AiDocumentEvidence[] = [
+  {
+    ...evidence[0]!,
+    pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }],
+    pageCount: 1,
+  } as AiDocumentEvidence,
+];
+const widePage = buildCitationAnchorPages(wideEvidence)[0]!.anchors;
+
 function analysisWith(citation: Record<string, unknown>): Record<string, unknown> {
   return { contractAssessment: { commercialSubstance: { citations: [citation] } } };
 }
@@ -56,8 +71,7 @@ function textCitation(overrides: Record<string, unknown> = {}) {
     pageStart: 1,
     pageEnd: 1,
     evidenceMode: "text",
-    anchorStart: page1[0]!.anchorId,
-    anchorEnd: page1[0]!.anchorId,
+    anchorIds: [page1[0]!.anchorId],
     ...overrides,
   });
 }
@@ -71,41 +85,44 @@ function codes(result: ReturnType<typeof materializeAiCitationAnchors>): string[
   return result.ok ? [] : result.issues.map((issue) => issue.code);
 }
 
-describe("citation anchor materializer", () => {
-  it("materializes a single-anchor text citation into ARC's own excerpt", () => {
-    const result = materializeAiCitationAnchors(textCitation(), evidence);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    const citation = firstCitation(result.value);
-    expect(citation["excerpt"]).toBe(page1[0]!.text);
-    expect(citation["anchorStart"]).toBeUndefined();
-    expect(citation["anchorEnd"]).toBeUndefined();
-    expect(citation["evidenceMode"]).toBe("text");
-    expect(citation["pageStart"]).toBe(1);
+describe("citation anchor materializer — anchorIds contract", () => {
+  it("materializes 1, 2 and 3 contiguous anchors into ARC's own excerpt", () => {
+    for (const count of [1, 2, 3]) {
+      const ids = page1.slice(0, count).map((anchor) => anchor.anchorId);
+      const result = materializeAiCitationAnchors(textCitation({ anchorIds: ids }), evidence);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const citation = firstCitation(result.value);
+      expect(citation["excerpt"]).toBe(
+        page1
+          .slice(0, count)
+          .map((anchor) => anchor.text)
+          .join(""),
+      );
+      expect(citation["anchorIds"]).toBeUndefined();
+      expect(citation["anchorStart"]).toBeUndefined();
+      expect(citation["anchorEnd"]).toBeUndefined();
+      expect(citation["evidenceMode"]).toBe("text");
+      expect(citation["pageStart"]).toBe(1);
+    }
   });
 
-  it("joins a contiguous anchor range in document order", () => {
-    const result = materializeAiCitationAnchors(
-      textCitation({ anchorStart: page1[0]!.anchorId, anchorEnd: page1[1]!.anchorId }),
-      evidence,
-    );
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(firstCitation(result.value)["excerpt"]).toBe(`${page1[0]!.text}${page1[1]!.text}`);
-  });
-
-  it("gives a visual citation a null excerpt and requires null anchors", () => {
+  it("accepts a visual citation only with an empty anchorIds array", () => {
     const ok = materializeAiCitationAnchors(
-      textCitation({ evidenceMode: "visual", anchorStart: null, anchorEnd: null }),
+      textCitation({ evidenceMode: "visual", anchorIds: [] }),
       evidence,
     );
     expect(ok.ok).toBe(true);
-    if (ok.ok) expect(firstCitation(ok.value)["excerpt"]).toBeNull();
+    if (ok.ok) {
+      const citation = firstCitation(ok.value);
+      expect(citation["excerpt"]).toBeNull();
+      expect(citation["anchorIds"]).toBeUndefined();
+    }
 
     expect(
       codes(
         materializeAiCitationAnchors(
-          textCitation({ evidenceMode: "visual", anchorEnd: null }),
+          textCitation({ evidenceMode: "visual", anchorIds: [page1[0]!.anchorId] }),
           evidence,
         ),
       ),
@@ -114,17 +131,17 @@ describe("citation anchor materializer", () => {
 
   it("fails closed on every malformed selection", () => {
     const cases: Array<[Record<string, unknown>, string]> = [
-      [{ anchorStart: null }, "anchor_selector_missing"],
-      [{ anchorEnd: null }, "anchor_selector_missing"],
-      [{ anchorStart: "P0001-S9999" }, "anchor_unknown"],
-      [{ anchorStart: "not-an-anchor" }, "anchor_unknown"],
+      [{ anchorIds: [] }, "anchor_selector_missing"],
+      [{ anchorIds: null }, "anchor_selector_missing"],
+      [{ anchorIds: ["P0001-S9999"] }, "anchor_unknown"],
+      [{ anchorIds: ["not-an-anchor"] }, "anchor_unknown"],
       [{ documentId: "doc-unknown" }, "anchor_document_mismatch"],
       [{ pageStart: 2, pageEnd: 2 }, "anchor_page_mismatch"],
-      [{ anchorStart: page1[1]!.anchorId, anchorEnd: page1[0]!.anchorId }, "anchor_range_reversed"],
+      [{ anchorIds: [page1[0]!.anchorId, page1[0]!.anchorId] }, "anchor_range_reversed"],
+      [{ anchorIds: [page1[1]!.anchorId, page1[0]!.anchorId] }, "anchor_range_reversed"],
       [
         {
-          anchorStart: page1[0]!.anchorId,
-          anchorEnd: anchorPages[1]!.anchors[0]!.anchorId,
+          anchorIds: [page1[0]!.anchorId, anchorPages[1]!.anchors[0]!.anchorId],
           pageEnd: 2,
         },
         "anchor_text_requires_single_page",
@@ -137,43 +154,49 @@ describe("citation anchor materializer", () => {
     }
   });
 
-  it("rejects an anchor range wider than the allowed span", () => {
-    const wide = buildCitationAnchorPages([
-      {
-        ...evidence[0]!,
-        pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }],
-        pageCount: 1,
-      } as AiDocumentEvidence,
-    ])[0]!.anchors;
-    const wideEvidence = [
-      {
-        ...evidence[0]!,
-        pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }],
-        pageCount: 1,
-      } as AiDocumentEvidence,
-    ];
-    expect(wide.length).toBeGreaterThan(4);
+  it("rejects a skipped, noncontiguous selection", () => {
     expect(
       codes(
         materializeAiCitationAnchors(
-          textCitation({ anchorStart: wide[0]!.anchorId, anchorEnd: wide[4]!.anchorId }),
+          textCitation({ anchorIds: [widePage[0]!.anchorId, widePage[2]!.anchorId] }),
           wideEvidence,
         ),
       ),
+    ).toEqual(["anchor_range_reversed"]);
+  });
+
+  it("still rejects more than three anchors defensively", () => {
+    const ids = widePage.slice(0, 4).map((anchor) => anchor.anchorId);
+    expect(
+      codes(materializeAiCitationAnchors(textCitation({ anchorIds: ids }), wideEvidence)),
     ).toEqual(["anchor_range_too_large"]);
+  });
+
+  it("three maximum-length anchors cannot exceed the excerpt bound", () => {
+    expect(CITATION_ANCHOR_MAX_RANGE * CITATION_ANCHOR_MAX_CHARS).toBeLessThanOrEqual(
+      AI_SCHEMA_BOUNDS.excerpt,
+    );
   });
 
   it("reports the schema path and anchor ids only — never page text", () => {
     const result = materializeAiCitationAnchors(
-      textCitation({ anchorStart: "P0001-S9999" }),
+      textCitation({ anchorIds: ["P0001-S9999"] }),
       evidence,
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
     const issue = result.issues[0]!;
     expect(issue.path).toBe("contractAssessment.commercialSubstance.citations[0]");
-    expect(issue.message).toContain("P0001-S9999");
+    expect(issue.anchorIds).toEqual(["P0001-S9999"]);
     expect(`${issue.message}${issue.path}`).not.toContain("SECTION");
+  });
+
+  it("bounds reported anchor ids to the submitted three", () => {
+    const ids = widePage.slice(0, 6).map((anchor) => anchor.anchorId);
+    const result = materializeAiCitationAnchors(textCitation({ anchorIds: ids }), wideEvidence);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues[0]!.anchorIds!.length).toBeLessThanOrEqual(3);
   });
 
   it("gives contract text that imitates an anchor id no resolver authority", () => {
@@ -191,21 +214,20 @@ describe("citation anchor materializer", () => {
       } as AiDocumentEvidence,
     ];
     expect(
-      codes(materializeAiCitationAnchors(textCitation({ anchorStart: "P0009-S0009" }), hostile)),
+      codes(materializeAiCitationAnchors(textCitation({ anchorIds: ["P0009-S0009"] }), hostile)),
     ).toEqual(["anchor_unknown"]);
   });
 
   it("invariant: every materialized excerpt passes the unchanged validator", () => {
     for (const page of buildCitationAnchorPages(fixtureEvidence)) {
       for (let index = 0; index < page.anchors.length; index += 1) {
-        const end = Math.min(index + CITATION_ANCHOR_MAX_RANGE - 1, page.anchors.length - 1);
+        const end = Math.min(index + CITATION_ANCHOR_MAX_RANGE, page.anchors.length);
         const provider = toProviderCitations(validAnalysisFixture(), {
           documentId: page.documentId,
           pageStart: page.pageNumber,
           pageEnd: page.pageNumber,
           evidenceMode: "text",
-          anchorStart: page.anchors[index]!.anchorId,
-          anchorEnd: page.anchors[end]!.anchorId,
+          anchorIds: page.anchors.slice(index, end).map((anchor) => anchor.anchorId),
         });
 
         const materialized = materializeAiCitationAnchors(provider, fixtureEvidence);
@@ -221,6 +243,24 @@ describe("citation anchor materializer", () => {
         );
       }
     }
+  });
+
+  it("produces internal citations carrying excerpt and no anchor fields", () => {
+    const provider = toProviderCitations(validAnalysisFixture(), {
+      documentId: FIXTURE_DOCUMENT_ID,
+      pageStart: 1,
+      pageEnd: 1,
+      evidenceMode: "text",
+      anchorIds: [buildCitationAnchorPages(fixtureEvidence)[0]!.anchors[0]!.anchorId],
+    });
+    const materialized = materializeAiCitationAnchors(provider, fixtureEvidence);
+    expect(materialized.ok).toBe(true);
+    if (!materialized.ok) return;
+    const serialized = JSON.stringify(materialized.value);
+    expect(serialized).not.toContain("anchorIds");
+    expect(serialized).not.toContain("anchorStart");
+    expect(serialized).not.toContain("anchorEnd");
+    expect(serialized).toContain('"excerpt"');
   });
 });
 

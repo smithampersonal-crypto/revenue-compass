@@ -1,18 +1,18 @@
 /**
  * Phase 9F — ARC-owned citation materialization.
  *
- * The provider returns anchor SELECTORS, never excerpt text. This module
- * resolves each selector against ARC's own deterministic anchor index and
- * writes the excerpt itself, taken byte-for-byte from ARC's local page
- * extraction — the same string the strict validator matches against.
+ * The provider returns ANCHOR IDS, never excerpt text. This module resolves
+ * each id against ARC's own deterministic anchor index and writes the excerpt
+ * itself, taken byte-for-byte from ARC's local page extraction — the same
+ * string the strict validator matches against.
  *
  * Properties:
- *   - Fails closed. A selector that cannot be resolved exactly is an error;
+ *   - Fails closed. A selection that cannot be resolved exactly is an error;
  *     nothing is repaired, guessed, trimmed or normalized.
  *   - Authority comes only from ARC's generated anchor index. An anchor id
  *     that appears inside contract text resolves to nothing.
- *   - Diagnostics carry a schema path and anchor ids only: never page text,
- *     excerpt text, prompt, model output or credentials.
+ *   - Diagnostics carry a schema path and at most three anchor ids: never page
+ *     text, excerpt text, prompt, model output or credentials.
  *
  * The excerpt bound and the citation validator are unchanged.
  */
@@ -40,6 +40,8 @@ export interface CitationAnchorIssue {
   code: CitationAnchorIssueCode;
   path: string;
   message: string;
+  /** Bounded to the submitted ids, at most the provider maximum of three. */
+  anchorIds?: string[];
 }
 
 export type CitationAnchorMaterializationResult =
@@ -51,8 +53,7 @@ function isProviderCitationNode(node: Record<string, unknown>): boolean {
     typeof node["documentId"] === "string" &&
     typeof node["pageStart"] === "number" &&
     typeof node["evidenceMode"] === "string" &&
-    "anchorStart" in node &&
-    "anchorEnd" in node
+    "anchorIds" in node
   );
 }
 
@@ -78,6 +79,14 @@ function buildResolver(evidence: readonly AiDocumentEvidence[]): Resolver {
   return { index, byDocumentPage };
 }
 
+/** Only ids the provider actually submitted, capped at the provider maximum. */
+function boundedIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .slice(0, CITATION_ANCHOR_MAX_RANGE);
+}
+
 function materializeCitation(
   node: Record<string, unknown>,
   path: string,
@@ -86,8 +95,8 @@ function materializeCitation(
 ): Record<string, unknown> | null {
   const documentId = node["documentId"] as string;
   const evidenceMode = node["evidenceMode"] as string;
-  const anchorStart = node["anchorStart"];
-  const anchorEnd = node["anchorEnd"];
+  const rawIds = node["anchorIds"];
+  const submitted = boundedIds(rawIds);
 
   const base = {
     documentId,
@@ -97,75 +106,85 @@ function materializeCitation(
   };
 
   const fail = (code: CitationAnchorIssueCode, message: string) => {
-    issues.push({ code, path, message });
+    issues.push({ code, path, message, anchorIds: submitted });
     return null;
   };
 
   if (evidenceMode !== "text") {
-    if (anchorStart !== null || anchorEnd !== null) {
+    if (!Array.isArray(rawIds) || rawIds.length !== 0) {
       return fail(
         "anchor_visual_must_not_select_text",
-        "a visual citation must leave anchorStart and anchorEnd null",
+        "a visual citation must supply an empty anchorIds array",
       );
     }
     return { ...base, excerpt: null };
   }
 
-  if (typeof anchorStart !== "string" || typeof anchorEnd !== "string") {
-    return fail(
-      "anchor_selector_missing",
-      "a text citation requires both anchorStart and anchorEnd",
-    );
+  if (!Array.isArray(rawIds) || rawIds.length === 0) {
+    return fail("anchor_selector_missing", "a text citation requires 1 to 3 anchor ids");
   }
+
+  if (rawIds.length > CITATION_ANCHOR_MAX_RANGE) {
+    return fail("anchor_range_too_large", `a text citation selected ${rawIds.length} anchors`);
+  }
+
+  if (!rawIds.every((entry) => typeof entry === "string")) {
+    return fail("anchor_selector_missing", "anchor ids must be strings");
+  }
+
+  const ids = rawIds as string[];
 
   const documentAnchors = resolver.index.get(documentId);
   if (!documentAnchors) {
-    return fail("anchor_document_mismatch", `unknown documentId for anchor ${anchorStart}`);
+    return fail("anchor_document_mismatch", "unknown documentId for the selected anchors");
   }
 
-  const start = documentAnchors.get(anchorStart);
-  const end = documentAnchors.get(anchorEnd);
-  if (!start || !end) {
-    return fail(
-      "anchor_unknown",
-      `unresolved anchor ${!start ? anchorStart : anchorEnd} in this document`,
-    );
+  const resolved: CitationAnchor[] = [];
+  for (const id of ids) {
+    const anchor = documentAnchors.get(id);
+    if (!anchor) return fail("anchor_unknown", "an anchor id does not exist in this document");
+    resolved.push(anchor);
   }
 
-  if (start.pageNumber !== end.pageNumber) {
+  const first = resolved[0]!;
+  if (resolved.some((anchor) => anchor.pageNumber !== first.pageNumber)) {
     return fail(
       "anchor_text_requires_single_page",
-      `anchors ${anchorStart} and ${anchorEnd} are on different physical pages`,
+      "the selected anchors are on different physical pages",
     );
   }
 
-  if (node["pageStart"] !== start.pageNumber || node["pageEnd"] !== start.pageNumber) {
-    return fail("anchor_page_mismatch", `anchor ${anchorStart} is not on the cited physical page`);
+  if (node["pageStart"] !== first.pageNumber || node["pageEnd"] !== first.pageNumber) {
+    return fail("anchor_page_mismatch", "the selected anchors are not on the cited physical page");
   }
 
-  if (end.segmentIndex < start.segmentIndex) {
-    return fail("anchor_range_reversed", `anchor range ${anchorStart}..${anchorEnd} runs backward`);
+  // Unique, forward, and exactly contiguous. Duplicates, reversed order and
+  // skipped segments all fail closed.
+  for (let index = 1; index < resolved.length; index += 1) {
+    if (resolved[index]!.segmentIndex !== resolved[index - 1]!.segmentIndex + 1) {
+      return fail(
+        "anchor_range_reversed",
+        "the selected anchors are not one unique, forward, contiguous sequence",
+      );
+    }
   }
 
-  const span = end.segmentIndex - start.segmentIndex + 1;
+  const pageAnchors = resolver.byDocumentPage.get(`${documentId}#${first.pageNumber}`) ?? [];
+  const last = resolved[resolved.length - 1]!;
+  const span = last.segmentIndex - first.segmentIndex + 1;
   if (span > CITATION_ANCHOR_MAX_RANGE) {
-    return fail(
-      "anchor_range_too_large",
-      `anchor range ${anchorStart}..${anchorEnd} spans ${span} anchors`,
-    );
+    return fail("anchor_range_too_large", `the selected anchor range spans ${span} anchors`);
   }
 
-  const pageAnchors = resolver.byDocumentPage.get(`${documentId}#${start.pageNumber}`) ?? [];
+  // Concatenate the exact anchor strings in sequence: nothing inserted,
+  // removed, normalized or rewritten.
   const excerpt = pageAnchors
-    .slice(start.segmentIndex - 1, end.segmentIndex)
+    .slice(first.segmentIndex - 1, last.segmentIndex)
     .map((anchor) => anchor.text)
     .join("");
 
   if (excerpt.length > AI_SCHEMA_BOUNDS.excerpt) {
-    return fail(
-      "anchor_excerpt_too_long",
-      `anchor range ${anchorStart}..${anchorEnd} exceeds the excerpt bound`,
-    );
+    return fail("anchor_excerpt_too_long", "the selected anchor range exceeds the excerpt bound");
   }
 
   return { ...base, excerpt };

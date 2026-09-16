@@ -236,7 +236,13 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
         throw new TerraAnalysisError(
           "citation_anchor_failure",
           TERRA_SAFE_MESSAGES.citation_anchor_failure,
-          materialized.issues.map((issue) => `${issue.code} at ${issue.path}`),
+          materialized.issues.map(
+            (issue) =>
+              `${issue.code} at ${issue.path}` +
+              (issue.anchorIds && issue.anchorIds.length > 0
+                ? ` [${issue.anchorIds.join(", ")}]`
+                : ""),
+          ),
         );
       }
 

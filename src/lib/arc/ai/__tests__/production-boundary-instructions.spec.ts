@@ -79,15 +79,16 @@ describe("production execution boundary instructions", () => {
       expect(instructions).toContain(heading);
     }
     expect(instructions).toContain(`promptVersion: ${AI_LIMITS.promptVersion}`);
-    expect(instructions).toContain("promptVersion: arc.ai.prompt.v3");
+    expect(instructions).toContain("promptVersion: arc.ai.prompt.v4");
     expect(instructions).toContain(`outputSchemaVersion: ${AI_LIMITS.outputSchemaVersion}`);
-    expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v2");
+    expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v3");
 
     // Anchor-selection rules, not excerpt transcription.
-    expect(instructions).toContain("anchorStart");
-    expect(instructions).toContain("anchorEnd");
+    expect(instructions).toContain("anchorIds");
+    expect(instructions).not.toContain("anchorStart");
+    expect(instructions).not.toContain("anchorEnd");
     expect(instructions).toContain("ARC owns the excerpt");
-    expect(instructions).toContain("never exceed 3 consecutive anchors");
+    expect(instructions).toContain("never contain more than 3 ids");
 
     // The legacy fallback preamble must not be what production sends.
     expect(instructions).not.toContain(
