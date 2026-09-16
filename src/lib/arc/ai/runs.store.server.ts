@@ -13,6 +13,7 @@
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
+import { AiApplyConflictError } from "./orchestrator";
 import type { AiApplyArgs, AiExecutionContext, AiRunExecutionStore } from "./orchestrator";
 import type {
   AiCallerScope,
