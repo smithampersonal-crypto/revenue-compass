@@ -1285,7 +1285,29 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   if (modifications.hasModification === "yes") {
     const semanticKey = "modification:primary";
     proposedSemanticKeys.add(semanticKey);
-    if (!tombstones.has(semanticKey)) {
+    // The semantic schema carries one high-level modification conclusion while
+    // the canonical workpaper may already hold richer manual modifications.
+    // ARC will not guess which manual modification the model meant, and it
+    // will not stand a second shell beside them.
+    const manualModificationConflict =
+      manualModifications.length > 0 && objectProvenance[semanticKey] === undefined;
+    if (manualModificationConflict) {
+      raise({
+        targetKey: "modification:manual",
+        section: modificationSection,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis also identifies a contract modification. Your own modification workpaper was kept and no duplicate was created — confirm they describe the same amendment.",
+        guidanceIds: modifications.guidanceIds,
+        value: {
+          manualModificationIds: manualModifications.map((row) => row.id).sort(),
+          semanticKey,
+          proposed: modifications.rationale.slice(0, 120),
+        },
+        aiReviewState: modifications.reviewState,
+      });
+    }
+    if (!tombstones.has(semanticKey) && !manualModificationConflict) {
       const canonicalId = canonicalIdFor("modification", semanticKey);
       if (draft.contractModifications.every((row) => row.id !== canonicalId)) {
         draft.contractModifications = [
