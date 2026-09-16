@@ -10,6 +10,8 @@
  * ownership, allowance or lifecycle itself.
  */
 
+import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
+
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
