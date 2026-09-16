@@ -122,9 +122,22 @@ describe("Fixture A — AI-adapted and manual canonical inputs are equivalent", 
     expect(adapt().draft).toEqual(manualEquivalent());
   });
 
+  it("leaves the contract number for the accountant and says so", () => {
+    const { draft, issues } = adapt();
+    expect(draft.contract.contractNumber).toBe("");
+    const item = issues.find((i) => i.targetKey === "contract.contractNumber");
+    expect(item?.state).toBe("red");
+  });
+
   it("produces identical deterministic engine output", () => {
-    const fromAi = buildWorkpaper(adapt().draft);
-    const fromManual = buildWorkpaper(manualEquivalent());
+    // The contract reference is the one fact ARC refuses to take from the
+    // model, so the accountant supplies it identically on both sides.
+    const withNumber = (draft: WorkflowDraft): WorkflowDraft => ({
+      ...draft,
+      contract: { ...draft.contract, contractNumber: "CASE-1" },
+    });
+    const fromAi = buildWorkpaper(withNumber(adapt().draft));
+    const fromManual = buildWorkpaper(withNumber(manualEquivalent()));
 
     expect(fromAi.workflow).toEqual(fromManual.workflow);
     expect(fromAi.balances).toEqual(fromManual.balances);

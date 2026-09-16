@@ -448,6 +448,19 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   // `contractNumber` is deliberately never populated: the semantic schema has
   // no structured field for it and ARC does not scrape identifiers from prose.
+  // It is required to finalize, so its absence is surfaced as required input.
+  if (isUnclaimedString(draft.contract.contractNumber)) {
+    raise({
+      targetKey: fieldKeys.contract("contractNumber"),
+      section: "step_1",
+      reasonCode: "missing_required_input",
+      reason:
+        "Enter the contract number or reference. ARC never takes an identifier from the AI analysis.",
+      value: null,
+      aiReviewState: "needs_user_input",
+      blocking: true,
+    });
+  }
 
   const STEP1_MAP: ReadonlyArray<{
     criterion: Step1CriterionId;
