@@ -64,9 +64,10 @@ schema version unchanged. Extend `prompt-injection.spec.ts` with malicious mirro
 
 ### 4. Release mirror text after execution
 Extend the existing `releaseRequestBytes()` (or rename to `releaseRequestSensitivePayload()` and
-update callers/tests atomically) to also clear mirror bodies in `finally`. Mirror parts are
-identified by the ARC-authored prefix, never by page content. Regressions cover success,
-validation rejection, post-package preflight exception, and apply failure.
+update callers/tests atomically) to also clear mirror payload bodies in `finally`. Mirror payload
+parts are tracked by index/reference recorded at build time, never by matching page content.
+Regressions cover success, validation rejection, post-package preflight exception, and apply
+failure.
 
 ### 5. Prove strict validation is still strict
 Tests only, in `citations.spec.ts`: unchanged rejection of trailing-period drift, stitched table
