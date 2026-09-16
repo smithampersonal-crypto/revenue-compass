@@ -1133,7 +1133,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         label: "Standalone selling price",
       });
       // The basis explains the amount; it is only written when ARC owns it.
-      if (fieldProvenance[fieldKeys.po(canonicalId, "sspInput")]?.state === "ai_generated_untouched") {
+      if (
+        fieldProvenance[fieldKeys.po(canonicalId, "sspInput")]?.state === "ai_generated_untouched"
+      ) {
         mergeText({
           key: fieldKeys.po(canonicalId, "sspBasis"),
           semanticKey: item.semanticKey,
@@ -1639,7 +1641,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
-
     const schedule = deriveBillingSchedule({
       billingTiming: term.billingTiming,
       frequency: term.frequency,
@@ -1840,7 +1841,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           : "ai_generated_untouched",
       semanticKey,
       lastAiRunId: userModified ? (prior?.lastAiRunId ?? runId) : runId,
-      valueFingerprint: userModified ? (prior?.valueFingerprint ?? finalFingerprint) : finalFingerprint,
+      valueFingerprint: userModified
+        ? (prior?.valueFingerprint ?? finalFingerprint)
+        : finalFingerprint,
       canonicalId,
       userModified,
     };
