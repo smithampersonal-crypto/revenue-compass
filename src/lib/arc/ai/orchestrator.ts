@@ -313,7 +313,6 @@ export async function executeAiRunHandler(
 
     const sources = preflight.package.sources;
 
-
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
     const reservation = await deps.store.reserveAllowance({

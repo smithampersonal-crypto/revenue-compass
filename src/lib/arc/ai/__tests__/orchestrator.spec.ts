@@ -246,27 +246,27 @@ function harness(
       if (options.buildPackageThrows) throw new Error("package builder exploded");
       if (options.buildPackage) return options.buildPackage(args);
       return {
-      ok: true,
-      inputTokens: 1234,
-      canonicalRequest: { model: "gpt-5.6-terra" },
-      package: {
-        sources: [
-          {
-            documentId: "doc-1",
-            displayName: "Contract",
-            originalFilename: "c.pdf",
-            sha256: "a".repeat(64),
-            byteSize: 100,
-            pageCount: 4,
-            pages: [],
-          },
-        ],
-        guidance: guidancePackFixture(),
-        currentContext: { manuallyEnteredFacts: {}, draftFingerprint: "x" },
-        priorContext: null,
-        openAiInput: [],
-        combinedFileBytes: 100,
-      },
+        ok: true,
+        inputTokens: 1234,
+        canonicalRequest: { model: "gpt-5.6-terra" },
+        package: {
+          sources: [
+            {
+              documentId: "doc-1",
+              displayName: "Contract",
+              originalFilename: "c.pdf",
+              sha256: "a".repeat(64),
+              byteSize: 100,
+              pageCount: 4,
+              pages: [],
+            },
+          ],
+          guidance: guidancePackFixture(),
+          currentContext: { manuallyEnteredFacts: {}, draftFingerprint: "x" },
+          priorContext: null,
+          openAiInput: [],
+          combinedFileBytes: 100,
+        },
       } as never;
     },
   };
@@ -553,11 +553,7 @@ describe("Phase 9F — AI run orchestration", () => {
         return inner.analyze({ ...args, includeExcerptDiagnostics: true } as never);
       },
     };
-    await executeAiRunHandler(
-      { ...h.deps, analyzer: wrapped as never },
-      CALLER,
-      { runId: RUN_ID },
-    );
+    await executeAiRunHandler({ ...h.deps, analyzer: wrapped as never }, CALLER, { runId: RUN_ID });
     expect(seen).toEqual([undefined]);
 
     // The one live developer script is the only opt-in site.

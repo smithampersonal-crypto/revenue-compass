@@ -99,9 +99,8 @@ async function main(): Promise<void> {
   say("disposable scope", { contractId, revisionId });
 
   /* ------------------------------ 3. real upload / commit / selection */
-  const { documentStorage, documentStore } = await import(
-    "@/lib/arc/documents/documents.store.server"
-  );
+  const { documentStorage, documentStore } =
+    await import("@/lib/arc/documents/documents.store.server");
   const docDeps: DocumentDeps = {
     store: await documentStore(),
     storage: documentStorage,
