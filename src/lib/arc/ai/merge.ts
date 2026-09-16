@@ -723,16 +723,89 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
-    const canonicalId = canonicalIdFor("performance_obligation", aiPo.semanticKey);
-    poIdBySemanticKey.set(aiPo.semanticKey, canonicalId);
     const section = sectionFor(aiPo.guidanceIds, "step_2");
 
-    if (draft.performanceObligations.every((po) => po.id !== canonicalId)) {
-      draft.performanceObligations = [
-        ...draft.performanceObligations,
-        createPoDraft(draft.performanceObligations.length + 1, canonicalId),
-      ];
+    // Promise membership is resolved BEFORE any canonical performance
+    // obligation is created. A grouping the accountant has already recorded
+    // manually must never gain a duplicate AI twin beside it.
+    const mappedPromiseIds: string[] = [];
+    for (const promiseKey of aiPo.promiseKeys) {
+      const promiseId = promiseIdBySemanticKey.get(promiseKey);
+      if (promiseId === undefined) {
+        raise({
+          targetKey: `po:${aiPo.semanticKey}.promiseKeys`,
+          section,
+          reasonCode: "unsafe_semantic_relationship",
+          reason: `The AI analysis groups an unknown promise (${promiseKey}) into this performance obligation. The relationship was not applied.`,
+          guidanceIds: aiPo.guidanceIds,
+          value: promiseKey,
+          aiReviewState: aiPo.reviewState,
+          blocking: true,
+        });
+        continue;
+      }
+      mappedPromiseIds.push(promiseId);
     }
+
+    const hostManualPoIds = new Set(
+      mappedPromiseIds
+        .map((id) => draft.promises.find((row) => row.id === id)?.performanceObligationId ?? null)
+        .filter((id): id is string => id !== null && manualPoIds.has(id)),
+    );
+
+    if (hostManualPoIds.size > 1) {
+      // The model's grouping contradicts the accountant's own structure. ARC
+      // neither re-points their promises nor adds a third performance
+      // obligation; it refuses and asks.
+      raise({
+        targetKey: `po:${aiPo.semanticKey}`,
+        section,
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The AI analysis groups promises you have already assigned to different performance obligations. Nothing was changed and no new performance obligation was created.",
+        guidanceIds: aiPo.guidanceIds,
+        value: {
+          manualPoIds: [...hostManualPoIds].sort(),
+          semanticKey: aiPo.semanticKey,
+          proposed: aiPo.description.slice(0, 120),
+        },
+        aiReviewState: aiPo.reviewState,
+        blocking: true,
+      });
+      continue;
+    }
+
+    let canonicalId: string;
+    let manualHost = false;
+    const singleManualHost = [...hostManualPoIds][0];
+    if (singleManualHost !== undefined && objectProvenance[aiPo.semanticKey] === undefined) {
+      canonicalId = singleManualHost;
+      manualHost = true;
+      raise({
+        targetKey: `po:${canonicalId}`,
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis proposes a performance obligation grouping you have already recorded. Your performance obligation and its promise assignments were kept and no duplicate was created.",
+        guidanceIds: aiPo.guidanceIds,
+        value: {
+          manualPoId: canonicalId,
+          semanticKey: aiPo.semanticKey,
+          proposed: aiPo.description.slice(0, 120),
+        },
+        aiReviewState: aiPo.reviewState,
+      });
+    } else {
+      canonicalId = canonicalIdFor("performance_obligation", aiPo.semanticKey);
+      if (draft.performanceObligations.every((po) => po.id !== canonicalId)) {
+        draft.performanceObligations = [
+          ...draft.performanceObligations,
+          createPoDraft(draft.performanceObligations.length + 1, canonicalId),
+        ];
+      }
+    }
+    poIdBySemanticKey.set(aiPo.semanticKey, canonicalId);
+
     const update = (patch: Partial<PoDraft>) => {
       draft.performanceObligations = draft.performanceObligations.map((po) =>
         po.id === canonicalId ? { ...po, ...patch } : po,
@@ -754,23 +827,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     // Promise → PO relationships always travel through canonical IDs; a Terra
     // semantic key is never written into `performanceObligationId`.
-    const mappedPromiseIds: string[] = [];
-    for (const promiseKey of aiPo.promiseKeys) {
-      const promiseId = promiseIdBySemanticKey.get(promiseKey);
-      if (promiseId === undefined) {
-        raise({
-          targetKey: fieldKeys.po(canonicalId, "promiseKeys"),
-          section,
-          reasonCode: "unsafe_semantic_relationship",
-          reason: `The AI analysis groups an unknown promise (${promiseKey}) into this performance obligation. The relationship was not applied.`,
-          guidanceIds: aiPo.guidanceIds,
-          value: promiseKey,
-          aiReviewState: aiPo.reviewState,
-          blocking: true,
-        });
-        continue;
-      }
-      mappedPromiseIds.push(promiseId);
+    for (const promiseId of mappedPromiseIds) {
       const promiseRow = draft.promises.find((promise) => promise.id === promiseId)!;
       mergeScalar<string | null>({
         key: fieldKeys.promise(promiseId, "performanceObligationId"),
@@ -818,17 +875,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: aiPo.reviewState,
         label: "Performance obligation classification",
       });
-      mergeText({
-        key: fieldKeys.po(canonicalId, "classificationRationale"),
-        semanticKey: aiPo.semanticKey,
-        current: current().classificationRationale,
-        proposed: aiPo.groupingRationale,
-        apply: (value) => update({ classificationRationale: value }),
-        section,
-        guidanceIds: aiPo.guidanceIds,
-        aiReviewState: aiPo.reviewState,
-        label: "Classification rationale",
-      });
+      // The grouping rationale explains the classification. It is written only
+      // where ARC owns the classification it purports to explain.
+      if (
+        fieldProvenance[fieldKeys.po(canonicalId, "classification")]?.state ===
+        "ai_generated_untouched"
+      ) {
+        mergeText({
+          key: fieldKeys.po(canonicalId, "classificationRationale"),
+          semanticKey: aiPo.semanticKey,
+          current: current().classificationRationale,
+          proposed: aiPo.groupingRationale,
+          apply: (value) => update({ classificationRationale: value }),
+          section,
+          guidanceIds: aiPo.guidanceIds,
+          aiReviewState: aiPo.reviewState,
+          label: "Classification rationale",
+        });
+      }
     } else if (current().classification === null) {
       raise({
         targetKey: fieldKeys.po(canonicalId, "classification"),
@@ -843,13 +907,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(poFingerprintValue(current()));
-    recordObject(
-      aiPo.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(aiPo.semanticKey, fingerprint),
-    );
+    // A preserved manual performance obligation stays manual: ARC does not
+    // claim ownership of a row the accountant built.
+    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId);
   }
 
   /* ----------------------------------------------------------- recognition */
