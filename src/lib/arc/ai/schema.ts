@@ -781,9 +781,7 @@ export function toAnchoredProviderSchema(schema: JsonSchema): JsonSchema {
   const serialized = JSON.stringify(anchored);
   for (const forbidden of ["excerpt", "anchorStart", "anchorEnd"]) {
     if (serialized.includes(`"${forbidden}"`)) {
-      throw new Error(
-        `ARC anchored schema transform: provider schema still exposes ${forbidden}`,
-      );
+      throw new Error(`ARC anchored schema transform: provider schema still exposes ${forbidden}`);
     }
   }
   return anchored;

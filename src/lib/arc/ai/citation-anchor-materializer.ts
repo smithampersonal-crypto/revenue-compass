@@ -121,17 +121,11 @@ function materializeCitation(
   }
 
   if (!Array.isArray(rawIds) || rawIds.length === 0) {
-    return fail(
-      "anchor_selector_missing",
-      "a text citation requires 1 to 3 anchor ids",
-    );
+    return fail("anchor_selector_missing", "a text citation requires 1 to 3 anchor ids");
   }
 
   if (rawIds.length > CITATION_ANCHOR_MAX_RANGE) {
-    return fail(
-      "anchor_range_too_large",
-      `a text citation selected ${rawIds.length} anchors`,
-    );
+    return fail("anchor_range_too_large", `a text citation selected ${rawIds.length} anchors`);
   }
 
   if (!rawIds.every((entry) => typeof entry === "string")) {

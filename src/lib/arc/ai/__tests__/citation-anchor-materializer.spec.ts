@@ -137,14 +137,8 @@ describe("citation anchor materializer — anchorIds contract", () => {
       [{ anchorIds: ["not-an-anchor"] }, "anchor_unknown"],
       [{ documentId: "doc-unknown" }, "anchor_document_mismatch"],
       [{ pageStart: 2, pageEnd: 2 }, "anchor_page_mismatch"],
-      [
-        { anchorIds: [page1[0]!.anchorId, page1[0]!.anchorId] },
-        "anchor_range_reversed",
-      ],
-      [
-        { anchorIds: [page1[1]!.anchorId, page1[0]!.anchorId] },
-        "anchor_range_reversed",
-      ],
+      [{ anchorIds: [page1[0]!.anchorId, page1[0]!.anchorId] }, "anchor_range_reversed"],
+      [{ anchorIds: [page1[1]!.anchorId, page1[0]!.anchorId] }, "anchor_range_reversed"],
       [
         {
           anchorIds: [page1[0]!.anchorId, anchorPages[1]!.anchors[0]!.anchorId],
@@ -199,10 +193,7 @@ describe("citation anchor materializer — anchorIds contract", () => {
 
   it("bounds reported anchor ids to the submitted three", () => {
     const ids = widePage.slice(0, 6).map((anchor) => anchor.anchorId);
-    const result = materializeAiCitationAnchors(
-      textCitation({ anchorIds: ids }),
-      wideEvidence,
-    );
+    const result = materializeAiCitationAnchors(textCitation({ anchorIds: ids }), wideEvidence);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues[0]!.anchorIds!.length).toBeLessThanOrEqual(3);
