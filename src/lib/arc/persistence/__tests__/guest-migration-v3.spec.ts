@@ -11,13 +11,18 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { createEmptyDraft } from "@/lib/asc606-workflow";
+
 import { migrateGuestWorkspaceHandler } from "../guest.handlers";
 import { hashGuestToken } from "../guest";
+import { ARC_WORKFLOW_SCHEMA_VERSION, toCanonicalInputs } from "../schema";
 
 const TOKEN = "guest-token-9f";
-const DRAFT = JSON.parse(
-  readFileSync("src/lib/arc/persistence/__tests__/__fixtures__/guest-draft.json", "utf8"),
-) as unknown;
+const EMPTY = createEmptyDraft();
+const DRAFT = toCanonicalInputs({
+  ...EMPTY,
+  contract: { ...EMPTY.contract, customerName: "Genomix Therapeutics", contractNumber: "GX-1" },
+}) as unknown;
 
 const MIGRATED = {
   customer_id: "c0000000-0000-4000-8000-000000000001",
@@ -34,10 +39,11 @@ async function store(status = "active") {
       lock_version: 2,
       expires_at: new Date(Date.now() + 3_600_000).toISOString(),
       draft_json: DRAFT,
-      schema_version: "arc-workflow-1",
+      schema_version: ARC_WORKFLOW_SCHEMA_VERSION,
     }),
   };
 }
+
 
 async function migrate(
   migrateTransaction: (args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>,
