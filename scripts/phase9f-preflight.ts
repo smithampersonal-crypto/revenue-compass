@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     },
   });
 
-  if (!result.ok) fail(`preflight failed: ${result.reason}`);
+  if (!result.ok) fail(`preflight failed: ${result.code}`);
 
   const anchors = buildCitationAnchorPages(result.package.sources);
   say("configuration", {
@@ -94,8 +94,8 @@ async function main(): Promise<void> {
     anchorPages: anchors.length,
     anchors: anchors.reduce((total, page) => total + page.anchors.length, 0),
   });
-  say("preflight input tokens", result.package.inputTokens);
-  say("within cap", result.package.inputTokens <= AI_LIMITS.maxInputTokens);
+  say("preflight input tokens", result.inputTokens);
+  say("within cap", result.inputTokens <= AI_LIMITS.maxInputTokens);
   say("truncation", "disabled (no truncation, no source dropped)");
 
   releaseRequestSensitivePayload(result.package);
