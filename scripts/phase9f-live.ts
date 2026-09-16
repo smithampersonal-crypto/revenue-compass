@@ -25,6 +25,7 @@ import { createAiRunStore } from "@/lib/arc/ai/runs.store.server";
 import { startAiAnalysisHandler, type AiCallerScope } from "@/lib/arc/ai/runs.handlers";
 import { executeAiRunHandler } from "@/lib/arc/ai/orchestrator";
 import { createExecutionBoundaries } from "@/lib/arc/ai/orchestrator.server";
+import { TerraAnalysisError, type TerraAnalyzer } from "@/lib/arc/ai/terra.server";
 import {
   finalizeUploadHandler,
   initiateUploadHandler,
@@ -171,11 +172,35 @@ async function main(): Promise<void> {
 
   /* ---------------------------------------- 6. the real 9F orchestrator */
   const boundaries = await createExecutionBoundaries();
+
+  // Developer-only: bounded validation diagnostics stay in memory for this
+  // fictional script. Production orchestration never opts in, and nothing
+  // bounded here is persisted.
+  let validationDiagnostics: string[] = [];
+  const diagnosticAnalyzer: TerraAnalyzer = {
+    async analyze(args) {
+      try {
+        return await boundaries.analyzer.analyze({ ...args, includeExcerptDiagnostics: true });
+      } catch (error) {
+        if (error instanceof TerraAnalysisError) validationDiagnostics = [...error.details];
+        throw error;
+      }
+    },
+  };
+
   const started = Date.now();
-  const final = await executeAiRunHandler({ ...deps, ...boundaries }, scope, {
-    runId: startStatus.runId,
-  });
+  const final = await executeAiRunHandler(
+    { ...deps, ...boundaries, analyzer: diagnosticAnalyzer },
+    scope,
+    { runId: startStatus.runId },
+  );
   say("orchestration", { ...final, elapsedSeconds: Math.round((Date.now() - started) / 1000) });
+
+  if (final.stage !== "succeeded") {
+    // Bounded issue classes and schema paths only — never model JSON, page
+    // text, prompt, PDF bytes, provider body, reasoning or credentials.
+    say("validation diagnostics", validationDiagnostics);
+  }
 
   const usedAfter = await store.monthlyUsage(userId, utcMonth);
   say("quota after", { used: usedAfter, limit: AI_LIMITS.userMonthlyRunLimit });
