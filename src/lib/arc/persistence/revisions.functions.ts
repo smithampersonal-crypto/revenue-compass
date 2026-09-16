@@ -310,6 +310,11 @@ export const finalizeRevision = createServerFn({ method: "POST" })
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           return supabaseAdmin.rpc("arc_finalize_revision", args as never);
         },
+        readAiFinalizationState: async (revisionId) => {
+          const { readAiFinalizationState } =
+            await import("@/lib/arc/ai/finalization-state.server");
+          return readAiFinalizationState(revisionId);
+        },
       },
       data,
     );

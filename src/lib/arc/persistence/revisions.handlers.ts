@@ -57,11 +57,43 @@ export interface LifecycleRevisionRow {
   supersedes_revision_id: string | null;
 }
 
+/**
+ * Phase 9F: the only AI facts a finalization decision may consider. The browser
+ * never supplies this; it is read server-side from trusted persistence.
+ */
+export interface AiFinalizationState {
+  reviewItems: Array<{ state: string; reason?: string; targetKey?: string }>;
+  hasActiveRun: boolean;
+}
+
 export interface FinalizeDeps {
   reader: RevisionReader;
   userId: string;
   /** Trusted, service-role-only finalization transaction. */
   finalizeTransaction(args: Record<string, unknown>): Promise<RpcResult>;
+  /** Absent or null result = manual-only analysis; behaviour is unchanged. */
+  readAiFinalizationState?(revisionId: string): Promise<AiFinalizationState | null>;
+}
+
+/**
+ * The Phase 9F AI finalization gate.
+ *
+ * Only two things block: a run that can still apply a result, and review items
+ * the accountant has not resolved. A stale source set is a recommendation to
+ * re-analyze, never a block.
+ */
+export function aiFinalizationIssues(state: AiFinalizationState | null): string[] {
+  if (!state) return [];
+  if (state.hasActiveRun) {
+    return ["An AI analysis is still running. Wait for it to finish before finalizing."];
+  }
+  return state.reviewItems
+    .filter((item) => item.state === "yellow" || item.state === "red")
+    .map(
+      (item) =>
+        item.reason ??
+        `An AI-assisted conclusion still needs your review${item.targetKey ? ` (${item.targetKey})` : ""}.`,
+    );
 }
 
 export interface AmendmentDeps {
@@ -103,6 +135,13 @@ export async function finalizeRevisionHandler(
   // The snapshot is built here, on the server, from the saved canonical input.
   const snapshot = buildFinalizationSnapshot(parsed.draft);
   if (!snapshot.ok) return { ok: false, reason: "blocked", issues: snapshot.issues };
+
+  // Phase 9F AI gate, evaluated on the server immediately before the trusted
+  // transaction. A manual-only analysis has no AI state and is unaffected.
+  if (deps.readAiFinalizationState) {
+    const aiIssues = aiFinalizationIssues(await deps.readAiFinalizationState(data.revisionId));
+    if (aiIssues.length > 0) return { ok: false, reason: "blocked", issues: aiIssues };
+  }
 
   const { error: rpcError } = await deps.finalizeTransaction({
     p_owner_user_id: deps.userId,

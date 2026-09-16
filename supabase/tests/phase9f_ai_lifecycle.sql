@@ -472,6 +472,192 @@ begin
          (select source_state from public.ai_analysis_state where guest_workspace_id = v_guest) = 'stale';
 end $phase9f$;
 
+/* ----------------------------------------------------------------------------
+ * 36-47 — Phase 8B upload compatibility for temporary workspaces, and the v3
+ * "Save to My Contracts" re-home of AI run history.
+ * ------------------------------------------------------------------------- */
+
+do $phase9f_v3$
+declare
+  v_user uuid := gen_random_uuid();
+  v_guest uuid;
+  v_hash text := repeat('a', 64);
+  v_sha text := repeat('b', 64);
+  v_intent uuid;
+  v_doc uuid;
+  v_run uuid := gen_random_uuid();
+  v_run_b uuid := gen_random_uuid();
+  v_lock integer;
+  c record;
+  res record;
+  mig record;
+  mig2 record;
+  v_rev uuid;
+  ok boolean;
+  n integer;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          created_at, updated_at)
+  values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          'phase9f-v3@example.test', '', now(), now());
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{"origin":"visitor"}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+  returning id into v_guest;
+
+  /* ------------------------------------------- 36-38 guest upload commit */
+
+  insert into public.document_upload_intents
+    (guest_workspace_id, pending_object_path, original_filename, display_name, expires_at)
+  values (v_guest, 'pending/9f-guest.pdf', 'msa.pdf', 'Master Agreement', now() + interval '1 hour')
+  returning id into v_intent;
+
+  perform public.arc_prepare_source_document_upload(v_intent, null, v_hash, v_sha, 2048, 5);
+
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest;
+  select * into c from public.arc_commit_source_document_upload(v_intent, null, v_hash, v_lock);
+  v_doc := c.source_document_id;
+
+  insert into arc_test_results
+  select '36 a temporary-workspace first commit succeeds and selects the document',
+         c.associated is true and c.association_conflict is false
+     and c.lock_version = v_lock + 1
+     and exists (select 1 from public.guest_source_document_selections s
+                  where s.guest_workspace_id = v_guest and s.source_document_id = v_doc);
+
+  select * into res from public.arc_commit_source_document_upload(v_intent, null, v_hash, v_lock);
+  select count(*) into n from public.source_documents
+   where guest_workspace_id = v_guest and sha256 = v_sha;
+
+  insert into arc_test_results
+  select '37 the finalized guest intent retry reports associated with no second lock bump',
+         res.source_document_id = v_doc
+     and res.associated is true
+     and res.association_conflict is false
+     and res.lock_version = c.lock_version
+     and (select lock_version from public.guest_workspaces where id = v_guest) = c.lock_version
+     and n = 1;
+
+  insert into arc_test_results
+  select '38 no stale mark is written when no new association was inserted',
+         coalesce((select source_state from public.ai_analysis_state
+                    where guest_workspace_id = v_guest), 'none') <> 'stale';
+
+  /* ------------------------------------- 39-45 v3 re-home of the AI history */
+
+  insert into public.ai_runs (id, guest_workspace_id, guest_token_hash, quota_scope, stage,
+                              source_set_fingerprint, source_count, page_count,
+                              pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
+                              output_schema_version, guidance_registry_hash, completed_at)
+  values (v_run, v_guest, v_hash, 'guest', 'succeeded', 'fp-v3', 1, 5,
+          '{"origin":"visitor"}'::jsonb, 'm', 'high', 'p9f', 's1', 'h9f', now());
+
+  insert into public.ai_run_sources (run_id, source_document_id, position, sha256, byte_size, page_count)
+  values (v_run, v_doc, 0, v_sha, 2048, 5);
+  insert into public.ai_run_guidance (run_id, card_id, inclusion_reason, matched_signals, registry_hash)
+  values (v_run, 12, 'signal', array['licence'], 'h9f');
+
+  insert into public.ai_analysis_state (guest_workspace_id, source_state, last_successful_run_id,
+                                        field_provenance, review_items)
+  values (v_guest, 'current', v_run, '{"contract.transactionPriceInput":"ai"}'::jsonb,
+          jsonb_build_array(jsonb_build_object('id', 'y1', 'section', 'step_2', 'state', 'resolved')));
+
+  -- An executing run must block the save outright.
+  insert into public.ai_runs (id, guest_workspace_id, guest_token_hash, quota_scope, stage,
+                              source_set_fingerprint, pre_run_canonical_inputs, model,
+                              reasoning_effort, prompt_version, output_schema_version,
+                              guidance_registry_hash)
+  values (v_run_b, v_guest, v_hash, 'guest', 'analyzing', 'fp-v3b',
+          '{"origin":"visitor"}'::jsonb, 'm', 'high', 'p9f', 's1', 'h9f');
+
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest;
+  ok := false;
+  begin
+    perform public.arc_migrate_guest_workspace_by_token_v3(
+      v_hash, v_user, v_lock, null, 'Genomix Therapeutics', 'Genomix Platform', 'GX-1');
+  exception when others then ok := (sqlstate = '55006');
+  end;
+  insert into arc_test_results values (
+    '39 an executing AI run blocks Save to My Contracts', ok);
+
+  update public.ai_runs set stage = 'api_failed', completed_at = now() where id = v_run_b;
+
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest;
+  select * into mig from public.arc_migrate_guest_workspace_by_token_v3(
+    v_hash, v_user, v_lock, null, 'Genomix Therapeutics', 'Genomix Platform', 'GX-1');
+  v_rev := mig.revision_id;
+
+  insert into arc_test_results
+  select '40 the saved analysis keeps the same AI run id, now on revision 1',
+         mig.idempotent is false
+     and (select revision_id from public.ai_runs where id = v_run) = v_rev
+     and (select guest_workspace_id from public.ai_runs where id = v_run) is null
+     and (select revision_number from public.analysis_revisions where id = v_rev) = 1;
+
+  insert into arc_test_results
+  select '41 run sources and Guidance provenance are unchanged by the save',
+         (select count(*) from public.ai_run_sources where run_id = v_run) = 1
+     and (select source_document_id from public.ai_run_sources where run_id = v_run) = v_doc
+     and (select card_id from public.ai_run_guidance where run_id = v_run) = 12
+     and (select registry_hash from public.ai_run_guidance where run_id = v_run) = 'h9f';
+
+  insert into arc_test_results
+  select '42 the AI sidecar moves across intact',
+         (select count(*) from public.ai_analysis_state where guest_workspace_id = v_guest) = 0
+     and (select last_successful_run_id from public.ai_analysis_state where revision_id = v_rev) = v_run
+     and (select source_state from public.ai_analysis_state where revision_id = v_rev) = 'current'
+     and (select field_provenance from public.ai_analysis_state where revision_id = v_rev)
+           = '{"contract.transactionPriceInput":"ai"}'::jsonb;
+
+  insert into arc_test_results
+  select '43 the saved run keeps its temporary-workspace quota identity',
+         (select quota_scope from public.ai_runs where id = v_run) = 'guest'
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user);
+
+  select * into mig2 from public.arc_migrate_guest_workspace_by_token_v3(
+    v_hash, v_user, v_lock, null, 'Genomix Therapeutics', 'Genomix Platform', 'GX-1');
+
+  insert into arc_test_results
+  select '44 a response-loss retry returns the same ids and migrates nothing twice',
+         mig2.idempotent is true
+     and mig2.revision_id = v_rev
+     and mig2.contract_id = mig.contract_id
+     and mig2.analysis_id = mig.analysis_id
+     and (select count(*) from public.analysis_revisions where analysis_id = mig.analysis_id) = 1
+     and (select count(*) from public.ai_runs where revision_id = v_rev) = 2;
+
+  update public.guest_workspaces set expires_at = now() - interval '1 hour' where id = v_guest;
+  perform public.arc_expire_guest_workspaces();
+  perform public.arc_delete_expired_guest_workspaces();
+
+  insert into arc_test_results
+  select '45 expiring the old temporary workspace never touches the saved analysis',
+         exists (select 1 from public.analysis_revisions where id = v_rev)
+     and exists (select 1 from public.ai_runs where id = v_run and revision_id = v_rev)
+     and exists (select 1 from public.ai_analysis_state where revision_id = v_rev);
+
+  /* ------------------------------------------ 46-47 signed-in quota identity */
+
+  insert into public.ai_runs (id, owner_user_id, revision_id, quota_scope, stage,
+                              source_set_fingerprint, pre_run_canonical_inputs, model,
+                              reasoning_effort, prompt_version, output_schema_version,
+                              guidance_registry_hash, completed_at)
+  values (gen_random_uuid(), v_user, v_rev, 'authenticated', 'succeeded', 'fp-auth',
+          '{}'::jsonb, 'm', 'high', 'p9f', 's1', 'h9f', now());
+
+  insert into arc_test_results
+  select '46 a signed-in run on the saved revision keeps the authenticated quota identity',
+         (select count(*) from public.ai_runs
+           where revision_id = v_rev and quota_scope = 'authenticated') = 1;
+
+  insert into arc_test_results
+  select '47 the guest-funded run gains an owner but is never rebilled to the account',
+         (select owner_user_id from public.ai_runs where id = v_run) = v_user
+     and (select quota_scope from public.ai_runs where id = v_run) = 'guest'
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user);
+end $phase9f_v3$;
+
+
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 

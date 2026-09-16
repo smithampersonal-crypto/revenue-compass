@@ -52,9 +52,20 @@ export interface CurrentAccountingContext {
   draftFingerprint: string;
 }
 
+/**
+ * Phase 9F: the protected prior finalized accounting of the revision an
+ * amendment supersedes. It is trusted ARC context — facts only — and never
+ * evidence: the model may read this history but can never rewrite it.
+ */
 export interface PriorAccountingContext {
+  /** Semantic marker carried into the trusted context block. */
+  kind: "prior_finalized";
   sourceRevisionId: string;
+  schemaVersion: string;
+  finalizedAt: string | null;
   performanceObligations: Array<Record<string, unknown>>;
+  /** Prior SSP and allocated consideration, per obligation. */
+  allocation: Array<Record<string, unknown>>;
   transactionPriceInput: string;
   recognitionSummary: Array<Record<string, unknown>>;
   modificationSummary: Array<Record<string, unknown>>;

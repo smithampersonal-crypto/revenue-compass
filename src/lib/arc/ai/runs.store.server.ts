@@ -14,6 +14,7 @@ import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
 import { AiApplyConflictError } from "./orchestrator";
+import { createPriorRevisionReader, loadPriorAccountingContext } from "./prior-context.server";
 import type { AiApplyArgs, AiExecutionContext, AiRunExecutionStore } from "./orchestrator";
 import type {
   AiCallerScope,
@@ -311,9 +312,12 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return {
           draft,
           aiState: await state("revision_id", caller.revisionId),
-          // Prior finalized context is supplied by the revision lifecycle, not
-          // by the model; an amendment without one simply has none.
-          priorContext: null,
+          // An amendment is analyzed against the exact finalized revision it
+          // supersedes. That history is trusted ARC context and read-only.
+          priorContext: await loadPriorAccountingContext(
+            await createPriorRevisionReader(),
+            caller.revisionId,
+          ),
           schemaVersion: data.schema_version,
           lockVersion: data.lock_version,
           manuallyEnteredFacts: manualFacts(draft),
