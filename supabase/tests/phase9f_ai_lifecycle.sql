@@ -346,6 +346,15 @@ begin
     v_old := v_run2;
   end loop;
 
+  -- An older successful run that was never the current one is refused outright
+  -- (a re-restore of an already restored run is a response-loss retry instead).
+  v_old := gen_random_uuid();
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
+                              output_schema_version, guidance_registry_hash, owner_user_id,
+                              openai_started_at, completed_at)
+  values (v_old, v_rev, 'authenticated', 'succeeded', 'fp-old', '{"origin":"older"}'::jsonb,
+          'm', 'high', 'p9f', 's1', 'h9f', v_user, now(), now());
   begin
     perform public.arc_restore_pre_ai_run(v_old, v_user, null,
       (select lock_version from public.analysis_revisions where id = v_rev));
@@ -354,6 +363,7 @@ begin
   end;
   insert into arc_test_results values (
     '26 only the current latest successful run can be restored', ok);
+
 
   -- A finalized revision is out of reach of restore entirely.
   v_run2 := gen_random_uuid();
