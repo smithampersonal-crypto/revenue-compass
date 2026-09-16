@@ -913,17 +913,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: proposal.reviewState,
       label: "Recognition method",
     });
-    mergeText({
-      key: fieldKeys.po(canonicalId, "recognitionRationale"),
-      semanticKey: proposal.performanceObligationKey,
-      current: current().recognitionRationale,
-      proposed: proposal.rationale,
-      apply: (value) => update({ recognitionRationale: value }),
-      section,
-      guidanceIds: proposal.guidanceIds,
-      aiReviewState: proposal.reviewState,
-      label: "Recognition rationale",
-    });
+    // The rationale and the AI-derived service dates explain the AI method.
+    // If the accountant owns the method, none of them may be attached to it.
+    const methodIsAiOwned =
+      fieldProvenance[fieldKeys.po(canonicalId, "recognitionMethod")]?.state ===
+      "ai_generated_untouched";
+    if (methodIsAiOwned) {
+      mergeText({
+        key: fieldKeys.po(canonicalId, "recognitionRationale"),
+        semanticKey: proposal.performanceObligationKey,
+        current: current().recognitionRationale,
+        proposed: proposal.rationale,
+        apply: (value) => update({ recognitionRationale: value }),
+        section,
+        guidanceIds: proposal.guidanceIds,
+        aiReviewState: proposal.reviewState,
+        label: "Recognition rationale",
+      });
+    }
 
     if (mapping.method === "over_time_ratable") {
       const start = parseIsoDate(proposal.serviceStartDate);
