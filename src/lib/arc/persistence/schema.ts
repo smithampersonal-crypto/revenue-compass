@@ -192,7 +192,11 @@ const cashCollectionSchema = z.object({
   considerationEventId: z.string().nullable(),
   amountInput: text,
   collectionDate: dateText,
+  // Backward-compatible normalization: a stored v1 row without `basis` is
+  // actual cash. Never unknown, never projected.
+  basis: z.enum(["actual", "projected_contract_due_date"]).default("actual"),
 });
+
 
 const draftSchema = z.object({
   contract: contractSchema,

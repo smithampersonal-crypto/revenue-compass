@@ -572,8 +572,18 @@ export function createConsiderationEventDraft(seq: number, id: string): Consider
 }
 
 export function createCashCollectionDraft(seq: number, id: string): CashCollectionDraft {
-  return { id, seq, considerationEventId: null, amountInput: "", collectionDate: "" };
+  // Manually added cash is actual by default; ARC never asks the accountant
+  // whether the cash they entered is real.
+  return {
+    id,
+    seq,
+    considerationEventId: null,
+    amountInput: "",
+    collectionDate: "",
+    basis: "actual",
+  };
 }
+
 
 export function createEmptyContractBalances(): ContractBalanceDraft {
   return { considerationEvents: [], cashCollections: [] };
