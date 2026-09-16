@@ -1720,6 +1720,12 @@ function cashFingerprintValue(row: CashCollectionDraft) {
 /**
  * The contract-level service period, taken from canonical over-time
  * performance obligations only. It is never parsed from prose.
+ *
+ * It exists ONLY when every qualifying performance obligation shares exactly
+ * the same start and end. The accepted Phase 9D billing schema does not say
+ * which performance obligation a billing term belongs to, so widening several
+ * different periods into one min/max window would manufacture a continuous
+ * service period the contract never states.
  */
 function deriveContractServicePeriod(
   draft: WorkflowDraft,
@@ -1732,13 +1738,31 @@ function deriveContractServicePeriod(
         period.start !== null && period.end !== null,
     );
   if (periods.length === 0) return null;
-  const start = periods.reduce(
-    (min, period) => (period.start < min ? period.start : min),
-    periods[0]!.start,
-  );
-  const end = periods.reduce(
-    (max, period) => (period.end > max ? period.end : max),
-    periods[0]!.end,
-  );
-  return { start, end: addDays(end, 0) };
+  const distinct = new Set(periods.map((period) => `${period.start}\u0000${period.end}`));
+  if (distinct.size !== 1) return null;
+  return periods[0]!;
+}
+
+/**
+ * The AI-owned fingerprint subset of whichever canonical object carries this
+ * ID, or null when no canonical row does. One helper serves both the
+ * pre-merge user-edit baseline and the post-merge AI baseline, so the two can
+ * never drift apart.
+ */
+function fingerprintCanonicalObject(draft: WorkflowDraft, canonicalId: string): string | null {
+  const promise = draft.promises.find((row) => row.id === canonicalId);
+  if (promise !== undefined) return valueFingerprint(promiseFingerprintValue(promise));
+  const po = draft.performanceObligations.find((row) => row.id === canonicalId);
+  if (po !== undefined) return valueFingerprint(poFingerprintValue(po));
+  const vc = draft.variableConsiderationComponents.find((row) => row.id === canonicalId);
+  if (vc !== undefined) return valueFingerprint(vcFingerprintValue(vc));
+  const modification = draft.contractModifications.find((row) => row.id === canonicalId);
+  if (modification !== undefined) {
+    return valueFingerprint(modificationFingerprintValue(modification));
+  }
+  const event = draft.contractBalances.considerationEvents.find((row) => row.id === canonicalId);
+  if (event !== undefined) return valueFingerprint(considerationFingerprintValue(event));
+  const cash = draft.contractBalances.cashCollections.find((row) => row.id === canonicalId);
+  if (cash !== undefined) return valueFingerprint(cashFingerprintValue(cash));
+  return null;
 }
