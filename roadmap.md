@@ -655,10 +655,32 @@ routines in place — plain-text source state in `arc_mark_ai_sources_stale`,
 `arc_affirm_ai_review_scope` — with signatures, lock order, ownership checks and
 service-role-only grants preserved.
 
+Citation mirror patch (2026-09-16): two live fictional runs failed local
+citation validation with `excerpt_not_found` only — Terra saw the rendered PDF
+but never ARC's own extraction, so visually correct excerpts were mechanically
+wrong. `src/lib/arc/ai/citation-mirror.ts` now supplies an ephemeral ARC local
+citation text mirror alongside (never instead of) each original PDF: per
+physical page, an ARC-authored locator part (trusted documentId, physical page,
+payload length) followed by a separate part holding `AiDocumentEvidence.pages[]
+.text` byte for byte. No textual BEGIN/END sentinel is trusted and ARC never
+parses delimiters out of page content, so contract text cannot escape into
+ARC-authored metadata; the locator is trusted, the transcription is contract
+evidence only. The mirror travels inside the one counted canonical request and
+is cleared with the transient PDF bytes by `releaseRequestSensitivePayload`
+(renamed from `releaseRequestBytes`) through references recorded at build time.
+Prompt bumped to `arc.ai.prompt.v2`: PDFs remain the semantic/visual evidence,
+text excerpts are copied only from the mirror, layout-dependent facts stay
+visual. `validateAiCitations()` and `normalizeCitationText()` are unchanged.
+
 Coverage: `supabase/tests/phase9f_ai_lifecycle.sql` (53 assertions, run by the
-database job with every other suite) and the fake-model
-`__tests__/orchestrator.spec.ts` (22 tests). No live OpenAI call was made in
-this phase. No Resend, custom-domain, auth or email work.
+database job with every other suite), the fake-model
+`__tests__/orchestrator.spec.ts` (22 tests), `__tests__/citation-mirror.spec.ts`
+(page fidelity, byte-for-byte preservation, framing-escape resistance), the
+request-package mirror/release regressions, the prompt v2 regressions and the
+`citations.spec.ts` mirror round-trip proofs (an exact mirror span verifies;
+trailing punctuation, stitched cells, ellipses, wrong page and fabrication are
+still rejected). No live OpenAI call was made in this patch. No Resend,
+custom-domain, auth or email work.
 
 
 ## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (accepted)

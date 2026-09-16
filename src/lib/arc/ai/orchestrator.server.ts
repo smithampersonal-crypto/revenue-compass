@@ -12,7 +12,7 @@ import { productionTerraAnalyzer, productionTokenCounter } from "./openai.server
 import type { AiExecutionDeps } from "./orchestrator";
 import {
   buildAiRequestPackage,
-  releaseRequestBytes,
+  releaseRequestSensitivePayload,
   type AiRunScope,
 } from "./request-package.server";
 import type { AiRequestPackage } from "./types";
@@ -36,7 +36,8 @@ export async function createExecutionBoundaries(): Promise<
 
   return {
     analyzer,
-    releaseBytes: (requestPackage) => releaseRequestBytes(requestPackage as AiRequestPackage),
+    releaseBytes: (requestPackage) =>
+      releaseRequestSensitivePayload(requestPackage as AiRequestPackage),
     buildPackage: (args) =>
       buildAiRequestPackage({
         scope: args.scope as AiRunScope,

@@ -25,7 +25,10 @@ import path from "node:path";
 import { AI_LIMITS } from "@/lib/arc/ai/config.server";
 import { openAiClient, createTokenCounter } from "@/lib/arc/ai/openai.server";
 import { buildAiInstructions } from "@/lib/arc/ai/prompt";
-import { buildAiRequestPackage, releaseRequestBytes } from "@/lib/arc/ai/request-package.server";
+import {
+  buildAiRequestPackage,
+  releaseRequestSensitivePayload,
+} from "@/lib/arc/ai/request-package.server";
 import {
   arcStructuredOutput,
   createTerraAnalyzer,
@@ -218,7 +221,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
   } finally {
     // 17. Release the PDF/base64 references.
-    releaseRequestBytes(built.package);
+    releaseRequestSensitivePayload(built.package);
   }
 }
 
