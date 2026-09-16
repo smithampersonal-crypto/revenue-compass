@@ -1549,22 +1549,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ...draft.contractBalances,
           cashCollections: [...draft.contractBalances.cashCollections, created],
         };
-        recordObject(
-          cashSemanticKey,
-          cashId,
-          valueFingerprint(cashFingerprintValue(created)),
-          false,
-        );
-      } else {
-        const existing = draft.contractBalances.cashCollections.find((row) => row.id === cashId)!;
-        const fingerprint = valueFingerprint(cashFingerprintValue(existing));
-        recordObject(
-          cashSemanticKey,
-          cashId,
-          fingerprint,
-          objectUserModified(cashSemanticKey, fingerprint),
-        );
       }
+      claimObject(cashSemanticKey, cashId);
     }
   }
 
