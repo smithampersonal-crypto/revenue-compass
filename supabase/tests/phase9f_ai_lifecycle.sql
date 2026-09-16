@@ -658,6 +658,136 @@ begin
 end $phase9f_v3$;
 
 
+/* ============ 48-53 Phase 8 lifecycle compatibility (Phase 9F patch) ====== */
+
+do $phase9f_compat$
+declare
+  v_user uuid := gen_random_uuid();
+  v_customer uuid;
+  v_contract uuid;
+  v_analysis uuid;
+  v_rev1 uuid;
+  v_rev2 uuid;
+  v_a uuid;
+  v_b uuid;
+  v_c uuid;
+  v_lock integer;
+  v_hash1 text := 'compat-hash-1';
+  v_hash2 text := 'compat-hash-2';
+  v_g1 uuid;
+  v_g2 uuid;
+  v_gdoc uuid;
+  v_glock integer;
+  ok boolean;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9f-compat@example.test', '', now(), now(), now());
+
+  insert into public.customers (owner_user_id, name) values (v_user, 'Compat Customer')
+    returning id into v_customer;
+  insert into public.contracts (customer_id, title) values (v_customer, 'Compat Contract')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{"origin":"finalized"}'::jsonb, 'arc.workflow.v1')
+    returning id into v_rev1;
+
+  insert into public.source_documents (contract_id, storage_bucket, storage_object_path,
+                                       original_filename, display_name, sha256, byte_size, page_count)
+  values (v_contract, 'arc-source-documents', 'compat/a.pdf', 'a.pdf', 'A', repeat('a', 64), 10, 1)
+    returning id into v_a;
+  insert into public.source_documents (contract_id, storage_bucket, storage_object_path,
+                                       original_filename, display_name, sha256, byte_size, page_count)
+  values (v_contract, 'arc-source-documents', 'compat/b.pdf', 'b.pdf', 'B', repeat('b', 64), 10, 1)
+    returning id into v_b;
+  insert into public.source_documents (contract_id, storage_bucket, storage_object_path,
+                                       original_filename, display_name, sha256, byte_size, page_count)
+  values (v_contract, 'arc-source-documents', 'compat/c.pdf', 'c.pdf', 'C', repeat('c', 64), 10, 1)
+    returning id into v_c;
+
+  -- Finalized source set = {A, B}.
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev1;
+  v_lock := public.arc_attach_source_document(v_user, v_rev1, v_a, v_lock);
+  v_lock := public.arc_attach_source_document(v_user, v_rev1, v_b, v_lock);
+  perform public.arc_finalize_revision(v_user, v_rev1, v_lock, '{"engine":true}'::jsonb,
+                                       '{"reconciled":true}'::jsonb, 'arc.workflow.v1', 'engine-9f');
+
+  -- The amendment draft's set is changed to {A, C}.
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs,
+                                         schema_version, supersedes_revision_id)
+  values (v_analysis, 2, '{"origin":"accountant"}'::jsonb, 'arc.workflow.v1', v_rev1)
+    returning id into v_rev2;
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev2;
+  v_lock := public.arc_attach_source_document(v_user, v_rev2, v_a, v_lock);
+  v_lock := public.arc_attach_source_document(v_user, v_rev2, v_c, v_lock);
+
+  -- Both the finalized sidecar and the draft's mutable sidecar exist.
+  insert into public.ai_analysis_state (revision_id, source_state, field_provenance)
+  values (v_rev1, 'current', '{"contract.transactionPriceInput":"ai"}'::jsonb),
+         (v_rev2, 'stale', '{"contract.transactionPriceInput":"ai"}'::jsonb);
+
+  perform public.arc_reset_amendment_draft(v_user, v_rev2, v_lock);
+
+  insert into arc_test_results
+  select '48 reset restores the draft source set to exactly the finalized set',
+         (select array_agg(rsd.source_document_id order by rsd.source_document_id)
+            from public.revision_source_documents rsd where rsd.revision_id = v_rev2)
+         = (select array_agg(rsd.source_document_id order by rsd.source_document_id)
+              from public.revision_source_documents rsd where rsd.revision_id = v_rev1);
+
+  insert into arc_test_results
+  select '49 a draft-only document stays in the contract library after reset',
+         exists (select 1 from public.source_documents d
+                  where d.id = v_c and d.contract_id = v_contract)
+     and not exists (select 1 from public.revision_source_documents rsd
+                      where rsd.revision_id = v_rev2 and rsd.source_document_id = v_c);
+
+  insert into arc_test_results
+  select '50 reset clears the draft AI sidecar and leaves the finalized one untouched',
+         not exists (select 1 from public.ai_analysis_state s where s.revision_id = v_rev2)
+     and exists (select 1 from public.ai_analysis_state s
+                  where s.revision_id = v_rev1 and s.source_state = 'current');
+
+  insert into arc_test_results
+  select '51 reset advances the draft lock exactly once',
+         (select r.lock_version from public.analysis_revisions r where r.id = v_rev2) = v_lock + 1;
+
+  /* ------------------------- guest cross-workspace remove ownership check */
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash1, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours') returning id into v_g1;
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash2, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours') returning id into v_g2;
+
+  insert into public.source_documents (guest_workspace_id, storage_bucket, storage_object_path,
+                                       original_filename, display_name, sha256, byte_size, page_count)
+  values (v_g1, 'arc-source-documents', 'compat/g.pdf', 'g.pdf', 'G', repeat('d', 64), 10, 1)
+    returning id into v_gdoc;
+  select g.lock_version into v_glock from public.guest_workspaces g where g.id = v_g1;
+  v_glock := public.arc_attach_guest_source_document(v_hash1, v_gdoc, v_glock);
+
+  ok := false;
+  begin
+    perform public.arc_remove_guest_source_document(
+      v_hash2, v_gdoc, (select g.lock_version from public.guest_workspaces g where g.id = v_g2));
+  exception when insufficient_privilege then
+    ok := true;
+  end;
+
+  insert into arc_test_results
+  select '52 another workspace cannot remove this workspace''s document', ok;
+
+  insert into arc_test_results
+  select '53 the cross-workspace attempt is refused, never a silent no-op',
+         exists (select 1 from public.guest_source_document_selections s
+                  where s.guest_workspace_id = v_g1 and s.source_document_id = v_gdoc)
+     and (select g.lock_version from public.guest_workspaces g where g.id = v_g2) = 1;
+end $phase9f_compat$;
+
+
 select assertion, passed from arc_test_results order by assertion;
 select count(*) filter (where passed is not true) as failures, count(*) as total from arc_test_results;
 
