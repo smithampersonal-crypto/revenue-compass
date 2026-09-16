@@ -217,7 +217,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // ARC's own work misread as the accountant's.
   const preMergeFingerprints = new Map<string, string>();
   for (const [semanticKey, provenance] of Object.entries(previousState.objectProvenance)) {
-    const fingerprint = fingerprintCanonicalObject(args.currentDraft, provenance.canonicalId);
+    const fingerprint = aiObjectFingerprint(args.currentDraft, provenance.canonicalId);
     if (fingerprint !== null) preMergeFingerprints.set(semanticKey, fingerprint);
   }
 
@@ -1831,7 +1831,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       prior !== undefined &&
       (prior.userModified || (preMerge !== undefined && preMerge !== prior.valueFingerprint));
     const finalFingerprint =
-      fingerprintCanonicalObject(draft, canonicalId) ?? valueFingerprint(canonicalId);
+      aiObjectFingerprint(draft, canonicalId) ?? valueFingerprint(canonicalId);
     objectProvenance[semanticKey] = {
       state: userModified
         ? "ai_generated_user_edited"
@@ -1967,7 +1967,7 @@ function deriveContractServicePeriod(
  * pre-merge user-edit baseline and the post-merge AI baseline, so the two can
  * never drift apart.
  */
-function fingerprintCanonicalObject(draft: WorkflowDraft, canonicalId: string): string | null {
+export function aiObjectFingerprint(draft: WorkflowDraft, canonicalId: string): string | null {
   const promise = draft.promises.find((row) => row.id === canonicalId);
   if (promise !== undefined) return valueFingerprint(promiseFingerprintValue(promise));
   const po = draft.performanceObligations.find((row) => row.id === canonicalId);
