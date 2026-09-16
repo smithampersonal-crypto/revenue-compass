@@ -148,7 +148,7 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
         userId: context.userId,
         migrateTransaction: async (args) => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token_v2", args as never);
+          return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token_v3", args as never);
         },
       },
       {
