@@ -53,6 +53,12 @@ export interface AiAnalysisRequest {
    * callers leave it off and receive codes and paths only.
    */
   includeExcerptDiagnostics?: boolean;
+  /**
+   * Fires exactly once, after the provider response has been received and
+   * BEFORE any parsing, schema, citation, Guidance or provenance validation.
+   * Used by the orchestrator to record that the model has answered.
+   */
+  onResponseReceived?: () => Promise<void> | void;
 }
 
 export interface TerraAnalysisResult {
@@ -195,6 +201,9 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
       } catch (error) {
         throw classifyApiError(error);
       }
+
+      // The response exists. Everything below is ARC's own local validation.
+      await args.onResponseReceived?.();
 
       const outputText = extractOutputText(response);
       if (outputText === null) {

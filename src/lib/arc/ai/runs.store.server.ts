@@ -13,6 +13,7 @@
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
+import { AiApplyConflictError } from "./orchestrator";
 import type { AiApplyArgs, AiExecutionContext, AiRunExecutionStore } from "./orchestrator";
 import type {
   AiCallerScope,
@@ -267,12 +268,14 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
     /* ------------------------------------------------- Phase 9F execution */
 
     advanceStage: async (runId, from, to) => {
-      const { error } = await supabaseAdmin.rpc("arc_advance_ai_run_stage", {
+      const { data, error } = await supabaseAdmin.rpc("arc_advance_ai_run_stage", {
         p_run_id: runId,
         p_from: from,
         p_to: to,
       } as never);
       if (error) fail("run stage", error);
+      // `false` means another caller already claimed this transition.
+      return data === true;
     },
 
     loadExecutionContext: async (caller): Promise<AiExecutionContext> => {
@@ -382,6 +385,10 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         p_usage_metadata: args.usageMetadata as never,
         p_review_issue_count: args.reviewIssueCount,
       } as never);
+      // A lost optimistic lock is a retryable local conflict, not a failure.
+      if (error && (error as { code?: string }).code === "40001") {
+        throw new AiApplyConflictError();
+      }
       if (error) fail("apply run", error);
     },
 

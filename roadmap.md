@@ -616,10 +616,26 @@ atomic under the owner's optimistic lock and are idempotent on retry.
 
 Task 12 — `src/lib/arc/ai/orchestrator.ts` (pure, dependency-injected) sequences
 created → extracting → preflight_ready → analyzing → validating → applying →
-succeeded. Allowance is reserved before the one generative call, there is never
-a second call, a rejected response applies nothing, and an application failure
-restores the exact pre-run canonical inputs and sidecar. Production boundaries
-live in `orchestrator.server.ts`; the browser surface is `executeAiAnalysis`.
+succeeded. `created → extracting` is an exactly-once claim: the loser of a
+concurrent start stops immediately. The allowance reservation itself enters
+`analyzing`, so the charge and the stage commit together; there is never a
+second generative call. The Terra boundary's `onResponseReceived` hook enters
+`validating` as soon as the provider answers and before any parsing or local
+validation, so an API failure is recorded at `analyzing` and a rejected response
+at `validating`. The deterministic merge happens inside `applying`, against the
+newest accountant draft reloaded immediately beforehand; a lost optimistic lock
+(40001) re-merges and retries locally, at most three attempts, with no further
+token count, allowance charge or model call. A failed application never restores
+automatically — `arc_apply_ai_run` is atomic, so nothing partial exists, and
+restore stays an explicit user action. `review_issue_count` records outstanding
+items only. Production boundaries live in `orchestrator.server.ts`; the browser
+surface is `executeAiAnalysis`.
+
+Runtime durability, stated plainly: execution is a single in-request server
+call. There is no background worker, no durable job queue and no automatic
+resumption. If the request dies mid-run the run stays at its last committed
+stage until a maintenance sweep or an explicit user action ends it; the database
+routines guarantee that no partial accounting state can exist in the meantime.
 
 Task 13 — lifecycle integration in SQL: the selected source set is frozen while
 a run is active; changing it after a successful run marks the sidecar stale
@@ -629,8 +645,21 @@ active; `arc_migrate_guest_workspace_v3` / `..._by_token_v3` re-home AI runs and
 AI state to the saved revision with run ids, stages, fingerprints, guidance and
 guest-funded quota scope intact.
 
-Fake-model lifecycle coverage: `__tests__/orchestrator.spec.ts`. No live OpenAI
-call was made in this phase. No Resend, custom-domain, auth or email work.
+Acceptance patch (2026-09-16): `ai_analysis_state.source_state` is TEXT, but the
+two committed Phase 9F migrations assigned it JSONB. Those files are left
+untouched; two later additive migrations
+(`20260916040703_871cb27a-…`, `20260916041038_552539f0-…`) replace the affected
+routines in place — plain-text source state in `arc_mark_ai_sources_stale`,
+`arc_apply_ai_run` and `arc_restore_pre_ai_run`, an integer guidance card id in
+`arc_record_ai_preflight`, and a qualified owner-lock bump in
+`arc_affirm_ai_review_scope` — with signatures, lock order, ownership checks and
+service-role-only grants preserved.
+
+Coverage: `supabase/tests/phase9f_ai_lifecycle.sql` (35 assertions, run by the
+database job with every other suite) and the fake-model
+`__tests__/orchestrator.spec.ts` (16 tests). No live OpenAI call was made in
+this phase. No Resend, custom-domain, auth or email work.
+
 
 ## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (accepted)
 
