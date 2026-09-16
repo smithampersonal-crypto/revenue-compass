@@ -14,6 +14,7 @@
     "ai:phase9d:smoke": "bun run scripts/phase9d-smoke.ts",
     "typecheck": "tsgo --noEmit || tsc --noEmit",
     "db:start": "bunx --bun supabase start",
+    "db:start:ci": "bunx --bun supabase start -x mailpit",
     "db:test": "bash scripts/run-sql-suites.sh",
     "audit:bundle": "bash scripts/audit-bundle.sh",
     "guidance:compile": "bun scripts/compile-guidance-registry.ts",

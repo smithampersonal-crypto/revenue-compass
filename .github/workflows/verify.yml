@@ -33,7 +33,10 @@ jobs:
           bun-version: 1.2.21
       # Project-pinned Supabase CLI (devDependency), identical to local runs.
       - run: bun install --frozen-lockfile
-      - run: bun run db:start
+      # SQL verification needs the local Postgres/storage stack only; the local
+      # email-capture UI (mailpit, host port 54324) is excluded because it is
+      # unused here and its port is frequently already bound on CI runners.
+      - run: bun run db:start:ci
       # Same source-controlled runner as `bun run db:test` locally. Any false
       # assertion raises in SQL, so psql exits non-zero and this job fails.
       - run: bun run db:test
