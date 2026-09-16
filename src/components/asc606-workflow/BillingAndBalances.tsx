@@ -246,6 +246,25 @@ export function BillingAndBalances({
                   Remove collection
                 </button>
               </div>
+              <div>
+                <span
+                  data-testid={`cash-basis-${collection.id}`}
+                  className={
+                    isProjectedCollection(collection)
+                      ? "inline-block rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400"
+                      : "inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
+                  }
+                >
+                  {CASH_COLLECTION_BASIS_LABELS[collection.basis ?? "actual"]}
+                </span>
+                {isProjectedCollection(collection) ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Projected from contractual billing/payment terms. This is not evidence that cash
+                    was received.
+                  </p>
+                ) : null}
+              </div>
+
               <div className="grid gap-3 md:grid-cols-3">
                 <Field label="Related billing event">
                   <select
