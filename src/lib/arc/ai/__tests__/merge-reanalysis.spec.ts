@@ -8,7 +8,12 @@ import { describe, expect, it } from "vitest";
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { deriveCanonicalId } from "../identity";
-import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
+import {
+  AiMergeError,
+  createEmptyAiAnalysisState,
+  mergeAiAnalysis,
+  type AiAnalysisState,
+} from "../merge";
 import type { AiContractAnalysis } from "../schema";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
@@ -59,14 +64,14 @@ describe("Fixture B — unsupported recognition and unobservable SSP", () => {
     expect(po.recognitionMethod).toBeNull();
     expect(po.serviceStart).toBe("");
     expect(po.serviceEnd).toBe("");
-    expect(itemFor(issues, `po.${PO_ID}.recognitionMethod`)?.state).toBe("red");
+    expect(itemFor(issues, `po:${PO_ID}.recognitionMethod`)?.state).toBe("red");
   });
 
   it("never takes an unobservable standalone selling price from the contract price", () => {
     const { draft, issues } = run(fixtureB());
     expect(draft.performanceObligations[0]!.sspInput).toBe("");
     expect(draft.performanceObligations[0]!.sspBasis).toBe("");
-    expect(itemFor(issues, `po.${PO_ID}.sspInput`)?.state).toBe("red");
+    expect(itemFor(issues, `po:${PO_ID}.sspInput`)?.state).toBe("red");
   });
 
   it("still maps everything that is safe", () => {
@@ -110,10 +115,10 @@ describe("Fixture C — re-analysis preserves user work", () => {
 
     expect(second.draft.transactionPriceInput).toBe("125000");
     expect(second.draft.performanceObligations[0]!.name).toBe("Accountant's own PO name");
-    expect(second.aiState.fieldProvenance["transactionPriceInput"]?.state).toBe(
+    expect(second.aiState.fieldProvenance["transactionPrice.input"]?.state).toBe(
       "ai_difference_preserved_user_override",
     );
-    expect(itemFor(second.issues, "transactionPriceInput")?.state).toBe("yellow");
+    expect(itemFor(second.issues, "transactionPrice.input")?.state).toBe("yellow");
   });
 
   it("records a tombstone for a user-deleted AI object and never resurrects it", () => {
@@ -128,12 +133,12 @@ describe("Fixture C — re-analysis preserves user work", () => {
     };
     const second = run(secondRun(), withoutPo, first.aiState, RUN_2);
 
-    expect(second.aiState.tombstones).toContain(PO_ID);
+    expect(second.aiState.tombstones).toContain("po:saas");
     expect(second.draft.performanceObligations).toHaveLength(0);
 
     const third = run(secondRun(), second.draft, second.aiState, "run-3");
     expect(third.draft.performanceObligations).toHaveLength(0);
-    expect(third.aiState.tombstones).toContain(PO_ID);
+    expect(third.aiState.tombstones).toContain("po:saas");
   });
 
   it("retains an object the AI stopped proposing rather than deleting the accountant's row", () => {
@@ -146,7 +151,7 @@ describe("Fixture C — re-analysis preserves user work", () => {
 
     const second = run(dropped, first.draft, first.aiState, RUN_2);
     expect(second.draft.performanceObligations.map((po) => po.id)).toEqual([PO_ID]);
-    expect(itemFor(second.issues, `po.${PO_ID}`)?.state).toBe("yellow");
+    expect(itemFor(second.issues, `object:${PO_ID}`)?.state).toBe("yellow");
   });
 
   it("keeps an affirmation only while the reviewed value is unchanged", () => {
@@ -165,7 +170,7 @@ describe("Fixture C — re-analysis preserves user work", () => {
     expect(unchanged.issues.every((item) => item.state === "resolved")).toBe(true);
 
     const changed = run(secondRun(), first.draft, affirmedState, RUN_2);
-    const refreshed = itemFor(changed.issues, "transactionPriceInput");
+    const refreshed = itemFor(changed.issues, "transactionPrice.input");
     if (refreshed !== undefined) expect(refreshed.state).not.toBe("resolved");
   });
 
@@ -238,7 +243,7 @@ describe("Fixture E — usage-based billing", () => {
     const { draft, issues } = run(fixtureE());
     expect(draft.contractBalances.considerationEvents).toHaveLength(0);
     expect(draft.contractBalances.cashCollections).toHaveLength(0);
-    expect(issues.some((issue) => issue.targetKey.startsWith("billing:overage"))).toBe(true);
+    expect(issues.some((issue) => issue.targetKey.includes("billing:overage"))).toBe(true);
   });
 
   it("captures the usage rate without projecting any future quantity", () => {
@@ -247,14 +252,13 @@ describe("Fixture E — usage-based billing", () => {
       {
         semanticKey: "vc:overage",
         description: "Per-sample overage above the included tier.",
-        variabilityType: "usage",
-        appliesToKey: "po:saas",
+        type: "usage",
+        contractualRateOrAmountInput: "1.35",
+        unitDescription: "per sample above 50,000",
+        billingFrequency: "quarterly",
+        trigger: "Samples processed above the included tier.",
         estimationMethodProposal: "not_estimable",
-        estimatedAmountInput: null,
-        rateAmountInput: "1.35",
-        rateUnitDescription: "per sample above 50,000",
-        constraintConsiderations: "Future volume is not determinable from the contract.",
-        resolutionTiming: "Quarterly in arrears.",
+        constraintAssessment: "Future volume is not determinable from the contract.",
         citations: withUsage.billingTerms[0]!.citations,
         guidanceIds: [30],
         reviewState: "needs_user_input",
@@ -283,8 +287,8 @@ describe("merged drafts are always structurally valid", () => {
   });
 
   it("fails atomically rather than returning a corrupted draft", () => {
-    const corrupt = createEmptyDraft() as unknown as WorkflowDraft;
-    (corrupt as unknown as { promises: unknown }).promises = "not an array";
-    expect(() => run(fixtureAAnalysis(), corrupt)).toThrowError(/could not be/i);
+    const corrupt = createEmptyDraft();
+    (corrupt.contract as unknown as { currency: string }).currency = "EUR";
+    expect(() => run(fixtureAAnalysis(), corrupt)).toThrowError(AiMergeError);
   });
 });
