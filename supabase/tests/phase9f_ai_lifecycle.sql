@@ -327,9 +327,13 @@ begin
                                'tombstones', '[]'::jsonb, 'reviewItems', '[]'::jsonb),
             'm', 'high', 'p9f', 's1', 'h9f', v_user, now(), now());
 
-    insert into public.ai_analysis_state (revision_id, last_successful_run_id, source_state)
-    values (v_rev, v_run2, 'current')
-    on conflict (revision_id) do update set last_successful_run_id = excluded.last_successful_run_id;
+    update public.ai_analysis_state
+       set last_successful_run_id = v_run2, source_state = 'current'
+     where revision_id = v_rev;
+    if not found then
+      insert into public.ai_analysis_state (revision_id, last_successful_run_id, source_state)
+      values (v_rev, v_run2, 'current');
+    end if;
 
     select lock_version into v_lock from public.analysis_revisions where id = v_rev;
     perform public.arc_restore_pre_ai_run(v_run2, v_user, null, v_lock);
