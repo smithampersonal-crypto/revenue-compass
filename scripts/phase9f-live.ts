@@ -112,7 +112,7 @@ async function main(): Promise<void> {
     revisionId,
     originalFilename: "genomix-synthesis-contract-package.pdf",
     displayName: "Genomix / Synthesis contract package",
-    documentType: "master_agreement",
+    documentType: "Master Agreement",
     declaredByteSize: bytes.byteLength,
   });
   const uploaded = await supabaseAdmin.storage
