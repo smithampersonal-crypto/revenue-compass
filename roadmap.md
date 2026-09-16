@@ -521,8 +521,11 @@
 - Phase 9: 9A guidance registry accepted; 9B PDF evidence + exact AI preflight
   accepted; 9C AI persistence, quotas and ownership boundaries accepted;
   9D Terra generative boundary accepted; 9E deterministic adapter, provenance,
-  merge policy and projected collections complete and awaiting acceptance;
-  9F not started.
+  merge policy and projected collections accepted; 9F atomic orchestration,
+  revision lifecycle and restore complete and awaiting acceptance; 9G not started.
+- Approved recruiter-v1 sequence after 9A–9G: Resend + `ayden-rc.com` deployment
+  integration, then 9H evaluation, security and hosted acceptance plus
+  recruiter-demo polish. None of that is implemented in Phase 9F.
 
 ## Phase 9B — PDF evidence & exact AI preflight (complete, awaiting acceptance)
 
@@ -602,7 +605,33 @@ object itself.
 Phase 9D accepted by the director (2026-09-15) with the citation & validation
 acceptance patch.
 
-## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (complete, awaiting acceptance)
+## Phase 9F — atomic orchestration, revision lifecycle & restore (complete, awaiting acceptance)
+
+Task 11 — trusted database routines: `arc_advance_ai_run_stage`,
+`arc_record_ai_preflight`, `arc_apply_ai_run`, `arc_restore_pre_ai_run`,
+`arc_set_ai_review_state`, `arc_affirm_ai_review_scope`, plus `ai_runs.restored_at`.
+All are service-role-only with a fixed `search_path`; apply and restore are
+atomic under the owner's optimistic lock and are idempotent on retry.
+
+Task 12 — `src/lib/arc/ai/orchestrator.ts` (pure, dependency-injected) sequences
+created → extracting → preflight_ready → analyzing → validating → applying →
+succeeded. Allowance is reserved before the one generative call, there is never
+a second call, a rejected response applies nothing, and an application failure
+restores the exact pre-run canonical inputs and sidecar. Production boundaries
+live in `orchestrator.server.ts`; the browser surface is `executeAiAnalysis`.
+
+Task 13 — lifecycle integration in SQL: the selected source set is frozen while
+a run is active; changing it after a successful run marks the sidecar stale
+without deleting AI work; amendment reset clears the draft sidecar; reset,
+discard, initial-draft deletion and guest saving are refused while a run is
+active; `arc_migrate_guest_workspace_v3` / `..._by_token_v3` re-home AI runs and
+AI state to the saved revision with run ids, stages, fingerprints, guidance and
+guest-funded quota scope intact.
+
+Fake-model lifecycle coverage: `__tests__/orchestrator.spec.ts`. No live OpenAI
+call was made in this phase. No Resend, custom-domain, auth or email work.
+
+## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (accepted)
 
 Task 9 (cash basis) and Task 10 (adapter/merge/review state) are implemented
 and verified. No live OpenAI call was made, no database RPC or SQL changed, and
@@ -616,5 +645,5 @@ New pure modules: `src/lib/arc/ai/identity.ts`, `adapter.ts`, `review-state.ts`,
 `merge-reanalysis.spec.ts`, plus Task 9 specs under persistence, workflow and
 components.
 
-Phase 9F not started.
+Phase 9E accepted by the director (2026-09-16).
 
