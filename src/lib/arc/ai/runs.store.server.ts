@@ -10,8 +10,14 @@
  * ownership, allowance or lifecycle itself.
  */
 
+import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
+import type {
+  AiApplyArgs,
+  AiExecutionContext,
+  AiRunExecutionStore,
+} from "./orchestrator";
 import type {
   AiCallerScope,
   AiRunCreationSnapshot,
@@ -76,7 +82,28 @@ function toRow(raw: RawRun): AiRunRow {
   };
 }
 
-export async function createAiRunStore(): Promise<AiRunStore> {
+/** Deterministic, bounded snapshot of the accountant's own entries. */
+function manualFacts(draft: unknown): Record<string, string | number | boolean | null> {
+  const facts: Record<string, string | number | boolean | null> = {};
+  const visit = (value: unknown, prefix: string, depth: number): void => {
+    if (depth > 2 || value === null || typeof value !== "object") return;
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      if (Object.keys(facts).length >= 60) return;
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (entry === null) continue;
+      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
+        if (typeof entry === "string" && entry.trim() === "") continue;
+        facts[path] = entry;
+      } else if (!Array.isArray(entry)) {
+        visit(entry, path, depth + 1);
+      }
+    }
+  };
+  visit(draft, "", 0);
+  return facts;
+}
+
+export async function createAiRunStore(): Promise<AiRunExecutionStore> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   return {
@@ -239,6 +266,148 @@ export async function createAiRunStore(): Promise<AiRunStore> {
         .not("openai_started_at", "is", null);
       if (error) fail("temporary workspace usage", error);
       return count ?? 0;
+    },
+
+    /* ------------------------------------------------- Phase 9F execution */
+
+    advanceStage: async (runId, from, to) => {
+      const { error } = await supabaseAdmin.rpc("arc_advance_ai_run_stage", {
+        p_run_id: runId,
+        p_from: from,
+        p_to: to,
+      } as never);
+      if (error) fail("run stage", error);
+    },
+
+    loadExecutionContext: async (caller): Promise<AiExecutionContext> => {
+      const state = async (column: "revision_id" | "guest_workspace_id", value: string) => {
+        const { data, error } = await supabaseAdmin
+          .from("ai_analysis_state")
+          .select(AI_STATE_COLUMNS)
+          .eq(column, value)
+          .maybeSingle();
+        if (error) fail("AI analysis state", error);
+        return data
+          ? ({
+              lastSuccessfulRunId: data.last_successful_run_id,
+              sourceSetFingerprint: data.source_set_fingerprint,
+              sourceState: data.source_state as unknown as AiAnalysisState["sourceState"],
+              fieldProvenance: data.field_provenance as never,
+              objectProvenance: data.object_provenance as never,
+              tombstones: data.tombstones as never,
+              reviewItems: data.review_items as never,
+            } as AiAnalysisState)
+          : createEmptyAiAnalysisState();
+      };
+
+      if (caller.kind === "revision") {
+        const { data, error } = await supabaseAdmin
+          .from("analysis_revisions")
+          .select("canonical_inputs, schema_version, lock_version")
+          .eq("id", caller.revisionId)
+          .maybeSingle();
+        if (error) fail("revision", error);
+        if (!data) throw new Error("This analysis is no longer open for editing.");
+        const draft = data.canonical_inputs as never;
+        return {
+          draft,
+          aiState: await state("revision_id", caller.revisionId),
+          // Prior finalized context is supplied by the revision lifecycle, not
+          // by the model; an amendment without one simply has none.
+          priorContext: null,
+          schemaVersion: data.schema_version,
+          lockVersion: data.lock_version,
+          manuallyEnteredFacts: manualFacts(draft),
+          arcFactSignals: [],
+        };
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from("guest_workspaces")
+        .select("draft_json, schema_version, lock_version")
+        .eq("id", caller.guestWorkspaceId)
+        .maybeSingle();
+      if (error) fail("temporary workspace", error);
+      if (!data) throw new Error("This temporary workspace is no longer available.");
+      const draft = data.draft_json as never;
+      return {
+        draft,
+        aiState: await state("guest_workspace_id", caller.guestWorkspaceId),
+        priorContext: null,
+        schemaVersion: data.schema_version,
+        lockVersion: data.lock_version,
+        manuallyEnteredFacts: manualFacts(draft),
+        arcFactSignals: [],
+      };
+    },
+
+    recordPreflight: async (args) => {
+      const { error } = await supabaseAdmin.rpc("arc_record_ai_preflight", {
+        p_run_id: args.runId,
+        p_source_set_fingerprint: args.sourceSetFingerprint,
+        p_sources: args.sources as never,
+        p_guidance: args.guidance as never,
+        p_source_count: args.sourceCount,
+        p_page_count: args.pageCount,
+        p_input_tokens: args.inputTokens,
+      } as never);
+      if (error) fail("preflight", error);
+    },
+
+    reserveAllowance: async (args) => {
+      const { data, error } = await supabaseAdmin.rpc("arc_reserve_ai_allowance", {
+        p_run_id: args.runId,
+        p_owner_user_id: args.ownerUserId,
+        p_guest_token_hash: args.guestTokenHash,
+        p_utc_month: args.utcMonth,
+        p_user_monthly_limit: args.userMonthlyLimit,
+        p_guest_limit: args.guestLimit,
+      } as never);
+      if (error) fail("allowance", error);
+      const row = (data as unknown as Array<Record<string, unknown>>)[0] ?? {};
+      return {
+        reserved: Boolean(row["reserved"]),
+        alreadyReserved: Boolean(row["already_reserved"]),
+        remainingAllowance: Number(row["remaining_allowance"] ?? 0),
+      };
+    },
+
+    applyRun: async (args: AiApplyArgs) => {
+      const { error } = await supabaseAdmin.rpc("arc_apply_ai_run", {
+        p_run_id: args.runId,
+        p_owner_user_id: args.ownerUserId,
+        p_guest_token_hash: args.guestTokenHash,
+        p_expected_lock_version: args.expectedLockVersion,
+        p_canonical_inputs: args.canonicalInputs as never,
+        p_schema_version: args.schemaVersion,
+        p_ai_state: args.aiState as never,
+        p_source_set_fingerprint: args.sourceSetFingerprint,
+        p_structured_result: args.structuredResult as never,
+        p_usage_metadata: args.usageMetadata as never,
+        p_review_issue_count: args.reviewIssueCount,
+      } as never);
+      if (error) fail("apply run", error);
+    },
+
+    restorePreRun: async (args) => {
+      const { error } = await supabaseAdmin.rpc("arc_restore_pre_ai_run", {
+        p_run_id: args.runId,
+        p_owner_user_id: args.ownerUserId,
+        p_guest_token_hash: args.guestTokenHash,
+        p_expected_lock_version: args.expectedLockVersion,
+      } as never);
+      if (error) fail("restore", error);
+    },
+
+    markFailure: async (args) => {
+      const { error } = await supabaseAdmin.rpc("arc_mark_ai_run_failure", {
+        p_run_id: args.runId,
+        p_failure_stage: args.failureStage,
+        p_failure_category: args.category,
+        p_failure_code: args.code,
+        p_safe_message: args.safeMessage,
+      } as never);
+      if (error) fail("run failure", error);
     },
   };
 }
