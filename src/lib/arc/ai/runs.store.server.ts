@@ -10,6 +10,8 @@
  * ownership, allowance or lifecycle itself.
  */
 
+import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
+
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
@@ -308,7 +310,12 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           .maybeSingle();
         if (error) fail("revision", error);
         if (!data) throw new Error("This analysis is no longer open for editing.");
-        const draft = data.canonical_inputs as never;
+        // The stored value is the canonical ENVELOPE, not a bare draft. It is
+        // validated here exactly as every other reader does, so the merge
+        // always receives a complete, schema-checked WorkflowDraft.
+        const parsed = parseCanonicalInputs(data.canonical_inputs, data.schema_version);
+        if (!parsed.ok) throw new Error(parsed.reason);
+        const draft = parsed.draft;
         return {
           draft,
           aiState: await state("revision_id", caller.revisionId),
@@ -332,7 +339,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         .maybeSingle();
       if (error) fail("temporary workspace", error);
       if (!data) throw new Error("This temporary workspace is no longer available.");
-      const draft = data.draft_json as never;
+      const parsedGuest = parseCanonicalInputs(data.draft_json, data.schema_version);
+      if (!parsedGuest.ok) throw new Error(parsedGuest.reason);
+      const draft = parsedGuest.draft;
       return {
         draft,
         aiState: await state("guest_workspace_id", caller.guestWorkspaceId),
@@ -395,7 +404,8 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         p_owner_user_id: args.ownerUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_expected_lock_version: args.expectedLockVersion,
-        p_canonical_inputs: args.canonicalInputs as never,
+        // Written back in the same canonical envelope every other writer uses.
+        p_canonical_inputs: toCanonicalInputs(args.canonicalInputs) as never,
         p_schema_version: args.schemaVersion,
         p_ai_state: args.aiState as never,
         p_source_set_fingerprint: args.sourceSetFingerprint,
