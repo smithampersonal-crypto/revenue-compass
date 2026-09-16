@@ -345,17 +345,32 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
     },
 
     recordPreflight: async (args) => {
+      const { GUIDANCE_REGISTRY_HASH } = await import("@/lib/arc/guidance/registry");
+      // The trusted routine reads the persisted column names, so the payload is
+      // translated here once; position is the packaged evidence order.
       const { error } = await supabaseAdmin.rpc("arc_record_ai_preflight", {
         p_run_id: args.runId,
         p_source_set_fingerprint: args.sourceSetFingerprint,
-        p_sources: args.sources as never,
-        p_guidance: args.guidance as never,
+        p_sources: args.sources.map((source, index) => ({
+          source_document_id: source.documentId,
+          position: index,
+          sha256: source.sha256,
+          byte_size: source.byteSize,
+          page_count: source.pageCount,
+        })) as never,
+        p_guidance: args.guidance.map((card) => ({
+          card_id: card.cardId,
+          inclusion_reason: card.inclusionReason,
+          matched_signals: card.matchedSignals,
+          registry_hash: GUIDANCE_REGISTRY_HASH,
+        })) as never,
         p_source_count: args.sourceCount,
         p_page_count: args.pageCount,
         p_input_tokens: args.inputTokens,
       } as never);
       if (error) fail("preflight", error);
     },
+
 
     reserveAllowance: async (args) => {
       const { data, error } = await supabaseAdmin.rpc("arc_reserve_ai_allowance", {
