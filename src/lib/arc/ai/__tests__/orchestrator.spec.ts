@@ -192,6 +192,8 @@ function harness(
         draft: args.canonicalInputs,
         lockVersion: args.expectedLockVersion,
         reviewIssueCount: args.reviewIssueCount,
+        aiState: args.aiState,
+        sourceSetFingerprint: args.sourceSetFingerprint,
       };
       run.stage = "succeeded";
       run.reviewIssueCount = args.reviewIssueCount;
