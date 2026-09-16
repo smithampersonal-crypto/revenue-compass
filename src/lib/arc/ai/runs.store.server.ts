@@ -339,7 +339,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         .maybeSingle();
       if (error) fail("temporary workspace", error);
       if (!data) throw new Error("This temporary workspace is no longer available.");
-      const draft = data.draft_json as never;
+      const parsedGuest = parseCanonicalInputs(data.draft_json, data.schema_version);
+      if (!parsedGuest.ok) throw new Error(parsedGuest.reason);
+      const draft = parsedGuest.draft;
       return {
         draft,
         aiState: await state("guest_workspace_id", caller.guestWorkspaceId),
