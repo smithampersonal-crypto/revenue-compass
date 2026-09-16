@@ -580,7 +580,7 @@ begin
   insert into arc_test_results values (
     '39 an executing AI run blocks Save to My Contracts', ok);
 
-  update public.ai_runs set stage = 'failed', completed_at = now() where id = v_run_b;
+  update public.ai_runs set stage = 'api_failed', completed_at = now() where id = v_run_b;
 
   select lock_version into v_lock from public.guest_workspaces where id = v_guest;
   select * into mig from public.arc_migrate_guest_workspace_by_token_v3(
