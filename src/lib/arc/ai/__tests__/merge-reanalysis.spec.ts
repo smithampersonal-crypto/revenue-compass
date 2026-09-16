@@ -196,7 +196,7 @@ describe("Fixture D — a modification ARC cannot complete", () => {
       priceIncreaseInput: null,
       priceReflectsSsp: "unknown",
       remainingGoodsDistinct: "unknown",
-      treatmentCandidate: "unclear",
+      treatmentCandidate: "needs_user_input",
       rationale: "An amendment exists but the pricing schedule was not provided.",
       reviewState: "needs_user_input",
     };
@@ -209,7 +209,7 @@ describe("Fixture D — a modification ARC cannot complete", () => {
     for (const modification of draft.contractModifications) {
       expect(modification.considerationMagnitudeInput).toBe("");
       expect(modification.priceReflectsAddedGoodsSsp).toBeNull();
-      expect(modification.addedGoodsAreDistinct ?? null).toBeNull();
+      expect(modification.priceReflectsSspRationale).not.toContain("assumed");
     }
     expect(issues.some((issue) => issue.state === "red" && issue.targetKey.startsWith("modification"))).toBe(
       true,
