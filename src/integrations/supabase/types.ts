@@ -206,6 +206,7 @@ export type Database = {
           prompt_version: string
           quota_scope: string
           reasoning_effort: string
+          restored_at: string | null
           result_metadata: Json | null
           review_issue_count: number
           revision_id: string | null
@@ -237,6 +238,7 @@ export type Database = {
           prompt_version: string
           quota_scope: string
           reasoning_effort: string
+          restored_at?: string | null
           result_metadata?: Json | null
           review_issue_count?: number
           revision_id?: string | null
@@ -268,6 +270,7 @@ export type Database = {
           prompt_version?: string
           quota_scope?: string
           reasoning_effort?: string
+          restored_at?: string | null
           result_metadata?: Json | null
           review_issue_count?: number
           revision_id?: string | null
@@ -828,6 +831,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      arc_advance_ai_run_stage: {
+        Args: { p_from: string; p_run_id: string; p_to: string }
+        Returns: boolean
+      }
+      arc_affirm_ai_review_scope: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_owner_user_id: string
+          p_revision_id: string
+          p_scope: string
+        }
+        Returns: {
+          affirmed_count: number
+          lock_version: number
+        }[]
+      }
+      arc_apply_ai_run: {
+        Args: {
+          p_ai_state: Json
+          p_canonical_inputs: Json
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_owner_user_id: string
+          p_review_issue_count: number
+          p_run_id: string
+          p_schema_version: string
+          p_source_set_fingerprint: string
+          p_structured_result: Json
+          p_usage_metadata: Json
+        }
+        Returns: {
+          idempotent: boolean
+          lock_version: number
+        }[]
+      }
       arc_attach_guest_source_document: {
         Args: {
           p_expected_lock_version: number
@@ -1042,6 +1082,18 @@ export type Database = {
         Args: { p_bucket: string; p_path: string; p_reason: string }
         Returns: boolean
       }
+      arc_record_ai_preflight: {
+        Args: {
+          p_guidance: Json
+          p_input_tokens: number
+          p_page_count: number
+          p_run_id: string
+          p_source_count: number
+          p_source_set_fingerprint: string
+          p_sources: Json
+        }
+        Returns: boolean
+      }
       arc_release_storage_deletion_job: {
         Args: { p_error: string; p_job_id: string }
         Returns: boolean
@@ -1090,7 +1142,30 @@ export type Database = {
           source_revision_id: string
         }[]
       }
+      arc_restore_pre_ai_run: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_owner_user_id: string
+          p_run_id: string
+        }
+        Returns: {
+          idempotent: boolean
+          lock_version: number
+        }[]
+      }
       arc_run_maintenance: { Args: { p_intent_limit?: number }; Returns: Json }
+      arc_set_ai_review_state: {
+        Args: {
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_owner_user_id: string
+          p_review_items: Json
+          p_revision_id: string
+        }
+        Returns: number
+      }
       arc_set_source_document_archived: {
         Args: {
           p_archived: boolean
