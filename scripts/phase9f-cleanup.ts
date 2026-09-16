@@ -17,19 +17,16 @@ import {
   requireExactCount,
 } from "@/lib/auth/account.handlers";
 
-const FIXTURE_SUFFIX = "@arc-fixture.invalid";
+const UUID = /^[0-9a-f-]{36}$/i;
 
 async function main(): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const listed = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (listed.error) throw new Error(`fixture accounts could not be listed: ${listed.error.name} ${listed.error.status}`);
-  const fixtures = listed.data.users.filter((user) =>
-    (user.email ?? "").endsWith(FIXTURE_SUFFIX),
-  );
-  console.log(`fixture accounts found: ${fixtures.length}`);
+  const ids = process.argv.slice(2).filter((value) => UUID.test(value));
+  if (ids.length === 0) throw new Error("pass the disposable fixture user ids as arguments.");
+  console.log(`fixture accounts to remove: ${ids.length}`);
 
-  for (const user of fixtures) {
+  for (const user of ids.map((id) => ({ id }))) {
     const result = await deleteAccountHandler(
       {
         userId: user.id,
