@@ -59,7 +59,9 @@ async function productionCanonicalRequest(): Promise<Record<string, unknown>> {
       manuallyEnteredFacts: { contractTitle: "Genomix master agreement" },
       draftFingerprint: "draft-1",
     },
-  } as Parameters<typeof boundaries.buildPackage>[0]);
+    priorContext: null,
+    arcFactSignals: [],
+  });
   if (!result.ok) throw new Error(`preflight failed: ${result.code}`);
   return result.canonicalRequest as Record<string, unknown>;
 }
