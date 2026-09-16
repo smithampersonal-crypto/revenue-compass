@@ -287,17 +287,17 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           .eq(column, value)
           .maybeSingle();
         if (error) fail("AI analysis state", error);
-        return data
-          ? ({
-              lastSuccessfulRunId: data.last_successful_run_id,
-              sourceSetFingerprint: data.source_set_fingerprint,
-              sourceState: data.source_state as unknown as AiAnalysisState["sourceState"],
-              fieldProvenance: data.field_provenance as never,
-              objectProvenance: data.object_provenance as never,
-              tombstones: data.tombstones as never,
-              reviewItems: data.review_items as never,
-            } as AiAnalysisState)
-          : createEmptyAiAnalysisState();
+        if (!data) return createEmptyAiAnalysisState();
+        const raw = data as unknown as Record<string, unknown>;
+        return {
+          lastSuccessfulRunId: (raw["last_successful_run_id"] as string | null) ?? null,
+          sourceSetFingerprint: (raw["source_set_fingerprint"] as string | null) ?? null,
+          sourceState: raw["source_state"] as AiAnalysisState["sourceState"],
+          fieldProvenance: raw["field_provenance"] as AiAnalysisState["fieldProvenance"],
+          objectProvenance: raw["object_provenance"] as AiAnalysisState["objectProvenance"],
+          tombstones: raw["tombstones"] as string[],
+          reviewItems: raw["review_items"] as AiAnalysisState["reviewItems"],
+        };
       };
 
       if (caller.kind === "revision") {
