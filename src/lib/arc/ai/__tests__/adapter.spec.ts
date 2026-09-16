@@ -50,29 +50,39 @@ describe("pure mapping primitives", () => {
 
   it("maps only recognition methods the engine actually supports", () => {
     expect(mapRecognitionMethod("ratable_over_time")).toEqual({
-      ok: true,
+      supported: true,
       method: "over_time_ratable",
     });
     expect(mapRecognitionMethod("point_in_time_transfer")).toEqual({
-      ok: true,
+      supported: true,
       method: "point_in_time",
     });
-    for (const unsupported of ["output_method", "input_method", "milestone", "usage_based"] as const) {
-      expect(mapRecognitionMethod(unsupported).ok).toBe(false);
-    }
+    // Never silently coerced into ratable over-time.
+    expect(mapRecognitionMethod("output_method")).toEqual({
+      supported: false,
+      reason: "engine_support_gap",
+    });
+    expect(mapRecognitionMethod("input_method")).toEqual({
+      supported: false,
+      reason: "engine_support_gap",
+    });
+    expect(mapRecognitionMethod("unknown")).toEqual({ supported: false, reason: "unknown" });
   });
 
   it("maps only unambiguous variable-consideration directions", () => {
-    expect(mapVcEffect("usage_overage")).toBe("increase");
-    expect(mapVcEffect("performance_bonus")).toBe("increase");
-    expect(mapVcEffect("service_level_credit")).toBe("decrease");
+    expect(mapVcEffect("usage")).toBe("increase");
+    expect(mapVcEffect("bonus")).toBe("increase");
+    expect(mapVcEffect("service_credit")).toBe("decrease");
     expect(mapVcEffect("rebate")).toBe("decrease");
-    expect(mapVcEffect("refund_right")).toBe("decrease");
-    // Direction is contract-specific; ARC refuses to guess.
+    expect(mapVcEffect("refund")).toBe("decrease");
+    expect(mapVcEffect("discount")).toBe("decrease");
+    // Direction depends on who pays whom, which is prose, not structure.
     expect(mapVcEffect("penalty")).toBeNull();
     expect(mapVcEffect("other")).toBeNull();
     expect(mapEstimationMethod("most_likely_amount")).toBe("most_likely_amount");
+    expect(mapEstimationMethod("expected_value")).toBe("expected_value");
     expect(mapEstimationMethod("not_estimable")).toBeNull();
+    expect(mapEstimationMethod("unknown")).toBeNull();
   });
 });
 
@@ -80,49 +90,89 @@ describe("deterministic billing schedules", () => {
   const base = {
     serviceStart: "2027-01-01" as const,
     serviceEnd: "2027-12-31" as const,
-    amountInput: "120000",
+    amountOrRateInput: "120000" as string | null,
   };
 
   it("derives an annual advance invoice at the start of the term", () => {
-    const result = deriveBillingSchedule({ ...base, frequency: "annual", timing: "advance" });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0]).toMatchObject({ invoiceDate: "2027-01-01", amountInput: "120000" });
+    const result = deriveBillingSchedule({
+      ...base,
+      frequency: "annual",
+      billingTiming: "advance",
+    });
+    expect(result).toEqual({
+      ok: true,
+      events: [
+        {
+          period: 1,
+          invoiceDate: "2027-01-01",
+          unconditionalRightDate: "2027-01-01",
+          amountInput: "120000",
+        },
+      ],
+    });
   });
 
   it("derives quarterly arrears invoices at the end of each period", () => {
     const result = deriveBillingSchedule({
       serviceStart: "2027-01-01",
       serviceEnd: "2027-12-31",
-      amountInput: "30000",
+      amountOrRateInput: "30000",
       frequency: "quarterly",
-      timing: "arrears",
+      billingTiming: "arrears",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.events.map((event) => event.invoiceDate)).toEqual([
-      "2027-04-01",
-      "2027-07-01",
-      "2027-10-01",
-      "2028-01-01",
+      "2027-03-31",
+      "2027-06-30",
+      "2027-09-30",
+      "2027-12-31",
     ]);
   });
 
+  it("derives monthly advance invoices at each period start", () => {
+    const result = deriveBillingSchedule({
+      ...base,
+      amountOrRateInput: "10000",
+      frequency: "monthly",
+      billingTiming: "advance",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.events).toHaveLength(12);
+    expect(result.events[0]!.invoiceDate).toBe("2027-01-01");
+    expect(result.events[11]!.invoiceDate).toBe("2027-12-01");
+  });
+
   it("refuses to derive a schedule from incomplete or non-whole-period facts", () => {
-    expect(deriveBillingSchedule({ ...base, frequency: "milestone", timing: "advance" }).ok).toBe(
-      false,
-    );
-    expect(deriveBillingSchedule({ ...base, frequency: "usage_based", timing: "arrears" }).ok).toBe(
-      false,
-    );
     expect(
-      deriveBillingSchedule({ ...base, serviceEnd: "2027-11-15", frequency: "quarterly", timing: "advance" })
-        .ok,
-    ).toBe(false);
-    expect(deriveBillingSchedule({ ...base, amountInput: null, frequency: "annual", timing: "advance" }).ok).toBe(
-      false,
-    );
+      deriveBillingSchedule({ ...base, frequency: "annual", billingTiming: "milestone" }),
+    ).toEqual({ ok: false, reason: "unsupported_timing" });
+    expect(
+      deriveBillingSchedule({ ...base, frequency: "annual", billingTiming: "on_usage" }),
+    ).toEqual({ ok: false, reason: "unsupported_timing" });
+    expect(
+      deriveBillingSchedule({ ...base, frequency: "on_event", billingTiming: "advance" }),
+    ).toEqual({ ok: false, reason: "unsupported_frequency" });
+    expect(
+      deriveBillingSchedule({ ...base, amountOrRateInput: null, frequency: "annual", billingTiming: "advance" }),
+    ).toEqual({ ok: false, reason: "missing_amount" });
+    expect(
+      deriveBillingSchedule({
+        ...base,
+        serviceStart: null,
+        frequency: "annual",
+        billingTiming: "advance",
+      }),
+    ).toEqual({ ok: false, reason: "missing_service_period" });
+    expect(
+      deriveBillingSchedule({
+        ...base,
+        serviceEnd: "2027-11-15",
+        frequency: "quarterly",
+        billingTiming: "advance",
+      }),
+    ).toEqual({ ok: false, reason: "term_not_divisible" });
   });
 });
 
@@ -130,25 +180,33 @@ describe("projected contractual collection dates", () => {
   it("derives invoice date plus payment terms", () => {
     expect(
       deriveProjectedCollectionDate({
-        basis: "invoice_date_plus_terms",
+        contractualDueDateBasis: "invoice_date_plus_terms",
         paymentTermsDays: 30,
         invoiceDate: "2027-01-01",
       }),
-    ).toEqual({ ok: true, date: "2027-01-31" });
+    ).toEqual({ ok: true, collectionDate: "2027-01-31" });
   });
 
   it("refuses every basis that is not a structured invoice-date-plus-terms rule", () => {
-    for (const basis of ["milestone_based", "event_based", "not_determinable"] as const) {
+    for (const contractualDueDateBasis of [
+      "fixed_calendar_date",
+      "milestone_event",
+      "unknown",
+    ] as const) {
       expect(
-        deriveProjectedCollectionDate({ basis, paymentTermsDays: 30, invoiceDate: "2027-01-01" }).ok,
-      ).toBe(false);
+        deriveProjectedCollectionDate({
+          contractualDueDateBasis,
+          paymentTermsDays: 30,
+          invoiceDate: "2027-01-01",
+        }),
+      ).toEqual({ ok: false, reason: "unsupported_basis" });
     }
     expect(
       deriveProjectedCollectionDate({
-        basis: "invoice_date_plus_terms",
+        contractualDueDateBasis: "invoice_date_plus_terms",
         paymentTermsDays: null,
         invoiceDate: "2027-01-01",
-      }).ok,
-    ).toBe(false);
+      }),
+    ).toEqual({ ok: false, reason: "missing_payment_terms" });
   });
 });
