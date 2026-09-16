@@ -24,6 +24,7 @@ import {
 } from "@/lib/asc606-workflow";
 
 import { deriveCanonicalId } from "../identity";
+import { aiContractAnalysisSchema } from "../schema";
 import { createEmptyAiAnalysisState, mergeAiAnalysis } from "../merge";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
@@ -116,6 +117,12 @@ function manualEquivalent(): WorkflowDraft {
     },
   };
 }
+
+describe("the Phase 9E fixtures are real, schema-valid model output", () => {
+  it("parses under the accepted Phase 9D strict schema", () => {
+    expect(() => aiContractAnalysisSchema.parse(fixtureAAnalysis())).not.toThrow();
+  });
+});
 
 describe("Fixture A — AI-adapted and manual canonical inputs are equivalent", () => {
   it("produces the identical canonical draft", () => {
