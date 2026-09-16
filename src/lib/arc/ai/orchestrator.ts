@@ -350,6 +350,9 @@ export async function executeAiRunHandler(
     }
 
     const sources = preflight.package.sources;
+    // The one deterministic identity of the source set actually analyzed. It
+    // is reused verbatim for the apply argument and the applied sidecar state.
+    const currentSourceSetFingerprint = await sourceFingerprintOf(sources);
 
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
