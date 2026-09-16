@@ -151,6 +151,8 @@ export const AI_ALLOWANCE_EXHAUSTED =
   "You have used all of your AI analyses for now. ARC still works fully without AI.";
 export const AI_SOURCES_CHANGED =
   "The selected documents changed while the analysis was starting. Start it again.";
+export const AI_PREFLIGHT_FAILED =
+  "ARC could not prepare the AI analysis. No AI allowance was used.";
 export const AI_APPLY_FAILED =
   "ARC could not apply the AI analysis, so nothing was changed. Please try again.";
 
@@ -242,15 +244,61 @@ export async function executeAiRunHandler(
 
   try {
     /* ---------------------------------------------------------- preflight */
-    const preflight = await deps.buildPackage({
-      scope: scopeOf(caller),
-      currentContext: {
-        manuallyEnteredFacts: context.manuallyEnteredFacts,
-        draftFingerprint: valueFingerprint(context.draft),
-      },
-      priorContext: context.priorContext,
-      arcFactSignals: context.arcFactSignals,
-    });
+    // The whole UNPAID region — package build, exact token count and
+    // provenance persistence — is bounded: an unexpected exception here
+    // terminalizes the run as `preflight_failed` instead of leaving a durable
+    // run active forever. Typed preflight refusals keep their own safe codes.
+    type Preflight = Awaited<ReturnType<AiExecutionDeps["buildPackage"]>>;
+    let preflight: Preflight | null = null;
+
+    try {
+      preflight = await deps.buildPackage({
+        scope: scopeOf(caller),
+        currentContext: {
+          manuallyEnteredFacts: context.manuallyEnteredFacts,
+          draftFingerprint: valueFingerprint(context.draft),
+        },
+        priorContext: context.priorContext,
+        arcFactSignals: context.arcFactSignals,
+      });
+
+      if (preflight.ok) {
+        requestPackage = preflight.package;
+        const packaged = preflight.package.sources;
+        await deps.store.recordPreflight({
+          runId: run.id,
+          // The run's immutable fingerprint is re-proved inside the routine: a
+          // selection that changed since creation fails the run instead of
+          // analyzing a different document set.
+          sourceSetFingerprint: await sourceFingerprintOf(packaged),
+          sources: packaged.map((source) => ({
+            documentId: source.documentId,
+            sha256: source.sha256,
+            byteSize: source.byteSize,
+            pageCount: source.pageCount,
+          })),
+          guidance: preflight.package.guidance.inclusions.map((inclusion) => ({
+            cardId: inclusion.cardId,
+            inclusionReason: inclusion.reason,
+            matchedSignals: [...inclusion.matchedSignals],
+          })),
+          sourceCount: packaged.length,
+          pageCount: packaged.reduce((total, source) => total + source.pageCount, 0),
+          inputTokens: preflight.inputTokens,
+        });
+      }
+    } catch {
+      // No allowance was reserved and the model was never contacted; the raw
+      // exception text is never persisted.
+      await deps.store.markFailure({
+        runId: run.id,
+        failureStage: "extracting",
+        category: "preflight",
+        code: "preflight_failed",
+        safeMessage: AI_PREFLIGHT_FAILED,
+      });
+      return finish(deps, caller, run.id);
+    }
 
     if (!preflight.ok) {
       await deps.store.markFailure({
@@ -262,32 +310,8 @@ export async function executeAiRunHandler(
       });
       return finish(deps, caller, run.id);
     }
-    requestPackage = preflight.package;
 
     const sources = preflight.package.sources;
-    const pageCount = sources.reduce((total, source) => total + source.pageCount, 0);
-
-    await deps.store.recordPreflight({
-      runId: run.id,
-      // The run's immutable fingerprint is re-proved inside the routine: a
-      // selection that changed since creation fails the run instead of
-      // analyzing a different document set.
-      sourceSetFingerprint: await sourceFingerprintOf(sources),
-      sources: sources.map((source) => ({
-        documentId: source.documentId,
-        sha256: source.sha256,
-        byteSize: source.byteSize,
-        pageCount: source.pageCount,
-      })),
-      guidance: preflight.package.guidance.inclusions.map((inclusion) => ({
-        cardId: inclusion.cardId,
-        inclusionReason: inclusion.reason,
-        matchedSignals: [...inclusion.matchedSignals],
-      })),
-      sourceCount: sources.length,
-      pageCount,
-      inputTokens: preflight.inputTokens,
-    });
 
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);

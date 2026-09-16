@@ -371,7 +371,6 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
       if (error) fail("preflight", error);
     },
 
-
     reserveAllowance: async (args) => {
       const { data, error } = await supabaseAdmin.rpc("arc_reserve_ai_allowance", {
         p_run_id: args.runId,
