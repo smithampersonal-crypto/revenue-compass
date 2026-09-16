@@ -1397,13 +1397,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
 
-      const fingerprint = valueFingerprint(modificationFingerprintValue(current()));
-      recordObject(
-        semanticKey,
-        canonicalId,
-        fingerprint,
-        objectUserModified(semanticKey, fingerprint),
-      );
+      claimObject(semanticKey, canonicalId);
     }
   } else if (
     modifications.hasModification === "no" &&
