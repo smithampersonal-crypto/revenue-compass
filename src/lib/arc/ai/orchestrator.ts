@@ -407,6 +407,7 @@ export async function executeAiRunHandler(
           priorContext: latest.priorContext,
         });
       } catch (error) {
+        deps.onMergeDiagnostic?.(mergeDiagnosticOf(error));
         await deps.store.markFailure({
           runId: run.id,
           failureStage: "applying",
