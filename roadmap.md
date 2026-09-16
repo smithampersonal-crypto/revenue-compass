@@ -696,6 +696,32 @@ trailing punctuation, stitched cells, ellipses, wrong page and fabrication are
 still rejected). No live OpenAI call was made in this patch. No Resend,
 custom-domain, auth or email work.
 
+### Live gate run 2 (2026-09-16) — citations clean, envelope defect found and fixed
+
+Run `3e4e5a08-d912-4b99-8039-7857c156a0f1`: one generative call, 153 s, 4 pages,
+37,094 input tokens, prompt `arc.ai.prompt.v2`, Guidance hash `352bcf79…5d56`.
+Citation validation passed again with zero issues and empty bounded
+diagnostics; schema, Guidance and material-provenance validation passed. The run
+then failed at `applying` with `merge_failed`. The developer-only merge
+diagnostic located the throw exactly: `TypeError` at `merge.ts:183`.
+
+Cause: `runs.store.server.ts` handed the stored canonical ENVELOPE
+(`{ schemaVersion, draft }`) to the orchestrator as if it were a bare
+`WorkflowDraft`, so `draft.promises` was `undefined`. Fix: `loadExecutionContext`
+now validates both `analysis_revisions.canonical_inputs` and
+`guest_workspaces.draft_json` through `parseCanonicalInputs()` (the same reader
+every other ARC path uses), and `applyRun` re-wraps with `toCanonicalInputs()`
+before `arc_apply_ai_run`. No validator, prompt, schema or merge policy changed.
+Regression: `__tests__/execution-context-envelope.spec.ts`.
+
+Post-fix verification: 1,220 tests / 109 files pass, typecheck clean, lint 0
+errors (10 pre-existing warnings), build OK, `audit:bundle` clean. No SQL
+changed, so the database suites are unaffected. One allowance consumed
+(1 of 10); nothing canonical was written. Phase 9F still awaiting acceptance;
+Phase 9G not started.
+
+
+
 
 ## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (accepted)
 
