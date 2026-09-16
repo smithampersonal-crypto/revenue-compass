@@ -34,13 +34,17 @@ validator runs.
    requires exact parity between that count and the number of nodes it replaced: any mismatch (or a
    count of zero, or any surviving provider-facing `excerpt`) throws and fails closed rather than
    emitting a partially transformed schema. Regressions cover parity, zero-node rejection, and a
-   deliberately mismatched fixture.
+   deliberately mismatched fixture. `anchorStart` and `anchorEnd` are required-but-nullable in the
+   provider schema (`["string","null"]`, both listed in `required`), never optional.
 4. **Materializer** — new `citation-anchor-materializer.ts`: builds the anchor index from evidence,
    walks the raw model object, converts only provider-shaped citation objects into internal
    excerpt citations, and fails closed with bounded issue codes (`anchor_unknown`,
    `anchor_page_mismatch`, `anchor_document_mismatch`, `anchor_range_reversed`,
    `anchor_range_too_large`, `anchor_text_requires_single_page`,
    `anchor_visual_must_not_select_text`, `anchor_excerpt_too_long`, `anchor_selector_missing`).
+   The materializer enforces the nullability contract: a `text` citation requires two non-null,
+   resolver-valid anchors (missing either → `anchor_selector_missing`), and a `visual` citation
+   requires both to be null (→ `anchor_visual_must_not_select_text`).
    Diagnostics carry schema path and anchor IDs only. Invariant test: every successful text
    resolution parses internally and yields zero citation issues from the unchanged validator.
 5. **Pipeline** — `terra.server.ts`: JSON.parse → materialize → existing `parseAiContractAnalysis()`
