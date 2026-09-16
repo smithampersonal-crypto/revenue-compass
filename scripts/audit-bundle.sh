@@ -6,9 +6,15 @@
 # Never prints a secret value.
 set -euo pipefail
 
-DIR="${1:-.output/public}"
-if [ ! -d "$DIR" ]; then
-  echo "audit:bundle — no build output at $DIR; run 'bun run build' first." >&2
+DIR="${1:-}"
+if [ -z "$DIR" ]; then
+  # Vite/Nitro have emitted client assets to either location across versions.
+  for candidate in .output/public dist/client dist; do
+    if [ -d "$candidate" ]; then DIR="$candidate"; break; fi
+  done
+fi
+if [ -z "$DIR" ] || [ ! -d "$DIR" ]; then
+  echo "audit:bundle — no build output found; run 'bun run build' first." >&2
   exit 1
 fi
 
