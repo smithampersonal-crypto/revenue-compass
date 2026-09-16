@@ -651,9 +651,10 @@ begin
            where revision_id = v_rev and quota_scope = 'authenticated') = 1;
 
   insert into arc_test_results
-  select '47 the guest-funded run is never reattributed to the account',
-         (select owner_user_id from public.ai_runs where id = v_run) is null
-     and (select quota_scope from public.ai_runs where id = v_run) = 'guest';
+  select '47 the guest-funded run gains an owner but is never rebilled to the account',
+         (select owner_user_id from public.ai_runs where id = v_run) = v_user
+     and (select quota_scope from public.ai_runs where id = v_run) = 'guest'
+     and not exists (select 1 from public.ai_monthly_usage where user_id = v_user);
 end $phase9f_v3$;
 
 
