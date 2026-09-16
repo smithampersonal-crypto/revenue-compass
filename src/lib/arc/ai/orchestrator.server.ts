@@ -20,10 +20,11 @@ import type { AiRequestPackage } from "./types";
 export async function createExecutionBoundaries(): Promise<
   Pick<AiExecutionDeps, "buildPackage" | "analyzer" | "releaseBytes">
 > {
-  const [{ loadAuthorizedSelectedSources }, { downloadPrivateObject }, countTokens, analyzer] =
+  const [{ loadAuthorizedSelectedSources }, { downloadPrivateObject }, { arcStructuredOutput }, countTokens, analyzer] =
     await Promise.all([
       import("./authorized-sources.server"),
       import("@/lib/arc/documents/storage.server"),
+      import("./terra.server"),
       productionTokenCounter(),
       productionTerraAnalyzer(),
     ]);
@@ -40,7 +41,7 @@ export async function createExecutionBoundaries(): Promise<
         requestOptions: {
           // The one strict structured-output contract, identical for the
           // counted envelope and the single generative call.
-          structuredOutput: (await import("./terra.server")).arcStructuredOutput(),
+          structuredOutput: arcStructuredOutput(),
         },
         deps: {
           loadAuthorizedSelectedSources,
