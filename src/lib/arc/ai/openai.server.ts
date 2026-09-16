@@ -48,7 +48,6 @@ export async function openAiClient(): Promise<ArcOpenAiClient> {
   return cachedClient;
 }
 
-
 export function createTokenCounter(client: TokenCountingClient): OpenAiTokenCounter {
   return {
     count: async (input) => {

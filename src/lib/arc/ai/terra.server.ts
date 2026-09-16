@@ -11,10 +11,7 @@
 
 import type { GuidancePack } from "@/lib/arc/guidance/types";
 
-import {
-  validateAiCitations,
-  type AiCitationValidationResult,
-} from "./citations";
+import { validateAiCitations, type AiCitationValidationResult } from "./citations";
 import type { ArcStructuredOutput } from "./request-package.server";
 import {
   AI_OUTPUT_SCHEMA_NAME,

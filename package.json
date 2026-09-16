@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
+    "ai:phase9d:smoke": "bun run scripts/phase9d-smoke.ts",
     "typecheck": "tsgo --noEmit || tsc --noEmit",
     "db:start": "bunx --bun supabase start",
     "db:test": "bash scripts/run-sql-suites.sh",

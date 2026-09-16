@@ -20,6 +20,7 @@ import {
   type AuthorizedSource,
   type AiPackageDeps,
 } from "../request-package.server";
+import { countableRequestView } from "../preflight.server";
 import type { CurrentAccountingContext } from "../types";
 
 function sha256(bytes: Uint8Array): string {
@@ -177,8 +178,10 @@ describe("buildAiRequestPackage", () => {
     if (!result.ok) throw new Error("expected ok");
 
     const counted = count.mock.calls[0]![0] as Record<string, unknown>;
-    expect(counted).toEqual(buildCanonicalResponsesRequest(result.package, AI_LIMITS));
-    expect(counted["store"]).toBe(false);
+    expect(counted).toEqual(
+      countableRequestView(buildCanonicalResponsesRequest(result.package, AI_LIMITS)),
+    );
+    expect(counted["store"]).toBeUndefined();
     expect(counted["truncation"]).toBe("disabled");
     expect(counted["tools"]).toEqual([]);
     expect(counted["input"]).toBe(result.package.openAiInput);

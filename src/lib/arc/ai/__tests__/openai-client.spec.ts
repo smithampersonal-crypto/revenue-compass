@@ -11,6 +11,7 @@ import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 
 import { AI_LIMITS } from "../config.server";
+import { countableRequestView } from "../preflight.server";
 import { buildAiInstructions } from "../prompt";
 import {
   ARC_PROTECTED_REQUEST_KEYS,
@@ -27,7 +28,11 @@ import {
   TerraAnalysisError,
   type ResponsesGenerativeClient,
 } from "../terra.server";
-import { classifyReadability, type AiDocumentEvidence, type CurrentAccountingContext } from "../types";
+import {
+  classifyReadability,
+  type AiDocumentEvidence,
+  type CurrentAccountingContext,
+} from "../types";
 
 import {
   FIXTURE_DOCUMENT_ID,
@@ -129,7 +134,13 @@ describe("canonical Phase 9D request", () => {
     const count = vi.fn<CountMock>(counter());
     const { canonicalRequest } = await buildPackage(count);
     const counted = count.mock.calls[0]![0] as Record<string, unknown>;
-    expect(counted).toBe(canonicalRequest);
+    // The count body is the canonical object minus only `store`/`background`
+    // (rejected by the live count endpoint, no prompt tokens). The generative
+    // call sends the canonical object itself, never a rebuilt one.
+    expect(counted).toEqual(countableRequestView(canonicalRequest));
+    expect(counted["input"]).toBe(canonicalRequest["input"]);
+    expect(counted["instructions"]).toBe(canonicalRequest["instructions"]);
+    expect(counted["text"]).toBe(canonicalRequest["text"]);
 
     const create = vi.fn(async (_body: Record<string, unknown>) => generativeResponse());
     await createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient).analyze({
@@ -137,7 +148,7 @@ describe("canonical Phase 9D request", () => {
       evidence: evidence(),
       guidance: pack,
     });
-    expect(create.mock.calls[0]![0]).toBe(counted);
+    expect(create.mock.calls[0]![0]).toBe(canonicalRequest);
   });
 
   it.each([...ARC_PROTECTED_REQUEST_KEYS])(
@@ -242,13 +253,7 @@ describe("TerraAnalyzer", () => {
       totalTokens: 128_000,
     });
     expect(result.validation.ok).toBe(true);
-    expect(Object.keys(result)).toEqual([
-      "analysis",
-      "responseId",
-      "model",
-      "usage",
-      "validation",
-    ]);
+    expect(Object.keys(result)).toEqual(["analysis", "responseId", "model", "usage", "validation"]);
   });
 
   it("runs local Zod validation and rejects invalid model JSON without a repair call", async () => {
@@ -305,8 +310,8 @@ describe("TerraAnalyzer", () => {
     const fabricatedDocument = validAnalysisFixture();
     fabricatedDocument.promises[0]!.citations[0]!.documentId = "doc-invented";
     expect(
-      (await analyzeWith(generativeResponse(fabricatedDocument))).result.validation.citationIssues[0]!
-        .code,
+      (await analyzeWith(generativeResponse(fabricatedDocument))).result.validation
+        .citationIssues[0]!.code,
     ).toBe("unknown_document");
 
     const badPage = validAnalysisFixture();

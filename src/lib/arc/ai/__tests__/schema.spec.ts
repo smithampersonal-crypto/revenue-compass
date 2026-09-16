@@ -121,9 +121,7 @@ describe("AiContractAnalysis schema", () => {
 
   it("accepts a visual citation with a null excerpt", () => {
     const analysis = validAnalysisFixture();
-    expect(
-      analysis.transactionPrice.fixedConsiderationCitations[0]!.evidenceMode,
-    ).toBe("visual");
+    expect(analysis.transactionPrice.fixedConsiderationCitations[0]!.evidenceMode).toBe("visual");
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(true);
   });
 

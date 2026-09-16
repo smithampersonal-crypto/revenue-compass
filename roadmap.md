@@ -582,5 +582,20 @@ review outcome, result/usage provenance — explicitly protected; and
 The obsolete "a consumed run cannot be deleted" assertion is replaced by a
 dedicated deletable run, keeping the immutability target row alive.
 
-Phase 9D not started.
+## Phase 9D — Terra generative boundary (awaiting director acceptance)
+
+Server-only. Strict semantic `AiContractAnalysis` schema (`src/lib/arc/ai/schema.ts`),
+trust-tier instructions (`prompt.ts`), citation/Guidance validation (`citations.ts`),
+hardened canonical request (`request-package.server.ts`) and the single-call
+`TerraAnalyzer` (`terra.server.ts`). Developer-only live acceptance via
+`bun run ai:phase9d:smoke` (requires `ARC_ALLOW_LIVE_PHASE9D=1`; never in CI).
+No persistence, no quota reservation, no WorkflowDraft application.
+
+Deviation: the live `responses.inputTokens.count` endpoint rejects `store` and
+`background` (`400 Unknown parameter`). The counted body is the canonical object
+minus exactly those two non-token-bearing control flags
+(`COUNT_UNSUPPORTED_CONTROL_FLAGS`); the generative call sends the canonical
+object itself.
+
+Phase 9E not started.
 
