@@ -33,7 +33,8 @@ import {
   type AiRunExecutionStore,
 } from "../orchestrator";
 import { createEmptyAiAnalysisState } from "../merge";
-import type { AiCallerScope, AiFailureCategory, AiRunRow, AiRunStage } from "../runs.handlers";
+import type { AiFailureCategory } from "../orchestrator";
+import type { AiCallerScope, AiRunRow, AiRunStage } from "../runs.handlers";
 import {
   TERRA_SAFE_MESSAGES,
   TerraAnalysisError,
