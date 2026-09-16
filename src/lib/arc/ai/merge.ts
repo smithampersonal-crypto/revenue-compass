@@ -935,7 +935,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     if (mapping.method === "over_time_ratable") {
       const start = parseIsoDate(proposal.serviceStartDate);
       const end = parseIsoDate(proposal.serviceEndDate);
-      if (start !== null && end !== null) {
+      if (start !== null && end !== null && methodIsAiOwned) {
         mergeText({
           key: fieldKeys.po(canonicalId, "serviceStart"),
           semanticKey: proposal.performanceObligationKey,
