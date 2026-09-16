@@ -1034,17 +1034,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: item.reviewState,
         label: "Standalone selling price",
       });
-      mergeText({
-        key: fieldKeys.po(canonicalId, "sspBasis"),
-        semanticKey: item.semanticKey,
-        current: current().sspBasis,
-        proposed: item.methodRationale,
-        apply: (value) => update({ sspBasis: value }),
-        section,
-        guidanceIds: item.guidanceIds,
-        aiReviewState: item.reviewState,
-        label: "Standalone selling price basis",
-      });
+      // The basis explains the amount; it is only written when ARC owns it.
+      if (fieldProvenance[fieldKeys.po(canonicalId, "sspInput")]?.state === "ai_generated_untouched") {
+        mergeText({
+          key: fieldKeys.po(canonicalId, "sspBasis"),
+          semanticKey: item.semanticKey,
+          current: current().sspBasis,
+          proposed: item.methodRationale,
+          apply: (value) => update({ sspBasis: value }),
+          section,
+          guidanceIds: item.guidanceIds,
+          aiReviewState: item.reviewState,
+          label: "Standalone selling price basis",
+        });
+      }
     } else if (isUnclaimedString(current().sspInput)) {
       raise({
         targetKey: fieldKeys.po(canonicalId, "sspInput"),
