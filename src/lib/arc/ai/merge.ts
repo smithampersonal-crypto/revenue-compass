@@ -1079,19 +1079,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
       label: "Fixed transaction price",
     });
-    mergeText({
-      key: fieldKeys.transactionPrice("notes"),
-      semanticKey: "transaction-price:fixed",
-      current: draft.transactionPriceNotes,
-      proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
-      apply: (value) => {
-        draft.transactionPriceNotes = value;
-      },
-      section: "step_3",
-      guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
-      aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
-      label: "Transaction price notes",
-    });
+    // An AI explanation is only ever written for an AI-owned amount. Attaching
+    // the model's reasoning about a different number to the accountant's own
+    // transaction price would make the audit trail self-contradictory.
+    if (fieldProvenance[fieldKeys.transactionPrice("input")]?.state === "ai_generated_untouched") {
+      mergeText({
+        key: fieldKeys.transactionPrice("notes"),
+        semanticKey: "transaction-price:fixed",
+        current: draft.transactionPriceNotes,
+        proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
+        apply: (value) => {
+          draft.transactionPriceNotes = value;
+        },
+        section: "step_3",
+        guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+        aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
+        label: "Transaction price notes",
+      });
+    }
   } else if (isUnclaimedString(draft.transactionPriceInput)) {
     raise({
       targetKey: fieldKeys.transactionPrice("input"),
