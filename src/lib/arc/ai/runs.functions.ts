@@ -16,6 +16,7 @@ import { z } from "zod";
 import { GUIDANCE_REGISTRY_HASH } from "@/lib/arc/guidance/registry";
 import { readGuestCookie } from "@/lib/arc/persistence/guest";
 
+import type { AiRunExecutionStore } from "./orchestrator";
 import {
   deriveAiCaller,
   runStatusHandler,
@@ -75,7 +76,7 @@ async function verifiedUserId(request: Request): Promise<string | null> {
   return data.claims.sub;
 }
 
-async function runDeps(): Promise<AiRunDeps> {
+async function runDeps(): Promise<AiRunDeps & { store: AiRunExecutionStore }> {
   const [{ createAiRunStore }, { AI_LIMITS }] = await Promise.all([
     import("./runs.store.server"),
     import("./config.server"),
@@ -143,6 +144,32 @@ export const startAiAnalysis = createServerFn({ method: "POST" })
     const deps = await runDeps();
     const caller = await callerFor(deps, data.revisionId);
     return startAiAnalysisHandler(deps, caller);
+  });
+
+/**
+ * Phase 9F — runs one created analysis to a terminal stage.
+ *
+ * Separate from `startAiAnalysis` so a lost response never starts a second
+ * analysis: this call is re-entrant and a run that is no longer `created`
+ * simply returns its current status.
+ */
+export const executeAiAnalysis = createServerFn({ method: "POST" })
+  .inputValidator((input: { runId: string; revisionId?: string | null }) => ({
+    runId: z.string().uuid().parse(input?.runId),
+    revisionId: revisionTarget(input),
+  }))
+  .handler(async ({ data }): Promise<AiRunStatusDto> => {
+    const deps = await runDeps();
+    const caller = await callerFor(deps, data.revisionId);
+    const [{ executeAiRunHandler }, { createExecutionBoundaries }] = await Promise.all([
+      import("./orchestrator"),
+      import("./orchestrator.server"),
+    ]);
+    return executeAiRunHandler(
+      { ...deps, ...(await createExecutionBoundaries()) },
+      caller,
+      { runId: data.runId },
+    );
   });
 
 /** Safe polling for a run the caller owns. */
