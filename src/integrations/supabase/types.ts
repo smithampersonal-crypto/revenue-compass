@@ -849,6 +849,10 @@ export type Database = {
           lock_version: number
         }[]
       }
+      arc_ai_scope_has_active_run: {
+        Args: { p_guest_workspace_id: string; p_revision_id: string }
+        Returns: boolean
+      }
       arc_apply_ai_run: {
         Args: {
           p_ai_state: Json
@@ -982,6 +986,10 @@ export type Database = {
         }
         Returns: string
       }
+      arc_guard_ai_source_freeze: {
+        Args: { p_guest_workspace_id: string; p_revision_id: string }
+        Returns: undefined
+      }
       arc_mark_ai_run_failure: {
         Args: {
           p_failure_category: string
@@ -991,6 +999,10 @@ export type Database = {
           p_safe_message: string
         }
         Returns: string
+      }
+      arc_mark_ai_sources_stale: {
+        Args: { p_guest_workspace_id: string; p_revision_id: string }
+        Returns: undefined
       }
       arc_migrate_guest_workspace: {
         Args: {
@@ -1042,7 +1054,41 @@ export type Database = {
           revision_id: string
         }[]
       }
+      arc_migrate_guest_workspace_by_token_v3: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_existing_customer_id: string
+          p_expected_lock_version: number
+          p_new_customer_name: string
+          p_owner_user_id: string
+          p_token_hash: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
+          idempotent: boolean
+          revision_id: string
+        }[]
+      }
       arc_migrate_guest_workspace_v2: {
+        Args: {
+          p_contract_number: string
+          p_contract_title: string
+          p_existing_customer_id: string
+          p_guest_workspace_id: string
+          p_new_customer_name: string
+          p_owner_user_id: string
+        }
+        Returns: {
+          analysis_id: string
+          contract_id: string
+          customer_id: string
+          revision_id: string
+        }[]
+      }
+      arc_migrate_guest_workspace_v3: {
         Args: {
           p_contract_number: string
           p_contract_title: string
