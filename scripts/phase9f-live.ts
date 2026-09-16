@@ -187,9 +187,19 @@ async function main(): Promise<void> {
     },
   };
 
+  // Developer-only bounded merge diagnostic: error class and code frames only.
+  let mergeDiagnostic: { errorName: string; frames: readonly string[] } | null = null;
+
   const started = Date.now();
   const final = await executeAiRunHandler(
-    { ...deps, ...boundaries, analyzer: diagnosticAnalyzer },
+    {
+      ...deps,
+      ...boundaries,
+      analyzer: diagnosticAnalyzer,
+      onMergeDiagnostic: (diagnostic) => {
+        mergeDiagnostic = diagnostic;
+      },
+    },
     scope,
     { runId: startStatus.runId },
   );
@@ -199,6 +209,7 @@ async function main(): Promise<void> {
     // Bounded issue classes and schema paths only — never model JSON, page
     // text, prompt, PDF bytes, provider body, reasoning or credentials.
     say("validation diagnostics", validationDiagnostics);
+    if (mergeDiagnostic) say("merge diagnostic", mergeDiagnostic);
   }
 
   const usedAfter = await store.monthlyUsage(userId, utcMonth);
