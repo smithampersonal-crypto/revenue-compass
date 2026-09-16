@@ -119,7 +119,12 @@ function harness(
 
   const context: AiExecutionContext = {
     draft: createEmptyDraft(),
-    aiState: createEmptyAiAnalysisState(),
+    aiState: {
+      ...createEmptyAiAnalysisState(),
+      ...(options.priorSourceState
+        ? { sourceState: options.priorSourceState, sourceSetFingerprint: "b".repeat(64) }
+        : {}),
+    },
     priorContext: null,
     schemaVersion: "arc-workflow-1",
     lockVersion: 3,
