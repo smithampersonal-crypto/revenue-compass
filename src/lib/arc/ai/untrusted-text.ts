@@ -18,7 +18,7 @@
 
 /** Any heading a crafted label could use to open a fake trusted region. */
 export const TRUSTED_MARKER_PATTERN =
-  /(SECTION\s*\d+\s*[—-]\s*(TRUSTED|AUTHENTICATED|UNTRUSTED|TASK)[^\n]*)|(ARC[\s-]*VERIFIED\s+IDENTITY[^\n]*)|(USER[\s-]*SUPPLIED\s+LABELS[^\n]*)|(TRUSTED\s+ARC\s+(POLICY|GUIDANCE)[^\n]*)/gi;
+  /(SECTION\s*\d+\s*[—-]\s*(TRUSTED|AUTHENTICATED|UNTRUSTED|TASK))|(ARC[\s-]*VERIFIED\s+IDENTITY)|(USER[\s-]*SUPPLIED\s+LABELS)|(TRUSTED\s+ARC\s+(POLICY|GUIDANCE))/gi;
 
 export const UNTRUSTED_LABEL_MAX_LENGTH = 400;
 

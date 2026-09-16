@@ -83,7 +83,13 @@ describe("material provenance", () => {
     ["recognition proposal", (a) => (a.recognitionProposals[0]!.citations = [])],
     ["billing term", (a) => (a.billingTerms[0]!.citations = [])],
     ["projected collection assumption", (a) => (a.projectedCollectionAssumptions.citations = [])],
-    ["applicable additional topic", (a) => (a.additionalTopics[0]!.citations = [])],
+    [
+      "applicable additional topic",
+      (a) => {
+        a.additionalTopics[0]!.applicable = "yes";
+        a.additionalTopics[0]!.citations = [];
+      },
+    ],
   ];
 
   it.each(emptied)("rejects a %s asserted with zero citations", (_label, mutate) => {
