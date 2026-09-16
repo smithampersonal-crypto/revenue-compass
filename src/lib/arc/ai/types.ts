@@ -73,7 +73,6 @@ export interface PriorAccountingContext {
   remainingConsiderationInput: string | null;
 }
 
-
 export interface AiRequestPackage {
   sources: AiDocumentEvidence[];
   guidance: GuidancePack;

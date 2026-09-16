@@ -323,7 +323,6 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           manuallyEnteredFacts: manualFacts(draft),
           arcFactSignals: [],
         };
-
       }
 
       const { data, error } = await supabaseAdmin

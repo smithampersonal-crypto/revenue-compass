@@ -65,10 +65,17 @@ const PRIOR: PriorRevisionRecord = {
   engineOutputs: {
     workflow: {
       allocation: [
-        { poId: "po-1", name: "Platform subscription", sspCents: 10000000, allocatedCents: 10000000 },
+        {
+          poId: "po-1",
+          name: "Platform subscription",
+          sspCents: 10000000,
+          allocatedCents: 10000000,
+        },
         { poId: "po-2", name: "Implementation", sspCents: 2000000, allocatedCents: 2000000 },
       ],
-      revenueSchedule: { rows: Array.from({ length: 24 }, (_, i) => ({ month: i, revenueCents: 1 })) },
+      revenueSchedule: {
+        rows: Array.from({ length: 24 }, (_, i) => ({ month: i, revenueCents: 1 })),
+      },
     },
     journals: { entries: Array.from({ length: 40 }, (_, i) => ({ id: `je-${i}` })) },
   },

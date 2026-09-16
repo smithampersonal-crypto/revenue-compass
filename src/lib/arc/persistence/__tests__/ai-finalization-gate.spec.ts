@@ -49,10 +49,17 @@ function reader(): RevisionReader {
 }
 
 function item(state: string, extra: Record<string, unknown> = {}) {
-  return { state, targetKey: "po:po-1:sspInput", ...extra } as AiFinalizationState["reviewItems"][0];
+  return {
+    state,
+    targetKey: "po:po-1:sspInput",
+    ...extra,
+  } as AiFinalizationState["reviewItems"][0];
 }
 
-async function finalize(state: AiFinalizationState | null, rpc = vi.fn(async () => ({ data: null, error: null }))) {
+async function finalize(
+  state: AiFinalizationState | null,
+  rpc = vi.fn(async () => ({ data: null, error: null })),
+) {
   const outcome = await finalizeRevisionHandler(
     {
       reader: reader(),
@@ -134,8 +141,8 @@ describe("AI finalization gate", () => {
       aiFinalizationIssues({ reviewItems: [item("yellow")], hasActiveRun: false }),
     ).toHaveLength(1);
     // An active run outranks everything else and reports one clear reason.
-    expect(
-      aiFinalizationIssues({ reviewItems: [item("red")], hasActiveRun: true }),
-    ).toHaveLength(1);
+    expect(aiFinalizationIssues({ reviewItems: [item("red")], hasActiveRun: true })).toHaveLength(
+      1,
+    );
   });
 });

@@ -96,7 +96,6 @@ export function aiFinalizationIssues(state: AiFinalizationState | null): string[
     );
 }
 
-
 export interface AmendmentDeps {
   reader: RevisionReader;
   userId: string;
@@ -143,8 +142,6 @@ export async function finalizeRevisionHandler(
     const aiIssues = aiFinalizationIssues(await deps.readAiFinalizationState(data.revisionId));
     if (aiIssues.length > 0) return { ok: false, reason: "blocked", issues: aiIssues };
   }
-
-
 
   const { error: rpcError } = await deps.finalizeTransaction({
     p_owner_user_id: deps.userId,

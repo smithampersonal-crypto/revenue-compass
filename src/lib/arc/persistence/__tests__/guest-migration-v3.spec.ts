@@ -44,7 +44,6 @@ async function store(status = "active") {
   };
 }
 
-
 async function migrate(
   migrateTransaction: (args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>,
   status = "active",
@@ -74,9 +73,13 @@ describe("guest migration v3", () => {
   });
 
   it("sends the credential hash, never a browser-supplied workspace id", async () => {
-    const rpc = vi.fn(async () => ({ data: [MIGRATED], error: null }));
+    const seen: Record<string, unknown>[] = [];
+    const rpc = async (args: Record<string, unknown>) => {
+      seen.push(args);
+      return { data: [MIGRATED], error: null };
+    };
     await migrate(rpc);
-    const args = rpc.mock.calls[0]![0] as Record<string, unknown>;
+    const args = seen[0]!;
     expect(args["p_token_hash"]).toBe(await hashGuestToken(TOKEN));
     expect(Object.keys(args)).not.toContain("p_guest_workspace_id");
   });
