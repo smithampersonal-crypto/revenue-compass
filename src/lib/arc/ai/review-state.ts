@@ -113,9 +113,24 @@ export function classifyReviewState(input: ReviewDerivationInput): AiReviewItemS
     return "yellow";
   }
   if (policyRequiresReview(ids)) return "yellow";
+  // Something ARC did NOT apply is always worth seeing, however confident the
+  // model was: a preserved manual value or structure, an omitted or
+  // tombstoned proposal, and every advisory topic.
+  if (ALWAYS_VISIBLE.has(input.reasonCode)) return "yellow";
   // A fully supported conclusion with fully supported guidance needs nothing.
   return input.aiReviewState === "supported" ? null : "yellow";
 }
+
+/** Reason codes that always deserve at least an affirmation item. */
+const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
+  "manual_value_preserved",
+  "manual_structure_preserved",
+  "prior_finalized_conflict",
+  "ai_proposal_omitted",
+  "ai_proposal_tombstoned",
+  "advisory_topic",
+  "accountant_affirmation_required",
+]);
 
 /** Builds the deterministic review item, or null when none is warranted. */
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
