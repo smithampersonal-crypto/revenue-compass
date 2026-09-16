@@ -597,5 +597,22 @@ minus exactly those two non-token-bearing control flags
 (`COUNT_UNSUPPORTED_CONTROL_FLAGS`); the generative call sends the canonical
 object itself.
 
-Phase 9E not started.
+Phase 9D accepted by the director (2026-09-15) with the citation & validation
+acceptance patch.
+
+## Phase 9E — deterministic adapter, provenance, merge policy & projected collections (complete, awaiting acceptance)
+
+Task 9 (cash basis) and Task 10 (adapter/merge/review state) are implemented
+and verified. No live OpenAI call was made, no database RPC or SQL changed, and
+no Phase 9F behaviour (run orchestration, apply/restore RPCs, quota, Analyze
+button, polling, affirmation UI, guest migration, finalization gate, email) was
+started.
+
+New pure modules: `src/lib/arc/ai/identity.ts`, `adapter.ts`, `review-state.ts`,
+`merge.ts`. New fixtures/specs: `__tests__/merge-fixtures.ts`, `identity.spec.ts`,
+`adapter.spec.ts`, `review-state.spec.ts`, `merge.spec.ts`,
+`merge-reanalysis.spec.ts`, plus Task 9 specs under persistence, workflow and
+components.
+
+Phase 9F not started.
 
