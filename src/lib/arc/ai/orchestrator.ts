@@ -233,12 +233,15 @@ export async function executeAiRunHandler(
   // already in flight elsewhere or terminal.
   if (run.stage !== "created") return finish(deps, caller, run.id);
 
+  // Exactly-once claim. The loser of a concurrent start stops here and never
+  // touches the model, the allowance or the accountant's draft.
+  const claimed = await deps.store.advanceStage(run.id, "created", "extracting");
+  if (!claimed) return finish(deps, caller, run.id);
+
   const context = await deps.store.loadExecutionContext(caller);
   let requestPackage: unknown = null;
 
   try {
-    await deps.store.advanceStage(run.id, "created", "extracting");
-
     /* ---------------------------------------------------------- preflight */
     const preflight = await deps.buildPackage({
       scope: scopeOf(caller),
@@ -287,7 +290,7 @@ export async function executeAiRunHandler(
       inputTokens: preflight.inputTokens,
     });
 
-    /* ---------------------------------------------------------- allowance */
+    /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
     const reservation = await deps.store.reserveAllowance({
       runId: run.id,
@@ -310,24 +313,30 @@ export async function executeAiRunHandler(
     }
 
     /* ------------------------------------------------- the one model call */
-    await deps.store.advanceStage(run.id, "preflight_ready", "analyzing");
-
     let result;
     try {
       result = await deps.analyzer.analyze({
         canonicalRequest: preflight.canonicalRequest,
         evidence: sources,
         guidance: preflight.package.guidance,
+        // Fires once the provider response has been received and before any
+        // parsing, schema, citation, Guidance or provenance validation.
+        onResponseReceived: async () => {
+          await deps.store.advanceStage(run.id, "analyzing", "validating");
+        },
       });
     } catch (error) {
       const terra =
         error instanceof TerraAnalysisError
           ? error
           : new TerraAnalysisError("api_failure", "The AI service request failed.");
+      const category = failureCategoryFor(terra);
       await deps.store.markFailure({
         runId: run.id,
-        failureStage: "analyzing",
-        category: failureCategoryFor(terra),
+        // An API failure never produced a response, so the run is still
+        // analyzing; a rejected response already moved to validating.
+        failureStage: category === "response" ? "validating" : "analyzing",
+        category,
         code: terra.category,
         safeMessage: terra.message,
       });
@@ -335,69 +344,72 @@ export async function executeAiRunHandler(
     }
 
     /* ------------------------------------------- deterministic application */
-    await deps.store.advanceStage(run.id, "analyzing", "validating");
-
-    let merged;
-    try {
-      merged = mergeAiAnalysis({
-        currentDraft: context.draft,
-        currentAiState: context.aiState,
-        analysis: result.analysis,
-        runId: run.id,
-        guidancePack: preflight.package.guidance,
-        priorContext: context.priorContext,
-      });
-    } catch (error) {
-      await deps.store.markFailure({
-        runId: run.id,
-        failureStage: "validating",
-        category: "response",
-        code: error instanceof AiMergeError ? error.code : "merge_failed",
-        safeMessage: AI_APPLY_FAILED,
-      });
-      return finish(deps, caller, run.id);
-    }
-
     await deps.store.advanceStage(run.id, "validating", "applying");
 
-    try {
-      await deps.store.applyRun({
-        runId: run.id,
-        ownerUserId: owner.ownerUserId,
-        guestTokenHash: owner.guestTokenHash,
-        expectedLockVersion: context.lockVersion,
-        canonicalInputs: merged.draft,
-        schemaVersion: context.schemaVersion,
-        aiState: merged.aiState,
-        sourceSetFingerprint: await sourceFingerprintOf(sources),
-        structuredResult: result.analysis,
-        usageMetadata: {
-          responseId: result.responseId,
-          model: result.model,
-          inputTokens: result.usage.inputTokens,
-          outputTokens: result.usage.outputTokens,
-          reasoningTokens: result.usage.reasoningTokens,
-          totalTokens: result.usage.totalTokens,
-        },
-        reviewIssueCount: merged.issues.length,
-      });
-    } catch {
-      // Nothing partial survives: the exact pre-run canonical inputs and
-      // sidecar are restored before the run is marked failed.
-      await deps.store.restorePreRun({
-        runId: run.id,
-        ownerUserId: owner.ownerUserId,
-        guestTokenHash: owner.guestTokenHash,
-        expectedLockVersion: context.lockVersion,
-      });
-      await deps.store.markFailure({
-        runId: run.id,
-        failureStage: "applying",
-        category: "application",
-        code: "apply_failed",
-        safeMessage: AI_APPLY_FAILED,
-      });
-      return finish(deps, caller, run.id);
+    // The merge is part of applying: it runs against the NEWEST accountant
+    // draft, and a lost optimistic lock re-merges locally. There is no second
+    // token count, no second allowance charge and no second model call here.
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const latest = await deps.store.loadExecutionContext(caller);
+
+      let merged;
+      try {
+        merged = mergeAiAnalysis({
+          currentDraft: latest.draft,
+          currentAiState: latest.aiState,
+          analysis: result.analysis,
+          runId: run.id,
+          guidancePack: preflight.package.guidance,
+          priorContext: latest.priorContext,
+        });
+      } catch (error) {
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: error instanceof AiMergeError ? error.code : "merge_failed",
+          safeMessage: AI_APPLY_FAILED,
+        });
+        return finish(deps, caller, run.id);
+      }
+
+      try {
+        await deps.store.applyRun({
+          runId: run.id,
+          ownerUserId: owner.ownerUserId,
+          guestTokenHash: owner.guestTokenHash,
+          expectedLockVersion: latest.lockVersion,
+          canonicalInputs: merged.draft,
+          schemaVersion: latest.schemaVersion,
+          aiState: merged.aiState,
+          sourceSetFingerprint: await sourceFingerprintOf(sources),
+          structuredResult: result.analysis,
+          usageMetadata: {
+            responseId: result.responseId,
+            model: result.model,
+            inputTokens: result.usage.inputTokens,
+            outputTokens: result.usage.outputTokens,
+            reasoningTokens: result.usage.reasoningTokens,
+            totalTokens: result.usage.totalTokens,
+          },
+          // Outstanding work only: an already resolved item is not an issue.
+          reviewIssueCount: outstandingIssueCount(merged.issues),
+        });
+        return finish(deps, caller, run.id);
+      } catch (error) {
+        if (error instanceof AiApplyConflictError && attempt < maxAttempts) continue;
+        // Nothing partial was committed: `arc_apply_ai_run` is atomic, so the
+        // run simply fails. Restoring is an explicit, user-initiated action.
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: error instanceof AiApplyConflictError ? "apply_conflict" : "apply_failed",
+          safeMessage: AI_APPLY_FAILED,
+        });
+        return finish(deps, caller, run.id);
+      }
     }
 
     return finish(deps, caller, run.id);
@@ -405,6 +417,12 @@ export async function executeAiRunHandler(
     if (requestPackage && deps.releaseBytes) deps.releaseBytes(requestPackage);
   }
 }
+
+/** Only unresolved review items count as outstanding issues. */
+export function outstandingIssueCount(items: readonly { state: string }[]): number {
+  return items.filter((item) => item.state !== "resolved").length;
+}
+
 
 /** Re-derives the run fingerprint from the packaged, verified sources. */
 async function sourceFingerprintOf(
