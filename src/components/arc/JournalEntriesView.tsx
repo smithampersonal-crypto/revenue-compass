@@ -1,4 +1,6 @@
+import { isProjectedCollection } from "@/lib/asc606-workflow";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+
 import type { ArcJournalSnapshot } from "@/lib/arc/persistence/snapshot";
 
 import { GroupedJournalReconciliation } from "@/components/asc606-workflow/GroupedJournalReconciliation";
