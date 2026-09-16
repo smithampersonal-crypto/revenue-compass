@@ -404,7 +404,8 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         p_owner_user_id: args.ownerUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_expected_lock_version: args.expectedLockVersion,
-        p_canonical_inputs: args.canonicalInputs as never,
+        // Written back in the same canonical envelope every other writer uses.
+        p_canonical_inputs: toCanonicalInputs(args.canonicalInputs) as never,
         p_schema_version: args.schemaVersion,
         p_ai_state: args.aiState as never,
         p_source_set_fingerprint: args.sourceSetFingerprint,
