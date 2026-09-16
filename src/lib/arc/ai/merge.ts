@@ -1425,6 +1425,27 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
+    // The accountant's own billing events are stronger than any derived
+    // schedule. ARC will not layer a synthetic recurring invoice run on top of
+    // them, and it never attempts fuzzy invoice-by-invoice matching.
+    if (manualConsiderationEvents.length > 0 && objectProvenance[semanticKey] === undefined) {
+      raise({
+        targetKey: `billing:${semanticKey}`,
+        section: "additional_topics",
+        reasonCode: "manual_structure_preserved",
+        reason: `You have already entered billing events, so ARC did not create a second schedule for "${term.description.slice(0, 100)}". Compare the AI billing terms with your own events.`,
+        guidanceIds: [],
+        value: {
+          manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
+          semanticKey,
+          proposed: term.description.slice(0, 120),
+        },
+        aiReviewState: term.reviewState,
+      });
+      continue;
+    }
+
+
     const schedule = deriveBillingSchedule({
       billingTiming: term.billingTiming,
       frequency: term.frequency,
