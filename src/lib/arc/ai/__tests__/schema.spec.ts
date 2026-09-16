@@ -37,6 +37,26 @@ describe("AiContractAnalysis schema", () => {
     expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v1");
   });
 
+  it("accepts only the authoritative schema version literal", () => {
+    const good = validAnalysisFixture();
+    good.schemaVersion = "arc.ai.schema.v1";
+    expect(parseAiContractAnalysis(good).ok).toBe(true);
+
+    for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v2", ""]) {
+      const bad = validAnalysisFixture() as unknown as { schemaVersion: string };
+      bad.schemaVersion = wrong;
+      expect(parseAiContractAnalysis(bad).ok).toBe(false);
+    }
+  });
+
+  it("emits the version literal as a single-value enum on the wire", () => {
+    const properties = aiContractAnalysisJsonSchema["properties"] as Record<string, JsonSchema>;
+    expect(properties["schemaVersion"]).toEqual({
+      type: "string",
+      enum: [AI_OUTPUT_SCHEMA_VERSION],
+    });
+  });
+
   it("exposes exactly the five approved review states and no confidence score", () => {
     expect([...AI_REVIEW_STATES]).toEqual([
       "supported",
