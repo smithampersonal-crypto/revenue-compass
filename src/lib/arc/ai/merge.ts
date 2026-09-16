@@ -1628,6 +1628,39 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     });
   }
 
+  /* -------------------------------------------- final AI object fingerprints */
+
+  // Object provenance is finalized only now, after EVERY dependent mapping
+  // step has run. A promise is fingerprinted with its final performance
+  // obligation assignment; a performance obligation with its final
+  // classification, recognition and standalone selling price. Recording an
+  // intermediate fingerprint would make an identical re-run look like a user
+  // edit on the next merge.
+  for (const { semanticKey, canonicalId } of claimedObjects) {
+    const prior = previousState.objectProvenance[semanticKey];
+    const preMerge = preMergeFingerprints.get(semanticKey);
+    // User-edit detection compares the PRE-merge canonical object with what
+    // ARC last wrote. A difference created by ARC applying this very analysis
+    // proves nothing about the user, so it is never consulted here.
+    const userModified =
+      prior !== undefined &&
+      (prior.userModified || (preMerge !== undefined && preMerge !== prior.valueFingerprint));
+    const finalFingerprint =
+      fingerprintCanonicalObject(draft, canonicalId) ?? valueFingerprint(canonicalId);
+    objectProvenance[semanticKey] = {
+      state: userModified
+        ? "ai_generated_user_edited"
+        : prior?.state === "manual_from_start"
+          ? "manual_from_start"
+          : "ai_generated_untouched",
+      semanticKey,
+      lastAiRunId: userModified ? (prior?.lastAiRunId ?? runId) : runId,
+      valueFingerprint: userModified ? (prior?.valueFingerprint ?? finalFingerprint) : finalFingerprint,
+      canonicalId,
+      userModified,
+    };
+  }
+
   /* ---------------------------------------------------------------- finalize */
 
   const ranked = rankReviewItems(sortReviewItems(issues));
