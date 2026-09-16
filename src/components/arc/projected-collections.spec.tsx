@@ -61,9 +61,7 @@ describe("projected collection presentation", () => {
       "Projected — contractual due date",
     );
     expect(screen.getAllByText(/not evidence that cash was received/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/includes projected contractual collections/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/includes projected contractual collections/i)).toBeInTheDocument();
   });
 
   it("labels an actual cash row as actual and adds no projection disclosure", () => {
@@ -85,9 +83,7 @@ describe("projected collection presentation", () => {
   it("marks the projected cash journal entry as illustrative", () => {
     const draft = draftWith("projected_contract_due_date");
     const paper = buildWorkpaper(draft);
-    render(
-      <JournalEntriesView draft={draft} result={paper.workflow} journals={paper.journals} />,
-    );
+    render(<JournalEntriesView draft={draft} result={paper.workflow} journals={paper.journals} />);
     expect(screen.getByText("Projected Cash Collection — Illustrative")).toBeInTheDocument();
     expect(screen.queryByText(/^Cash Collection$/)).toBeNull();
   });
@@ -95,9 +91,7 @@ describe("projected collection presentation", () => {
   it("keeps an actual cash journal entry labelled as an ordinary cash collection", () => {
     const draft = draftWith("actual");
     const paper = buildWorkpaper(draft);
-    render(
-      <JournalEntriesView draft={draft} result={paper.workflow} journals={paper.journals} />,
-    );
+    render(<JournalEntriesView draft={draft} result={paper.workflow} journals={paper.journals} />);
     expect(screen.getByText("Cash Collection")).toBeInTheDocument();
     expect(screen.queryByText(/Illustrative/)).toBeNull();
   });

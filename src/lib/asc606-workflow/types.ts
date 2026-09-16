@@ -191,7 +191,6 @@ export const CASH_COLLECTION_BASIS_LABELS: Record<CashCollectionBasis, string> =
   projected_contract_due_date: "Projected — contractual due date",
 };
 
-
 export interface ContractBalanceDraft {
   considerationEvents: ConsiderationEventDraft[];
   cashCollections: CashCollectionDraft[];
@@ -583,7 +582,6 @@ export function createCashCollectionDraft(seq: number, id: string): CashCollecti
     basis: "actual",
   };
 }
-
 
 export function createEmptyContractBalances(): ContractBalanceDraft {
   return { considerationEvents: [], cashCollections: [] };

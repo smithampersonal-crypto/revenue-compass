@@ -197,7 +197,6 @@ const cashCollectionSchema = z.object({
   basis: z.enum(["actual", "projected_contract_due_date"]).default("actual"),
 });
 
-
 const draftSchema = z.object({
   contract: contractSchema,
   promises: z.array(promiseSchema),

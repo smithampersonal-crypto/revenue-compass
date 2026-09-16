@@ -13,7 +13,6 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-
 import { Field, inputClass, IssueList, Notice, Section } from "./fields";
 
 /**

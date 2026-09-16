@@ -38,7 +38,13 @@ describe("cash collection basis", () => {
     const stored = {
       schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
       draft: draftWithCash([
-        { id: "cc-1", seq: 1, considerationEventId: "ce-1", amountInput: "100", collectionDate: "2027-01-31" },
+        {
+          id: "cc-1",
+          seq: 1,
+          considerationEventId: "ce-1",
+          amountInput: "100",
+          collectionDate: "2027-01-31",
+        },
       ]),
     };
     const parsed = parseCanonicalInputs(stored);
