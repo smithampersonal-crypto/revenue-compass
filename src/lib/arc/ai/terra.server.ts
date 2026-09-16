@@ -241,23 +241,15 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
       // FAIL CLOSED. No repair call, no retry, no fallback model, no canonical
       // state: the single response is simply rejected.
       if (!validation.ok) {
-        const details = summarizeValidationIssues(validation);
-        if (args.includeExcerptDiagnostics) {
-          for (const diagnostic of diagnoseExcerptMismatches(
-            validated.analysis,
-            args.evidence,
-            validation.citationIssues,
-          )) {
-            details.push(
-              `mismatch ${diagnostic.path} p${diagnostic.pageStart}-${diagnostic.pageEnd} ` +
-                `[${diagnostic.evidenceMode}] ${diagnostic.difference}: "${diagnostic.excerptPreview}"`,
-            );
-          }
-        }
         throw new TerraAnalysisError(
           "citation_validation_failure",
           TERRA_SAFE_MESSAGES.citation_validation_failure,
-          details,
+          buildValidationFailureDetails({
+            validation,
+            analysis: validated.analysis,
+            evidence: args.evidence,
+            includeExcerptDiagnostics: args.includeExcerptDiagnostics === true,
+          }),
         );
       }
 
