@@ -18,7 +18,7 @@
 import type { GuidancePack } from "@/lib/arc/guidance/types";
 
 import {
-  diagnoseExcerptMismatches,
+  buildValidationFailureDetails,
   validateAiCitations,
   type AiCitationValidationResult,
 } from "./citations";
