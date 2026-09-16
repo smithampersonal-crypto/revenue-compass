@@ -119,7 +119,16 @@ async function main(): Promise<void> {
     .from(intent.bucket)
     .uploadToSignedUrl(intent.path, intent.token, new Blob([bytes], { type: "application/pdf" }));
   if (uploaded.error) fail("the fixture could not be uploaded to private storage.");
-  const finalized = await finalizeUploadHandler(docDeps, caller, { intentId: intent.intentId });
+  const revisionRow = await supabaseAdmin
+    .from("analysis_revisions")
+    .select("lock_version")
+    .eq("id", revisionId)
+    .single();
+  if (revisionRow.error || !revisionRow.data) fail("the draft revision could not be read.");
+  const finalized = await finalizeUploadHandler(docDeps, caller, {
+    intentId: intent.intentId,
+    expectedLockVersion: revisionRow.data.lock_version,
+  });
   if (!finalized.ok || !finalized.associated) fail("the fixture was not selected for the run.");
   say("source document", {
     documentId: finalized.sourceDocumentId,
