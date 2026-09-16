@@ -49,6 +49,10 @@ export async function createExecutionBoundaries(): Promise<
           // The one strict structured-output contract, identical for the
           // counted envelope and the single generative call.
           structuredOutput: arcStructuredOutput(),
+          // The real trust-tier instructions. Production never falls back to
+          // the legacy package preamble.
+          buildInstructions: (requestPackage) =>
+            arcCanonicalInstructions(requestPackage, AI_LIMITS),
         },
         deps: {
           loadAuthorizedSelectedSources,

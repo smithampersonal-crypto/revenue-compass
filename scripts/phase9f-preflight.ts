@@ -68,7 +68,10 @@ async function main(): Promise<void> {
       manuallyEnteredFacts: { contractTitle: "Genomix master agreement (fixture)" },
       draftFingerprint: "preflight",
     },
-    requestOptions: { structuredOutput: arcStructuredOutput() },
+    requestOptions: {
+      structuredOutput: arcStructuredOutput(),
+      buildInstructions: (requestPackage) => arcCanonicalInstructions(requestPackage, AI_LIMITS),
+    },
     deps: {
       loadAuthorizedSelectedSources: async () => [source],
       download: async () => bytes,
