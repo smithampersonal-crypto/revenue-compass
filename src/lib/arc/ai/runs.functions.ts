@@ -165,11 +165,9 @@ export const executeAiAnalysis = createServerFn({ method: "POST" })
       import("./orchestrator"),
       import("./orchestrator.server"),
     ]);
-    return executeAiRunHandler(
-      { ...deps, ...(await createExecutionBoundaries()) },
-      caller,
-      { runId: data.runId },
-    );
+    return executeAiRunHandler({ ...deps, ...(await createExecutionBoundaries()) }, caller, {
+      runId: data.runId,
+    });
   });
 
 /** Safe polling for a run the caller owns. */

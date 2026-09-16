@@ -20,14 +20,19 @@ import type { AiRequestPackage } from "./types";
 export async function createExecutionBoundaries(): Promise<
   Pick<AiExecutionDeps, "buildPackage" | "analyzer" | "releaseBytes">
 > {
-  const [{ loadAuthorizedSelectedSources }, { downloadPrivateObject }, { arcStructuredOutput }, countTokens, analyzer] =
-    await Promise.all([
-      import("./authorized-sources.server"),
-      import("@/lib/arc/documents/storage.server"),
-      import("./terra.server"),
-      productionTokenCounter(),
-      productionTerraAnalyzer(),
-    ]);
+  const [
+    { loadAuthorizedSelectedSources },
+    { downloadPrivateObject },
+    { arcStructuredOutput },
+    countTokens,
+    analyzer,
+  ] = await Promise.all([
+    import("./authorized-sources.server"),
+    import("@/lib/arc/documents/storage.server"),
+    import("./terra.server"),
+    productionTokenCounter(),
+    productionTerraAnalyzer(),
+  ]);
 
   return {
     analyzer,

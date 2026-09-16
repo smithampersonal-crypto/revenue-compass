@@ -117,7 +117,10 @@ export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
   /** Phase 9B builder: authorization, evidence, one canonical request, preflight. */
   buildPackage(args: {
     scope: AiRunScope;
-    currentContext: { manuallyEnteredFacts: Record<string, string | number | boolean | null>; draftFingerprint: string };
+    currentContext: {
+      manuallyEnteredFacts: Record<string, string | number | boolean | null>;
+      draftFingerprint: string;
+    };
     priorContext: PriorAccountingContext | null;
     arcFactSignals: readonly string[];
   }): Promise<AiPreflightResult & { authorizedSources?: readonly AuthorizedSource[] }>;
