@@ -376,7 +376,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_value_preserved",
         reason: `${input.label}: your edited value was kept; the AI analysis proposed a different value.`,
         guidanceIds,
-        value: input.current,
+        value: { preservedValue: input.current, proposedValue: input.proposed },
         aiReviewState: input.aiReviewState ?? null,
       });
     }
