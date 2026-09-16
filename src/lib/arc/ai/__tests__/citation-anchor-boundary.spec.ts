@@ -68,7 +68,6 @@ describe("citation anchor prompt boundary", () => {
     }
   });
 
-
   it("keeps the anchor rules inside the trusted policy section", () => {
     const text = instructions();
     const policyStart = text.indexOf(AI_PROMPT_SECTIONS.policy);

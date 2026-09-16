@@ -178,9 +178,7 @@ describe("citation-mirror instructions", () => {
     expect(evidenceSection).toContain(
       'For evidenceMode "text", select the SMALLEST valid anchorStart/anchorEnd range',
     );
-    expect(evidenceSection).toContain(
-      "you never write, construct or return excerpt text",
-    );
+    expect(evidenceSection).toContain("you never write, construct or return excerpt text");
     expect(evidenceSection).toContain("return both anchorStart and anchorEnd as null");
   });
 
@@ -194,7 +192,6 @@ describe("citation-mirror instructions", () => {
   ])("rejects the stale v2 excerpt-copy phrase %s", (phrase) => {
     expect(instructions).not.toContain(phrase);
   });
-
 
   it.each(MALICIOUS)("keeps mirror-borne text %s out of the trusted sections", (injected) => {
     // Mirror text travels in the request input, never in the instructions; the
