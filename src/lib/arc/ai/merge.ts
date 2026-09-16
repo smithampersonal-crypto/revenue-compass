@@ -1137,6 +1137,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* --------------------------------------------------- variable consideration */
 
+  const manualVcByText = new Map<string, VcComponentDraft>();
+  for (const row of manualVcComponents) {
+    const text = normalizedText(row.description);
+    if (text !== "" && !manualVcByText.has(text)) manualVcByText.set(text, row);
+  }
+
   for (const component of analysis.transactionPrice.variableConsiderationComponents) {
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
@@ -1171,16 +1177,41 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
+    // An exact normalized description match with an unowned manual component
+    // is a duplicate, not a new component. No fuzzy matching is performed.
+    const manualVcTwin = manualVcByText.get(normalizedText(component.description));
+    if (manualVcTwin !== undefined && objectProvenance[component.semanticKey] === undefined) {
+      raise({
+        targetKey: `vc:${manualVcTwin.id}`,
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The AI analysis proposes a variable-consideration component that matches one you entered manually. Yours was kept and no duplicate was created.",
+        guidanceIds: component.guidanceIds,
+        value: {
+          manualVcId: manualVcTwin.id,
+          semanticKey: component.semanticKey,
+          proposed: component.description.slice(0, 120),
+        },
+        aiReviewState: component.reviewState,
+      });
+      continue;
+    }
+
     const isUsage = component.type === "usage";
+    const proposedTreatment: VcComponentDraft["treatment"] = isUsage
+      ? "usage_as_incurred"
+      : "estimated";
     const canonicalId = canonicalIdFor("variable_component", component.semanticKey);
-    if (draft.variableConsiderationComponents.every((row) => row.id !== canonicalId)) {
+    const existingRow = draft.variableConsiderationComponents.find((row) => row.id === canonicalId);
+    if (existingRow === undefined) {
       draft.variableConsiderationComponents = [
         ...draft.variableConsiderationComponents,
         {
           ...createVcComponentDraft(
             draft.variableConsiderationComponents.length + 1,
             canonicalId,
-            isUsage ? "usage_as_incurred" : "estimated",
+            proposedTreatment,
           ),
           effect,
         },
@@ -1188,6 +1219,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // A structural default flag may become true only because ARC added a
       // valid AI-owned child object to an otherwise empty structure.
       draft.hasVariableConsideration = true;
+    } else if (existingRow.treatment !== proposedTreatment) {
+      // Usage-as-incurred and estimated are different treatment families with
+      // different nested structures. Repurposing one into the other would
+      // either strand stale values or destroy nested work, so ARC preserves
+      // the canonical component and surfaces the structural change instead.
+      raise({
+        targetKey: fieldKeys.vc(canonicalId, "treatment"),
+        section,
+        reasonCode: "manual_structure_preserved",
+        reason:
+          "The latest AI analysis treats this variable consideration as a different kind of component than the one in your workpaper. ARC kept the existing component — review the change yourself.",
+        guidanceIds: component.guidanceIds,
+        value: { current: existingRow.treatment, proposed: proposedTreatment },
+        aiReviewState: component.reviewState,
+        blocking: true,
+      });
+      claimObject(component.semanticKey, canonicalId);
+      continue;
     }
     const update = (patch: Partial<VcComponentDraft>) => {
       draft.variableConsiderationComponents = draft.variableConsiderationComponents.map((row) =>
@@ -1211,21 +1260,50 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     if (isUsage) {
       const rate = usableAmount(component.contractualRateOrAmountInput);
-      if (rate !== null && current().meters.length === 0) {
-        update({
-          meters: [
+      const meterId = `${canonicalId}-m1`;
+      if (rate !== null) {
+        let meterCreated = false;
+        if (current().meters.length === 0) {
+          // Future usage volume is never invented, so no usage period is added.
+          update({ meters: [createVcMeterDraft(1, meterId)], usagePeriods: [] });
+          meterCreated = true;
+        }
+        const meter = () => current().meters.find((row) => row.id === meterId);
+        if (meter() !== undefined) {
+          const patchMeter = (patch: Partial<VcMeterDraft>) =>
+            update({
+              meters: current().meters.map((row) =>
+                row.id === meterId ? { ...row, ...patch } : row,
+              ),
+            });
+          // Every meter field is tracked through field provenance, so a later
+          // contractual rate change refreshes an untouched AI meter instead of
+          // silently going stale — and never overwrites an edited one.
+          const meterFields = [
+            { field: "name" as const, proposed: component.description.slice(0, 120) },
+            { field: "rateAmountInput" as const, proposed: rate },
+            // A contractual per-unit rate is a one-unit rate.
+            { field: "rateQuantityInput" as const, proposed: "1" },
             {
-              ...createVcMeterDraft(1, `${canonicalId}-m1`),
-              name: component.description.slice(0, 120),
-              rateAmountInput: rate,
-              // A contractual per-unit rate is a one-unit rate.
-              rateQuantityInput: "1",
-              unit: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
+              field: "unit" as const,
+              proposed: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
             },
-          ],
-          // Future usage volume is never invented.
-          usagePeriods: [],
-        });
+          ];
+          for (const spec of meterFields) {
+            mergeScalar<string>({
+              key: fieldKeys.vc(canonicalId, `meter.${spec.field}`),
+              semanticKey: component.semanticKey,
+              current: meter()![spec.field],
+              proposed: spec.proposed,
+              unclaimed: meterCreated || isUnclaimedString(meter()![spec.field]),
+              apply: (value) => patchMeter({ [spec.field]: value } as Partial<VcMeterDraft>),
+              section,
+              guidanceIds: component.guidanceIds,
+              aiReviewState: component.reviewState,
+              label: `Usage meter ${spec.field}`,
+            });
+          }
+        }
       }
       raise({
         targetKey: fieldKeys.vc(canonicalId, "usagePeriods"),
@@ -1269,13 +1347,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    const fingerprint = valueFingerprint(vcFingerprintValue(current()));
-    recordObject(
-      component.semanticKey,
-      canonicalId,
-      fingerprint,
-      objectUserModified(component.semanticKey, fingerprint),
-    );
+    claimObject(component.semanticKey, canonicalId);
   }
 
   /* ------------------------------------------------------------ modifications */
