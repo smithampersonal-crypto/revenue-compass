@@ -311,14 +311,18 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return {
           draft,
           aiState: await state("revision_id", caller.revisionId),
-          // Prior finalized context is supplied by the revision lifecycle, not
-          // by the model; an amendment without one simply has none.
-          priorContext: null,
+          // An amendment is analyzed against the exact finalized revision it
+          // supersedes. That history is trusted ARC context and read-only.
+          priorContext: await loadPriorAccountingContext(
+            await createPriorRevisionReader(),
+            caller.revisionId,
+          ),
           schemaVersion: data.schema_version,
           lockVersion: data.lock_version,
           manuallyEnteredFacts: manualFacts(draft),
           arcFactSignals: [],
         };
+
       }
 
       const { data, error } = await supabaseAdmin
