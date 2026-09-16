@@ -1488,30 +1488,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ...draft.contractBalances,
           considerationEvents: [...draft.contractBalances.considerationEvents, created],
         };
-        recordObject(
-          eventSemanticKey,
-          eventId,
-          valueFingerprint(considerationFingerprintValue(created)),
-          false,
-        );
         fieldProvenance[fieldKeys.billing(eventId, "invoiceDate")] = {
           state: "ai_generated_untouched",
           semanticKey: eventSemanticKey,
           lastAiRunId: runId,
           valueFingerprint: valueFingerprint(event.invoiceDate),
         };
-      } else {
-        const existing = draft.contractBalances.considerationEvents.find(
-          (row) => row.id === eventId,
-        )!;
-        const fingerprint = valueFingerprint(considerationFingerprintValue(existing));
-        recordObject(
-          eventSemanticKey,
-          eventId,
-          fingerprint,
-          objectUserModified(eventSemanticKey, fingerprint),
-        );
       }
+      claimObject(eventSemanticKey, eventId);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
