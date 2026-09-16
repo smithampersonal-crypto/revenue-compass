@@ -224,15 +224,33 @@ async function finish(
   return statusOf(run, usage.remaining);
 }
 
-/** Terra's own categories, mapped onto ARC's four persisted failure stages. */
+/**
+ * Terra's own categories, mapped onto ARC's four persisted failure stages.
+ *
+ * EXHAUSTIVE by construction: there is no permissive default. A new Terra
+ * failure category without an explicit mapping here is a compile-time error,
+ * so an unmapped response-side failure can never silently be recorded as an
+ * API failure.
+ */
 export function failureCategoryFor(error: TerraAnalysisError): AiFailureCategory {
   switch (error.category) {
+    // Nothing was produced by the model: the call itself failed.
+    case "authentication_or_configuration":
+    case "model_access":
+    case "request_validation":
+    case "token_limit":
+    case "api_failure":
+      return "api";
+    // A response exists and ARC's own local validation rejected it.
     case "structured_output_parse_failure":
     case "response_invalid":
+    case "citation_anchor_failure":
     case "citation_validation_failure":
       return "response";
-    default:
-      return "api";
+    default: {
+      const exhaustive: never = error.category;
+      throw new Error(`unmapped Terra failure category: ${String(exhaustive)}`);
+    }
   }
 }
 
