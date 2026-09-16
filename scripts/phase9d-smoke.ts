@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     console.log(`issues raised           ${analysis.issues.length}`);
 
     for (const issue of validation.citationIssues.slice(0, 20)) {
-      console.log(`  citation issue: ${issue.code} (${issue.location})`);
+      console.log(`  citation issue: ${issue.code} (${issue.path})`);
     }
     for (const issue of validation.guidanceIssues.slice(0, 10)) {
       console.log(`  guidance issue: ${issue.code} card ${issue.guidanceId}`);
