@@ -614,4 +614,59 @@ describe("Phase 9F — AI run orchestration", () => {
     const script = read("scripts/phase9f-live.ts");
     expect(script).toContain("includeExcerptDiagnostics: true");
   });
+
+  /* --------------------------------------------- source-state transitions */
+
+  describe("source freshness is owned by orchestration", () => {
+    const expectedFingerprint = () =>
+      computeSourceSetFingerprint([{ documentId: "doc-1", sha256: "a".repeat(64) }]);
+
+    it("marks the source set current after the first successful run", async () => {
+      const h = harness();
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      expect(h.applied?.aiState.sourceState).toBe("current");
+    });
+
+    it("marks stale sources current after a successful re-analysis", async () => {
+      const h = harness({ priorSourceState: "stale" });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      expect(h.applied?.aiState.sourceState).toBe("current");
+    });
+
+    it("applies the exact fingerprint of the analyzed source set", async () => {
+      const h = harness();
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      const fingerprint = await expectedFingerprint();
+      expect(h.applied?.aiState.sourceSetFingerprint).toBe(fingerprint);
+      expect(h.applied?.sourceSetFingerprint).toBe(fingerprint);
+    });
+
+    it("never marks the source set current when the run fails", async () => {
+      const rejected = new TerraAnalysisError("response_invalid", "rejected");
+      const failed = harness({ analyzeError: rejected, priorSourceState: "stale" });
+      await executeAiRunHandler(failed.deps, CALLER, { runId: RUN_ID });
+      expect(failed.applied).toBeNull();
+
+      const broken = harness({ applyThrows: true, priorSourceState: "stale" });
+      await executeAiRunHandler(broken.deps, CALLER, { runId: RUN_ID });
+      expect(broken.applied).toBeNull();
+    });
+
+    it("keeps merge itself carrying the previous source state", () => {
+      const merged = mergeAiAnalysis({
+        currentDraft: createEmptyDraft(),
+        currentAiState: {
+          ...createEmptyAiAnalysisState(),
+          sourceState: "stale",
+          sourceSetFingerprint: "b".repeat(64),
+        },
+        analysis: fixtureAAnalysis(),
+        runId: RUN_ID,
+        guidancePack: guidancePackFixture(),
+        priorContext: null,
+      });
+      expect(merged.aiState.sourceState).toBe("stale");
+      expect(merged.aiState.sourceSetFingerprint).toBe("b".repeat(64));
+    });
+  });
 });
