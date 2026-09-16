@@ -741,11 +741,26 @@ required-but-nullable and the materializer enforces text vs visual nullability.
 new Terra failure category `citation_anchor_failure` (bounded code + schema path
 diagnostics only).
 
-Verification: 1,250 tests / 113 files pass, typecheck clean, lint 0 errors
+Instruction-path defects (patched before Task 9): the production
+`createExecutionBoundaries().buildPackage` path never passed
+`buildInstructions`, so the counted canonical request silently carried the
+legacy `packageInstructions()` preamble instead of the trust-tier prompt. A
+single shared `arcCanonicalInstructions()` (package Guidance, ARC source
+descriptors, current/prior context, `AI_LIMITS.promptVersion`,
+`AI_LIMITS.outputSchemaVersion`) is now used by the orchestrator boundary and
+the preflight script, with a production-boundary regression
+(`production-boundary-instructions.spec.ts`) asserting all five
+`AI_PROMPT_SECTIONS`, prompt v3, schema v2, the anchor rules, and the absence of
+the legacy preamble. The evidence section's remaining v2 excerpt-copy language
+was replaced by anchor selection (text: smallest valid `anchorStart`/`anchorEnd`
+range, ARC materialises the excerpt; visual: both anchors null), and the prompt
+regressions now reject the stale phrases.
+
+Verification: 1,258 tests / 114 files pass, typecheck clean, lint 0 errors
 (10 pre-existing warnings), build OK, `audit:bundle` clean, `guidance:check`
 116 approved cards, hash `352bcf79…5d56`. SQL unchanged; the database suites run
 in CI. Preflight only (no generative call): Genomix fixture, 4 pages, 99 anchors,
-**38,890 input tokens**, cap 200,000, truncation disabled, no source dropped.
+**53,099 input tokens**, cap 200,000, truncation disabled, no source dropped.
 
 Phase 9F still awaiting final live acceptance; Task 9 not run; Phase 9G not
 started.

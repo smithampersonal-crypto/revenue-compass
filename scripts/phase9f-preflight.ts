@@ -19,6 +19,7 @@ import path from "node:path";
 import { AI_LIMITS } from "@/lib/arc/ai/config.server";
 import { productionTokenCounter } from "@/lib/arc/ai/openai.server";
 import {
+  arcCanonicalInstructions,
   buildAiRequestPackage,
   releaseRequestSensitivePayload,
   type AuthorizedSource,
@@ -68,7 +69,10 @@ async function main(): Promise<void> {
       manuallyEnteredFacts: { contractTitle: "Genomix master agreement (fixture)" },
       draftFingerprint: "preflight",
     },
-    requestOptions: { structuredOutput: arcStructuredOutput() },
+    requestOptions: {
+      structuredOutput: arcStructuredOutput(),
+      buildInstructions: (requestPackage) => arcCanonicalInstructions(requestPackage, AI_LIMITS),
+    },
     deps: {
       loadAuthorizedSelectedSources: async () => [source],
       download: async () => bytes,
