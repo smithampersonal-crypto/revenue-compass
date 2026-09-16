@@ -130,7 +130,6 @@ export interface AiRunExecutionStore extends AiRunStore {
   }): Promise<void>;
 }
 
-
 export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
   store: AiRunExecutionStore;
   /** Phase 9B builder: authorization, evidence, one canonical request, preflight. */
@@ -422,7 +421,6 @@ export async function executeAiRunHandler(
 export function outstandingIssueCount(items: readonly { state: string }[]): number {
   return items.filter((item) => item.state !== "resolved").length;
 }
-
 
 /** Re-derives the run fingerprint from the packaged, verified sources. */
 async function sourceFingerprintOf(
