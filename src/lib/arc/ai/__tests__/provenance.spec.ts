@@ -60,26 +60,14 @@ describe("material provenance", () => {
       "transaction-price conclusion",
       (a) => (a.transactionPrice.transactionPriceConclusion.citations = []),
     ],
-    [
-      "fixed consideration amount",
-      (a) => (a.transactionPrice.fixedConsiderationCitations = []),
-    ],
-    [
-      "financing conclusion",
-      (a) => (a.transactionPrice.financingAssessment.citations = []),
-    ],
-    [
-      "noncash conclusion",
-      (a) => (a.transactionPrice.noncashConsideration.citations = []),
-    ],
+    ["fixed consideration amount", (a) => (a.transactionPrice.fixedConsiderationCitations = [])],
+    ["financing conclusion", (a) => (a.transactionPrice.financingAssessment.citations = [])],
+    ["noncash conclusion", (a) => (a.transactionPrice.noncashConsideration.citations = [])],
     [
       "payable-to-customer conclusion",
       (a) => (a.transactionPrice.considerationPayableToCustomer.citations = []),
     ],
-    [
-      "SSP applicability",
-      (a) => (a.sspAndAllocation.relativeAllocationApplicable.citations = []),
-    ],
+    ["SSP applicability", (a) => (a.sspAndAllocation.relativeAllocationApplicable.citations = [])],
     ["recognition proposal", (a) => (a.recognitionProposals[0]!.citations = [])],
     ["billing term", (a) => (a.billingTerms[0]!.citations = [])],
     ["projected collection assumption", (a) => (a.projectedCollectionAssumptions.citations = [])],

@@ -394,9 +394,9 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
     analysis.performanceObligations[0]!.citations = [];
     const error = await expectRejection(analysis);
     expect(error.category).toBe("citation_validation_failure");
-    expect(
-      error.details.some((detail) => detail.startsWith("missing_material_citation")),
-    ).toBe(true);
+    expect(error.details.some((detail) => detail.startsWith("missing_material_citation"))).toBe(
+      true,
+    );
   });
 
   it("omits excerpt diagnostics unless the developer fixture asks for them", async () => {

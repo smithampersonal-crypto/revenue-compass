@@ -210,10 +210,7 @@ export function validateAiCitations(
   );
 
   return {
-    ok:
-      citationIssues.length === 0 &&
-      guidanceIssues.length === 0 &&
-      provenanceIssues.length === 0,
+    ok: citationIssues.length === 0 && guidanceIssues.length === 0 && provenanceIssues.length === 0,
     citationIssues,
     guidanceIssues,
     provenanceIssues,

@@ -85,7 +85,12 @@ export function validateMaterialProvenance(analysis: AiContractAnalysis): AiProv
     check(promise, `promises[${index}]`, `Promise "${promise.semanticKey}"`, out);
   });
   analysis.performanceObligations.forEach((po, index) => {
-    check(po, `performanceObligations[${index}]`, `Performance obligation "${po.semanticKey}"`, out);
+    check(
+      po,
+      `performanceObligations[${index}]`,
+      `Performance obligation "${po.semanticKey}"`,
+      out,
+    );
   });
 
   // Step 3 — transaction price.
