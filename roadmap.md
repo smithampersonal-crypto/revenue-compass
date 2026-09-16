@@ -672,6 +672,20 @@ Prompt bumped to `arc.ai.prompt.v2`: PDFs remain the semantic/visual evidence,
 text excerpts are copied only from the mirror, layout-dependent facts stay
 visual. `validateAiCitations()` and `normalizeCitationText()` are unchanged.
 
+Live gate (2026-09-16, run `6018af81-9763-4693-930f-4b8fa3b802dd`): with the
+mirror in place the run passed schema, citation, Guidance and provenance
+validation for the first time — `validating` completed with zero citation
+issues on 4 pages / 37,094 input tokens — and then failed at `applying` with
+`failure_code = merge_failed` (a non-`AiMergeError` exception inside
+`mergeAiAnalysis`). Nothing was applied: `arc_apply_ai_run` is atomic, the
+draft, AI state and documents are untouched, one allowance was consumed and
+exactly one generative call was made. Because the run failed before
+application, the model response was never persisted, so the exception cannot be
+reproduced offline. `AiExecutionDeps.onMergeDiagnostic` (developer-only,
+in-memory, never wired in production, error class and code frames only, nothing
+persisted) was added so the next authorized run pinpoints the throw site. No
+validator, prompt, schema or merge-policy change was made.
+
 Coverage: `supabase/tests/phase9f_ai_lifecycle.sql` (53 assertions, run by the
 database job with every other suite), the fake-model
 `__tests__/orchestrator.spec.ts` (22 tests), `__tests__/citation-mirror.spec.ts`
