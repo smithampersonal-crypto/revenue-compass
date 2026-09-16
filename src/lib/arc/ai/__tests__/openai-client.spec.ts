@@ -286,47 +286,153 @@ describe("TerraAnalyzer", () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it("classifies an authentication failure without exposing the credential", async () => {
+  it("never surfaces raw provider error text or any credential fragment", async () => {
     const create = vi.fn(async () => {
-      throw Object.assign(new Error("Incorrect API key provided"), { status: 401 });
+      throw Object.assign(
+        new Error("Incorrect API key provided: sk-test-secret. Request body: {...}"),
+        { status: 401, type: "invalid_request_error" },
+      );
     });
     const analyzer = createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient);
-    const error = await analyzer
+    const error = (await analyzer
       .analyze({ canonicalRequest: {}, evidence: evidence(), guidance: pack })
-      .catch((caught: TerraAnalysisError) => caught);
-    expect((error as TerraAnalysisError).category).toBe("authentication_or_configuration");
-    expect(JSON.stringify(error)).not.toContain("sk-");
+      .catch((caught: TerraAnalysisError) => caught)) as TerraAnalysisError;
+
+    expect(error.category).toBe("authentication_or_configuration");
+    expect(error.message).toBe("AI analysis is not configured or authorized.");
+    expect(error.message).not.toContain("sk-");
+    expect(error.message).not.toContain("Incorrect API key");
+    expect(error.details.join(" ")).not.toContain("sk-");
+    expect(error.details.join(" ")).not.toContain("Incorrect API key");
+    expect(JSON.stringify(error.details)).not.toContain("sk-");
+    // Only structural, non-sensitive diagnostics.
+    expect(error.details).toEqual(["provider status 401", "provider type invalid_request_error"]);
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
-  it("reports an unknown Guidance ID as a validation issue", async () => {
+  it.each([
+    [404, "model_access", "The configured AI model is unavailable."],
+    [400, "request_validation", "The AI request was rejected."],
+    [500, "api_failure", "The AI service request failed."],
+  ])("maps provider status %s to a safe ARC message", async (status, category, message) => {
+    const create = vi.fn(async () => {
+      throw Object.assign(new Error("raw provider detail sk-leak"), { status });
+    });
+    const analyzer = createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient);
+    const error = (await analyzer
+      .analyze({ canonicalRequest: {}, evidence: evidence(), guidance: pack })
+      .catch((caught: TerraAnalysisError) => caught)) as TerraAnalysisError;
+    expect(error.category).toBe(category);
+    expect(error.message).toBe(message);
+    expect(`${error.message} ${error.details.join(" ")}`).not.toContain("sk-");
+  });
+});
+
+/* ------------------------------------------------- fail-closed provenance */
+
+async function expectRejection(analysis: unknown) {
+  const create = vi.fn(async () => generativeResponse(analysis));
+  const analyzer = createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient);
+  const error = (await analyzer
+    .analyze({ canonicalRequest: {}, evidence: evidence(), guidance: pack })
+    .catch((caught: TerraAnalysisError) => caught)) as TerraAnalysisError;
+  expect(create).toHaveBeenCalledTimes(1);
+  return error;
+}
+
+describe("TerraAnalyzer fails closed on provenance validation", () => {
+  it("rejects an unknown Guidance ID instead of returning the analysis", async () => {
     const analysis = validAnalysisFixture();
     analysis.promises[0]!.guidanceIds = [99999];
-    const { result } = await analyzeWith(generativeResponse(analysis));
-    expect(result.validation.ok).toBe(false);
-    expect(result.validation.guidanceIssues[0]!.code).toBe("guidance_not_in_registry");
+    const error = await expectRejection(analysis);
+    expect(error).toBeInstanceOf(TerraAnalysisError);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.message).toBe("The model response failed ARC provenance validation.");
+    expect(error.details.some((detail) => detail.startsWith("guidance_not_in_registry"))).toBe(
+      true,
+    );
   });
 
-  it("reports a fabricated document citation, a bad page and a fabricated excerpt", async () => {
-    const fabricatedDocument = validAnalysisFixture();
-    fabricatedDocument.promises[0]!.citations[0]!.documentId = "doc-invented";
-    expect(
-      (await analyzeWith(generativeResponse(fabricatedDocument))).result.validation
-        .citationIssues[0]!.code,
-    ).toBe("unknown_document");
+  it("rejects a Guidance ID that exists but was not supplied in this pack", async () => {
+    const analysis = validAnalysisFixture();
+    const absent = [...Array(116).keys()]
+      .map((index) => index + 1)
+      .find((id) => !pack.cards.some((card) => card.id === id))!;
+    analysis.promises[0]!.guidanceIds = [absent];
+    const error = await expectRejection(analysis);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.details.some((detail) => detail.startsWith("guidance_not_in_pack"))).toBe(true);
+  });
 
-    const badPage = validAnalysisFixture();
-    badPage.promises[0]!.citations[0]!.pageStart = 42;
-    badPage.promises[0]!.citations[0]!.pageEnd = 42;
-    expect(
-      (await analyzeWith(generativeResponse(badPage))).result.validation.citationIssues[0]!.code,
-    ).toBe("page_out_of_range");
+  it("rejects a fabricated document citation", async () => {
+    const analysis = validAnalysisFixture();
+    analysis.promises[0]!.citations[0]!.documentId = "doc-invented";
+    const error = await expectRejection(analysis);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.details.some((detail) => detail.startsWith("unknown_document"))).toBe(true);
+  });
 
-    const fabricatedExcerpt = validAnalysisFixture();
-    fabricatedExcerpt.promises[0]!.citations[0]!.excerpt = "perpetual irrevocable source licence";
-    expect(
-      (await analyzeWith(generativeResponse(fabricatedExcerpt))).result.validation
-        .citationIssues[0]!.code,
-    ).toBe("excerpt_not_found");
+  it("rejects an out-of-range page", async () => {
+    const analysis = validAnalysisFixture();
+    analysis.promises[0]!.citations[0]!.pageStart = 42;
+    analysis.promises[0]!.citations[0]!.pageEnd = 42;
+    const error = await expectRejection(analysis);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.details.some((detail) => detail.startsWith("page_out_of_range"))).toBe(true);
+  });
+
+  it("rejects a fabricated excerpt", async () => {
+    const analysis = validAnalysisFixture();
+    analysis.promises[0]!.citations[0]!.excerpt = "perpetual irrevocable source licence";
+    const error = await expectRejection(analysis);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.details.some((detail) => detail.startsWith("excerpt_not_found"))).toBe(true);
+  });
+
+  it("rejects a material conclusion asserted with no citation at all", async () => {
+    const analysis = validAnalysisFixture();
+    analysis.performanceObligations[0]!.citations = [];
+    const error = await expectRejection(analysis);
+    expect(error.category).toBe("citation_validation_failure");
+    expect(error.details.some((detail) => detail.startsWith("missing_material_citation"))).toBe(
+      true,
+    );
+  });
+
+  it("omits excerpt diagnostics unless the developer fixture asks for them", async () => {
+    const analysis = validAnalysisFixture();
+    analysis.promises[0]!.citations[0]!.excerpt = "a paraphrased clause never printed";
+
+    const quiet = await expectRejection(analysis);
+    expect(quiet.details.every((detail) => !detail.startsWith("mismatch "))).toBe(true);
+
+    const create = vi.fn(async () => generativeResponse(analysis));
+    const loud = (await createTerraAnalyzer({ responses: { create } } as ResponsesGenerativeClient)
+      .analyze({
+        canonicalRequest: {},
+        evidence: evidence(),
+        guidance: pack,
+        includeExcerptDiagnostics: true,
+      })
+      .catch((caught: TerraAnalysisError) => caught)) as TerraAnalysisError;
+    expect(loud.details.some((detail) => detail.includes("paraphrase_or_absent"))).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("succeeds, exactly once, when every citation and reference validates", async () => {
+    const create = vi.fn(async () => generativeResponse());
+    const result = await createTerraAnalyzer({
+      responses: { create },
+    } as ResponsesGenerativeClient).analyze({
+      canonicalRequest: {},
+      evidence: evidence(),
+      guidance: pack,
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(result.validation.ok).toBe(true);
+    expect(result.validation.citationIssues).toEqual([]);
+    expect(result.validation.guidanceIssues).toEqual([]);
+    expect(result.validation.provenanceIssues).toEqual([]);
   });
 
   it("keeps a valid visual citation labelled as a visual page reference", async () => {

@@ -461,7 +461,10 @@ const issueSchema = z
 /** Plain object form — the JSON Schema is generated from exactly this. */
 export const aiContractAnalysisObjectSchema = z
   .object({
-    schemaVersion: z.string().min(1).max(64),
+    // One authoritative version. The wire schema, the local validator and the
+    // ARC run provenance all read this same constant; a future schema change
+    // requires a deliberate code change here, never an environment override.
+    schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
     analysisSummary: z.string().min(1).max(AI_SCHEMA_BOUNDS.summary),
     logicalDocuments: z.array(logicalDocumentSchema).max(AI_SCHEMA_BOUNDS.documents),
     contractAssessment: contractAssessmentSchema,
@@ -618,6 +621,12 @@ export function toStrictJsonSchema(schema: z.ZodTypeAny): JsonSchema {
       return { type: "boolean" };
     case "ZodEnum":
       return { type: "string", enum: [...(def["values"] as string[])] };
+    case "ZodLiteral": {
+      // Strict Structured Outputs rejects `const`; a single-value enum is the
+      // supported way to pin an exact literal on the wire.
+      const value = def["value"];
+      return { type: typeof value === "number" ? "number" : "string", enum: [value] };
+    }
     case "ZodNullable": {
       const innerSchema = def["innerType"] as z.ZodTypeAny;
       const inner = toStrictJsonSchema(innerSchema);
