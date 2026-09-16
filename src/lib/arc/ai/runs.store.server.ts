@@ -310,7 +310,12 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           .maybeSingle();
         if (error) fail("revision", error);
         if (!data) throw new Error("This analysis is no longer open for editing.");
-        const draft = data.canonical_inputs as never;
+        // The stored value is the canonical ENVELOPE, not a bare draft. It is
+        // validated here exactly as every other reader does, so the merge
+        // always receives a complete, schema-checked WorkflowDraft.
+        const parsed = parseCanonicalInputs(data.canonical_inputs, data.schema_version);
+        if (!parsed.ok) throw new Error(parsed.reason);
+        const draft = parsed.draft;
         return {
           draft,
           aiState: await state("revision_id", caller.revisionId),
