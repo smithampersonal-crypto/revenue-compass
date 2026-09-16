@@ -190,24 +190,61 @@ async function main(): Promise<void> {
   // Developer-only bounded merge diagnostic: error class and code frames only.
   let mergeDiagnostic: { errorName: string; frames: readonly string[] } | null = null;
 
-  const started = Date.now();
-  const final = await executeAiRunHandler(
-    {
-      ...deps,
-      ...boundaries,
-      analyzer: diagnosticAnalyzer,
-      onMergeDiagnostic: (diagnostic) => {
-        mergeDiagnostic = diagnostic;
-      },
+  // The Terra failure class/category, captured in memory the moment it is
+  // raised so it survives an exception thrown later by failure persistence.
+  let terraFailure: { category: string; safeMessage: string } | null = null;
+  const capturingAnalyzer: TerraAnalyzer = {
+    async analyze(args) {
+      try {
+        return await diagnosticAnalyzer.analyze(args);
+      } catch (error) {
+        if (error instanceof TerraAnalysisError) {
+          terraFailure = { category: error.category, safeMessage: error.message };
+        }
+        throw error;
+      }
     },
-    scope,
-    { runId: startStatus.runId },
-  );
-  say("orchestration", { ...final, elapsedSeconds: Math.round((Date.now() - started) / 1000) });
+  };
 
-  if (final.stage !== "succeeded") {
+  const started = Date.now();
+  let final: Awaited<ReturnType<typeof executeAiRunHandler>> | null = null;
+  let orchestrationError: { errorName: string; stage: string } | null = null;
+  try {
+    final = await executeAiRunHandler(
+      {
+        ...deps,
+        ...boundaries,
+        analyzer: capturingAnalyzer,
+        onMergeDiagnostic: (diagnostic) => {
+          mergeDiagnostic = diagnostic;
+        },
+      },
+      scope,
+      { runId: startStatus.runId },
+    );
+  } catch (error) {
+    // Failure persistence itself threw. Print only the error CLASS and the
+    // stage it unwound from — never its message, which could carry a payload.
+    orchestrationError = {
+      errorName: error instanceof Error ? error.name : typeof error,
+      stage: "failure_persistence_or_finish",
+    };
+  }
+
+  if (final) {
+    say("orchestration", { ...final, elapsedSeconds: Math.round((Date.now() - started) / 1000) });
+  } else {
+    say("orchestration", {
+      stage: "unwound",
+      elapsedSeconds: Math.round((Date.now() - started) / 1000),
+    });
+    say("persistence error", orchestrationError);
+  }
+
+  if (!final || final.stage !== "succeeded") {
     // Bounded issue classes and schema paths only — never model JSON, page
     // text, prompt, PDF bytes, provider body, reasoning or credentials.
+    if (terraFailure) say("terra failure", terraFailure);
     say("validation diagnostics", validationDiagnostics);
     if (mergeDiagnostic) say("merge diagnostic", mergeDiagnostic);
   }
