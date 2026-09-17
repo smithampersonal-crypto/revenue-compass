@@ -4,7 +4,7 @@ Adopt the uploaded Phase 9G plan as authoritative. Implement Tasks 1–10 in ord
 
 ## Ground rules carried into every task
 
-- Phase 9F stays frozen: provider schema (`arc.ai.schema.v3`), citation anchors, prompt v4, model configuration, one-generative-call-per-run rule, validator and normalization, deterministic accounting engines.
+- Phase 9F stays frozen in contract and behaviour, not in file list: `arc.ai.schema.v3`, prompt v4, citation-anchor and validation semantics, model configuration, the one-generative-call rule, and the deterministic accounting engines are unchanged. Task 1 may extend review-derivation and merge plumbing where the authoritative Phase 9G plan requires it.
 - No OpenAI call of any kind during Tasks 1–10. The controlled Genomix walkthrough in the final acceptance checklist is requested separately after Task 10.
 - AI never runs automatically — not from edits, source changes, affirmation, resolution, restore, or finalization.
 - Quotas unchanged: 3 runs per 9-hour guest workspace, 10 per account per UTC month; Re-analyze counts exactly like Analyze.
