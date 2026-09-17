@@ -134,6 +134,9 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
   // fingerprint and is of a kind that this row's base severity may carry.
   const resolution =
     consistent &&
+    // An unresolved row never keeps an active resolution, so it can never
+    // hand one to the next analysis.
+    persistedState === "resolved" &&
     candidate !== null &&
     candidate.reviewFingerprint === reviewFingerprint &&
     resolutionAllowedForSeverity(severity, candidate)
