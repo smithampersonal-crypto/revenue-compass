@@ -255,11 +255,20 @@ export function useAiWorkspaceController(
 
   const analyze = useCallback(async (): Promise<void> => {
     if (!enabled) return;
-    // Client-side hygiene only: a double click is one request, one execution
-    // and one allowance reservation. The server remains the real boundary.
-    if (analyzeInFlightRef.current) return;
-    analyzeInFlightRef.current = true;
     const generation = generationRef.current;
+    // Client-side hygiene only: a double click within one workspace is one
+    // request, one execution and one allowance reservation. The guard belongs
+    // to this generation, so a newly opened workspace is never held back by an
+    // older scope's unresolved request. The server remains the real boundary.
+    if (analyzeInFlightRef.current === generation) return;
+    analyzeInFlightRef.current = generation;
+    /**
+     * The action is bound to the analysis that started it. Everything it sends
+     * to the server uses this captured scope, even if the user navigates away
+     * mid-request; only current-generation UI state is ever touched.
+     */
+    const invocationRevisionId = revisionIdRef.current;
+    const isCurrent = () => mountedRef.current && generation === generationRef.current;
     setMessage(null);
     setActionState("requesting");
 
@@ -268,9 +277,7 @@ export function useAiWorkspaceController(
       // The analysis must run against the authoritative saved canonical draft.
       const flushed = await portsRef.current.flushAutosave();
       if (!flushed.ok) {
-        if (mountedRef.current && generation === generationRef.current) {
-          setMessage(AI_ANALYSIS_NOT_STARTED_UNSAVED);
-        }
+        if (isCurrent()) setMessage(AI_ANALYSIS_NOT_STARTED_UNSAVED);
         return;
       }
       if (generation !== generationRef.current) return;
@@ -286,38 +293,33 @@ export function useAiWorkspaceController(
 
       const seq = ++requestSeqRef.current;
       const requested = await portsRef.current.requestAnalysis({
-        revisionId: revisionIdRef.current,
+        revisionId: invocationRevisionId,
       });
       adopt(requested, generation, seq);
 
       const runId = requested.activeRun?.runId ?? null;
       if (requested.executionDisposition === "start_execution" && runId !== null) {
         executing = true;
-        setActionState("executing");
+        if (isCurrent()) setActionState("executing");
         // Execution is long-lived. Polling continues independently, the
         // promise can never become an unhandled rejection, and its raw error
         // text is never presented: the deterministic Task 3 failure is read
         // back from the server instead.
         void portsRef.current
-          .executeAnalysis({ runId, revisionId: revisionIdRef.current })
+          .executeAnalysis({ runId, revisionId: invocationRevisionId })
           .catch(() => undefined)
           .then(async () => {
-            if (!mountedRef.current || generation !== generationRef.current) return;
+            if (!isCurrent()) return;
             await read();
-            if (mountedRef.current && generation === generationRef.current) {
-              setActionState("idle");
-            }
+            if (isCurrent()) setActionState("idle");
           });
       }
     } catch (error) {
-      if (mountedRef.current && generation === generationRef.current) {
-        setMessage(safeControllerMessage(error));
-      }
+      if (isCurrent()) setMessage(safeControllerMessage(error));
     } finally {
-      analyzeInFlightRef.current = false;
-      if (!executing && mountedRef.current && generation === generationRef.current) {
-        setActionState("idle");
-      }
+      // An older action must never clear a newer generation's guard.
+      if (analyzeInFlightRef.current === generation) analyzeInFlightRef.current = null;
+      if (!executing && isCurrent()) setActionState("idle");
     }
   }, [adopt, enabled, read]);
 
