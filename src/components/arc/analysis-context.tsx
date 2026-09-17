@@ -561,7 +561,7 @@ export function AnalysisProvider({
       void runSave(loaded);
     }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
+  }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot, currentSaveInFlight]);
 
   /**
    * The one authoritative reload boundary: the workspace stops being editable
