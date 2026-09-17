@@ -15,7 +15,9 @@ import {
   createPoDraft,
   createModificationDraft,
   createPromiseDraft,
+  createModifiedPoDraft,
   createVcComponentDraft,
+  createVcMeterDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
@@ -806,5 +808,346 @@ describe("object edits are detected across the whole material workpaper", () => 
     });
     expect(result.changed).toBe(false);
     expect(result.aiState.objectProvenance["modification:one"]!.userModified).toBe(false);
+  });
+});
+
+/* ------------------------------------------------- composite merge targets */
+
+const AI_METER_ID = `${VC_ID}-m1`;
+
+function draftWithMeter(): WorkflowDraft {
+  const base = draftWithVc();
+  const component = base.variableConsiderationComponents[0]!;
+  return {
+    ...base,
+    variableConsiderationComponents: [
+      {
+        ...component,
+        treatment: "usage_based",
+        meters: [
+          {
+            ...createVcMeterDraft(1, AI_METER_ID),
+            name: "API calls",
+            rateAmountInput: "0.10",
+            rateQuantityInput: "1",
+            unit: "call",
+          },
+          {
+            ...createVcMeterDraft(2, `${VC_ID}-m2`),
+            name: "Storage",
+            rateAmountInput: "5.00",
+            rateQuantityInput: "1",
+            unit: "GB",
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function meterState(draft: WorkflowDraft): AiAnalysisState {
+  const meter = draft.variableConsiderationComponents[0]!.meters[0]!;
+  return {
+    ...createEmptyAiAnalysisState(),
+    lastSuccessfulRunId: RUN,
+    fieldProvenance: {
+      [fieldKeys.vc(VC_ID, "meter.rateAmountInput")]: {
+        state: "ai_generated_untouched",
+        semanticKey: "vc:usage",
+        lastAiRunId: RUN,
+        valueFingerprint: valueFingerprint(meter.rateAmountInput),
+      },
+    },
+  };
+}
+
+describe("the composite service-period recognition target", () => {
+  const target = fieldKeys.po(PO_ID, "servicePeriod");
+
+  it("does not move when only the standalone selling price changes", () => {
+    const next = edit((draft) => {
+      draft.performanceObligations[0]!.sspInput = "99000";
+    });
+    expect(canonicalReviewTargetFingerprint(next, target)).toBe(
+      canonicalReviewTargetFingerprint(baseDraft(), target),
+    );
+  });
+
+  it("moves when the service period changes", () => {
+    for (const mutate of [
+      (draft: WorkflowDraft) => {
+        draft.performanceObligations[0]!.serviceStart = "2027-02-01";
+      },
+      (draft: WorkflowDraft) => {
+        draft.performanceObligations[0]!.serviceEnd = "2028-01-31";
+      },
+    ]) {
+      expect(canonicalReviewTargetFingerprint(edit(mutate), target)).not.toBe(
+        canonicalReviewTargetFingerprint(baseDraft(), target),
+      );
+    }
+  });
+
+  it("reopens a resolved service-period review when the service period changes", () => {
+    const resolved = reviewItem({
+      id: "rev-sp",
+      targetKey: target,
+      state: "resolved",
+      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-sp" },
+      reviewFingerprint: "rf-sp",
+    });
+    const previous = baseDraft();
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edit((draft) => {
+        draft.performanceObligations[0]!.serviceEnd = "2028-01-31";
+      }),
+      currentAiState: { ...aiState(previous), reviewItems: [resolved] },
+    });
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["review_item_reopened"]);
+  });
+
+  it("clears the red service-period issue only when BOTH dates are supplied", () => {
+    const incomplete = edit((draft) => {
+      draft.performanceObligations[0]!.serviceStart = "";
+      draft.performanceObligations[0]!.serviceEnd = "";
+    });
+    const red = reviewItem({
+      id: "rev-sp-red",
+      targetKey: target,
+      state: "red",
+      severity: "red",
+      reasonCode: "missing_required_input",
+    });
+    const half = structuredClone(incomplete);
+    half.performanceObligations[0]!.serviceStart = "2027-01-01";
+
+    const stillRed = reconcileAiEdits({
+      previousDraft: incomplete,
+      nextDraft: half,
+      currentAiState: { ...aiState(incomplete), reviewItems: [red] },
+    });
+    expect(stillRed.aiState.reviewItems).toHaveLength(1);
+
+    const cured = reconcileAiEdits({
+      previousDraft: incomplete,
+      nextDraft: baseDraft(),
+      currentAiState: { ...aiState(incomplete), reviewItems: [red] },
+    });
+    expect(cured.aiState.reviewItems).toHaveLength(0);
+  });
+});
+
+describe("the composite Phase 5C modification target", () => {
+  const target = fieldKeys.modification(MOD_ID, "phase5cFacts");
+
+  function reopened(mutate: (draft: WorkflowDraft) => void): string[] {
+    const previous = draftWithModification();
+    const next = structuredClone(previous);
+    mutate(next);
+    const resolved = reviewItem({
+      id: "rev-5c",
+      targetKey: target,
+      state: "resolved",
+      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-5c" },
+      reviewFingerprint: "rf-5c",
+    });
+    return reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: next,
+      currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [resolved] },
+    }).reviewEvents.map((event) => event.type);
+  }
+
+  it("reopens on a material gating fact", () => {
+    expect(
+      reopened((draft) => {
+        draft.contractModifications[0]!.approvedAndEnforceable = true;
+      }),
+    ).toEqual(["review_item_reopened"]);
+  });
+
+  it("reopens on a material modified-performance-obligation fact", () => {
+    expect(
+      reopened((draft) => {
+        draft.contractModifications[0]!.modifiedPerformanceObligations = [
+          {
+            ...createModifiedPoDraft(1, `${MOD_ID}-po-1`),
+            remainingGoodsDistinctFromTransferred: true,
+            remainingSspInput: "40000",
+          },
+        ];
+      }),
+    ).toEqual(["review_item_reopened"]);
+  });
+
+  it("does not reopen on a field outside the material workpaper", () => {
+    expect(
+      reopened((draft) => {
+        draft.contractModifications[0]!.seq = 7;
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("nested variable-consideration meter provenance", () => {
+  const key = fieldKeys.vc(VC_ID, "meter.rateAmountInput");
+
+  it("marks an edited AI meter field user-edited and keeps its AI baseline", () => {
+    const previous = draftWithMeter();
+    const state = meterState(previous);
+    const next = structuredClone(previous);
+    next.variableConsiderationComponents[0]!.meters[0]!.rateAmountInput = "0.20";
+    const result = reconcileAiEdits({ previousDraft: previous, nextDraft: next, currentAiState: state });
+    const after = result.aiState.fieldProvenance[key]!;
+    expect(after.state).toBe("ai_generated_user_edited");
+    expect(after.valueFingerprint).toBe(state.fieldProvenance[key]!.valueFingerprint);
+    expect(after.lastAiRunId).toBe(RUN);
+  });
+
+  it("keeps meter ownership sticky when the AI rate is typed back in", () => {
+    const previous = draftWithMeter();
+    const edited = structuredClone(previous);
+    edited.variableConsiderationComponents[0]!.meters[0]!.rateAmountInput = "0.20";
+    const first = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edited,
+      currentAiState: meterState(previous),
+    });
+    const second = reconcileAiEdits({
+      previousDraft: edited,
+      nextDraft: draftWithMeter(),
+      currentAiState: first.aiState,
+    });
+    expect(second.aiState.fieldProvenance[key]!.state).toBe("ai_generated_user_edited");
+  });
+
+  it("never claims the AI meter key from a different meter or property", () => {
+    const previous = draftWithMeter();
+    const next = structuredClone(previous);
+    next.variableConsiderationComponents[0]!.meters[1]!.rateAmountInput = "9.00";
+    next.variableConsiderationComponents[0]!.meters[0]!.unit = "requests";
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: next,
+      currentAiState: meterState(previous),
+    });
+    expect(result.aiState.fieldProvenance[key]!.state).toBe("ai_generated_untouched");
+  });
+
+  it("gives a meter review target the usage conclusion rather than nothing", () => {
+    const previous = draftWithMeter();
+    const next = structuredClone(previous);
+    next.variableConsiderationComponents[0]!.meters[0]!.rateAmountInput = "0.20";
+    expect(canonicalReviewTargetFingerprint(previous, key)).not.toBeNull();
+    expect(canonicalReviewTargetFingerprint(next, key)).not.toBe(
+      canonicalReviewTargetFingerprint(previous, key),
+    );
+  });
+});
+
+describe("whole-performance-obligation grouping membership", () => {
+  const wholePo = `po:${PO_ID}`;
+
+  it("reacts to a promise leaving or joining the performance obligation", () => {
+    const removed = edit((draft) => {
+      draft.promises[0]!.performanceObligationId = "";
+    });
+    expect(canonicalReviewTargetFingerprint(removed, wholePo)).not.toBe(
+      canonicalReviewTargetFingerprint(baseDraft(), wholePo),
+    );
+    const added = edit((draft) => {
+      draft.promises.push({
+        ...createPromiseDraft(2, "pr-support"),
+        description: "Support",
+        performanceObligationId: PO_ID,
+      });
+    });
+    expect(canonicalReviewTargetFingerprint(added, wholePo)).not.toBe(
+      canonicalReviewTargetFingerprint(baseDraft(), wholePo),
+    );
+  });
+
+  it("ignores a pure reorder of promises", () => {
+    const previous = edit((draft) => {
+      draft.promises.push({
+        ...createPromiseDraft(2, "pr-support"),
+        description: "Support",
+        performanceObligationId: PO_ID,
+      });
+    });
+    const reordered = structuredClone(previous);
+    reordered.promises.reverse();
+    expect(canonicalReviewTargetFingerprint(reordered, wholePo)).toBe(
+      canonicalReviewTargetFingerprint(previous, wholePo),
+    );
+  });
+
+  it("keeps membership out of the recognition- and ssp-specific groups", () => {
+    const moved = edit((draft) => {
+      draft.promises[0]!.performanceObligationId = "";
+    });
+    for (const field of ["recognitionMethod", "sspInput"]) {
+      const key = fieldKeys.po(PO_ID, field);
+      expect(canonicalReviewTargetFingerprint(moved, key)).toBe(
+        canonicalReviewTargetFingerprint(baseDraft(), key),
+      );
+    }
+  });
+
+  it("marks an AI-owned performance obligation user-modified when membership changes", () => {
+    const result = reconcileAiEdits({
+      previousDraft: baseDraft(),
+      nextDraft: edit((draft) => {
+        draft.promises[0]!.performanceObligationId = "";
+      }),
+      currentAiState: objectState(PO_ID, "po:saas"),
+    });
+    expect(result.aiState.objectProvenance["po:saas"]!.userModified).toBe(true);
+  });
+});
+
+describe("the object:<id> retained-object review target", () => {
+  const target = `object:${PO_ID}`;
+
+  it("resolves an open yellow when the retained object is materially edited", () => {
+    const previous = baseDraft();
+    const open = reviewItem({ id: "rev-obj", targetKey: target, reviewFingerprint: "rf-obj" });
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edit((draft) => {
+        draft.performanceObligations[0]!.recognitionRationale = "Ratable over the term.";
+      }),
+      currentAiState: { ...aiState(previous), reviewItems: [open] },
+    });
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["yellow_affirmed"]);
+    const stamped = applyEditReviewIntents(result.aiState, result.reviewEvents, NOW);
+    expect(stamped.reviewItems[0]!.resolution?.method).toBe("edited");
+  });
+
+  it("reopens a resolved retained-object review on a later material edit", () => {
+    const previous = baseDraft();
+    const resolved = reviewItem({
+      id: "rev-obj",
+      targetKey: target,
+      state: "resolved",
+      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-obj" },
+      reviewFingerprint: "rf-obj",
+    });
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edit((draft) => {
+        draft.performanceObligations[0]!.sspInput = "99000";
+      }),
+      currentAiState: { ...aiState(previous), reviewItems: [resolved] },
+    });
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["review_item_reopened"]);
+  });
+
+  it("leaves tombstoned and unbound relationship targets unrepresentable", () => {
+    for (const key of ["tombstone:promise:gone", "recognition:po:saas", "ssp:po:saas"]) {
+      expect(canonicalReviewTargetFingerprint(baseDraft(), key)).toBeNull();
+    }
+    expect(canonicalReviewTargetFingerprint(baseDraft(), `object:${PO_ID}-missing`)).toBeNull();
   });
 });
