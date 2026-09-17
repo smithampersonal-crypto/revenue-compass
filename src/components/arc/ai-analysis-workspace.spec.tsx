@@ -14,6 +14,7 @@ const baseWorkspace: AiWorkspaceStateDto = {
   latestRun: null,
   lastSuccessfulRunId: null,
   sourceState: "current",
+  hasIncludedSources: true,
   sourceSetFingerprint: "source-fingerprint",
   reviewIssueCount: 0,
   staleSourceAcknowledged: false,
@@ -154,5 +155,97 @@ describe("Task 6 active progress", () => {
     const items = screen.getAllByRole("listitem");
     items.slice(0, step - 1).forEach((item) => expect(item).toHaveTextContent("Complete"));
     items.slice(step).forEach((item) => expect(item).toHaveTextContent("Pending"));
+  });
+});
+
+/**
+ * Phase 9G — Task 6 source prerequisite. `sourceState` describes AI/source
+ * freshness, never whether a contract PDF is included. The authoritative
+ * presence fact is `hasIncludedSources`, derived server-side from the actual
+ * selected source associations.
+ */
+describe("Task 6 source prerequisite", () => {
+  it("allows the first analysis when a contract is included but no AI run exists", async () => {
+    const analyze = vi.fn(async () => undefined);
+    const onAddSources = vi.fn();
+    render(
+      <AiAnalysisAction
+        ai={controller({
+          analyze,
+          workspace: { ...baseWorkspace, sourceState: "none", hasIncludedSources: true },
+        })}
+        onAddSources={onAddSources}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Analyze Contract" });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(onAddSources).not.toHaveBeenCalled();
+  });
+
+  it("routes a brand-new analysis with no contract into the upload experience", async () => {
+    const analyze = vi.fn(async () => undefined);
+    const onAddSources = vi.fn();
+    render(
+      <AiAnalysisAction
+        ai={controller({
+          analyze,
+          workspace: { ...baseWorkspace, sourceState: "none", hasIncludedSources: false },
+        })}
+        onAddSources={onAddSources}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Analyze Contract" });
+    expect(button).toBeEnabled();
+    await userEvent.click(button);
+    expect(onAddSources).toHaveBeenCalledTimes(1);
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("routes a stale prior analysis whose sources were all removed to the upload experience", async () => {
+    const analyze = vi.fn(async () => undefined);
+    const onAddSources = vi.fn();
+    render(
+      <AiAnalysisAction
+        ai={controller({
+          analyze,
+          analyzeMode: "reanalyze",
+          workspace: {
+            ...baseWorkspace,
+            hasAnalysis: true,
+            sourceState: "stale",
+            hasIncludedSources: false,
+          },
+        })}
+        onAddSources={onAddSources}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Re-analyze Contract" }));
+    expect(onAddSources).toHaveBeenCalledTimes(1);
+    expect(analyze).not.toHaveBeenCalled();
+  });
+
+  it("re-analyzes normally when stale sources are still included", async () => {
+    const analyze = vi.fn(async () => undefined);
+    const onAddSources = vi.fn();
+    render(
+      <AiAnalysisAction
+        ai={controller({
+          analyze,
+          analyzeMode: "reanalyze",
+          workspace: {
+            ...baseWorkspace,
+            hasAnalysis: true,
+            sourceState: "stale",
+            hasIncludedSources: true,
+          },
+        })}
+        onAddSources={onAddSources}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Re-analyze Contract" }));
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(onAddSources).not.toHaveBeenCalled();
   });
 });

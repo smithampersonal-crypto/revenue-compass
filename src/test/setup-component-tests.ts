@@ -26,6 +26,7 @@ if (typeof document !== "undefined") {
       latestRun: null,
       lastSuccessfulRunId: null,
       sourceState: "none" as const,
+      hasIncludedSources: true,
       sourceSetFingerprint: null,
       reviewIssueCount: 0,
       staleSourceAcknowledged: false,

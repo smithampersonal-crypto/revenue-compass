@@ -77,6 +77,7 @@ const SNAPSHOT: AiWorkspaceSnapshot = {
   lastSuccessfulRunId: null,
   currentSourceSetFingerprint: CURRENT_FINGERPRINT,
   sourceState: "none",
+  hasIncludedSources: true,
   acknowledgedSourceFingerprint: null,
   outstandingReviewIssueCount: 0,
   guestWorkspaceExpiresAt: null,

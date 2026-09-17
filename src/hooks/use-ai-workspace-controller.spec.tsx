@@ -41,6 +41,7 @@ function state(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceStateDt
     latestRun: null,
     lastSuccessfulRunId: null,
     sourceState: "current",
+    hasIncludedSources: true,
     sourceSetFingerprint: "fp-current",
     reviewIssueCount: 0,
     staleSourceAcknowledged: false,

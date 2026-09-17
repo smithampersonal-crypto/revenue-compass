@@ -195,7 +195,7 @@ function DocumentRow({
   );
 }
 
-export function SourceDocumentsWorkspace() {
+export function SourceDocumentsWorkspace({ autoOpenUpload = false }: { autoOpenUpload?: boolean }) {
   const { persistence, ai } = useAnalysis();
   const revision = persistence.revision;
   const queryClient = useQueryClient();
@@ -251,7 +251,7 @@ export function SourceDocumentsWorkspace() {
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(autoOpenUpload);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<SourceDocumentSummaryDto | null>(null);
   const [deleting, setDeleting] = useState<SourceDocumentSummaryDto | null>(null);
@@ -268,6 +268,14 @@ export function SourceDocumentsWorkspace() {
    * documents may stay on screen, but nothing may mutate against them, and the
    * revision reload never depends on the document refetch succeeding.
    */
+  // A stable handle on the safe AI workspace read, so mutation callbacks do
+  // not re-create themselves whenever the AI controller state changes.
+  const aiRefreshRef = useRef(ai.refresh);
+  aiRefreshRef.current = ai.refresh;
+  const aiRefresh = useCallback(async () => {
+    await aiRefreshRef.current();
+  }, []);
+
   const recoveringRef = useRef(false);
   const [recovering, setRecovering] = useState(false);
 
@@ -313,6 +321,9 @@ export function SourceDocumentsWorkspace() {
         setProblem(null);
         if (successMessage) setNotice(successMessage);
         await refreshDocuments();
+        // The selected source set may have become empty or non-empty. This is
+        // the ordinary safe read only: it starts no analysis.
+        await aiRefresh();
         return true;
       }
       setNotice(null);
@@ -321,7 +332,7 @@ export function SourceDocumentsWorkspace() {
       else await refreshDocuments();
       return false;
     },
-    [persistence, refreshDocuments, reloadAuthoritative],
+    [persistence, refreshDocuments, reloadAuthoritative, aiRefresh],
   );
 
   const lockVersion = persistence.lockVersion;
@@ -596,6 +607,7 @@ export function SourceDocumentsWorkspace() {
                 : `${input.displayName} was added to Revision ${revisionNumber}.`,
             );
             await refreshDocuments();
+            await aiRefresh();
             return null;
           }}
         />

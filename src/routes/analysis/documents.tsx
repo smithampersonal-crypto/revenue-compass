@@ -56,5 +56,5 @@ function SourceDocumentsArea() {
     );
   }
 
-  return <SourceDocumentsWorkspace />;
+  return <SourceDocumentsWorkspace autoOpenUpload={wantsUpload} />;
 }

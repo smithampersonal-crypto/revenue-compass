@@ -138,6 +138,14 @@ export function GuestSourceDocumentsWorkspace({
     await workspace.refetch();
   }, [queryClient, workspace]);
 
+  // A stable handle on the safe AI workspace read, so mutation callbacks do
+  // not re-create themselves whenever the AI controller state changes.
+  const aiRefreshRef = useRef(ai.refresh);
+  aiRefreshRef.current = ai.refresh;
+  const aiRefresh = useCallback(async () => {
+    await aiRefreshRef.current();
+  }, []);
+
   const recoveringRef = useRef(false);
   const [recovering, setRecovering] = useState(false);
 
@@ -173,6 +181,9 @@ export function GuestSourceDocumentsWorkspace({
         setProblem(null);
         if (successMessage) setNotice(successMessage);
         await refreshDocuments();
+        // The selected source set may have become empty or non-empty. This is
+        // the ordinary safe read only: it starts no analysis.
+        await aiRefresh();
         return true;
       }
       setNotice(null);
@@ -181,7 +192,7 @@ export function GuestSourceDocumentsWorkspace({
       else await refreshDocuments();
       return false;
     },
-    [persistence, refreshDocuments, reloadAuthoritative],
+    [persistence, refreshDocuments, reloadAuthoritative, aiRefresh],
   );
 
   const lockVersion = persistence.lockVersion;
@@ -381,6 +392,7 @@ export function GuestSourceDocumentsWorkspace({
                 : `${input.displayName} was added to this analysis.`,
             );
             await refreshDocuments();
+            await aiRefresh();
             return null;
           }}
         />
