@@ -2113,7 +2113,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /* ---------------------------------------------------------------- finalize */
 
   const ranked = rankReviewItems(sortReviewItems(issues));
-  const reviewItems = carryForwardReviewResolutions(ranked, previousState.reviewItems);
+  // The previous review array is data of unknown provenance whatever its
+  // static type: every caller's value passes through the Phase 9G normalizer
+  // before any resolution can be carried forward.
+  const reviewItems = carryForwardReviewResolutions(
+    ranked,
+    normalizePersistedReviewItems(previousState.reviewItems),
+  );
 
   const validated = validateDraftForPersistence(draft);
   if (!validated.ok) {
