@@ -404,12 +404,16 @@ begin
                     and e.review_item_id is null);
 
   insert into arc_test_results
-  select '33 acknowledging resolves no review item and consumes no AI allowance',
+  select '33a the acknowledgment is recorded against the analysis whose sources went stale',
+         (select ai_run_id from public.ai_review_events where id = v_event) = v_run;
+
+  insert into arc_test_results
+  select '33 acknowledging resolves no review item, starts no run and consumes no AI allowance',
          (select value ->> 'state' from public.ai_analysis_state s,
                  lateral jsonb_array_elements(s.review_items) value
            where s.revision_id = v_rev and value ->> 'id' = v_hard) = 'red'
      and not exists (select 1 from public.ai_monthly_usage where user_id = v_user)
-     and not exists (select 1 from public.ai_runs where revision_id = v_rev);
+     and (select count(*) from public.ai_runs where revision_id = v_rev) = 1;
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   begin
@@ -421,20 +425,53 @@ begin
   insert into arc_test_results
   values ('34 a client-invented source fingerprint cannot become authoritative', ok);
 
-  -- The selection changes: the stored acknowledgment is now simply not the
-  -- current fingerprint any more, and its history survives untouched.
+  -- The selection changes. The authoritative source-mutation path clears the
+  -- current acknowledgment even though the sidecar was already stale, and the
+  -- historical event survives untouched.
   insert into public.revision_source_documents (revision_id, source_document_id)
   values (v_rev, v_doc2);
+  perform public.arc_mark_ai_sources_stale(v_rev, null);
+
   insert into arc_test_results
-  select '35 changing the selected sources invalidates the acknowledgment',
+  select '35 changing the selected sources clears the current acknowledgment',
          (select acknowledged_source_fingerprint from public.ai_analysis_state
-           where revision_id = v_rev) <> public.arc_ai_source_set_fingerprint(v_rev, null);
+           where revision_id = v_rev) is null
+     and (select source_acknowledged_at from public.ai_analysis_state
+           where revision_id = v_rev) is null
+     and (select source_acknowledged_by from public.ai_analysis_state
+           where revision_id = v_rev) is null;
 
   insert into arc_test_results
   select '36 the historical acknowledgment event is never deleted',
          (select count(*) from public.ai_review_events
            where event_type = 'stale_sources_acknowledged'
              and source_set_fingerprint = v_expected_fp) = 1;
+
+  -- A -> B -> A: returning to the previously acknowledged source set does not
+  -- resurrect the old acknowledgment, and the fresh one is its own event.
+  delete from public.revision_source_documents
+   where revision_id = v_rev and source_document_id = v_doc2;
+  insert into arc_test_results
+  select '36a returning to an earlier source set does not resurrect its acknowledgment',
+         public.arc_ai_source_set_fingerprint(v_rev, null) = v_expected_fp
+     and (select acknowledged_source_fingerprint from public.ai_analysis_state
+           where revision_id = v_rev) is null;
+
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select event_id into v_event2
+    from public.arc_acknowledge_ai_stale_sources(v_user, null, v_rev, null, v_lock, v_expected_fp);
+  insert into arc_test_results
+  select '36b the same source set can be acknowledged again as a separate audit fact',
+         v_event2 is distinct from v_event
+     and (select count(*) from public.ai_review_events
+           where revision_id = v_rev and event_type = 'stale_sources_acknowledged'
+             and source_set_fingerprint = v_expected_fp) = 2;
+
+  -- Put the selection back where the remaining assertions expect it.
+  insert into public.revision_source_documents (revision_id, source_document_id)
+  values (v_rev, v_doc2);
+  perform public.arc_mark_ai_sources_stale(v_rev, null);
+
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   begin
