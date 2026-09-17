@@ -77,3 +77,12 @@ grant all on storage.buckets to service_role;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('arc-source-documents', 'arc-source-documents', false, 10485760, array['application/pdf'])
 on conflict (id) do nothing;
+
+-- The hosted Supabase project ships schema-wide default privileges that grant
+-- the service role every table privilege on newly created public tables. The
+-- harness must reproduce that, otherwise a migration that relies on an
+-- implicit "no privileges unless granted" starting point passes locally and
+-- fails on Cloud.
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+alter default privileges in schema public grant all on functions to service_role;
