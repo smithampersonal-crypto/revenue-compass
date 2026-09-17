@@ -11,6 +11,8 @@
 
 import type { AiFinalizationState } from "@/lib/arc/persistence/revisions.handlers";
 
+import { normalizePersistedReviewItems } from "./review-normalization";
+
 const ACTIVE_STAGES = [
   "created",
   "extracting",
