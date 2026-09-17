@@ -37,7 +37,7 @@ select '05 every Phase 9G routine exists',
          where n.nspname = 'public'
            and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
-                             'arc_protect_ai_review_event')) = 5;
+                             'arc_ai_review_actor', 'arc_protect_ai_review_event')) = 6;
 
 insert into arc_test_results
 select '06 no Phase 9G routine is executable by anon or signed-in users',
@@ -45,7 +45,8 @@ select '06 no Phase 9G routine is executable by anon or signed-in users',
          select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public'
             and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
-                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint')
+                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
+                              'arc_ai_review_actor')
             and (has_function_privilege('anon', p.oid, 'execute')
                  or has_function_privilege('authenticated', p.oid, 'execute')));
 
@@ -55,8 +56,10 @@ select '07 every Phase 9G routine is executable by the service role',
          select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public'
             and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
-                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint')
+                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
+                              'arc_ai_review_actor')
             and not has_function_privilege('service_role', p.oid, 'execute'));
+
 
 insert into arc_test_results
 select '08 the acknowledgment columns live on the AI sidecar, not the canonical draft',
