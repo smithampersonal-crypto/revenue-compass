@@ -134,8 +134,8 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
     valueFingerprint: typeof row["valueFingerprint"] === "string" ? row["valueFingerprint"] : "",
     reviewFingerprint,
     resolution,
-    affirmedAt: resolution?.kind === "affirmed" ? affirmedAt : affirmedAt,
-    affirmedMethod: resolution?.kind === "affirmed" ? affirmedMethod : affirmedMethod,
+    affirmedAt,
+    affirmedMethod,
   };
 }
 
