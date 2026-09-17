@@ -225,14 +225,26 @@ const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
   const state = classifyReviewState(input);
   if (state === null) return null;
+  const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
   return {
-    id: reviewItemId(input.targetKey, input.section, input.reasonCode),
+    id,
     targetKey: input.targetKey,
     section: input.section,
     state,
+    reasonCode: input.reasonCode,
     reason: input.reason,
     guidanceIds: [...input.guidanceIds].sort((a, b) => a - b),
-    valueFingerprint: input.valueFingerprint,
+    citations: input.citations.map((citation) => ({ ...citation })),
+    valueFingerprint: valueFingerprint(input.value),
+    reviewFingerprint: buildReviewFingerprint({
+      id,
+      targetKey: input.targetKey,
+      reasonCode: input.reasonCode,
+      value: input.value,
+      guidanceIds: input.guidanceIds,
+      citations: input.citations,
+    }),
+    resolution: null,
     affirmedAt: null,
     affirmedMethod: null,
   };
