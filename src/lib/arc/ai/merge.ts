@@ -1388,13 +1388,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reason:
         "No exact fixed consideration amount was determinable from the contract. Enter the transaction price.",
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
-      citations: analysis.transactionPrice.transactionPriceConclusion.citations,
+      // The evidence of this conclusion is both the fixed-consideration
+      // evidence and the transaction-price conclusion's own evidence.
+      citations: [
+        ...analysis.transactionPrice.fixedConsiderationCitations,
+        ...analysis.transactionPrice.transactionPriceConclusion.citations,
+      ],
       value: null,
       material: {
         fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
         fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
         currency: analysis.transactionPrice.currency.value,
+        currencyBasis: analysis.transactionPrice.currency.basis,
         conclusion: analysis.transactionPrice.transactionPriceConclusion.conclusion,
+        conclusionRationale: analysis.transactionPrice.transactionPriceConclusion.rationale,
       },
       aiReviewState: "needs_user_input",
       blocking: true,
