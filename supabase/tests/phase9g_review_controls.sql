@@ -165,10 +165,28 @@ begin
                        'valueFingerprint', 'vf-3', 'reviewFingerprint', v_rf_hard,
                        'resolution', null, 'affirmedAt', null, 'affirmedMethod', null));
 
-  insert into public.ai_analysis_state (revision_id, review_items, source_state)
-  values (v_rev, v_items, 'stale');
-  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state)
-  values (v_guest, v_items, 'stale');
+  -- A stale sidecar is a sidecar whose previous successful analysis is now out
+  -- of date. Both parts are required before anything can be acknowledged.
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
+                              output_schema_version, guidance_registry_hash, owner_user_id,
+                              openai_started_at, completed_at)
+  values (v_run, v_rev, 'authenticated', 'succeeded', 'fp-9g', '{}'::jsonb,
+          'm', 'high', 'p9g', 's1', 'h9g', v_user, now(), now());
+  insert into public.ai_runs (id, guest_workspace_id, guest_token_hash, quota_scope, stage,
+                              source_set_fingerprint, pre_run_canonical_inputs, model,
+                              reasoning_effort, prompt_version, output_schema_version,
+                              guidance_registry_hash, openai_started_at, completed_at)
+  values (v_run_g, v_guest, v_hash, 'guest', 'succeeded', 'fp-9g', '{}'::jsonb,
+          'm', 'high', 'p9g', 's1', 'h9g', now(), now());
+
+  insert into public.ai_analysis_state (revision_id, review_items, source_state,
+                                        last_successful_run_id)
+  values (v_rev, v_items, 'stale', v_run);
+  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state,
+                                        last_successful_run_id)
+  values (v_guest, v_items, 'stale', v_run_g);
+
 
   /* --------------------------------------------- source fingerprint (10-12) */
 
