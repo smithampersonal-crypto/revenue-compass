@@ -583,6 +583,42 @@ begin
   insert into arc_test_results
   values ('48 an event cannot belong to two owner scopes at once', ok);
 
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_section, review_severity,
+                                         review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'yellow_affirmed', 'rev-x', 'step_2', 'yellow', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48a an item event without its target cannot be persisted', ok);
+
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_target_key, review_section,
+                                         review_severity, review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'yellow_affirmed', 'rev-x', 'step2:po', 'page_seven',
+            'yellow', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48b an item event outside the approved workflow sections cannot be persisted', ok);
+
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_target_key, review_section,
+                                         review_severity, review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'review_item_reopened', 'rev-x', 'step2:po', 'step_2',
+            'red', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48c a reopen can never be attributed to a person', ok);
+
+
   /* ------------------------------------------ lifecycle compatibility (52) */
 
   -- Account deletion and temporary-workspace expiry must still work: history
