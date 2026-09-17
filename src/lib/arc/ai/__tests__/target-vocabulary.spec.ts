@@ -80,6 +80,14 @@ const VOCABULARY: ReadonlyArray<readonly [string, TargetClassification]> = [
   [`po:${PO_ID}`, "composite"],
 
   [fieldKeys.transactionPrice("input"), "composite"],
+  [fieldKeys.transactionPrice("notes"), "exact_scalar"],
+  // Advisory only: the merge engine states outright that ARC has no canonical
+  // field for these, so no accounting edit can stand in for reviewing them.
+  [fieldKeys.transactionPrice("financing"), "unrepresentable"],
+  [fieldKeys.transactionPrice("noncash"), "unrepresentable"],
+  [fieldKeys.transactionPrice("payableToCustomer"), "unrepresentable"],
+  // Future schema expansion must not inherit accidental Task 4 semantics.
+  [fieldKeys.transactionPrice("futureAdvisoryThing"), "unrepresentable"],
 
   [fieldKeys.vc(VC_ID, "treatment"), "material_group"],
   [fieldKeys.vc(VC_ID, "inception"), "material_group"],

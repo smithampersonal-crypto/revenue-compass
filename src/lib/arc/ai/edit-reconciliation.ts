@@ -553,7 +553,9 @@ export function classifyReviewTarget(
       : "composite";
   }
   if (parsed.family === "transactionPrice") {
-    return parsed.field === "input" ? "composite" : "exact_scalar";
+    if (parsed.field === "input") return "composite";
+    if (parsed.field === "notes") return "exact_scalar";
+    return "unrepresentable";
   }
   if (OBJECT_FAMILIES.includes(parsed.family as ObjectFamily)) {
     const family = parsed.family as ObjectFamily;
