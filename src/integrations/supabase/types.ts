@@ -1350,6 +1350,24 @@ export type Database = {
         }[]
       }
       arc_run_maintenance: { Args: { p_intent_limit?: number }; Returns: Json }
+      arc_save_draft_with_ai_reconciliation: {
+        Args: {
+          p_actor_user_id?: string
+          p_ai_state: Json
+          p_canonical_inputs: Json
+          p_expected_lock_version: number
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_owner_user_id: string
+          p_review_events?: Json
+          p_revision_id: string
+          p_schema_version: string
+        }
+        Returns: {
+          lock_version: number
+          saved_at: string
+        }[]
+      }
       arc_set_source_document_archived: {
         Args: {
           p_archived: boolean
