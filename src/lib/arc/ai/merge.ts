@@ -247,12 +247,28 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* --------------------------------------------------------- review issues */
 
+  /**
+   * Every review item carries the validated citations of the exact conclusion
+   * that supplied its value. A synthetic item with no source evidence — an
+   * omission, a tombstone, a required identifier ARC never reads from the
+   * analysis — passes none, and none is fabricated for it.
+   */
+  const reviewCitations = (citations: readonly AiCitation[] | undefined): AiReviewCitationRef[] =>
+    (citations ?? []).map((citation) => ({
+      documentId: citation.documentId,
+      pageStart: citation.pageStart,
+      pageEnd: citation.pageEnd,
+      evidenceMode: citation.evidenceMode,
+      excerpt: citation.excerpt ?? null,
+    }));
+
   const raise = (input: {
     targetKey: string;
     section: GuidanceReviewSection;
     reasonCode: AiReviewReasonCode;
     reason: string;
     guidanceIds?: readonly number[];
+    citations?: readonly AiCitation[];
     value: unknown;
     aiReviewState?: AiReviewState | null;
     blocking?: boolean;
@@ -263,7 +279,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reasonCode: input.reasonCode,
       reason: input.reason,
       guidanceIds: onlyKnownGuidance(input.guidanceIds ?? []),
-      valueFingerprint: valueFingerprint(input.value),
+      citations: reviewCitations(input.citations),
+      value: input.value,
       aiReviewState: input.aiReviewState ?? null,
       blocking: input.blocking ?? false,
     });
@@ -282,6 +299,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     apply: (value: T) => void;
     section: GuidanceReviewSection;
     guidanceIds?: readonly number[];
+    citations?: readonly AiCitation[];
     aiReviewState?: AiReviewState | null;
     label: string;
   }
