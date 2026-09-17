@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_analysis_state: {
         Row: {
+          acknowledged_source_fingerprint: string | null
           created_at: string
           field_provenance: Json
           guest_workspace_id: string | null
@@ -25,12 +26,15 @@ export type Database = {
           object_provenance: Json
           review_items: Json
           revision_id: string | null
+          source_acknowledged_at: string | null
+          source_acknowledged_by: string | null
           source_set_fingerprint: string | null
           source_state: string
           tombstones: Json
           updated_at: string
         }
         Insert: {
+          acknowledged_source_fingerprint?: string | null
           created_at?: string
           field_provenance?: Json
           guest_workspace_id?: string | null
@@ -40,12 +44,15 @@ export type Database = {
           object_provenance?: Json
           review_items?: Json
           revision_id?: string | null
+          source_acknowledged_at?: string | null
+          source_acknowledged_by?: string | null
           source_set_fingerprint?: string | null
           source_state?: string
           tombstones?: Json
           updated_at?: string
         }
         Update: {
+          acknowledged_source_fingerprint?: string | null
           created_at?: string
           field_provenance?: Json
           guest_workspace_id?: string | null
@@ -55,6 +62,8 @@ export type Database = {
           object_provenance?: Json
           review_items?: Json
           revision_id?: string | null
+          source_acknowledged_at?: string | null
+          source_acknowledged_by?: string | null
           source_set_fingerprint?: string | null
           source_state?: string
           tombstones?: Json
@@ -110,6 +119,81 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ai_review_events: {
+        Row: {
+          actor_kind: string
+          actor_user_id: string | null
+          ai_run_id: string | null
+          created_at: string
+          event_seq: number
+          event_type: string
+          guest_workspace_id: string | null
+          id: string
+          manual_red_reason: string | null
+          note: string | null
+          review_fingerprint: string | null
+          review_item_id: string | null
+          review_section: string | null
+          review_severity: string | null
+          review_target_key: string | null
+          revision_id: string | null
+          source_set_fingerprint: string | null
+        }
+        Insert: {
+          actor_kind: string
+          actor_user_id?: string | null
+          ai_run_id?: string | null
+          created_at?: string
+          event_seq?: never
+          event_type: string
+          guest_workspace_id?: string | null
+          id?: string
+          manual_red_reason?: string | null
+          note?: string | null
+          review_fingerprint?: string | null
+          review_item_id?: string | null
+          review_section?: string | null
+          review_severity?: string | null
+          review_target_key?: string | null
+          revision_id?: string | null
+          source_set_fingerprint?: string | null
+        }
+        Update: {
+          actor_kind?: string
+          actor_user_id?: string | null
+          ai_run_id?: string | null
+          created_at?: string
+          event_seq?: never
+          event_type?: string
+          guest_workspace_id?: string | null
+          id?: string
+          manual_red_reason?: string | null
+          note?: string | null
+          review_fingerprint?: string | null
+          review_item_id?: string | null
+          review_section?: string | null
+          review_severity?: string | null
+          review_target_key?: string | null
+          revision_id?: string | null
+          source_set_fingerprint?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_review_events_guest_workspace_id_fkey"
+            columns: ["guest_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "guest_workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_review_events_revision_id_fkey"
+            columns: ["revision_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_run_guidance: {
         Row: {
@@ -831,27 +915,60 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      arc_advance_ai_run_stage: {
-        Args: { p_from: string; p_run_id: string; p_to: string }
-        Returns: boolean
-      }
-      arc_affirm_ai_review_scope: {
+      arc_acknowledge_ai_stale_sources: {
         Args: {
+          p_actor_user_id?: string
           p_expected_lock_version: number
+          p_expected_source_set_fingerprint: string
           p_guest_token_hash: string
           p_guest_workspace_id: string
           p_owner_user_id: string
           p_revision_id: string
-          p_scope: string
         }
         Returns: {
-          affirmed_count: number
+          already_acknowledged: boolean
+          event_id: string
+          lock_version: number
+          source_set_fingerprint: string
+        }[]
+      }
+      arc_advance_ai_run_stage: {
+        Args: { p_from: string; p_run_id: string; p_to: string }
+        Returns: boolean
+      }
+      arc_affirm_ai_review_item: {
+        Args: {
+          p_actor_user_id?: string
+          p_expected_lock_version: number
+          p_expected_review_fingerprint: string
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_method?: string
+          p_owner_user_id: string
+          p_review_item_id: string
+          p_revision_id: string
+        }
+        Returns: {
+          already_resolved: boolean
+          event_id: string
           lock_version: number
         }[]
+      }
+      arc_ai_review_actor: {
+        Args: {
+          p_actor_user_id: string
+          p_owner_user_id: string
+          p_revision_id: string
+        }
+        Returns: string
       }
       arc_ai_scope_has_active_run: {
         Args: { p_guest_workspace_id: string; p_revision_id: string }
         Returns: boolean
+      }
+      arc_ai_source_set_fingerprint: {
+        Args: { p_guest_workspace_id: string; p_revision_id: string }
+        Returns: string
       }
       arc_apply_ai_run: {
         Args: {
@@ -888,6 +1005,10 @@ export type Database = {
           p_source_document_id: string
         }
         Returns: number
+      }
+      arc_bump_ai_review_scope: {
+        Args: { p_guest_workspace_id: string; p_revision_id: string }
+        Returns: undefined
       }
       arc_claim_storage_deletion_jobs: {
         Args: { p_limit?: number }
@@ -989,6 +1110,15 @@ export type Database = {
       arc_guard_ai_source_freeze: {
         Args: { p_guest_workspace_id: string; p_revision_id: string }
         Returns: undefined
+      }
+      arc_lock_ai_review_scope: {
+        Args: {
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_owner_user_id: string
+          p_revision_id: string
+        }
+        Returns: number
       }
       arc_mark_ai_run_failure: {
         Args: {
@@ -1188,6 +1318,25 @@ export type Database = {
           source_revision_id: string
         }[]
       }
+      arc_resolve_ai_review_issue: {
+        Args: {
+          p_actor_user_id?: string
+          p_expected_lock_version: number
+          p_expected_review_fingerprint: string
+          p_guest_token_hash: string
+          p_guest_workspace_id: string
+          p_note: string
+          p_owner_user_id: string
+          p_reason: string
+          p_review_item_id: string
+          p_revision_id: string
+        }
+        Returns: {
+          already_resolved: boolean
+          event_id: string
+          lock_version: number
+        }[]
+      }
       arc_restore_pre_ai_run: {
         Args: {
           p_expected_lock_version: number
@@ -1201,17 +1350,6 @@ export type Database = {
         }[]
       }
       arc_run_maintenance: { Args: { p_intent_limit?: number }; Returns: Json }
-      arc_set_ai_review_state: {
-        Args: {
-          p_expected_lock_version: number
-          p_guest_token_hash: string
-          p_guest_workspace_id: string
-          p_owner_user_id: string
-          p_review_items: Json
-          p_revision_id: string
-        }
-        Returns: number
-      }
       arc_set_source_document_archived: {
         Args: {
           p_archived: boolean
