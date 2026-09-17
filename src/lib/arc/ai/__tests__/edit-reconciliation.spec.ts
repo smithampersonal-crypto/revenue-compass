@@ -13,7 +13,9 @@ import {
   createConsiderationEventDraft,
   createEmptyDraft,
   createPoDraft,
+  createModificationDraft,
   createPromiseDraft,
+  createVcComponentDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
@@ -607,5 +609,198 @@ describe("material canonical projections", () => {
       fieldKeys.billing(EVENT_ID, "amountInput"),
     );
     expect(after).toBe(before);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Task 4 defect 1: object-edit ownership and target-specific review material.
+ * ------------------------------------------------------------------------ */
+
+const MOD_ID = "mod-1";
+const VC_ID = "vc-1";
+
+function draftWithModification(): WorkflowDraft {
+  const base = baseDraft();
+  return {
+    ...base,
+    hasContractModifications: true,
+    contractModifications: [{ ...createModificationDraft(1), modificationDate: "2027-06-01" }],
+  };
+}
+
+function draftWithVc(): WorkflowDraft {
+  const base = baseDraft();
+  return {
+    ...base,
+    hasVariableConsideration: true,
+    variableConsiderationComponents: [createVcComponentDraft(1, VC_ID)],
+  };
+}
+
+function objectState(canonicalId: string, semanticKey: string): AiAnalysisState {
+  return {
+    ...createEmptyAiAnalysisState(),
+    lastSuccessfulRunId: RUN,
+    objectProvenance: {
+      [semanticKey]: {
+        state: "ai_generated_untouched",
+        semanticKey,
+        lastAiRunId: RUN,
+        valueFingerprint: "baseline",
+        canonicalId,
+        userModified: false,
+      },
+    },
+  };
+}
+
+describe("review targets react only to their own accounting conclusion", () => {
+  const recognitionTarget = fieldKeys.po(PO_ID, "recognitionMethod");
+
+  function withSspChange(): WorkflowDraft {
+    const draft = baseDraft();
+    draft.performanceObligations[0]!.sspInput = "99000";
+    return draft;
+  }
+
+  it("does not reopen a resolved recognition review when only SSP changes", () => {
+    const resolved = reviewItem({
+      id: "rev-rec",
+      targetKey: recognitionTarget,
+      section: "step_5",
+      state: "resolved",
+      resolution: { method: "affirmed", at: NOW, byUserId: null, note: null },
+    });
+    const result = reconcileAiEdits({
+      previousDraft: baseDraft(),
+      nextDraft: withSspChange(),
+      currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [resolved] },
+    });
+    expect(result.aiState.reviewItems[0]!.state).toBe("resolved");
+    expect(result.reviewEvents).toEqual([]);
+  });
+
+  it("does not resolve an open recognition review when only SSP changes", () => {
+    const open = reviewItem({ id: "rev-rec", targetKey: recognitionTarget, section: "step_5" });
+    const result = reconcileAiEdits({
+      previousDraft: baseDraft(),
+      nextDraft: withSspChange(),
+      currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [open] },
+    });
+    expect(result.aiState.reviewItems[0]!.state).toBe("yellow");
+  });
+
+  it("does resolve a recognition review when the service period changes", () => {
+    const open = reviewItem({ id: "rev-rec", targetKey: recognitionTarget, section: "step_5" });
+    const next = baseDraft();
+    next.performanceObligations[0]!.serviceEnd = "2028-06-30";
+    const result = reconcileAiEdits({
+      previousDraft: baseDraft(),
+      nextDraft: next,
+      currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [open] },
+    });
+    expect(result.aiState.reviewItems[0]!.state).toBe("resolved");
+  });
+
+  it("does not reopen a classification review when SSP changes", () => {
+    const before = canonicalReviewTargetFingerprint(baseDraft(), fieldKeys.po(PO_ID, "classification"));
+    const after = canonicalReviewTargetFingerprint(
+      withSspChange(),
+      fieldKeys.po(PO_ID, "classification"),
+    );
+    expect(after).toBe(before);
+  });
+
+  it("reacts to material-right facts on their own review target", () => {
+    const next = baseDraft();
+    next.performanceObligations[0]!.benefitAmountInput = "5000";
+    const key = fieldKeys.po(PO_ID, "benefitAmountInput");
+    expect(canonicalReviewTargetFingerprint(next, key)).not.toBe(
+      canonicalReviewTargetFingerprint(baseDraft(), key),
+    );
+    expect(canonicalReviewTargetFingerprint(next, fieldKeys.po(PO_ID, "sspInput"))).toBe(
+      canonicalReviewTargetFingerprint(baseDraft(), fieldKeys.po(PO_ID, "sspInput")),
+    );
+  });
+
+  it("reacts to the modification treatment conclusion", () => {
+    const next = draftWithModification();
+    next.contractModifications[0]!.priceReflectsAddedGoodsSsp = true;
+    const key = `modification:${MOD_ID}.priceReflectsAddedGoodsSsp`;
+    expect(canonicalReviewTargetFingerprint(next, key)).not.toBe(
+      canonicalReviewTargetFingerprint(draftWithModification(), key),
+    );
+  });
+
+  it("reacts to the variable-consideration allocation conclusion", () => {
+    const next = draftWithVc();
+    next.variableConsiderationComponents[0]!.allocationTreatment = "specific_po";
+    const key = `vc:${VC_ID}.allocationTreatment`;
+    expect(canonicalReviewTargetFingerprint(next, key)).not.toBe(
+      canonicalReviewTargetFingerprint(draftWithVc(), key),
+    );
+    const estimation = `vc:${VC_ID}.estimationMethod`;
+    expect(canonicalReviewTargetFingerprint(next, estimation)).toBe(
+      canonicalReviewTargetFingerprint(draftWithVc(), estimation),
+    );
+  });
+});
+
+describe("object edits are detected across the whole material workpaper", () => {
+  it("marks an AI-created modification user-modified when a Phase 5C field is completed", () => {
+    const next = draftWithModification();
+    next.contractModifications[0]!.approvedAndEnforceable = true;
+    const result = reconcileAiEdits({
+      previousDraft: draftWithModification(),
+      nextDraft: next,
+      currentAiState: objectState(MOD_ID, "modification:one"),
+    });
+    expect(result.aiState.objectProvenance["modification:one"]!.userModified).toBe(true);
+    expect(result.aiState.objectProvenance["modification:one"]!.state).toBe(
+      "ai_generated_user_edited",
+    );
+  });
+
+  it("covers the modification scope workpaper too", () => {
+    const next = draftWithModification();
+    next.contractModifications[0]!.removedPoIds = [PO_ID];
+    const result = reconcileAiEdits({
+      previousDraft: draftWithModification(),
+      nextDraft: next,
+      currentAiState: objectState(MOD_ID, "modification:one"),
+    });
+    expect(result.aiState.objectProvenance["modification:one"]!.userModified).toBe(true);
+  });
+
+  it("marks an AI-created VC component user-modified on a nested assessment edit", () => {
+    const next = draftWithVc();
+    next.variableConsiderationComponents[0]!.inception.includedInput = "10000";
+    const result = reconcileAiEdits({
+      previousDraft: draftWithVc(),
+      nextDraft: next,
+      currentAiState: objectState(VC_ID, "vc:one"),
+    });
+    expect(result.aiState.objectProvenance["vc:one"]!.userModified).toBe(true);
+  });
+
+  it("marks an AI-created VC component user-modified on an allocation judgment edit", () => {
+    const next = draftWithVc();
+    next.variableConsiderationComponents[0]!.relatesSpecifically = true;
+    const result = reconcileAiEdits({
+      previousDraft: draftWithVc(),
+      nextDraft: next,
+      currentAiState: objectState(VC_ID, "vc:one"),
+    });
+    expect(result.aiState.objectProvenance["vc:one"]!.userModified).toBe(true);
+  });
+
+  it("leaves an untouched object untouched", () => {
+    const result = reconcileAiEdits({
+      previousDraft: draftWithModification(),
+      nextDraft: draftWithModification(),
+      currentAiState: objectState(MOD_ID, "modification:one"),
+    });
+    expect(result.changed).toBe(false);
+    expect(result.aiState.objectProvenance["modification:one"]!.userModified).toBe(false);
   });
 });
