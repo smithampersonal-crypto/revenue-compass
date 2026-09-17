@@ -422,6 +422,43 @@ describe("deliberate analyze / re-analyze", () => {
     );
     expect(requested.executionDisposition).toBe("start_execution");
   });
+
+  // The disposition describes the run that actually survived this deliberate
+  // request, not whatever the lifecycle happened to look like a moment before
+  // it: a run still at `created` has never been executed, so this action owns
+  // its execution.
+  it("executes a surviving run that is still waiting to be executed", async () => {
+    const waiting = runRow({ id: "run-waiting", stage: "created" });
+    const requested = await requestAiAnalysisHandler(
+      fixture({ activeRun: waiting, latestRun: waiting }).deps,
+      revisionCaller,
+    );
+    expect(requested.executionDisposition).toBe("start_execution");
+    expect(requested.activeRun?.runId).toBe("run-waiting");
+  });
+
+  it("executes a run created after an earlier run finished mid-request", async () => {
+    // The previous run left the active set between the two reads: creation
+    // succeeds, and the new run must not be mislabelled a reconnect.
+    const finishing = runRow({ id: "run-finishing", stage: "analyzing" });
+    const requested = await requestAiAnalysisHandler(
+      fixture({ latestRun: finishing, activeRun: null }).deps,
+      revisionCaller,
+    );
+    expect(requested.executionDisposition).toBe("start_execution");
+  });
+
+  it.each(["extracting", "preflight_ready", "analyzing", "validating", "applying"] as const)(
+    "reconnects to a run already advanced to %s",
+    async (stage) => {
+      const advanced = runRow({ id: `run-${stage}`, stage });
+      const requested = await requestAiAnalysisHandler(
+        fixture({ activeRun: advanced, latestRun: advanced }).deps,
+        revisionCaller,
+      );
+      expect(requested.executionDisposition).toBe("reconnect");
+    },
+  );
 });
 
 describe("browser-facing review actions", () => {
