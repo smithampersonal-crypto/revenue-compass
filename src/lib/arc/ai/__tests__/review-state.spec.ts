@@ -137,11 +137,16 @@ describe("review fingerprints are material, not positional", () => {
 });
 
 describe("ranking and resolution carry-forward", () => {
-  const item = (state: AiReviewItem["state"], id: string): AiReviewItem => ({
+  const item = (
+    state: AiReviewItem["state"],
+    id: string,
+    severity: AiReviewItem["severity"] = state === "resolved" ? "yellow" : state,
+  ): AiReviewItem => ({
     id,
     targetKey: "transactionPrice.input",
     section: "step_3",
     state,
+    severity,
     reasonCode: "manual_value_preserved",
     reason: "r",
     guidanceIds: [],
