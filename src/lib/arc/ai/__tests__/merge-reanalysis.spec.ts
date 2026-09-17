@@ -14,6 +14,7 @@ import {
   mergeAiAnalysis,
   type AiAnalysisState,
 } from "../merge";
+import type { AiReviewItem } from "../review-state";
 import type { AiContractAnalysis } from "../schema";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
