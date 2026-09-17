@@ -639,7 +639,6 @@ declare
   v_user uuid := gen_random_uuid();
   v_customer uuid; v_contract uuid; v_analysis uuid; v_rev uuid;
   v_lock integer; v_already boolean; v_e1 uuid; v_e2 uuid; v_e3 uuid; n integer;
-  function_placeholder integer;
 begin
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
                           email_confirmed_at, created_at, updated_at)
@@ -933,10 +932,8 @@ begin
 
   begin
     delete from public.customers where id = mig.customer_id;
-    delete from public.auth_placeholder_never_used where false;
     ok := true;
-  exception when undefined_table then ok := true;
-           when others then ok := false;
+  exception when others then ok := false;
   end;
   insert into arc_test_results
   values ('66 deleting the contract hierarchy takes its review history with it', ok);
