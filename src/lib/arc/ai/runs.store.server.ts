@@ -13,6 +13,7 @@
 import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
 
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
+import { normalizePersistedReviewItems } from "./review-normalization";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
 import { AiApplyConflictError } from "./orchestrator";
