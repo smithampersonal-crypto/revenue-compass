@@ -134,7 +134,7 @@ describe("persisted resolved state fails closed", () => {
   });
 
   it("refuses a manual-red resolution on a yellow item", () => {
-    const item = only({ ...current, state: "yellow" });
+    const item = only({ ...current, state: "yellow", severity: "yellow" });
     expect(item!.state).toBe("yellow");
     expect(item!.resolution).toBeNull();
   });
