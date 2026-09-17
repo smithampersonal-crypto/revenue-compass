@@ -129,7 +129,12 @@ describe("autosave for a manual-only analysis", () => {
       canonical: { schemaVersion: "x" },
       schemaVersion: "x",
     });
-    expect(result).toEqual({ ok: true, lockVersion: 5, savedAt: NOW.toISOString(), reconciled: false });
+    expect(result).toEqual({
+      ok: true,
+      lockVersion: 5,
+      savedAt: NOW.toISOString(),
+      reconciled: false,
+    });
     expect(calls.reconciled).toHaveLength(0);
     expect(calls.draftOnly).toHaveLength(1);
   });
@@ -161,7 +166,12 @@ describe("autosave with reconciliation", () => {
       schemaVersion: "x",
     });
 
-    expect(result).toEqual({ ok: true, lockVersion: 5, savedAt: NOW.toISOString(), reconciled: true });
+    expect(result).toEqual({
+      ok: true,
+      lockVersion: 5,
+      savedAt: NOW.toISOString(),
+      reconciled: true,
+    });
     expect(calls.draftOnly).toHaveLength(0);
     expect(calls.reconciled).toHaveLength(1);
 
@@ -220,7 +230,12 @@ describe("autosave with reconciliation", () => {
       canonical: {},
       schemaVersion: "x",
     });
-    expect(result).toEqual({ ok: true, lockVersion: 8, savedAt: NOW.toISOString(), reconciled: true });
+    expect(result).toEqual({
+      ok: true,
+      lockVersion: 8,
+      savedAt: NOW.toISOString(),
+      reconciled: true,
+    });
     expect(calls.reconciled).toHaveLength(1);
   });
 
@@ -242,7 +257,11 @@ describe("autosave with reconciliation", () => {
 
   it("writes nothing when the optimistic lock has moved on", async () => {
     const draft = savedDraft();
-    const { store } = harness({ aiState: sidecar(draft, [reviewItem()]), saved: draft, conflict: true });
+    const { store } = harness({
+      aiState: sidecar(draft, [reviewItem()]),
+      saved: draft,
+      conflict: true,
+    });
     const result = await autosaveWithReconciliation(deps(store), {
       scope: revisionScope,
       expectedLockVersion: 2,

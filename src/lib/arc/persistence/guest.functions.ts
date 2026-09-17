@@ -111,12 +111,10 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
         // accountant working inside a temporary workspace is recorded as the
         // named actor on the review event, never as its owner.
         reconcileAutosave: async (args) => {
-          const { autosaveWithReconciliation } = await import(
-            "@/lib/arc/ai/autosave-reconciliation.handlers"
-          );
-          const { createAutosaveReconciliationStore } = await import(
-            "@/lib/arc/ai/autosave.store.server"
-          );
+          const { autosaveWithReconciliation } =
+            await import("@/lib/arc/ai/autosave-reconciliation.handlers");
+          const { createAutosaveReconciliationStore } =
+            await import("@/lib/arc/ai/autosave.store.server");
           const { readOptionalSessionUserId } = await import("@/lib/arc/ai/caller.server");
 
           const saveDraftOnly = async () => {

@@ -277,10 +277,10 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
 
     // Phase 9G Task 4: when this analysis has an AI sidecar, the draft, the
     // reconciled provenance/review state and the audit events commit together.
-    const { autosaveWithReconciliation } = await import(
-      "@/lib/arc/ai/autosave-reconciliation.handlers"
-    );
-    const { createAutosaveReconciliationStore } = await import("@/lib/arc/ai/autosave.store.server");
+    const { autosaveWithReconciliation } =
+      await import("@/lib/arc/ai/autosave-reconciliation.handlers");
+    const { createAutosaveReconciliationStore } =
+      await import("@/lib/arc/ai/autosave.store.server");
 
     const outcome = await autosaveWithReconciliation(
       {

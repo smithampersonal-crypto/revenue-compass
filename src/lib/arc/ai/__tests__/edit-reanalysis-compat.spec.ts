@@ -25,7 +25,10 @@ function firstRun() {
   });
 }
 
-function reanalyze(draft: Parameters<typeof mergeAiAnalysis>[0]["currentDraft"], state: ReturnType<typeof firstRun>["aiState"]) {
+function reanalyze(
+  draft: Parameters<typeof mergeAiAnalysis>[0]["currentDraft"],
+  state: ReturnType<typeof firstRun>["aiState"],
+) {
   return mergeAiAnalysis({
     currentDraft: draft,
     currentAiState: state,

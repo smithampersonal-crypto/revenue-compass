@@ -535,28 +535,55 @@ describe("material canonical projections", () => {
   });
 
   const families: Array<[string, string, (draft: WorkflowDraft) => void]> = [
-    ["billing amount", fieldKeys.billing(EVENT_ID, "amountInput"), (d) => {
-      d.contractBalances.considerationEvents[0]!.amountInput = "1";
-    }],
-    ["billing timing", fieldKeys.billing(EVENT_ID, "invoiceDate"), (d) => {
-      d.contractBalances.considerationEvents[0]!.invoiceDate = "2027-06-01";
-    }],
-    ["projected collection", fieldKeys.cash(CASH_ID, "collectionDate"), (d) => {
-      d.contractBalances.cashCollections[0]!.collectionDate = "2027-04-30";
-    }],
-    ["performance obligation grouping", fieldKeys.promise(PROMISE_ID, "performanceObligationId"),
+    [
+      "billing amount",
+      fieldKeys.billing(EVENT_ID, "amountInput"),
+      (d) => {
+        d.contractBalances.considerationEvents[0]!.amountInput = "1";
+      },
+    ],
+    [
+      "billing timing",
+      fieldKeys.billing(EVENT_ID, "invoiceDate"),
+      (d) => {
+        d.contractBalances.considerationEvents[0]!.invoiceDate = "2027-06-01";
+      },
+    ],
+    [
+      "projected collection",
+      fieldKeys.cash(CASH_ID, "collectionDate"),
+      (d) => {
+        d.contractBalances.cashCollections[0]!.collectionDate = "2027-04-30";
+      },
+    ],
+    [
+      "performance obligation grouping",
+      fieldKeys.promise(PROMISE_ID, "performanceObligationId"),
       (d) => {
         d.promises[0]!.performanceObligationId = null;
-      }],
-    ["recognition", fieldKeys.po(PO_ID, "recognitionMethod"), (d) => {
-      d.performanceObligations[0]!.recognitionMethod = "point_in_time";
-    }],
-    ["transaction price", fieldKeys.transactionPrice("input"), (d) => {
-      d.transactionPriceInput = "125000";
-    }],
-    ["variable consideration", fieldKeys.transactionPrice("input"), (d) => {
-      d.hasVariableConsideration = true;
-    }],
+      },
+    ],
+    [
+      "recognition",
+      fieldKeys.po(PO_ID, "recognitionMethod"),
+      (d) => {
+        d.performanceObligations[0]!.recognitionMethod = "point_in_time";
+      },
+    ],
+    [
+      "transaction price",
+      fieldKeys.transactionPrice("input"),
+      (d) => {
+        d.transactionPriceInput = "125000";
+      },
+    ],
+    [
+      "variable consideration",
+      fieldKeys.transactionPrice("input"),
+      (d) => {
+        d.hasVariableConsideration = true;
+      },
+    ],
   ];
 
   for (const [label, targetKey, mutate] of families) {

@@ -138,8 +138,7 @@ export function canonicalFieldValue(
   }
 
   const row = rowFor(draft, parsed.family, parsed.canonicalId!) as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   if (row === undefined) return { representable: true, value: null };
   return { representable: true, value: row[parsed.field] ?? null };
 }
