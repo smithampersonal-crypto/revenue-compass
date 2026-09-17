@@ -423,7 +423,12 @@ export function carryForwardReviewResolutions(
     // item's own fingerprint, and of a kind that prior state could carry.
     if (!isAiReviewResolution(old.resolution)) return item;
     if (old.resolution.reviewFingerprint !== old.reviewFingerprint) return item;
-    if (!resolutionAllowedForState(old.state, old.resolution)) return item;
+    // The kind of resolution must be legitimate for BOTH the severity it was
+    // given against and the severity of the newly derived item.
+    if (!isAiReviewSeverity(old.severity)) return item;
+    if (!stateAgreesWithSeverity(old.state, old.severity)) return item;
+    if (!resolutionAllowedForSeverity(old.severity, old.resolution)) return item;
+    if (!resolutionAllowedForSeverity(item.severity, old.resolution)) return item;
     if (item.state === "yellow" && old.resolution.kind === "affirmed") {
       return {
         ...item,
