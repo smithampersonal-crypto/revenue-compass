@@ -88,14 +88,22 @@ interface Harness {
 
 function harness(options: {
   aiState?: AiAnalysisState | null;
+  unreadableSidecar?: boolean;
   saved?: WorkflowDraft | null;
+  savedUnavailable?: boolean;
   conflict?: boolean;
   transactionFails?: boolean;
 }): Harness {
   const calls = { draftOnly: [] as unknown[], reconciled: [] as unknown[] };
   const store: AutosaveReconciliationStore = {
-    loadSavedDraft: async () => options.saved ?? savedDraft(),
-    loadAiState: async () => options.aiState ?? null,
+    loadSavedDraft: async () =>
+      options.savedUnavailable ? null : (options.saved ?? savedDraft()),
+    loadAiState: async () =>
+      options.unreadableSidecar
+        ? { status: "unreadable" as const }
+        : options.aiState
+          ? { status: "loaded" as const, state: options.aiState }
+          : { status: "absent" as const },
     saveDraftOnly: async (args) => {
       calls.draftOnly.push(args);
       if (options.conflict) return null;
