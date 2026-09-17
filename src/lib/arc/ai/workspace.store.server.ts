@@ -98,8 +98,8 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       // The authoritative current selection fingerprint, derived by the same
       // trusted routine the review acknowledgment re-derives internally.
       const fingerprint = await supabaseAdmin.rpc("arc_ai_source_set_fingerprint", {
-        revision_id: caller.kind === "revision" ? caller.revisionId : null,
-        guest_workspace_id: caller.kind === "guest" ? caller.guestWorkspaceId : null,
+        p_revision_id: caller.kind === "revision" ? caller.revisionId : null,
+        p_guest_workspace_id: caller.kind === "guest" ? caller.guestWorkspaceId : null,
       } as never);
       if (fingerprint.error) fail("source set fingerprint", fingerprint.error);
 
