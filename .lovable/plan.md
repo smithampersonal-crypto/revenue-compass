@@ -4,7 +4,7 @@ Adopt the uploaded Phase 9G plan as authoritative. Implement Tasks 1–10 in ord
 
 ## Ground rules carried into every task
 
-- Phase 9F stays frozen: provider schema (`arc.ai.schema.v3`), citation anchors, prompt v4, model configuration, one-generative-call-per-run rule, validator and normalization, deterministic accounting engines.
+- Phase 9F stays frozen in contract and behaviour, not in file list: `arc.ai.schema.v3`, prompt v4, citation-anchor and validation semantics, model configuration, the one-generative-call rule, and the deterministic accounting engines are unchanged. Task 1 may extend review-derivation and merge plumbing where the authoritative Phase 9G plan requires it.
 - No OpenAI call of any kind during Tasks 1–10. The controlled Genomix walkthrough in the final acceptance checklist is requested separately after Task 10.
 - AI never runs automatically — not from edits, source changes, affirmation, resolution, restore, or finalization.
 - Quotas unchanged: 3 runs per 9-hour guest workspace, 10 per account per UTC month; Re-analyze counts exactly like Analyze.
@@ -19,7 +19,7 @@ Adopt the uploaded Phase 9G plan as authoritative. Implement Tasks 1–10 in ord
 Each task ends with: focused RED evidence, minimal implementation, focused GREEN evidence, the adjacent regression suite, a browser/server boundary review of the diff, a commit — then I stop and report.
 
 1. **Pure review model and re-analysis carry-forward** — `reviewFingerprint`, typed resolutions (affirmed / manual red), `carryForwardReviewResolutions()`, `normalizePersistedReviewItems()` for legacy rows, validated citation material threaded into `mergeAiAnalysis()` review derivation.
-2. **Server-owned review events, resolution RPCs, stale-source acknowledgement** — new migration written and fully verified locally, **not applied**. I stop with the migration diff, RLS/RPC changes, expected data impact, and verification results, and wait for your explicit approval before it touches the Cloud database.
+2. **Server-owned review events, resolution RPCs, stale-source acknowledgement** — the new migration is written and fully verified locally, then I stop with the migration diff, RLS/RPC changes, expected data impact, and verification results. After your explicit approval I apply that exact migration to Cloud, verify the resulting schema/RPC/RLS state with a focused smoke test, and only then continue work depending on the new database capabilities.
 3. **Safe AI workspace server API and failure-presentation registry** — `workspace.handlers.ts`, `workspace.store.server.ts`, `workspace.functions.ts`, `caller.server.ts`, deterministic safe failure copy.
 4. **Edit reconciliation during autosave** — pure detection of direct user edits to reviewable targets, provenance clearing, user-edit resolution.
 5. **`AnalysisContext` wiring** — nested `ai` object: workspace state, run control, polling/reconnect to an active run, quota, source locking.
