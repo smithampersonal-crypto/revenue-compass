@@ -633,8 +633,10 @@ export function AnalysisProvider({
     for (;;) {
       if (blockedRef.current) return { ok: false };
       const existing = saveInFlightRef.current;
-      if (existing) {
-        const joined = await existing;
+      // Only a cycle owned by the current generation says anything about
+      // whether the server holds this workspace's draft.
+      if (existing && existing.generation === reloadGenerationRef.current) {
+        const joined = await existing.promise;
         if (!joined.ok) return { ok: false };
         continue;
       }
@@ -642,6 +644,7 @@ export function AnalysisProvider({
       const result = await runSave(target);
       if (!result.ok) return { ok: false };
     }
+
   }, [persistenceEnabled, runSave]);
 
   /**
