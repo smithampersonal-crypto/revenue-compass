@@ -338,3 +338,50 @@ describe("autosave never runs AI", () => {
     fetchSpy.mockRestore();
   });
 });
+
+describe("autosave fails closed when ARC cannot reconcile safely", () => {
+  it("writes nothing when a persisted review payload cannot be read", async () => {
+    const { store, calls } = harness({ unreadableSidecar: true });
+    const result = await autosaveWithReconciliation(deps(store), {
+      scope: revisionScope,
+      expectedLockVersion: 4,
+      nextDraft: edited(),
+      canonical: {},
+      schemaVersion: "x",
+    });
+    expect(result).toEqual({ ok: false, reason: "unavailable" });
+    expect(calls.draftOnly).toHaveLength(0);
+    expect(calls.reconciled).toHaveLength(0);
+  });
+
+  it("writes nothing when the authoritative previous draft is unavailable", async () => {
+    const draft = savedDraft();
+    const { store, calls } = harness({
+      aiState: sidecar(draft, [reviewItem()]),
+      savedUnavailable: true,
+    });
+    const result = await autosaveWithReconciliation(deps(store), {
+      scope: revisionScope,
+      expectedLockVersion: 4,
+      nextDraft: edited(),
+      canonical: {},
+      schemaVersion: "x",
+    });
+    expect(result).toEqual({ ok: false, reason: "unavailable" });
+    expect(calls.draftOnly).toHaveLength(0);
+    expect(calls.reconciled).toHaveLength(0);
+  });
+
+  it("still saves an ordinary manual-only analysis normally", async () => {
+    const { store, calls } = harness({ aiState: null });
+    const result = await autosaveWithReconciliation(deps(store), {
+      scope: revisionScope,
+      expectedLockVersion: 4,
+      nextDraft: edited(),
+      canonical: {},
+      schemaVersion: "x",
+    });
+    expect(result.ok).toBe(true);
+    expect(calls.draftOnly).toHaveLength(1);
+  });
+});
