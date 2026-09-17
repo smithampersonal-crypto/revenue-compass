@@ -141,9 +141,11 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       actorUserId: null,
       expectedLockVersion: 4,
       method: "page_all",
+    });
   });
 
   it("names a signed-in accountant working in a temporary workspace", async () => {
+
     const recorded = empty();
     await affirmReviewItemHandler(
       { store: storeFor(recorded) },
