@@ -295,6 +295,12 @@ export function AnalysisProvider({
   const inFlightRef = useRef(false);
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
+  /**
+   * Bumped on every authoritative reload. A save that was already in flight
+   * when the reload began belongs to the superseded copy, so its outcome is
+   * discarded instead of becoming the new baseline.
+   */
+  const reloadGenerationRef = useRef(0);
   /** Always the newest in-memory draft, even mid-save. */
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -404,6 +410,7 @@ export function AnalysisProvider({
           }
 
           setStatus({ kind: "saving" });
+          const generation = reloadGenerationRef.current;
           let outcome;
           try {
             outcome =
@@ -428,6 +435,11 @@ export function AnalysisProvider({
             });
             break;
           }
+
+          // An authoritative reload started while this save was in flight: the
+          // workspace it was saving no longer exists, so nothing it returns may
+          // become the current baseline, lock version or status.
+          if (generation !== reloadGenerationRef.current) break;
 
           if (!outcome.ok) {
             blockedRef.current = true;
@@ -498,18 +510,34 @@ export function AnalysisProvider({
     return () => clearTimeout(timer);
   }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
 
-  // Explicit reload is a real loading boundary: the workspace stops being
-  // editable and stops autosaving until the new server copy has arrived.
+  /**
+   * The one authoritative reload boundary: the workspace stops being editable
+   * and stops autosaving until a fresh server copy has been adopted.
+   *
+   * `keepWritesBlocked` is the difference between the two callers. An explicit
+   * reload deliberately clears a prior conflict or write block, because the
+   * accountant asked for the server copy. An AI-success reload must not: the
+   * block it just set has to survive until the applied draft is adopted, which
+   * is the moment the adoption path re-derives it from `readOnly`.
+   */
+  const beginAuthoritativeReload = useCallback(
+    (options: { keepWritesBlocked: boolean }) => {
+      reloadGenerationRef.current += 1;
+      if (!options.keepWritesBlocked) blockedRef.current = false;
+      setLoaded(null);
+      setLockVersion(null);
+      setSavedSnapshot(null);
+      savedSnapshotRef.current = null;
+      setStatus({ kind: "loading" });
+      setLoadEpoch(Date.now());
+      void revisionQuery.refetch();
+    },
+    [revisionQuery],
+  );
+
   const reload = useCallback(() => {
-    blockedRef.current = false;
-    setLoaded(null);
-    setLockVersion(null);
-    setSavedSnapshot(null);
-    savedSnapshotRef.current = null;
-    setStatus({ kind: "loading" });
-    setLoadEpoch(Date.now());
-    void revisionQuery.refetch();
-  }, [revisionQuery]);
+    beginAuthoritativeReload({ keepWritesBlocked: false });
+  }, [beginAuthoritativeReload]);
 
   /**
    * A source-document mutation advanced the same revision's lock. Adopt it as
@@ -567,9 +595,13 @@ export function AnalysisProvider({
    * applied result, and the authoritative copy is then reloaded.
    */
   const reloadAfterAiApply = useCallback(() => {
+    // Writes stop here and stay stopped: a queued pre-AI save that settles
+    // during the reload finds the workspace blocked and is abandoned, and if
+    // the reload itself fails the workspace stays fail-closed rather than
+    // autosaving the stale local draft over the applied result.
     blockedRef.current = true;
-    reload();
-  }, [reload]);
+    beginAuthoritativeReload({ keepWritesBlocked: true });
+  }, [beginAuthoritativeReload]);
 
   const getAiState = useServerFn(getAiWorkspaceState);
   const requestAi = useServerFn(requestAiAnalysis);

@@ -295,15 +295,18 @@ export async function requestAiAnalysisHandler(
 ): Promise<AiAnalysisRequestDto> {
   await assertEditableScope(deps.store, caller);
 
-  // Server-derived disposition. The browser must never decide whether it is
-  // starting a new analysis or rejoining one already running: it cannot see
-  // run history, and elapsed time, run ids and React state prove nothing.
-  const before = await deps.store.findLatestRunForScope(scopeOf(caller));
-  const reconnect = before !== null && isActiveStage(before.stage);
-
-  await startAiAnalysisHandler({ ...deps, store: deps.store }, caller);
+  // Server-derived disposition, read from the run that actually survived this
+  // request rather than from a separate earlier lifecycle observation: a run
+  // still at `created` has never been executed, so this deliberate action owns
+  // its execution; anything further along is already under way and is only
+  // rejoined. Two racing clients may both reach execution, where the frozen
+  // Phase 9F `created → extracting` claim remains the exactly-once authority.
+  const started = await startAiAnalysisHandler({ ...deps, store: deps.store }, caller);
   const state = await aiWorkspaceStateHandler(deps, caller);
-  return { ...state, executionDisposition: reconnect ? "reconnect" : "start_execution" };
+  return {
+    ...state,
+    executionDisposition: started.stage === "created" ? "start_execution" : "reconnect",
+  };
 }
 
 /** Yellow affirmation. The accepted Task 2 handler decides everything. */
