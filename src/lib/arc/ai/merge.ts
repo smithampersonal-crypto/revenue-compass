@@ -270,7 +270,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     reason: string;
     guidanceIds?: readonly number[];
     citations?: readonly AiCitation[];
+    /** The displayed reviewed value. */
     value: unknown;
+    /**
+     * The complete material conclusion this item reviews, whenever the
+     * displayed value alone would not distinguish two materially different
+     * accounting conclusions. Display prose is never the material: a changed
+     * amount, timing, grouping or treatment must always reopen the item.
+     */
+    material?: unknown;
     aiReviewState?: AiReviewState | null;
     blocking?: boolean;
   }) => {
@@ -282,11 +290,108 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: onlyKnownGuidance(input.guidanceIds ?? []),
       citations: reviewCitations(input.citations),
       value: input.value,
+      ...(input.material === undefined ? {} : { material: input.material }),
       aiReviewState: input.aiReviewState ?? null,
       blocking: input.blocking ?? false,
     });
     if (item !== null) issues.push(item);
   };
+
+  /* ------------------------------------------- material review projections */
+
+  /**
+   * Canonical deterministic projections of the conclusions ARC raises review
+   * items about. Each carries every structural fact a reasonable reviewer
+   * would reconsider the conclusion over — never a truncated display string.
+   */
+  const promiseMaterial = (promise: AiContractAnalysis["promises"][number]) => ({
+    semanticKey: promise.semanticKey,
+    description: promise.description,
+    promiseType: promise.promiseType,
+    otherPromiseTypeDescription: promise.otherPromiseTypeDescription,
+    explicitOrImplicit: promise.explicitOrImplicit,
+    capableOfBeingDistinct: promise.distinctCapableOfBeingDistinct,
+    separatelyIdentifiable: promise.distinctSeparatelyIdentifiable,
+    distinctConclusion: promise.distinctConclusion,
+    distinctnessRationale: promise.distinctnessRationale,
+  });
+
+  const poMaterial = (po: AiContractAnalysis["performanceObligations"][number]) => ({
+    semanticKey: po.semanticKey,
+    description: po.description,
+    promiseKeys: [...po.promiseKeys].sort(),
+    groupingRationale: po.groupingRationale,
+    satisfactionPattern: po.satisfactionPattern,
+    recognitionRationale: po.recognitionRationale,
+  });
+
+  const recognitionMaterial = (
+    proposal: AiContractAnalysis["recognitionProposals"][number],
+  ) => ({
+    performanceObligationKey: proposal.performanceObligationKey,
+    satisfactionPattern: proposal.satisfactionPattern,
+    recognitionMethod: proposal.recognitionMethod,
+    serviceStartDate: proposal.serviceStartDate,
+    serviceEndDate: proposal.serviceEndDate,
+    measureDescription: proposal.measureDescription,
+    recognitionEventDescription: proposal.recognitionEventDescription,
+    recognitionDateIfContractuallyDeterminable:
+      proposal.recognitionDateIfContractuallyDeterminable,
+    rationale: proposal.rationale,
+  });
+
+  const sspMaterial = (item: AiContractAnalysis["sspAndAllocation"]["items"][number]) => ({
+    semanticKey: item.semanticKey,
+    appliesToKey: item.appliesToKey,
+    observableSspEvidence: item.observableSspEvidence,
+    observedAmountInput: item.observedAmountInput,
+    proposedMethod: item.proposedMethod,
+    methodRationale: item.methodRationale,
+    missingInformation: item.missingInformation,
+  });
+
+  const vcMaterial = (
+    component: AiContractAnalysis["transactionPrice"]["variableConsiderationComponents"][number],
+  ) => ({
+    semanticKey: component.semanticKey,
+    description: component.description,
+    type: component.type,
+    contractualRateOrAmountInput: component.contractualRateOrAmountInput,
+    unitDescription: component.unitDescription,
+    billingFrequency: component.billingFrequency,
+    trigger: component.trigger,
+    estimationMethodProposal: component.estimationMethodProposal,
+    constraintAssessment: component.constraintAssessment,
+  });
+
+  const modificationMaterial = () => ({
+    hasModification: analysis.contractModifications.hasModification,
+    effectiveDate: analysis.contractModifications.effectiveDate,
+    addedGoodsOrServices: analysis.contractModifications.addedGoodsOrServices,
+    addedGoodsDistinct: analysis.contractModifications.addedGoodsDistinct,
+    priceIncreaseInput: analysis.contractModifications.priceIncreaseInput,
+    priceReflectsSsp: analysis.contractModifications.priceReflectsSsp,
+    remainingGoodsDistinct: analysis.contractModifications.remainingGoodsDistinct,
+    treatmentCandidate: analysis.contractModifications.treatmentCandidate,
+    rationale: analysis.contractModifications.rationale,
+  });
+
+  const billingMaterial = (term: AiContractAnalysis["billingTerms"][number]) => ({
+    semanticKey: term.semanticKey,
+    description: term.description,
+    billingTiming: term.billingTiming,
+    frequency: term.frequency,
+    invoiceTrigger: term.invoiceTrigger,
+    amountOrRateInput: term.amountOrRateInput,
+    paymentTermsDays: term.paymentTermsDays,
+    dueDateRule: term.dueDateRule,
+  });
+
+  const projectionMaterial = () => ({
+    contractualDueDateBasis: analysis.projectedCollectionAssumptions.contractualDueDateBasis,
+    paymentTermsDays: analysis.projectedCollectionAssumptions.paymentTermsDays,
+    basisExplanation: analysis.projectedCollectionAssumptions.basisExplanation,
+  });
 
   /* ---------------------------------------------------------- scalar merge */
 
