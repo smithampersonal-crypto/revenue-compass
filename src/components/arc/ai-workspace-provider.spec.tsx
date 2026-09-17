@@ -202,7 +202,7 @@ describe("the analysis workspace AI controller", () => {
     });
     expect(guestSave.mock.calls.length).toBe(savesAfterSuccess);
   });
-}
+
 
   // The AI-success reload is a write barrier, not an ordinary reload: a queued
   // pre-AI save that settles afterwards must never be re-issued against the
