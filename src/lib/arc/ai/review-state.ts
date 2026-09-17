@@ -19,6 +19,14 @@ import type { AiReviewState } from "./schema";
 
 export type AiReviewItemState = "yellow" | "red" | "resolved";
 
+/**
+ * The immutable base severity of a review item: what kind of review item was
+ * raised, independent of whether it has since been resolved. `state` may become
+ * "resolved"; `severity` always records what was resolved, so ARC never has to
+ * infer the original severity from a reason code.
+ */
+export type AiReviewSeverity = "yellow" | "red";
+
 export type AiAffirmationMethod = "individual" | "page_all" | "global_all" | "edited";
 
 /**
@@ -57,6 +65,8 @@ export interface AiReviewItem {
   targetKey: string;
   section: GuidanceReviewSection;
   state: AiReviewItemState;
+  /** The severity this item was raised at. Never changes when it is resolved. */
+  severity: AiReviewSeverity;
   reasonCode: AiReviewReasonCode;
   reason: string;
   guidanceIds: number[];
@@ -174,18 +184,31 @@ export function isAiReviewResolution(value: unknown): value is AiReviewResolutio
   return false;
 }
 
+export const AI_REVIEW_SEVERITIES: readonly AiReviewSeverity[] = ["yellow", "red"];
+
+export function isAiReviewSeverity(value: unknown): value is AiReviewSeverity {
+  return AI_REVIEW_SEVERITIES.includes(value as AiReviewSeverity);
+}
+
 /**
  * Only an affirmation can clear a yellow item and only an audited manual-red
- * resolution can clear a red one. A resolved row may legitimately carry either,
- * because its original severity is not persisted separately.
+ * resolution can clear a red one. The decision is made against the item's
+ * immutable base severity, never against a state that has already become
+ * "resolved" and never inferred from a reason code.
  */
-export function resolutionAllowedForState(
-  state: AiReviewItemState,
+export function resolutionAllowedForSeverity(
+  severity: AiReviewSeverity,
   resolution: AiReviewResolution,
 ): boolean {
-  if (state === "yellow") return resolution.kind === "affirmed";
-  if (state === "red") return resolution.kind === "manual_red";
-  return true;
+  return severity === "yellow" ? resolution.kind === "affirmed" : resolution.kind === "manual_red";
+}
+
+/** True when an unresolved row's visible state agrees with its base severity. */
+export function stateAgreesWithSeverity(
+  state: AiReviewItemState,
+  severity: AiReviewSeverity,
+): boolean {
+  return state === "resolved" || state === severity;
 }
 
 export interface ReviewDerivationInput {
@@ -330,8 +353,10 @@ const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
 
 /** Builds the deterministic review item, or null when none is warranted. */
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
+  // Derivation only ever classifies an open issue, never a resolved one, so
+  // the derived state is also the item's immutable base severity.
   const state = classifyReviewState(input);
-  if (state === null) return null;
+  if (state === null || state === "resolved") return null;
   const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
   const material = reviewMaterialOf(input);
   return {
@@ -339,6 +364,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
     targetKey: input.targetKey,
     section: input.section,
     state,
+    severity: state,
     reasonCode: input.reasonCode,
     reason: input.reason,
     guidanceIds: [...input.guidanceIds].sort((a, b) => a - b),
@@ -399,7 +425,12 @@ export function carryForwardReviewResolutions(
     // item's own fingerprint, and of a kind that prior state could carry.
     if (!isAiReviewResolution(old.resolution)) return item;
     if (old.resolution.reviewFingerprint !== old.reviewFingerprint) return item;
-    if (!resolutionAllowedForState(old.state, old.resolution)) return item;
+    // The kind of resolution must be legitimate for BOTH the severity it was
+    // given against and the severity of the newly derived item.
+    if (!isAiReviewSeverity(old.severity)) return item;
+    if (!stateAgreesWithSeverity(old.state, old.severity)) return item;
+    if (!resolutionAllowedForSeverity(old.severity, old.resolution)) return item;
+    if (!resolutionAllowedForSeverity(item.severity, old.resolution)) return item;
     if (item.state === "yellow" && old.resolution.kind === "affirmed") {
       return {
         ...item,

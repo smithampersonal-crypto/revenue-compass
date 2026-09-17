@@ -56,6 +56,7 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
+import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
   deriveReviewItem,
@@ -1387,13 +1388,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reason:
         "No exact fixed consideration amount was determinable from the contract. Enter the transaction price.",
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
-      citations: analysis.transactionPrice.transactionPriceConclusion.citations,
+      // The evidence of this conclusion is both the fixed-consideration
+      // evidence and the transaction-price conclusion's own evidence.
+      citations: [
+        ...analysis.transactionPrice.fixedConsiderationCitations,
+        ...analysis.transactionPrice.transactionPriceConclusion.citations,
+      ],
       value: null,
       material: {
         fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
         fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
         currency: analysis.transactionPrice.currency.value,
+        currencyRationale: analysis.transactionPrice.currency.rationale,
         conclusion: analysis.transactionPrice.transactionPriceConclusion.conclusion,
+        conclusionRationale: analysis.transactionPrice.transactionPriceConclusion.rationale,
       },
       aiReviewState: "needs_user_input",
       blocking: true,
@@ -2112,7 +2120,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /* ---------------------------------------------------------------- finalize */
 
   const ranked = rankReviewItems(sortReviewItems(issues));
-  const reviewItems = carryForwardReviewResolutions(ranked, previousState.reviewItems);
+  // The previous review array is data of unknown provenance whatever its
+  // static type: every caller's value passes through the Phase 9G normalizer
+  // before any resolution can be carried forward.
+  const reviewItems = carryForwardReviewResolutions(
+    ranked,
+    normalizePersistedReviewItems(previousState.reviewItems),
+  );
 
   const validated = validateDraftForPersistence(draft);
   if (!validated.ok) {

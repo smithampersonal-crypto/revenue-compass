@@ -545,3 +545,131 @@ describe("review fingerprints follow the material conclusion, not the display te
     }
   });
 });
+
+/* ------------- persisted review state only reaches merge via normalization */
+
+describe("re-analysis never trusts unnormalized persisted review state", () => {
+  const AT = "2027-02-01T00:00:00.000Z";
+
+  function resolvedState(state: AiAnalysisState): AiAnalysisState {
+    return {
+      ...state,
+      reviewItems: state.reviewItems.map((item) =>
+        item.state === "red"
+          ? {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "manual_red" as const,
+                at: AT,
+                reason: "reviewed_current_treatment" as const,
+                note: null,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+            }
+          : {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "affirmed" as const,
+                at: AT,
+                method: "individual" as const,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+              affirmedAt: AT,
+              affirmedMethod: "individual" as const,
+            },
+      ),
+    };
+  }
+
+  it("refuses to inherit a resolution from a persisted row with no base severity", () => {
+    const one = run(fixtureAAnalysis());
+    const resolved = resolvedState(one.aiState);
+    const malformed: AiAnalysisState = {
+      ...resolved,
+      reviewItems: resolved.reviewItems.map((item) => {
+        const { severity: _dropped, ...rest } = item as AiReviewItem & { severity?: unknown };
+        return rest as AiReviewItem;
+      }),
+    };
+    const two = run(fixtureAAnalysis(), one.draft, malformed, RUN_2);
+    expect(two.issues.length).toBeGreaterThan(0);
+    for (const item of two.issues) expect(item.state).not.toBe("resolved");
+  });
+
+  it("refuses to inherit a resolution from a persisted row with an unreadable section", () => {
+    const one = run(fixtureAAnalysis());
+    const resolved = resolvedState(one.aiState);
+    const malformed: AiAnalysisState = {
+      ...resolved,
+      reviewItems: resolved.reviewItems.map(
+        (item) => ({ ...item, section: "step_42" }) as unknown as AiReviewItem,
+      ),
+    };
+    const two = run(fixtureAAnalysis(), one.draft, malformed, RUN_2);
+    for (const item of two.issues) expect(item.state).not.toBe("resolved");
+  });
+
+  it("still inherits a resolution from a well-formed persisted row", () => {
+    const one = run(fixtureAAnalysis());
+    const two = run(fixtureAAnalysis(), one.draft, resolvedState(one.aiState), RUN_2);
+    expect(two.issues.some((item) => item.state === "resolved")).toBe(true);
+  });
+});
+
+/* --------------------------- the transaction-price material conclusion */
+
+describe("the missing-fixed-consideration item reviews the whole conclusion", () => {
+  const TP_KEY = "transactionPrice.input";
+  const AT = "2027-02-01T00:00:00.000Z";
+
+  function withoutFixedConsideration(analysis: AiContractAnalysis): AiContractAnalysis {
+    analysis.transactionPrice.fixedConsiderationInput = null;
+    return analysis;
+  }
+
+  function resolveTp(state: AiAnalysisState): AiAnalysisState {
+    return {
+      ...state,
+      reviewItems: state.reviewItems.map((item) =>
+        item.targetKey === TP_KEY && item.state === "red"
+          ? {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "manual_red" as const,
+                at: AT,
+                reason: "reviewed_current_treatment" as const,
+                note: null,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+            }
+          : item,
+      ),
+    };
+  }
+
+  function pair(second: AiContractAnalysis) {
+    const one = run(withoutFixedConsideration(fixtureAAnalysis()));
+    return run(second, one.draft, resolveTp(one.aiState), RUN_2);
+  }
+
+  it("reopens when the fixed-consideration evidence changes", () => {
+    const changed = withoutFixedConsideration(fixtureAAnalysis());
+    changed.transactionPrice.fixedConsiderationCitations = changed.billingTerms[0]!.citations;
+    expect(itemFor(pair(changed).issues, TP_KEY)?.state).toBe("red");
+  });
+
+  it("reopens when the transaction-price conclusion rationale changes", () => {
+    const changed = withoutFixedConsideration(fixtureAAnalysis());
+    changed.transactionPrice.transactionPriceConclusion.rationale =
+      "Variable consideration is now present and constrained.";
+    expect(itemFor(pair(changed).issues, TP_KEY)?.state).toBe("red");
+  });
+
+  it("carries the manual resolution when the whole material conclusion is unchanged", () => {
+    const unchanged = withoutFixedConsideration(fixtureAAnalysis());
+    expect(itemFor(pair(unchanged).issues, TP_KEY)?.state).toBe("resolved");
+  });
+});
