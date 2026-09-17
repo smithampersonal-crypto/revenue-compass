@@ -353,8 +353,10 @@ const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
 
 /** Builds the deterministic review item, or null when none is warranted. */
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
+  // Derivation only ever classifies an open issue, never a resolved one, so
+  // the derived state is also the item's immutable base severity.
   const state = classifyReviewState(input);
-  if (state === null) return null;
+  if (state === null || state === "resolved") return null;
   const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
   const material = reviewMaterialOf(input);
   return {
