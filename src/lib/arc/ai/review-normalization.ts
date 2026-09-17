@@ -111,25 +111,50 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
     ? row["resolution"]
     : legacyResolution;
 
+  // Base severity. A Phase 9G row must carry it explicitly; a Phase 9F row
+  // predates it, so the conservative reading of its own persisted state is
+  // used instead. It is never inferred from a reason code.
+  const isCurrentRow = typeof row["reviewFingerprint"] === "string";
+  const persistedSeverity = row["severity"];
+  const severity: AiReviewSeverity = isCurrentRow
+    ? // Missing or malformed severity on a current row fails closed: the row
+      // becomes a red issue that carries no approval.
+      isAiReviewSeverity(persistedSeverity)
+      ? persistedSeverity
+      : "red"
+    : persistedState === "red"
+      ? "red"
+      : "yellow";
+  const severityTrusted = isCurrentRow ? isAiReviewSeverity(persistedSeverity) : true;
+  // An unresolved row whose visible state disagrees with its severity is
+  // internally inconsistent and cannot be trusted as-is.
+  const consistent = severityTrusted && stateAgreesWithSeverity(persistedState, severity);
+
   // A resolution is honoured only when it is bound to this exact review
-  // fingerprint and is valid for this row's severity.
+  // fingerprint and is of a kind that this row's base severity may carry.
   const resolution =
+    consistent &&
     candidate !== null &&
     candidate.reviewFingerprint === reviewFingerprint &&
-    resolutionAllowedForState(persistedState, candidate)
+    resolutionAllowedForSeverity(severity, candidate)
       ? candidate
       : null;
 
   // Fail closed: a row persisted as resolved without valid resolution metadata
-  // reopens at the most conservative severity rather than looking approved.
-  const state: AiReviewItemState =
-    persistedState === "resolved" && resolution === null ? "red" : persistedState;
+  // reopens at its base severity rather than looking approved, and an
+  // inconsistent row reopens at the most conservative severity.
+  const state: AiReviewItemState = !consistent
+    ? "red"
+    : persistedState === "resolved" && resolution === null
+      ? severity
+      : persistedState;
 
   return {
     id: row["id"],
     targetKey: row["targetKey"],
     section: row["section"],
     state,
+    severity: consistent ? severity : "red",
     reasonCode,
     reason: row["reason"],
     guidanceIds,
