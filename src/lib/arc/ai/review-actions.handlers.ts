@@ -118,6 +118,7 @@ async function ownerScopeFor(
       guestTokenHash: null,
       revisionId: revision.id,
       guestWorkspaceId: null,
+      actorUserId: caller.userId,
       expectedLockVersion: revision.lockVersion,
     };
   }
@@ -129,6 +130,7 @@ async function ownerScopeFor(
     guestTokenHash: caller.guestTokenHash,
     revisionId: null,
     guestWorkspaceId: workspace.id,
+    actorUserId: caller.authenticatedUserId ?? null,
     expectedLockVersion: workspace.lockVersion,
   };
 }

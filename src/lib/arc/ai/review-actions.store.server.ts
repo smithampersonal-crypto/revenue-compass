@@ -53,6 +53,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
     affirmReviewItem: async (args) => {
       const { data, error } = await rpc("arc_affirm_ai_review_item", {
         p_owner_user_id: args.ownerUserId,
+        p_actor_user_id: args.actorUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
         p_guest_workspace_id: args.guestWorkspaceId,
@@ -78,6 +79,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
     resolveReviewIssue: async (args) => {
       const { data, error } = await rpc("arc_resolve_ai_review_issue", {
         p_owner_user_id: args.ownerUserId,
+        p_actor_user_id: args.actorUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
         p_guest_workspace_id: args.guestWorkspaceId,
@@ -104,6 +106,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
     acknowledgeStaleSources: async (args) => {
       const { data, error } = await rpc("arc_acknowledge_ai_stale_sources", {
         p_owner_user_id: args.ownerUserId,
+        p_actor_user_id: args.actorUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
         p_guest_workspace_id: args.guestWorkspaceId,

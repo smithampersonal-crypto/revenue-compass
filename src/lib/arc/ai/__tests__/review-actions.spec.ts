@@ -115,6 +115,7 @@ describe("Phase 9G review actions — yellow affirmation", () => {
         guestTokenHash: null,
         revisionId: REVISION,
         guestWorkspaceId: null,
+        actorUserId: USER,
         expectedLockVersion: 7,
         reviewItemId: "rev-yellow-1",
         expectedReviewFingerprint: FINGERPRINT,
@@ -137,6 +138,7 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       guestTokenHash: HASH,
       revisionId: null,
       guestWorkspaceId: GUEST,
+      actorUserId: null,
       expectedLockVersion: 4,
       method: "page_all",
     });
@@ -237,6 +239,7 @@ describe("Phase 9G review actions — manual red resolution", () => {
       guestTokenHash: null,
       revisionId: REVISION,
       guestWorkspaceId: null,
+      actorUserId: USER,
       expectedLockVersion: 7,
       reviewItemId: "rev-red-1",
       expectedReviewFingerprint: FINGERPRINT,
@@ -309,6 +312,7 @@ describe("Phase 9G review actions — stale-source acknowledgment", () => {
       guestTokenHash: null,
       revisionId: REVISION,
       guestWorkspaceId: null,
+      actorUserId: USER,
       expectedLockVersion: 7,
       expectedSourceSetFingerprint: SOURCE_FINGERPRINT,
     });
@@ -348,6 +352,7 @@ describe("Phase 9G review actions — stale-source acknowledgment", () => {
       guestTokenHash: HASH,
       guestWorkspaceId: GUEST,
       ownerUserId: null,
+      actorUserId: null,
       expectedLockVersion: 4,
     });
     expect(recorded.otherCalls).toEqual([]);
