@@ -68,6 +68,17 @@ export async function verifiedUserId(request: Request): Promise<string | null> {
 }
 
 /**
+ * The verified session subject of the current request, or null when the
+ * visitor is anonymous. Used for actor attribution inside a temporary
+ * workspace, where ownership stays credential-bound but the audit trail must
+ * still name a signed-in accountant.
+ */
+export async function readOptionalSessionUserId(): Promise<string | null> {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  return verifiedUserId(getRequest());
+}
+
+/**
  * Builds the caller from server-held evidence only: the verified session
  * subject and the hash of the HttpOnly credential. `requestedRevisionId` is a
  * resource target, and ownership of it is proven inside `deriveAiCaller`.
