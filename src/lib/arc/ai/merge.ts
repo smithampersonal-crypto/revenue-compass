@@ -332,7 +332,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
             state === "prior_finalized" ? "prior_finalized_conflict" : "manual_value_preserved",
           reason: `${input.label}: the recorded value was kept; the AI analysis proposed a different value.`,
           guidanceIds,
-          citations: input.citations,
+          citations: input.citations ?? [],
           // A difference item is reviewed as a DIFFERENCE: the affirmation an
           // accountant gave to "keep 125,000 over the AI's 150,000" must not
           // survive the AI later proposing 180,000.
@@ -396,7 +396,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_value_preserved",
         reason: `${input.label}: your edited value was kept; the AI analysis proposed a different value.`,
         guidanceIds,
-        citations: input.citations,
+        citations: input.citations ?? [],
         value: { preservedValue: input.current, proposedValue: input.proposed },
         aiReviewState: input.aiReviewState ?? null,
       });
