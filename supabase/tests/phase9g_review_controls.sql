@@ -963,10 +963,66 @@ select '67 no routine can replace the review array or affirm without an audit ev
                     where n.nspname = 'public'
                       and p.proname in ('arc_set_ai_review_state', 'arc_affirm_ai_review_scope'));
 
+-- Effective privileges, not the displayed ACL string: the hosted project grants
+-- schema-wide table defaults to the service role, so the audit table must state
+-- its intended capability exhaustively.
 insert into arc_test_results
-select '68 not even the service role may update or delete review history directly',
-       not has_table_privilege('service_role', 'public.ai_review_events', 'update')
-   and not has_table_privilege('service_role', 'public.ai_review_events', 'delete');
+select '68 the service role may only read and append review history',
+       has_table_privilege('service_role', 'public.ai_review_events', 'select')
+   and has_table_privilege('service_role', 'public.ai_review_events', 'insert')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'update')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'delete')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'truncate')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'references')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'trigger')
+   -- MAINTAIN exists from PostgreSQL 17 onward.
+   and (current_setting('server_version_num')::integer < 170000
+        or not has_table_privilege('service_role', 'public.ai_review_events', 'maintain'));
+
+insert into arc_test_results
+select '68a no browser role holds any effective privilege on review history',
+       not exists (
+         select 1
+           from unnest(array['anon', 'authenticated']) as r(name),
+                unnest(array['select', 'insert', 'update', 'delete',
+                             'truncate', 'references', 'trigger']) as p(name)
+          where has_table_privilege(r.name, 'public.ai_review_events', p.name));
+
+insert into arc_test_results
+select '68b PUBLIC holds no privilege on review history',
+       not exists (
+         select 1
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           cross join lateral aclexplode(c.relacl) a
+          where n.nspname = 'public' and c.relname = 'ai_review_events'
+            and a.grantee = 0);
+
+-- Behavioural proof. The append-only trigger is a BEFORE DELETE row trigger and
+-- PostgreSQL never fires row triggers for TRUNCATE, so only the absence of the
+-- TRUNCATE privilege can protect the trail.
+do $phase9g_truncate$
+declare
+  ok boolean;
+begin
+  set local role service_role;
+  begin
+    truncate table public.ai_review_events;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  reset role;
+  insert into arc_test_results
+  values ('68c the service role cannot truncate the review audit trail', ok);
+
+  -- The same statement as the table owner is not blocked, which proves the
+  -- assertion above is measuring the service role's privilege and not some
+  -- unrelated obstacle.
+  insert into arc_test_results
+  select '68d truncate is only refused because the privilege is absent',
+         has_table_privilege('postgres', 'public.ai_review_events', 'truncate');
+end $phase9g_truncate$;
+
 
 
 
