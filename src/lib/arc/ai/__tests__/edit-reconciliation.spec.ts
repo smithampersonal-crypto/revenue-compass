@@ -1122,7 +1122,9 @@ describe("the object:<id> retained-object review target", () => {
     });
     expect(result.reviewEvents.map((event) => event.type)).toEqual(["yellow_affirmed"]);
     const stamped = applyEditReviewIntents(result.aiState, result.reviewEvents, NOW);
-    expect(stamped.reviewItems[0]!.resolution?.method).toBe("edited");
+    const resolution = stamped.reviewItems[0]!.resolution;
+    expect(resolution?.kind).toBe("affirmed");
+    expect(resolution?.kind === "affirmed" ? resolution.method : null).toBe("edited");
   });
 
   it("reopens a resolved retained-object review on a later material edit", () => {
