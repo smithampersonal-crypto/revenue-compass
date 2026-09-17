@@ -148,15 +148,254 @@ function absentMarker(key: string): string {
   return valueFingerprint({ absentCanonicalTarget: key });
 }
 
+/* ------------------------------------- Task 4 canonical material projections */
+
 /**
- * The complete material canonical conclusion a review target rests on, or null
- * when the target has no canonical representation at all.
+ * These projections answer a DIFFERENT question from `aiObjectFingerprint()`.
  *
- * Object-scoped targets are fingerprinted against the SAME material subset the
- * merge engine uses for AI object identity, so the two definitions cannot
- * drift. A transaction-price target carries the whole price conclusion,
- * including whether the contract has variable consideration and what those
- * components say — display prose is deliberately excluded.
+ * `aiObjectFingerprint()` is Phase 9E/9F re-analysis provenance: the subset of
+ * a canonical object that ARC itself populated from an AI proposal. It is
+ * deliberately left exactly as it is.
+ *
+ * The projections below are Task 4's own:
+ *
+ *   * `canonicalObjectEditFingerprint()` — has the accountant materially
+ *     edited this canonical object, in ANY user-editable material field? A
+ *     modification workpaper filled in by hand is a real edit even though not
+ *     one of the four fields AI originally supplied moved.
+ *   * `canonicalReviewTargetFingerprint()` — has the SPECIFIC accounting
+ *     conclusion a review item covers materially changed? Changing a
+ *     performance obligation's standalone selling price must never reopen its
+ *     recognition conclusion, and vice versa.
+ *
+ * Display prose that carries an accounting judgment (a rationale) is material.
+ * Prose that carries none (a memo) is not.
+ */
+
+type Row = Record<string, unknown>;
+
+function pick(row: Row, fields: readonly string[]): Row {
+  const projection: Row = {};
+  for (const field of fields) projection[field] = row[field] ?? null;
+  return projection;
+}
+
+const VC_OUTCOME_FIELDS = ["description", "amountInput", "probabilityInput", "isMostLikely"];
+const VC_ASSESSMENT_FIELDS = ["effectiveDate", "includedInput", "constraintRationale", "evidence"];
+const VC_METER_FIELDS = ["name", "rateAmountInput", "rateQuantityInput", "unit"];
+const MODIFIED_PO_FIELDS = [
+  "name",
+  "status",
+  "sourcePoId",
+  "scopeEffect",
+  "addedGoodsAreDistinct",
+  "addedGoodsDistinctnessRationale",
+  "remainingGoodsDistinctFromTransferred",
+  "remainingDistinctnessRationale",
+  "remainingSspInput",
+  "remainingSspBasis",
+  "totalModifiedSspInput",
+  "totalModifiedSspBasis",
+  "recognitionMethod",
+  "serviceStart",
+  "serviceEnd",
+  "recognitionDate",
+  "recognitionRationale",
+];
+
+function assessmentProjection(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return null;
+  const row = value as Row;
+  const outcomes = Array.isArray(row["outcomes"]) ? row["outcomes"] : [];
+  return {
+    ...pick(row, VC_ASSESSMENT_FIELDS),
+    outcomes: outcomes.map((outcome) => pick((outcome ?? {}) as Row, VC_OUTCOME_FIELDS)),
+  };
+}
+
+function vcEstimationProjection(row: Row): Row {
+  return {
+    treatment: row["treatment"] ?? null,
+    effect: row["effect"] ?? null,
+    estimationMethod: row["estimationMethod"] ?? null,
+    inception: assessmentProjection(row["inception"]),
+    remeasurements: (Array.isArray(row["remeasurements"]) ? row["remeasurements"] : []).map(
+      assessmentProjection,
+    ),
+    hasResolution: row["hasResolution"] ?? null,
+    resolutionDate: row["resolutionDate"] ?? null,
+    resolutionAmountInput: row["resolutionAmountInput"] ?? null,
+    resolutionRationale: row["resolutionRationale"] ?? null,
+  };
+}
+
+function vcUsageProjection(row: Row): Row {
+  return {
+    meters: (Array.isArray(row["meters"]) ? row["meters"] : []).map((meter) =>
+      pick((meter ?? {}) as Row, VC_METER_FIELDS),
+    ),
+    usagePeriods: (Array.isArray(row["usagePeriods"]) ? row["usagePeriods"] : []).map((period) => {
+      const usage = (period ?? {}) as Row;
+      return { month: usage["month"] ?? null, quantities: usage["quantities"] ?? null };
+    }),
+  };
+}
+
+function modificationScopeProjection(row: Row): Row {
+  const removed = Array.isArray(row["removedPoIds"]) ? [...(row["removedPoIds"] as string[])] : [];
+  const modified = Array.isArray(row["modifiedPerformanceObligations"])
+    ? row["modifiedPerformanceObligations"]
+    : [];
+  return {
+    scopeChangeDescription: row["scopeChangeDescription"] ?? null,
+    removedPoIds: removed.sort(),
+    modifiedPerformanceObligations: modified.map((po) => pick((po ?? {}) as Row, MODIFIED_PO_FIELDS)),
+  };
+}
+
+/**
+ * A named group of canonical fields that together express ONE accounting
+ * conclusion. A review item targeting any field of a group is fingerprinted
+ * against the whole group and nothing else.
+ */
+interface MaterialGroup {
+  name: string;
+  fields: readonly string[];
+  project(row: Row): unknown;
+}
+
+function plainGroup(name: string, fields: readonly string[]): MaterialGroup {
+  return { name, fields, project: (row) => pick(row, fields) };
+}
+
+const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
+  promise: [
+    plainGroup("identity", ["description", "kind"]),
+    plainGroup("distinct", [
+      "capableOfBeingDistinct",
+      "distinctWithinContractContext",
+      "distinctRationale",
+    ]),
+    plainGroup("materialRight", ["conveysMaterialRight", "materialRightRationale"]),
+    plainGroup("assignment", ["performanceObligationId"]),
+  ],
+  po: [
+    plainGroup("classification", ["kind", "name", "classification", "classificationRationale"]),
+    plainGroup("ssp", ["sspInput", "sspBasis"]),
+    plainGroup("recognition", [
+      "recognitionMethod",
+      "serviceStart",
+      "serviceEnd",
+      "recognitionDate",
+      "recognitionRationale",
+    ]),
+    plainGroup("materialRight", [
+      "underlyingGoodOrServiceName",
+      "benefitAmountInput",
+      "exerciseProbabilityInput",
+      "materialRightStatus",
+      "exerciseDate",
+      "exerciseConsiderationInput",
+      "expirationDate",
+    ]),
+  ],
+  vc: [
+    plainGroup("description", ["description"]),
+    {
+      name: "estimation",
+      fields: [
+        "treatment",
+        "effect",
+        "estimationMethod",
+        "inception",
+        "remeasurements",
+        "hasResolution",
+        "resolutionDate",
+        "resolutionAmountInput",
+        "resolutionRationale",
+      ],
+      project: vcEstimationProjection,
+    },
+    plainGroup("allocation", [
+      "allocationTreatment",
+      "targetPoId",
+      "relatesSpecifically",
+      "consistentWithAllocationObjective",
+      "allocationRationale",
+    ]),
+    { name: "usage", fields: ["meters", "usagePeriods"], project: vcUsageProjection },
+  ],
+  modification: [
+    plainGroup("treatment", [
+      "modificationDate",
+      "approvedAndEnforceable",
+      "approvalRationale",
+      "considerationEffect",
+      "considerationMagnitudeInput",
+      "priceReflectsAddedGoodsSsp",
+      "priceReflectsSspRationale",
+      "mixedAllocationPolicy",
+      "mixedAllocationPolicyRationale",
+    ]),
+    {
+      name: "scope",
+      fields: ["scopeChangeDescription", "removedPoIds", "modifiedPerformanceObligations"],
+      project: modificationScopeProjection,
+    },
+  ],
+  billing: [
+    plainGroup("billing", [
+      "amountInput",
+      "invoiceDate",
+      "unconditionalRightDate",
+      "amountSource",
+      "sourceComponentId",
+      "sourceMonth",
+      "contractGroupId",
+    ]),
+  ],
+  cash: [
+    plainGroup("collection", [
+      "considerationEventId",
+      "amountInput",
+      "collectionDate",
+      "basis",
+    ]),
+  ],
+};
+
+function familyOf(draft: WorkflowDraft, canonicalId: string): ObjectFamily | null {
+  for (const family of OBJECT_FAMILIES) {
+    if (rowFor(draft, family, canonicalId) !== undefined) return family;
+  }
+  return null;
+}
+
+/**
+ * The complete material canonical contents of an AI-created object, for one
+ * question only: did the accountant materially edit it? Every user-editable
+ * material field counts, not just the subset AI originally supplied.
+ */
+export function canonicalObjectEditFingerprint(
+  draft: WorkflowDraft,
+  canonicalId: string,
+): string | null {
+  const family = familyOf(draft, canonicalId);
+  if (family === null) return null;
+  const row = rowFor(draft, family, canonicalId) as Row;
+  const projection: Row = { family };
+  for (const group of MATERIAL_GROUPS[family]) projection[group.name] = group.project(row);
+  return valueFingerprint(projection);
+}
+
+/**
+ * The material conclusion ONE review target rests on, or null when the target
+ * has no canonical representation at all.
+ *
+ * An object-scoped target with a field resolves to the single material group
+ * that field belongs to, so a review of recognition cannot be reopened by an
+ * edit to standalone selling price. A target naming a whole object uses the
+ * complete object projection.
  */
 export function canonicalReviewTargetFingerprint(
   draft: WorkflowDraft,
@@ -166,7 +405,21 @@ export function canonicalReviewTargetFingerprint(
   if (parsed.family === null) return null;
 
   if (OBJECT_FAMILIES.includes(parsed.family as ObjectFamily)) {
-    return aiObjectFingerprint(draft, parsed.canonicalId!) ?? absentMarker(targetKey);
+    const family = parsed.family as ObjectFamily;
+    const row = rowFor(draft, family, parsed.canonicalId!) as Row | undefined;
+    if (row === undefined) return absentMarker(targetKey);
+    if (parsed.field === null) {
+      return canonicalObjectEditFingerprint(draft, parsed.canonicalId!) ?? absentMarker(targetKey);
+    }
+    const group = MATERIAL_GROUPS[family].find((candidate) =>
+      candidate.fields.includes(parsed.field!),
+    );
+    if (group !== undefined) {
+      return valueFingerprint({ family, group: group.name, material: group.project(row) });
+    }
+    // An unrecognised field is fingerprinted narrowly against itself rather
+    // than against the whole object, so it can never reopen a neighbour.
+    return valueFingerprint({ targetKey, value: row[parsed.field] ?? null });
   }
 
   if (parsed.family === "transactionPrice") {
@@ -174,7 +427,7 @@ export function canonicalReviewTargetFingerprint(
       transactionPriceInput: draft.transactionPriceInput,
       hasVariableConsideration: draft.hasVariableConsideration,
       variableConsideration: draft.variableConsiderationComponents
-        .map((row) => aiObjectFingerprint(draft, row.id) ?? row.id)
+        .map((row) => canonicalObjectEditFingerprint(draft, row.id) ?? row.id)
         .sort(),
     });
   }
