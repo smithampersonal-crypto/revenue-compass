@@ -57,14 +57,15 @@ import {
   type AiObjectKind,
 } from "./identity";
 import {
-  applyPriorAffirmations,
+  carryForwardReviewResolutions,
   deriveReviewItem,
   rankReviewItems,
   sortReviewItems,
+  type AiReviewCitationRef,
   type AiReviewItem,
   type AiReviewReasonCode,
 } from "./review-state";
-import type { AiContractAnalysis, AiReviewState } from "./schema";
+import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
