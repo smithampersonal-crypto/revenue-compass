@@ -64,6 +64,11 @@ export interface LifecycleRevisionRow {
 export interface AiFinalizationState {
   reviewItems: Array<{ state: string; reason?: string; targetKey?: string }>;
   hasActiveRun: boolean;
+  /**
+   * True when the persisted review payload could not be fully read. A sidecar
+   * ARC cannot verify must never finalize as though it had nothing to review.
+   */
+  reviewPayloadMalformed?: boolean;
 }
 
 export interface FinalizeDeps {
@@ -86,6 +91,11 @@ export function aiFinalizationIssues(state: AiFinalizationState | null): string[
   if (!state) return [];
   if (state.hasActiveRun) {
     return ["An AI analysis is still running. Wait for it to finish before finalizing."];
+  }
+  if (state.reviewPayloadMalformed) {
+    return [
+      "The AI review record for this analysis could not be read. Re-analyze before finalizing.",
+    ];
   }
   return state.reviewItems
     .filter((item) => item.state === "yellow" || item.state === "red")
