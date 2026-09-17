@@ -200,7 +200,7 @@ export async function resolveReviewIssueHandler(
   if (rawNote !== undefined && rawNote !== null && typeof rawNote !== "string") {
     throw new Error(AI_REVIEW_ACTION_UNAVAILABLE);
   }
-  const note = typeof rawNote === "string" ? (rawNote.trim() || null) : null;
+  const note = typeof rawNote === "string" ? rawNote.trim() || null : null;
   if (note && note.length > AI_REVIEW_NOTE_LIMIT) {
     throw new Error(AI_REVIEW_NOTE_TOO_LONG);
   }
