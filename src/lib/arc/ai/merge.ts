@@ -709,6 +709,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: entry.judgment.guidanceIds,
       citations: entry.judgment.citations,
       value: draft.contract.criteria[entry.criterion]?.answer ?? null,
+      material: {
+        criterion: entry.criterion,
+        answer: draft.contract.criteria[entry.criterion]?.answer ?? null,
+        proposedOutcome: entry.judgment.outcome,
+        rationale: entry.judgment.rationale,
+      },
       aiReviewState: entry.judgment.reviewState,
       blocking: answer === null && draft.contract.criteria[entry.criterion]?.answer === null,
     });
@@ -734,6 +740,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: aiPromise.semanticKey,
+        material: promiseMaterial(aiPromise),
         aiReviewState: "needs_review",
       });
       continue;
@@ -756,6 +763,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPromise.semanticKey,
           proposed: aiPromise.description.slice(0, 120),
         },
+        material: { manualPromiseId: manualTwin.id, ...promiseMaterial(aiPromise) },
         aiReviewState: aiPromise.reviewState,
       });
       promiseIdBySemanticKey.set(aiPromise.semanticKey, manualTwin.id);
@@ -864,6 +872,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: null,
+        material: { promiseId: canonicalId, ...promiseMaterial(aiPromise) },
         aiReviewState: "needs_user_input",
         blocking: true,
       });
@@ -888,6 +897,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPo.guidanceIds,
         citations: aiPo.citations,
         value: aiPo.semanticKey,
+        material: poMaterial(aiPo),
         aiReviewState: "needs_review",
       });
       continue;
@@ -910,6 +920,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: aiPo.guidanceIds,
           citations: aiPo.citations,
           value: promiseKey,
+          material: { unknownPromiseKey: promiseKey, ...poMaterial(aiPo) },
           aiReviewState: aiPo.reviewState,
           blocking: true,
         });
@@ -941,6 +952,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPo.semanticKey,
           proposed: aiPo.description.slice(0, 120),
         },
+        material: { manualPoIds: [...hostManualPoIds].sort(), ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
         blocking: true,
       });
@@ -966,6 +978,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPo.semanticKey,
           proposed: aiPo.description.slice(0, 120),
         },
+        material: { manualPoId: canonicalId, ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
       });
     } else {
@@ -1080,6 +1093,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPo.guidanceIds,
         citations: aiPo.citations,
         value: null,
+        material: { performanceObligationId: canonicalId, ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
         blocking: true,
       });
@@ -1105,6 +1119,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: proposal.guidanceIds,
         citations: proposal.citations,
         value: proposal.performanceObligationKey,
+        material: recognitionMaterial(proposal),
         aiReviewState: proposal.reviewState,
         blocking: true,
       });
@@ -1134,6 +1149,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1212,6 +1228,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1241,6 +1258,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1263,6 +1281,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: item.guidanceIds,
         citations: item.citations,
         value: item.appliesToKey,
+        material: sspMaterial(item),
         aiReviewState: item.reviewState,
         blocking: true,
       });
@@ -1316,6 +1335,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: item.guidanceIds,
         citations: item.citations,
         value: null,
+        material: sspMaterial(item),
         aiReviewState: item.reviewState,
         blocking: true,
       });
@@ -1372,6 +1392,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
       citations: analysis.transactionPrice.transactionPriceConclusion.citations,
       value: null,
+      material: {
+        fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
+        fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
+        currency: analysis.transactionPrice.currency.value,
+        conclusion: analysis.transactionPrice.transactionPriceConclusion.conclusion,
+      },
       aiReviewState: "needs_user_input",
       blocking: true,
     });
@@ -1403,6 +1429,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: judgment.value.guidanceIds,
       citations: judgment.value.citations,
       value: judgment.value.outcome,
+      material: {
+        judgment: judgment.key,
+        outcome: judgment.value.outcome,
+        rationale: judgment.value.rationale,
+      },
       aiReviewState: judgment.value.reviewState,
     });
   }
@@ -1428,6 +1459,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: component.semanticKey,
+        material: vcMaterial(component),
         aiReviewState: "needs_review",
       });
       continue;
@@ -1445,6 +1477,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: component.type,
+        material: vcMaterial(component),
         aiReviewState: component.reviewState,
         blocking: true,
       });
@@ -1468,6 +1501,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: component.semanticKey,
           proposed: component.description.slice(0, 120),
         },
+        material: { manualVcId: manualVcTwin.id, ...vcMaterial(component) },
         aiReviewState: component.reviewState,
       });
       continue;
@@ -1508,6 +1542,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: { current: existingRow.treatment, proposed: proposedTreatment },
+        material: {
+          current: existingRow.treatment,
+          proposed: proposedTreatment,
+          ...vcMaterial(component),
+        },
         aiReviewState: component.reviewState,
         blocking: true,
       });
@@ -1592,6 +1631,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: null,
+        material: vcMaterial(component),
         aiReviewState: "needs_user_input",
         blocking: true,
       });
@@ -1622,6 +1662,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: null,
+        material: vcMaterial(component),
         aiReviewState:
           component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
         blocking: true,
@@ -1657,6 +1698,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           manualModificationIds: manualModifications.map((row) => row.id).sort(),
           semanticKey,
           proposed: modifications.rationale.slice(0, 120),
+        },
+        material: {
+          manualModificationIds: manualModifications.map((row) => row.id).sort(),
+          ...modificationMaterial(),
         },
         aiReviewState: modifications.reviewState,
       });
@@ -1752,6 +1797,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: modifications.guidanceIds,
         citations: modifications.citations,
         value: canonicalId,
+        material: { modificationId: canonicalId, ...modificationMaterial() },
         aiReviewState: modifications.reviewState,
         blocking: true,
       });
@@ -1774,6 +1820,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: modifications.guidanceIds,
       citations: modifications.citations,
       value: draft.hasContractModifications,
+      material: modificationMaterial(),
       aiReviewState: "needs_user_input",
       blocking: true,
     });
@@ -1797,6 +1844,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: [],
         citations: term.citations,
         value: semanticKey,
+        material: billingMaterial(term),
         aiReviewState: "needs_review",
       });
       continue;
@@ -1817,6 +1865,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
           semanticKey,
           proposed: term.description.slice(0, 120),
+        },
+        material: {
+          manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
+          ...billingMaterial(term),
         },
         aiReviewState: term.reviewState,
       });
@@ -1840,6 +1892,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: [],
         citations: term.citations,
         value: schedule.reason,
+        material: {
+          reason: schedule.reason,
+          serviceStart: servicePeriod?.start ?? null,
+          serviceEnd: servicePeriod?.end ?? null,
+          ...billingMaterial(term),
+        },
         aiReviewState: term.reviewState,
         blocking: true,
       });
@@ -1894,6 +1952,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: [],
           citations: projection.citations,
           value: projected.reason,
+          material: {
+            reason: projected.reason,
+            invoiceDate: event.invoiceDate,
+            termPaymentTermsDays: term.paymentTermsDays,
+            ...projectionMaterial(),
+          },
           aiReviewState: projection.reviewState,
         });
         continue;
@@ -1931,6 +1995,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: topic.guidanceIds,
       citations: topic.citations,
       value: topic.conclusion,
+      material: {
+        topic: topic.topic,
+        applicable: topic.applicable,
+        conclusion: topic.conclusion,
+        rationale: topic.rationale,
+      },
       aiReviewState: topic.reviewState,
       blocking: topic.applicable === "unknown" ? false : false,
     });
@@ -1964,6 +2034,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: issue.guidanceIds,
       citations: issue.citations,
       value: issue.message,
+      material: {
+        semanticKey: issue.semanticKey,
+        section: issue.section,
+        reviewState: issue.reviewState,
+        message: issue.message,
+        relatedSemanticKeys: [...issue.relatedSemanticKeys].sort(),
+      },
       aiReviewState: issue.reviewState,
       blocking: issue.reviewState === "needs_user_input" || issue.reviewState === "source_conflict",
     });
