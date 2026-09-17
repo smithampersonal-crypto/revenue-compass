@@ -362,6 +362,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
     targetKey: input.targetKey,
     section: input.section,
     state,
+    severity: state,
     reasonCode: input.reasonCode,
     reason: input.reason,
     guidanceIds: [...input.guidanceIds].sort((a, b) => a - b),
