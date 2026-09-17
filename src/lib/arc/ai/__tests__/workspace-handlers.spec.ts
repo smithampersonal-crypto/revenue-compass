@@ -398,6 +398,30 @@ describe("deliberate analyze / re-analyze", () => {
     ).rejects.toThrow(AI_WORKSPACE_NOT_EDITABLE);
     expect(calls.createRun).toBe(0);
   });
+
+  // Phase 9G — Task 5. The disposition is derived from persisted lifecycle
+  // facts, never from elapsed time, a run id or anything the browser knows.
+  it("tells a newly created run apart from a reconnect", async () => {
+    const created = await requestAiAnalysisHandler(fixture().deps, revisionCaller);
+    expect(created.executionDisposition).toBe("start_execution");
+
+    const active = runRow({ id: "run-active", stage: "analyzing" });
+    const rejoined = await requestAiAnalysisHandler(
+      fixture({ activeRun: active, latestRun: active }).deps,
+      revisionCaller,
+    );
+    expect(rejoined.executionDisposition).toBe("reconnect");
+    expect(rejoined.activeRun?.runId).toBe("run-active");
+  });
+
+  it("calls a finished earlier run a new execution, not a reconnect", async () => {
+    const done = runRow({ id: "run-done", stage: "succeeded" });
+    const requested = await requestAiAnalysisHandler(
+      fixture({ latestRun: done, snapshot: { lastSuccessfulRunId: "run-done" } }).deps,
+      revisionCaller,
+    );
+    expect(requested.executionDisposition).toBe("start_execution");
+  });
 });
 
 describe("browser-facing review actions", () => {

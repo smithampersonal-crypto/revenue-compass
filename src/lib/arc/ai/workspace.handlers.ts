@@ -96,6 +96,18 @@ export interface AiWorkspaceStateDto {
   failure: AiFailurePresentation | null;
 }
 
+/**
+ * Phase 9G — Task 5. Whether the deliberate action that made this request owns
+ * the execution of a newly created run, or simply rejoined a run that was
+ * already active. Derived on the server from persisted lifecycle facts; it
+ * exposes no stage name, no provider detail and no new authority.
+ */
+export type AiExecutionDisposition = "start_execution" | "reconnect";
+
+export interface AiAnalysisRequestDto extends AiWorkspaceStateDto {
+  executionDisposition: AiExecutionDisposition;
+}
+
 /* ------------------------------------------------------------ store shape */
 
 /** A run row plus the trusted failure facts the registry selects from. */
@@ -280,10 +292,18 @@ export async function aiWorkspaceStateHandler(
 export async function requestAiAnalysisHandler(
   deps: AiWorkspaceDeps,
   caller: AiCallerScope,
-): Promise<AiWorkspaceStateDto> {
+): Promise<AiAnalysisRequestDto> {
   await assertEditableScope(deps.store, caller);
+
+  // Server-derived disposition. The browser must never decide whether it is
+  // starting a new analysis or rejoining one already running: it cannot see
+  // run history, and elapsed time, run ids and React state prove nothing.
+  const before = await deps.store.findLatestRunForScope(scopeOf(caller));
+  const reconnect = before !== null && isActiveStage(before.stage);
+
   await startAiAnalysisHandler({ ...deps, store: deps.store }, caller);
-  return aiWorkspaceStateHandler(deps, caller);
+  const state = await aiWorkspaceStateHandler(deps, caller);
+  return { ...state, executionDisposition: reconnect ? "reconnect" : "start_execution" };
 }
 
 /** Yellow affirmation. The accepted Task 2 handler decides everything. */

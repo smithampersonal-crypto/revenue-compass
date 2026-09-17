@@ -36,6 +36,7 @@ import {
   aiWorkspaceStateHandler,
   requestAiAnalysisHandler,
   resolveAiReviewIssueAction,
+  type AiAnalysisRequestDto,
   type AiWorkspaceDeps,
   type AiWorkspaceStateDto,
 } from "./workspace.handlers";
@@ -88,7 +89,7 @@ export const requestAiAnalysis = createServerFn({ method: "POST" })
   .inputValidator((input: { revisionId?: string | null } | undefined) => ({
     revisionId: parseRevisionTarget(input),
   }))
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+  .handler(async ({ data }): Promise<AiAnalysisRequestDto> =>
     safeWorkspaceCall(async () => {
       const deps = await workspaceDeps();
       return requestAiAnalysisHandler(deps, await callerFor(deps, data.revisionId));

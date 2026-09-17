@@ -61,6 +61,15 @@ const SAFE_MESSAGES: ReadonlySet<string> = new Set<string>([
   AI_WORKSPACE_ACTION_FAILED,
 ]);
 
+/**
+ * Phase 9G — Task 5. The client controller needs the same allowlist so an
+ * approved, actionable message stays distinguishable while anything else
+ * collapses into settled generic copy.
+ */
+export function isApprovedWorkspaceMessage(message: string): boolean {
+  return SAFE_MESSAGES.has(message);
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function refuse(message: string): never {
