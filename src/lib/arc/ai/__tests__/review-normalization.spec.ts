@@ -56,6 +56,7 @@ describe("persisted review normalization", () => {
       targetKey: "po:po-1.recognitionMethod",
       section: "step_5",
       state: "resolved",
+      severity: "red",
       reasonCode: "engine_support_gap",
       reason: "Reviewed.",
       guidanceIds: [2],
