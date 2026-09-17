@@ -63,6 +63,7 @@ declare
   v_saved timestamptz;
   v_state_lock integer;
   v_items jsonb;
+  v_before_state jsonb;
   v_next jsonb;
   v_events jsonb;
   n integer;
@@ -257,6 +258,10 @@ begin
 
   /* ----------------------------------------------- 17-18 unknown events */
 
+  select s.review_items, s.lock_version into v_before_state, v_state_lock
+    from public.ai_analysis_state s where s.revision_id = v_rev;
+  select count(*) into n from public.ai_review_events e where e.revision_id = v_rev;
+
   ok := false;
   begin
     perform public.arc_save_draft_with_ai_reconciliation(
@@ -271,11 +276,18 @@ begin
   insert into arc_test_results
   select '17 an unknown reconciliation event is refused', ok;
 
+  -- The WHOLE transaction rolls back: draft, owner lock, sidecar
+  -- reconciliation fields, sidecar lock and the audit trail alike.
   insert into arc_test_results
   select '18 the refused batch left the analysis untouched',
          (select r.canonical_inputs ->> 'transactionPriceInput' from public.analysis_revisions r
            where r.id = v_rev) = '160000'
-     and (select r.lock_version from public.analysis_revisions r where r.id = v_rev) = 3;
+     and (select r.lock_version from public.analysis_revisions r where r.id = v_rev) = 3
+     and (select s.review_items from public.ai_analysis_state s
+           where s.revision_id = v_rev) = v_before_state
+     and (select s.lock_version from public.ai_analysis_state s
+           where s.revision_id = v_rev) = v_state_lock
+     and (select count(*) from public.ai_review_events e where e.revision_id = v_rev) = n;
 
   /* ---------------------------------------------------- 19-23 guest saves */
 
