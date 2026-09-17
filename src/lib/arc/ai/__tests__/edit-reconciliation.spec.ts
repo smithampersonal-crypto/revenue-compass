@@ -669,7 +669,7 @@ describe("review targets react only to their own accounting conclusion", () => {
       targetKey: recognitionTarget,
       section: "step_5",
       state: "resolved",
-      resolution: { method: "affirmed", at: NOW, byUserId: null, note: null },
+      resolution: { kind: "affirmed", at: NOW, method: "individual", reviewFingerprint: "rfp-1" },
     });
     const result = reconcileAiEdits({
       previousDraft: baseDraft(),
