@@ -510,13 +510,22 @@ export function canonicalReviewTargetFingerprint(
   }
 
   if (parsed.family === "transactionPrice") {
-    return valueFingerprint({
-      transactionPriceInput: draft.transactionPriceInput,
-      hasVariableConsideration: draft.hasVariableConsideration,
-      variableConsideration: draft.variableConsiderationComponents
-        .map((row) => canonicalObjectEditFingerprint(draft, row.id) ?? row.id)
-        .sort(),
-    });
+    // The transaction-price family is NOT homogeneous. `input` is the composite
+    // fixed-plus-variable conclusion; `notes` is an ordinary canonical field;
+    // the advisory topics (financing, noncash, consideration payable to the
+    // customer) have no canonical field at all, so ARC has nothing to compare
+    // and must never treat an unrelated accounting edit as a review of them.
+    // Anything else is unknown and fails closed for the same reason.
+    if (parsed.field === "input") {
+      return valueFingerprint({
+        transactionPriceInput: draft.transactionPriceInput,
+        hasVariableConsideration: draft.hasVariableConsideration,
+        variableConsideration: draft.variableConsiderationComponents
+          .map((row) => canonicalObjectEditFingerprint(draft, row.id) ?? row.id)
+          .sort(),
+      });
+    }
+    if (parsed.field !== "notes") return null;
   }
 
   const { representable, value } = canonicalFieldValue(draft, targetKey);
