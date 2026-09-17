@@ -498,18 +498,33 @@ export function AnalysisProvider({
     return () => clearTimeout(timer);
   }, [draft, persistenceEnabled, loaded, runSave, savedSnapshot]);
 
-  // Explicit reload is a real loading boundary: the workspace stops being
-  // editable and stops autosaving until the new server copy has arrived.
+  /**
+   * The one authoritative reload boundary: the workspace stops being editable
+   * and stops autosaving until a fresh server copy has been adopted.
+   *
+   * `keepWritesBlocked` is the difference between the two callers. An explicit
+   * reload deliberately clears a prior conflict or write block, because the
+   * accountant asked for the server copy. An AI-success reload must not: the
+   * block it just set has to survive until the applied draft is adopted, which
+   * is the moment the adoption path re-derives it from `readOnly`.
+   */
+  const beginAuthoritativeReload = useCallback(
+    (options: { keepWritesBlocked: boolean }) => {
+      if (!options.keepWritesBlocked) blockedRef.current = false;
+      setLoaded(null);
+      setLockVersion(null);
+      setSavedSnapshot(null);
+      savedSnapshotRef.current = null;
+      setStatus({ kind: "loading" });
+      setLoadEpoch(Date.now());
+      void revisionQuery.refetch();
+    },
+    [revisionQuery],
+  );
+
   const reload = useCallback(() => {
-    blockedRef.current = false;
-    setLoaded(null);
-    setLockVersion(null);
-    setSavedSnapshot(null);
-    savedSnapshotRef.current = null;
-    setStatus({ kind: "loading" });
-    setLoadEpoch(Date.now());
-    void revisionQuery.refetch();
-  }, [revisionQuery]);
+    beginAuthoritativeReload({ keepWritesBlocked: false });
+  }, [beginAuthoritativeReload]);
 
   /**
    * A source-document mutation advanced the same revision's lock. Adopt it as
