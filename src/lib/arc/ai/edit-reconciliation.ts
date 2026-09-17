@@ -159,11 +159,47 @@ export function canonicalFieldValue(
     const record = draft as unknown as Record<string, unknown>;
     return { representable: parsed.field in record, value: record[parsed.field] ?? null };
   }
+  if (parsed.family === "object") return { representable: false, value: null };
 
   const row = rowFor(draft, parsed.family, parsed.canonicalId!) as
     Record<string, unknown> | undefined;
   if (row === undefined) return { representable: true, value: null };
+
+  // A usage meter created from an AI proposal has ONE deterministic identity,
+  // exactly as the merge engine derives it. Meters are never fuzzy-matched.
+  if (parsed.family === "vc" && parsed.field.startsWith(`${METER_PREFIX}.`)) {
+    const property = parsed.field.slice(METER_PREFIX.length + 1);
+    const meter = aiMeterOf(row, parsed.canonicalId!);
+    if (meter === undefined) return { representable: true, value: null };
+    return { representable: property in meter, value: meter[property] ?? null };
+  }
+
+  // `servicePeriod` is a synthetic recognition target, not a stored property:
+  // it exists only when BOTH authoritative service dates are present.
+  if (parsed.family === "po" && parsed.field === SERVICE_PERIOD_FIELD) {
+    const start = row["serviceStart"];
+    const end = row["serviceEnd"];
+    const complete = isSupplied(start) && isSupplied(end);
+    return { representable: true, value: complete ? { start, end } : null };
+  }
+
+  // The Phase 5C workpaper is a composite conclusion, never a scalar: it is
+  // deliberately not something an automatic red cure can prove complete.
+  if (parsed.family === "modification" && parsed.field === PHASE_5C_FIELD) {
+    return { representable: false, value: null };
+  }
+
   return { representable: true, value: row[parsed.field] ?? null };
+}
+
+const METER_PREFIX = "meter";
+const SERVICE_PERIOD_FIELD = "servicePeriod";
+const PHASE_5C_FIELD = "phase5cFacts";
+
+/** The single meter identity the merge engine creates for a VC component. */
+function aiMeterOf(row: Record<string, unknown>, canonicalId: string): Row | undefined {
+  const meters = Array.isArray(row["meters"]) ? (row["meters"] as Row[]) : [];
+  return meters.find((meter) => meter["id"] === `${canonicalId}-m1`);
 }
 
 /** A deterministic marker for "the object this target names no longer exists". */
