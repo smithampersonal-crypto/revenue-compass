@@ -30,11 +30,29 @@ const OBJECT_FAMILIES: readonly ObjectFamily[] = [
   "cash",
 ];
 
-/** Families that are advisory or diagnostic and have no canonical value. */
-const UNREPRESENTABLE_PREFIXES = ["additionalTopic:", "issue:"];
+/**
+ * Families that are advisory or diagnostic and have no canonical value, plus
+ * relationship and tombstone keys ARC cannot bind to an authoritative
+ * canonical object. A tombstoned item legitimately has no current canonical
+ * representation, so it is never fingerprinted against a live object.
+ */
+const UNREPRESENTABLE_PREFIXES = [
+  "additionalTopic:",
+  "issue:",
+  "tombstone:",
+  "recognition:",
+  "ssp:",
+];
 
 interface ParsedKey {
-  family: ObjectFamily | "contract" | "criterion" | "transactionPrice" | "structural" | null;
+  family:
+    | ObjectFamily
+    | "contract"
+    | "criterion"
+    | "transactionPrice"
+    | "structural"
+    | "object"
+    | null;
   canonicalId: string | null;
   field: string | null;
   criterionId?: string;
@@ -44,6 +62,11 @@ interface ParsedKey {
 export function parseCanonicalKey(key: string): ParsedKey {
   for (const prefix of UNREPRESENTABLE_PREFIXES) {
     if (key.startsWith(prefix)) return { family: null, canonicalId: null, field: null };
+  }
+  // A whole object retained across re-analysis: the complete canonical object
+  // carrying this ID, whatever family it belongs to.
+  if (key.startsWith("object:")) {
+    return { family: "object", canonicalId: key.slice("object:".length), field: null };
   }
   for (const family of OBJECT_FAMILIES) {
     if (key.startsWith(`${family}:`)) {
