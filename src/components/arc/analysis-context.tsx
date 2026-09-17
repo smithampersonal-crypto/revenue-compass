@@ -582,9 +582,13 @@ export function AnalysisProvider({
    * applied result, and the authoritative copy is then reloaded.
    */
   const reloadAfterAiApply = useCallback(() => {
+    // Writes stop here and stay stopped: a queued pre-AI save that settles
+    // during the reload finds the workspace blocked and is abandoned, and if
+    // the reload itself fails the workspace stays fail-closed rather than
+    // autosaving the stale local draft over the applied result.
     blockedRef.current = true;
-    reload();
-  }, [reload]);
+    beginAuthoritativeReload({ keepWritesBlocked: true });
+  }, [beginAuthoritativeReload]);
 
   const getAiState = useServerFn(getAiWorkspaceState);
   const requestAi = useServerFn(requestAiAnalysis);
