@@ -644,8 +644,8 @@ export function AnalysisProvider({
       const result = await runSave(target);
       if (!result.ok) return { ok: false };
     }
-
   }, [persistenceEnabled, runSave]);
+
 
   /**
    * A successful AI run applied a new canonical draft on the server. Autosave
