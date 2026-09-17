@@ -421,4 +421,59 @@ describe("the analysis workspace AI controller", () => {
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await waitFor(() => expect(screen.getByTestId("save-status")).toHaveTextContent("saved"));
   });
+
+  // Cross-generation ownership: a pre-AI request that is still physically in
+  // flight must not own the newly adopted workspace's autosave slot, or a
+  // valid post-AI edit would never be saved at all.
+  for (const variant of ["settles successfully", "rejects"] as const) {
+    it(`saves a post-AI edit while the stale pre-AI save still ${variant}`, async () => {
+      const user = userEvent.setup();
+      renderProvider();
+      await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+      await user.click(screen.getByRole("button", { name: "Analyze" }));
+      await waitFor(() => expect(server.executes).toBe(1));
+
+      // A pre-AI save begins and is held indefinitely.
+      savePending.hold = true;
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(1));
+
+      // The run succeeds and the applied canonical draft is adopted.
+      guestServer.notes = "AI applied";
+      guestServer.lockVersion = 7;
+      server.current = succeeded;
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2_100));
+      });
+      await waitFor(() => expect(screen.getByTestId("customer")).toHaveTextContent("AI applied"));
+      expect(screen.getByTestId("lock")).toHaveTextContent("7");
+
+      // The stale request is still unresolved. New saves must not be held.
+      savePending.hold = false;
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+      });
+
+      // A current-generation save was issued against the adopted lock.
+      await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(2));
+      expect(guestSave.mock.calls[1]?.[0]?.data.expectedLockVersion).toBe(7);
+      await waitFor(() => expect(screen.getByTestId("lock")).toHaveTextContent("8"));
+      expect(screen.getByTestId("customer")).toHaveTextContent("Edited AI applied");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("saved");
+
+      // Only now does the superseded request settle. It changes nothing.
+      if (variant === "rejects") savePending.rejectWith = "SQLSTATE 40001 service_role";
+      await act(async () => {
+        releaseHeldSaves();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      });
+
+      expect(screen.getByTestId("customer")).toHaveTextContent("Edited AI applied");
+      expect(screen.getByTestId("lock")).toHaveTextContent("8");
+      expect(screen.getByTestId("save-status")).toHaveTextContent("saved");
+      expect(guestSave).toHaveBeenCalledTimes(2);
+    });
+  }
 });
