@@ -56,6 +56,7 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
+import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
   deriveReviewItem,
