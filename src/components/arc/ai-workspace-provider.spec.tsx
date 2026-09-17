@@ -78,12 +78,22 @@ vi.mock("@/lib/arc/ai/runs.functions", () => ({
   },
 }));
 
+/** The authoritative guest copy the server would return on a fresh load. */
+const guestServer = vi.hoisted(() => ({ lockVersion: 1, customerName: "", loads: 0 }));
+
+/** Lets a queued save be held in flight, the way a slow network would. */
+const savePending = vi.hoisted(() => ({ release: null as null | (() => void) }));
+
 const guestSave = vi.hoisted(() =>
-  vi.fn(async () => ({
-    ok: true as const,
-    lockVersion: 2,
-    savedAt: new Date().toISOString(),
-  })),
+  vi.fn(async () => {
+    if (savePending.release === null) {
+      return { ok: true as const, lockVersion: 2, savedAt: new Date().toISOString() };
+    }
+    await new Promise<void>((resolve) => {
+      savePending.release = resolve;
+    });
+    return { ok: true as const, lockVersion: 2, savedAt: new Date().toISOString() };
+  }),
 );
 
 vi.mock("@/lib/arc/persistence/guest.functions", async () => {
@@ -91,9 +101,10 @@ vi.mock("@/lib/arc/persistence/guest.functions", async () => {
   return {
     resumeGuestWorkspace: async () => ({
       kind: "guest" as const,
-      draft: createEmptyDraft(),
-      lockVersion: 1,
+      draft: { ...createEmptyDraft(), customerName: guestServer.customerName },
+      lockVersion: guestServer.lockVersion,
       expiresAt: new Date(Date.now() + 9 * 3_600_000).toISOString(),
+      loaded: (guestServer.loads += 1),
       schemaVersion: "arc.workflow.v1",
       resumed: false,
     }),
@@ -107,13 +118,19 @@ vi.mock("@/lib/arc/persistence/guest.functions", async () => {
 });
 
 function Probe() {
-  const { ai, setDraft } = useAnalysis();
+  const { ai, setDraft, draft, persistence } = useAnalysis();
   return (
     <div>
       <span data-testid="load">{ai.loadState}</span>
       <span data-testid="mode">{ai.analyzeMode}</span>
       <span data-testid="phase">{ai.progress?.phase ?? "none"}</span>
       <span data-testid="analysis">{ai.workspace?.hasAnalysis ? "yes" : "no"}</span>
+      <span data-testid="customer">{draft.customerName || "empty"}</span>
+      <span data-testid="lock">{persistence.lockVersion ?? "none"}</span>
+      <span data-testid="save-status">{persistence.status.kind}</span>
+      <button type="button" onClick={() => persistence.reload()}>
+        Reload
+      </button>
       <button type="button" onClick={() => void ai.analyze()}>
         Analyze
       </button>
@@ -141,6 +158,10 @@ beforeEach(() => {
   server.current = idle;
   server.reads = 0;
   server.executes = 0;
+  guestServer.lockVersion = 1;
+  guestServer.customerName = "";
+  guestServer.loads = 0;
+  savePending.release = null;
   guestSave.mockClear();
 });
 
@@ -182,5 +203,68 @@ describe("the analysis workspace AI controller", () => {
       await new Promise((resolve) => setTimeout(resolve, 1_200));
     });
     expect(guestSave.mock.calls.length).toBe(savesAfterSuccess);
+  });
+}
+
+  // The AI-success reload is a write barrier, not an ordinary reload: a queued
+  // pre-AI save that settles afterwards must never be re-issued against the
+  // draft the server has just applied.
+  it("keeps autosave blocked from AI success until the applied draft is adopted", async () => {
+    const user = userEvent.setup();
+    savePending.release = () => undefined;
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await waitFor(() => expect(server.executes).toBe(1));
+
+    // The accountant keeps editing while the run is active: the queued save is
+    // issued, but it is still in flight and has not become authoritative.
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(1));
+    const savesBeforeSuccess = guestSave.mock.calls.length;
+
+    // The run succeeds; the server holds the applied canonical draft.
+    guestServer.customerName = "AI applied";
+    guestServer.lockVersion = 5;
+    server.current = succeeded;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2_100));
+    });
+    await waitFor(() => expect(screen.getByTestId("analysis")).toHaveTextContent("yes"));
+
+    // Now the queued pre-AI save settles.
+    await act(async () => {
+      savePending.release?.();
+      savePending.release = () => undefined;
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+    });
+
+    expect(guestSave.mock.calls.length).toBe(savesBeforeSuccess);
+    await waitFor(() => expect(screen.getByTestId("customer")).toHaveTextContent("AI applied"));
+    expect(screen.getByTestId("lock")).toHaveTextContent("5");
+
+    // Autosave resumes only against the adopted authoritative draft.
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await act(async () => {
+      savePending.release?.();
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+    });
+    expect(guestSave.mock.calls.length).toBe(savesBeforeSuccess + 1);
+  });
+
+  it("still clears a prior write block on an ordinary explicit reload", async () => {
+    const user = userEvent.setup();
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    guestServer.customerName = "Server copy";
+    guestServer.lockVersion = 3;
+    await user.click(screen.getByRole("button", { name: "Reload" }));
+    await waitFor(() => expect(screen.getByTestId("customer")).toHaveTextContent("Server copy"));
+    expect(screen.getByTestId("lock")).toHaveTextContent("3");
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(guestSave).toHaveBeenCalled());
   });
 });
