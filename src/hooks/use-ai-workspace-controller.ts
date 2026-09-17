@@ -223,7 +223,8 @@ export function useAiWorkspaceController(
   useEffect(() => {
     generationRef.current += 1;
     adoptedSeqRef.current = 0;
-    readInFlightRef.current = false;
+    // The previous scope's read is abandoned, not awaited.
+    readInFlightRef.current = null;
     terminalHandledRef.current = new Set();
     workspaceRef.current = null;
     setWorkspace(null);
