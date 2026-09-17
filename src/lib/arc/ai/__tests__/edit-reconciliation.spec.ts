@@ -1157,3 +1157,167 @@ describe("the object:<id> retained-object review target", () => {
     expect(canonicalReviewTargetFingerprint(baseDraft(), `object:${PO_ID}-missing`)).toBeNull();
   });
 });
+
+describe("transaction-price review targets", () => {
+  const NOTES = fieldKeys.transactionPrice("notes");
+  const ADVISORY = [
+    fieldKeys.transactionPrice("financing"),
+    fieldKeys.transactionPrice("noncash"),
+    fieldKeys.transactionPrice("payableToCustomer"),
+  ];
+
+  it("fingerprints the notes target against the canonical notes field", () => {
+    const previous = baseDraft();
+    const before = canonicalReviewTargetFingerprint(previous, NOTES);
+    const after = canonicalReviewTargetFingerprint(
+      edit((draft) => {
+        draft.transactionPriceNotes = "Fixed fee of 120,000 with no variability.";
+      }),
+      NOTES,
+    );
+    expect(before).not.toBeNull();
+    expect(after).not.toBe(before);
+  });
+
+  it("does not move the notes fingerprint when only the input or a VC component changes", () => {
+    const previous = baseDraft();
+    const before = canonicalReviewTargetFingerprint(previous, NOTES);
+    expect(
+      canonicalReviewTargetFingerprint(
+        edit((draft) => {
+          draft.transactionPriceInput = "130000";
+        }),
+        NOTES,
+      ),
+    ).toBe(before);
+    expect(
+      canonicalReviewTargetFingerprint(
+        edit((draft) => {
+          draft.hasVariableConsideration = true;
+          draft.variableConsiderationComponents = [
+            createVcComponentDraft(1, "vc-usage", "usage_as_incurred"),
+          ];
+        }),
+        NOTES,
+      ),
+    ).toBe(before);
+  });
+
+  it("resolves an open notes yellow with method edited", () => {
+    const previous = baseDraft();
+    const open = reviewItem({
+      id: "rev-notes",
+      targetKey: NOTES,
+      section: "step_3",
+      reviewFingerprint: "rf-notes",
+    });
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edit((draft) => {
+        draft.transactionPriceNotes = "Manual conclusion.";
+      }),
+      currentAiState: { ...aiState(previous), reviewItems: [open] },
+    });
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["yellow_affirmed"]);
+    const stamped = applyEditReviewIntents(result.aiState, result.reviewEvents, NOW);
+    const resolution = stamped.reviewItems[0]!.resolution;
+    expect(resolution?.kind === "affirmed" ? resolution.method : null).toBe("edited");
+  });
+
+  it("reopens a resolved notes item on a later notes edit", () => {
+    const previous = baseDraft();
+    const resolved = reviewItem({
+      id: "rev-notes",
+      targetKey: NOTES,
+      section: "step_3",
+      state: "resolved",
+      resolution: { kind: "affirmed", at: NOW, method: "individual", reviewFingerprint: "rf-n" },
+      reviewFingerprint: "rf-n",
+    });
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: edit((draft) => {
+        draft.transactionPriceNotes = "Revisited.";
+      }),
+      currentAiState: { ...aiState(previous), reviewItems: [resolved] },
+    });
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["review_item_reopened"]);
+  });
+
+  it("leaves a notes review untouched when only the input or a VC component changes", () => {
+    const previous = baseDraft();
+    for (const mutate of [
+      (draft: WorkflowDraft) => {
+        draft.transactionPriceInput = "130000";
+      },
+      (draft: WorkflowDraft) => {
+        draft.hasVariableConsideration = true;
+        draft.variableConsiderationComponents = [
+          createVcComponentDraft(1, "vc-usage", "usage_as_incurred"),
+        ];
+      },
+    ]) {
+      const result = reconcileAiEdits({
+        previousDraft: previous,
+        nextDraft: edit(mutate),
+        currentAiState: {
+          ...aiState(previous),
+          reviewItems: [
+            reviewItem({ id: "rev-notes", targetKey: NOTES, reviewFingerprint: "rf-notes" }),
+          ],
+        },
+      });
+      expect(result.reviewEvents).toEqual([]);
+      expect(result.aiState.reviewItems[0]!.state).toBe("yellow");
+    }
+  });
+
+  it("treats the advisory transaction-price topics as unrepresentable", () => {
+    const draft = baseDraft();
+    for (const key of ADVISORY) {
+      expect(canonicalReviewTargetFingerprint(draft, key)).toBeNull();
+    }
+    expect(
+      canonicalReviewTargetFingerprint(draft, fieldKeys.transactionPrice("futureAdvisoryThing")),
+    ).toBeNull();
+  });
+
+  it("never resolves or reopens an advisory topic from unrelated canonical edits", () => {
+    const previous = baseDraft();
+    for (const key of ADVISORY) {
+      for (const mutate of [
+        (draft: WorkflowDraft) => {
+          draft.transactionPriceInput = "130000";
+        },
+        (draft: WorkflowDraft) => {
+          draft.hasVariableConsideration = true;
+          draft.variableConsiderationComponents = [
+            createVcComponentDraft(1, "vc-usage", "usage_as_incurred"),
+          ];
+        },
+      ]) {
+        const open = reviewItem({ id: "rev-adv", targetKey: key, reviewFingerprint: "rf-adv" });
+        const resolved = reviewItem({
+          id: "rev-adv2",
+          targetKey: key,
+          state: "resolved",
+          resolution: {
+            kind: "affirmed",
+            at: NOW,
+            method: "individual",
+            reviewFingerprint: "rf-adv2",
+          },
+          reviewFingerprint: "rf-adv2",
+        });
+        const result = reconcileAiEdits({
+          previousDraft: previous,
+          nextDraft: edit(mutate),
+          currentAiState: { ...aiState(previous), reviewItems: [open, resolved] },
+        });
+        expect(result.reviewEvents).toEqual([]);
+        expect(result.aiState.reviewItems[0]!.state).toBe("yellow");
+        expect(result.aiState.reviewItems[1]!.state).toBe("resolved");
+      }
+    }
+  });
+});
