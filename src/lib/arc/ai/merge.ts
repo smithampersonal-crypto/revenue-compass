@@ -1399,7 +1399,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
         fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
         currency: analysis.transactionPrice.currency.value,
-        currencyBasis: analysis.transactionPrice.currency.basis,
+        currencyRationale: analysis.transactionPrice.currency.rationale,
         conclusion: analysis.transactionPrice.transactionPriceConclusion.conclusion,
         conclusionRationale: analysis.transactionPrice.transactionPriceConclusion.rationale,
       },
