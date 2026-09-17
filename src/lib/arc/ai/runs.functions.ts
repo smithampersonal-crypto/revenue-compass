@@ -14,67 +14,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { GUIDANCE_REGISTRY_HASH } from "@/lib/arc/guidance/registry";
-import { readGuestCookie } from "@/lib/arc/persistence/guest";
-
 import type { AiRunExecutionStore } from "./orchestrator";
 import {
-  deriveAiCaller,
   runStatusHandler,
   startAiAnalysisHandler,
   usageSummaryHandler,
-  type AiCallerRequest,
   type AiCallerScope,
   type AiRunDeps,
   type AiRunStatusDto,
   type AiUsageSummaryDto,
 } from "./runs.handlers";
-
-/** True on https; local http development falls back to a non-`__Host-` name. */
-function isSecureRequest(url: string, forwardedProto: string | null): boolean {
-  if (forwardedProto) return forwardedProto.split(",")[0]!.trim() === "https";
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Optional session identity.
- *
- * An AI run can be started from a saved analysis (session required) or from a
- * temporary workspace (session optional), so the bearer token is verified when
- * present instead of being required by middleware. An absent or invalid token
- * simply yields an anonymous caller; it never upgrades one.
- */
-async function verifiedUserId(request: Request): Promise<string | null> {
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) return null;
-  const token = header.slice("Bearer ".length).trim();
-  if (token.split(".").length !== 3) return null;
-
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) return null;
-
-  const { createClient } = await import("@supabase/supabase-js");
-  const client = createClient(url, key, {
-    global: {
-      fetch: (input, init) => {
-        const headers = new Headers(init?.headers);
-        if (key.startsWith("sb_") && headers.get("Authorization") === `Bearer ${key}`) {
-          headers.delete("Authorization");
-        }
-        headers.set("apikey", key);
-        return fetch(input, { ...init, headers });
-      },
-    },
-    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await client.auth.getClaims(token);
-  if (error || !data?.claims?.sub) return null;
-  return data.claims.sub;
-}
 
 async function runDeps(): Promise<AiRunDeps & { store: AiRunExecutionStore }> {
   const [{ createAiRunStore }, { AI_LIMITS }] = await Promise.all([
@@ -99,27 +48,16 @@ async function runDeps(): Promise<AiRunDeps & { store: AiRunExecutionStore }> {
 }
 
 /**
- * Builds the caller from server-held evidence only: the verified session
- * subject and the hash of the HttpOnly credential. `requestedRevisionId` is a
- * resource target, and ownership of it is proven inside `deriveAiCaller`.
+ * One shared caller-resolution implementation lives in `caller.server.ts`, so
+ * the run surface and the Phase 9G workspace surface cannot drift into two
+ * subtly different authentication rules. Behaviour is unchanged.
  */
 async function callerFor(
   deps: AiRunDeps,
   requestedRevisionId: string | null,
 ): Promise<AiCallerScope> {
-  const { getRequest } = await import("@tanstack/react-start/server");
-  const request = getRequest();
-  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
-  const rawToken = readGuestCookie(request.headers.get("cookie"), secure);
-
-  const identity: AiCallerRequest = {
-    authenticatedUserId: await verifiedUserId(request),
-    guestTokenHash: rawToken
-      ? await (await import("@/lib/arc/persistence/guest")).hashGuestToken(rawToken)
-      : null,
-    requestedRevisionId,
-  };
-  return deriveAiCaller(deps.store, identity);
+  const { resolveAiCallerFromRequest } = await import("./caller.server");
+  return resolveAiCallerFromRequest(deps.store, requestedRevisionId);
 }
 
 const revisionTarget = (input: { revisionId?: string | null } | undefined) =>
