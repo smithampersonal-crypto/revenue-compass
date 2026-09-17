@@ -111,7 +111,7 @@ export function GuestSourceDocumentsWorkspace({
 }: {
   autoOpenUpload?: boolean;
 }) {
-  const { persistence } = useAnalysis();
+  const { persistence, ai } = useAnalysis();
   const queryClient = useQueryClient();
 
   const load = useServerFn(loadGuestDocumentWorkspace);
@@ -246,7 +246,8 @@ export function GuestSourceDocumentsWorkspace({
   const selected = data?.selected ?? [];
   const others = library.filter((document) => !document.selected);
   const authoritative = typeof lockVersion === "number" && !persistence.readOnly;
-  const busy = selection.isPending || !authoritative || recovering;
+  const sourceLocked = ai.locks.sourceDocuments;
+  const busy = selection.isPending || !authoritative || recovering || sourceLocked;
 
   return (
     <div className="space-y-8">
@@ -324,7 +325,7 @@ export function GuestSourceDocumentsWorkspace({
           onUpload={async (input) => {
             // The shared temporary lock must be authoritative before an upload
             // may claim a place in this analysis.
-            if (recoveringRef.current || typeof lockVersion !== "number") {
+            if (recoveringRef.current || sourceLocked || typeof lockVersion !== "number") {
               return "This analysis is still loading. Please try again in a moment.";
             }
 
@@ -403,7 +404,7 @@ export function GuestSourceDocumentsWorkspace({
                 variant="destructive"
                 onClick={async () => {
                   const target = deleting;
-                  if (recoveringRef.current) return;
+                  if (recoveringRef.current || sourceLocked) return;
                   setDeleting(null);
                   try {
                     const result = (await hardDelete({

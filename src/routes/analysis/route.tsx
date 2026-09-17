@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
+import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
@@ -96,7 +97,7 @@ function AnalysisLayout() {
 }
 
 function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
-  const { unknownSample, persistence, canEdit, historical } = useAnalysis();
+  const { unknownSample, persistence, canEdit, historical, ai } = useAnalysis();
 
   return (
     <PublicAppShell>
@@ -145,6 +146,8 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
         </header>
 
         <AnalysisContextBar />
+
+        <AiAnalysisAction ai={ai} />
 
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a

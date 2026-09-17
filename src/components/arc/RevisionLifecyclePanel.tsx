@@ -26,7 +26,7 @@ const SECONDARY_CLASS =
  * lock version. All accounting is done by the server from the persisted draft.
  */
 export function RevisionLifecyclePanel() {
-  const { persistence, result, workpaper } = useAnalysis();
+  const { persistence, result, workpaper, ai } = useAnalysis();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [blockingIssues, setBlockingIssues] = useState<string[]>([]);
@@ -192,7 +192,7 @@ export function RevisionLifecyclePanel() {
             <button
               type="button"
               className={BUTTON_CLASS}
-              disabled={!gate.canFinalize || finalizeMutation.isPending}
+              disabled={!gate.canFinalize || finalizeMutation.isPending || ai.locks.finalize}
               onClick={() => finalizeMutation.mutate()}
             >
               {finalizeMutation.isPending ? "Finalizing…" : "Finalize analysis"}
@@ -213,7 +213,7 @@ export function RevisionLifecyclePanel() {
             <button
               type="button"
               className={BUTTON_CLASS}
-              disabled={!gate.canFinalize}
+              disabled={!gate.canFinalize || ai.locks.finalize}
               onClick={() => setConfirming(true)}
             >
               Finalize analysis

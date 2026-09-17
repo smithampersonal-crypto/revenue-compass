@@ -143,6 +143,7 @@ function DocumentRow({
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={actions.busy}
                 onClick={() => actions.onEdit?.(document)}
               >
                 Edit details
@@ -195,7 +196,7 @@ function DocumentRow({
 }
 
 export function SourceDocumentsWorkspace() {
-  const { persistence } = useAnalysis();
+  const { persistence, ai } = useAnalysis();
   const revision = persistence.revision;
   const queryClient = useQueryClient();
 
@@ -420,7 +421,8 @@ export function SourceDocumentsWorkspace() {
    * retained ids as though they were the current authoritative workspace.
    */
   const authoritative = Boolean(revision) && typeof lockVersion === "number";
-  const busy = selection.isPending || !authoritative || recovering;
+  const sourceLocked = ai.locks.sourceDocuments;
+  const busy = selection.isPending || !authoritative || recovering || sourceLocked;
 
   return (
     <div className="space-y-8">
@@ -508,7 +510,7 @@ export function SourceDocumentsWorkspace() {
                       : undefined,
                   onEdit: (item) => setEditing(item),
                   onArchive: async (item) => {
-                    if (recoveringRef.current) return;
+                    if (recoveringRef.current || sourceLocked) return;
                     const result = (await setArchived({
                       data: { sourceDocumentId: item.id, archived: !item.archived },
                     })) as SourceMutationResult;
@@ -535,7 +537,7 @@ export function SourceDocumentsWorkspace() {
             // The shared revision lock must be authoritative before an upload
             // may claim a place in this revision. A reload in flight never
             // silently degrades into an unversioned finalization.
-            if (recoveringRef.current || typeof lockVersion !== "number") {
+            if (recoveringRef.current || sourceLocked || typeof lockVersion !== "number") {
               return "This analysis is still loading. Please try again in a moment.";
             }
 
@@ -646,6 +648,7 @@ export function SourceDocumentsWorkspace() {
           document={editing}
           onClose={() => setEditing(null)}
           onSave={async (input) => {
+            if (sourceLocked) return;
             const result = (await editDetails({
               data: { sourceDocumentId: editing.id, ...input },
             })) as SourceMutationResult;
@@ -673,7 +676,7 @@ export function SourceDocumentsWorkspace() {
                 variant="destructive"
                 onClick={async () => {
                   const target = deleting;
-                  if (recoveringRef.current) return;
+                  if (recoveringRef.current || sourceLocked) return;
                   setDeleting(null);
                   try {
                     const result = (await hardDelete({
