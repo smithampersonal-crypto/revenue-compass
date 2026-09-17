@@ -65,6 +65,8 @@ export interface AiReviewItem {
   targetKey: string;
   section: GuidanceReviewSection;
   state: AiReviewItemState;
+  /** The severity this item was raised at. Never changes when it is resolved. */
+  severity: AiReviewSeverity;
   reasonCode: AiReviewReasonCode;
   reason: string;
   guidanceIds: number[];
