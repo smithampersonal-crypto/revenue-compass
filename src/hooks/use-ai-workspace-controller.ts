@@ -198,9 +198,10 @@ export function useAiWorkspaceController(
   const read = useCallback(async (): Promise<void> => {
     if (!enabled) return;
     if (readInFlightRef.current) return;
-    readInFlightRef.current = true;
     const generation = generationRef.current;
     const seq = ++requestSeqRef.current;
+    const token = { generation, seq };
+    readInFlightRef.current = token;
     try {
       const state = await portsRef.current.getWorkspaceState({
         revisionId: revisionIdRef.current,
