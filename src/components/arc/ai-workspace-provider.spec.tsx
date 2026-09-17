@@ -79,7 +79,7 @@ vi.mock("@/lib/arc/ai/runs.functions", () => ({
 }));
 
 /** The authoritative guest copy the server would return on a fresh load. */
-const guestServer = vi.hoisted(() => ({ lockVersion: 1, customerName: "" }));
+const guestServer = vi.hoisted(() => ({ lockVersion: 1, notes: "" }));
 
 /** Lets a queued save be held in flight, the way a slow network would. */
 const savePending = vi.hoisted(() => ({ release: null as null | (() => void) }));
@@ -101,7 +101,7 @@ vi.mock("@/lib/arc/persistence/guest.functions", async () => {
   return {
     resumeGuestWorkspace: async () => ({
       kind: "guest" as const,
-      draft: { ...createEmptyDraft(), customerName: guestServer.customerName },
+      draft: { ...createEmptyDraft(), transactionPriceNotes: guestServer.notes },
       lockVersion: guestServer.lockVersion,
       expiresAt: new Date(Date.now() + 9 * 3_600_000).toISOString(),
       schemaVersion: "arc.workflow.v1",
@@ -124,7 +124,7 @@ function Probe() {
       <span data-testid="mode">{ai.analyzeMode}</span>
       <span data-testid="phase">{ai.progress?.phase ?? "none"}</span>
       <span data-testid="analysis">{ai.workspace?.hasAnalysis ? "yes" : "no"}</span>
-      <span data-testid="customer">{draft.customerName || "empty"}</span>
+      <span data-testid="customer">{draft.transactionPriceNotes || "empty"}</span>
       <span data-testid="lock">{persistence.lockVersion ?? "none"}</span>
       <span data-testid="save-status">{persistence.status.kind}</span>
       <button type="button" onClick={() => persistence.reload()}>
@@ -135,7 +135,7 @@ function Probe() {
       </button>
       <button
         type="button"
-        onClick={() => setDraft((draft) => ({ ...draft, customerName: "Edited" }))}
+        onClick={() => setDraft((current) => ({ ...current, transactionPriceNotes: `Edited ${current.transactionPriceNotes}` }))}
       >
         Edit
       </button>
@@ -158,7 +158,7 @@ beforeEach(() => {
   server.reads = 0;
   server.executes = 0;
   guestServer.lockVersion = 1;
-  guestServer.customerName = "";
+  guestServer.notes = "";
   savePending.release = null;
   guestSave.mockClear();
 });
@@ -223,7 +223,7 @@ describe("the analysis workspace AI controller", () => {
     const savesBeforeSuccess = guestSave.mock.calls.length;
 
     // The run succeeds; the server holds the applied canonical draft.
-    guestServer.customerName = "AI applied";
+    guestServer.notes = "AI applied";
     guestServer.lockVersion = 5;
     server.current = succeeded;
     await act(async () => {
@@ -256,7 +256,7 @@ describe("the analysis workspace AI controller", () => {
     renderProvider();
     await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
 
-    guestServer.customerName = "Server copy";
+    guestServer.notes = "Server copy";
     guestServer.lockVersion = 3;
     await user.click(screen.getByRole("button", { name: "Reload" }));
     await waitFor(() => expect(screen.getByTestId("customer")).toHaveTextContent("Server copy"));
