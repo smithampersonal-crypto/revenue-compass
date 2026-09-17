@@ -11,7 +11,7 @@
 
 import type { AiFinalizationState } from "@/lib/arc/persistence/revisions.handlers";
 
-import { normalizePersistedReviewItems } from "./review-normalization";
+import { normalizePersistedReviewPayload } from "./review-normalization";
 
 const ACTIVE_STAGES = [
   "created",
@@ -46,7 +46,11 @@ export async function readAiFinalizationState(
   // Persisted review JSON passes through the Phase 9G normalizer first: a
   // malformed or unverifiable "resolved" row reopens and therefore blocks
   // finalization instead of slipping past this gate as non-blocking.
-  const reviewItems = normalizePersistedReviewItems(data.review_items);
+  const review = normalizePersistedReviewPayload(data.review_items);
 
-  return { reviewItems, hasActiveRun: (active.count ?? 0) > 0 };
+  return {
+    reviewItems: review.items,
+    hasActiveRun: (active.count ?? 0) > 0,
+    reviewPayloadMalformed: review.malformed,
+  };
 }

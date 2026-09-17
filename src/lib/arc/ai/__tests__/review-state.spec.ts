@@ -379,3 +379,53 @@ describe("base severity survives resolution", () => {
     expect(carryForwardReviewResolutions([redItem], [manualPrior])[0]!.state).toBe("resolved");
   });
 });
+
+describe("only an actually resolved prior item may carry a resolution", () => {
+  const yellowOpen: AiReviewItem = {
+    id: "rev-open",
+    targetKey: "transactionPrice.input",
+    section: "step_3",
+    state: "yellow",
+    severity: "yellow",
+    reasonCode: "manual_value_preserved",
+    reason: "r",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "fp-1",
+    reviewFingerprint: "rfp-1",
+    resolution: {
+      kind: "affirmed",
+      at: "2027-02-01T00:00:00.000Z",
+      method: "individual",
+      reviewFingerprint: "rfp-1",
+    },
+    affirmedAt: "2027-02-01T00:00:00.000Z",
+    affirmedMethod: "individual",
+  };
+
+  it("refuses an affirmation attached to a still-open yellow prior item", () => {
+    expect(
+      carryForwardReviewResolutions([{ ...yellowOpen, resolution: null }], [yellowOpen])[0]!.state,
+    ).toBe("yellow");
+  });
+
+  it("refuses a manual-red resolution attached to a still-open red prior item", () => {
+    const redOpen: AiReviewItem = {
+      ...yellowOpen,
+      state: "red",
+      severity: "red",
+      affirmedAt: null,
+      affirmedMethod: null,
+      resolution: {
+        kind: "manual_red",
+        at: "2027-02-01T00:00:00.000Z",
+        reason: "reviewed_current_treatment",
+        note: null,
+        reviewFingerprint: "rfp-1",
+      },
+    };
+    expect(
+      carryForwardReviewResolutions([{ ...redOpen, resolution: null }], [redOpen])[0]!.state,
+    ).toBe("red");
+  });
+});

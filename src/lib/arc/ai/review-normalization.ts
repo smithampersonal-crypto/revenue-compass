@@ -134,6 +134,9 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
   // fingerprint and is of a kind that this row's base severity may carry.
   const resolution =
     consistent &&
+    // An unresolved row never keeps an active resolution, so it can never
+    // hand one to the next analysis.
+    persistedState === "resolved" &&
     candidate !== null &&
     candidate.reviewFingerprint === reviewFingerprint &&
     resolutionAllowedForSeverity(severity, candidate)
@@ -167,11 +170,34 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
   };
 }
 
+export interface PersistedReviewPayload {
+  /** Every row that could be read and trusted. */
+  items: AiReviewItem[];
+  /**
+   * True when the payload itself was not an array, or when any entry had to be
+   * discarded. Dropping a row is safe for carry-forward — it can never inherit
+   * an approval — but it is NOT safe for finalization: a malformed sidecar is
+   * not the same thing as no sidecar, so that boundary must block on it.
+   */
+  malformed: boolean;
+}
+
+/** Reads persisted review JSON of any ARC vintage, reporting what it could not read. */
+export function normalizePersistedReviewPayload(raw: unknown): PersistedReviewPayload {
+  if (!Array.isArray(raw)) return { items: [], malformed: true };
+  let malformed = false;
+  const items = raw.flatMap((entry) => {
+    const parsed = parseLegacyOrCurrentReviewItem(entry);
+    if (parsed === null) {
+      malformed = true;
+      return [];
+    }
+    return [parsed];
+  });
+  return { items, malformed };
+}
+
 /** Reads persisted review JSON of any ARC vintage into Phase 9G review items. */
 export function normalizePersistedReviewItems(raw: unknown): AiReviewItem[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((entry) => {
-    const parsed = parseLegacyOrCurrentReviewItem(entry);
-    return parsed === null ? [] : [parsed];
-  });
+  return normalizePersistedReviewPayload(raw).items;
 }

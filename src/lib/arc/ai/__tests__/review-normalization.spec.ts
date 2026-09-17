@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizePersistedReviewItems } from "../review-normalization";
+import {
+  normalizePersistedReviewItems,
+  normalizePersistedReviewPayload,
+} from "../review-normalization";
 import { deriveReviewItem, type AiReviewItem } from "../review-state";
 
 const legacyRow = {
@@ -266,5 +269,55 @@ describe("persisted base severity fails closed", () => {
     expect(item!.state).toBe("resolved");
     expect(item!.severity).toBe("yellow");
     expect(item!.resolution?.kind).toBe("affirmed");
+  });
+});
+
+describe("persisted normalization reports what it could not read", () => {
+  const valid = {
+    id: "rev-1",
+    targetKey: "po:po-1.recognitionMethod",
+    section: "step_5",
+    state: "yellow",
+    severity: "yellow",
+    reasonCode: "engine_support_gap",
+    reason: "Reviewed.",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "fp-9",
+    reviewFingerprint: "rfp-9",
+    resolution: null,
+    affirmedAt: null,
+    affirmedMethod: null,
+  };
+
+  it("reports a clean payload as fully readable", () => {
+    expect(normalizePersistedReviewPayload([valid])).toEqual({ items: [valid], malformed: false });
+  });
+
+  it("reports a discarded entry", () => {
+    const payload = normalizePersistedReviewPayload([valid, { ...valid, section: "step_42" }]);
+    expect(payload.items).toHaveLength(1);
+    expect(payload.malformed).toBe(true);
+  });
+
+  it("reports a non-array payload", () => {
+    expect(normalizePersistedReviewPayload({ oops: true })).toEqual({ items: [], malformed: true });
+    expect(normalizePersistedReviewPayload(null)).toEqual({ items: [], malformed: true });
+  });
+
+  it("does not keep an active resolution on an unresolved current row", () => {
+    const item = normalizePersistedReviewItems([
+      {
+        ...valid,
+        resolution: {
+          kind: "affirmed",
+          at: "2027-02-01T00:00:00.000Z",
+          method: "individual",
+          reviewFingerprint: "rfp-9",
+        },
+      },
+    ])[0];
+    expect(item!.state).toBe("yellow");
+    expect(item!.resolution).toBeNull();
   });
 });
