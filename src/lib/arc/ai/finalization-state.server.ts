@@ -41,9 +41,10 @@ export async function readAiFinalizationState(
     .in("stage", ACTIVE_STAGES);
   if (active.error) throw new Error("That revision could not be finalized.");
 
-  const reviewItems = Array.isArray(data.review_items)
-    ? (data.review_items as Array<{ state: string; reason?: string; targetKey?: string }>)
-    : [];
+  // Persisted review JSON passes through the Phase 9G normalizer first: a
+  // malformed or unverifiable "resolved" row reopens and therefore blocks
+  // finalization instead of slipping past this gate as non-blocking.
+  const reviewItems = normalizePersistedReviewItems(data.review_items);
 
   return { reviewItems, hasActiveRun: (active.count ?? 0) > 0 };
 }
