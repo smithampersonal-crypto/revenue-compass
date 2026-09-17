@@ -184,18 +184,31 @@ export function isAiReviewResolution(value: unknown): value is AiReviewResolutio
   return false;
 }
 
+export const AI_REVIEW_SEVERITIES: readonly AiReviewSeverity[] = ["yellow", "red"];
+
+export function isAiReviewSeverity(value: unknown): value is AiReviewSeverity {
+  return AI_REVIEW_SEVERITIES.includes(value as AiReviewSeverity);
+}
+
 /**
  * Only an affirmation can clear a yellow item and only an audited manual-red
- * resolution can clear a red one. A resolved row may legitimately carry either,
- * because its original severity is not persisted separately.
+ * resolution can clear a red one. The decision is made against the item's
+ * immutable base severity, never against a state that has already become
+ * "resolved" and never inferred from a reason code.
  */
-export function resolutionAllowedForState(
-  state: AiReviewItemState,
+export function resolutionAllowedForSeverity(
+  severity: AiReviewSeverity,
   resolution: AiReviewResolution,
 ): boolean {
-  if (state === "yellow") return resolution.kind === "affirmed";
-  if (state === "red") return resolution.kind === "manual_red";
-  return true;
+  return severity === "yellow" ? resolution.kind === "affirmed" : resolution.kind === "manual_red";
+}
+
+/** True when an unresolved row's visible state agrees with its base severity. */
+export function stateAgreesWithSeverity(
+  state: AiReviewItemState,
+  severity: AiReviewSeverity,
+): boolean {
+  return state === "resolved" || state === severity;
 }
 
 export interface ReviewDerivationInput {
