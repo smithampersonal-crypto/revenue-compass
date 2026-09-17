@@ -145,8 +145,10 @@ function phaseOf(stage: AiRunStage): AiWorkspacePhase {
     case "preflight_ready":
       return "preparing";
     case "analyzing":
-    case "validating":
       return "analyzing";
+    case "validating":
+      return "validating";
+
     case "applying":
       return "applying";
     case "succeeded":
