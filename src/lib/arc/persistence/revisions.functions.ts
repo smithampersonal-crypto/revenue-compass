@@ -255,22 +255,55 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
       throw new Error("This analysis uses an unsupported schema version.");
     }
 
-    const { data: updated, error } = await context.supabase
-      .from("analysis_revisions")
-      .update({
-        canonical_inputs: canonical as unknown as never,
-        lock_version: data.expectedLockVersion + 1,
-      })
-      .eq("id", data.revisionId)
-      .eq("lock_version", data.expectedLockVersion)
-      .eq("status", "draft")
-      .select("lock_version, updated_at")
-      .maybeSingle();
+    // The existing caller-scoped, optimistic-locked save. An analysis that has
+    // never used AI still takes exactly this path, unchanged.
+    const saveDraftOnly = async () => {
+      const { data: updated, error } = await context.supabase
+        .from("analysis_revisions")
+        .update({
+          canonical_inputs: canonical as unknown as never,
+          lock_version: data.expectedLockVersion + 1,
+        })
+        .eq("id", data.revisionId)
+        .eq("lock_version", data.expectedLockVersion)
+        .eq("status", "draft")
+        .select("lock_version, updated_at")
+        .maybeSingle();
 
-    if (error) throw new Error("Your latest edits could not be saved.");
-    if (!updated) return { ok: false, conflict: true };
+      if (error) throw new Error("Your latest edits could not be saved.");
+      if (!updated) return null;
+      return { lockVersion: updated.lock_version, savedAt: updated.updated_at };
+    };
 
-    return { ok: true, lockVersion: updated.lock_version, savedAt: updated.updated_at };
+    // Phase 9G Task 4: when this analysis has an AI sidecar, the draft, the
+    // reconciled provenance/review state and the audit events commit together.
+    const { autosaveWithReconciliation } = await import(
+      "@/lib/arc/ai/autosave-reconciliation.handlers"
+    );
+    const { createAutosaveReconciliationStore } = await import("@/lib/arc/ai/autosave.store.server");
+
+    const outcome = await autosaveWithReconciliation(
+      {
+        store: await createAutosaveReconciliationStore(saveDraftOnly),
+        now: () => new Date(),
+      },
+      {
+        scope: {
+          revisionId: data.revisionId,
+          guestWorkspaceId: null,
+          ownerUserId: context.userId,
+          guestTokenHash: null,
+          actorUserId: context.userId,
+        },
+        expectedLockVersion: data.expectedLockVersion,
+        nextDraft: validated.draft,
+        canonical,
+        schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+      },
+    );
+
+    if (!outcome.ok) return { ok: false, conflict: true };
+    return { ok: true, lockVersion: outcome.lockVersion, savedAt: outcome.savedAt };
   });
 
 /* -------------------------------------------------------------------------

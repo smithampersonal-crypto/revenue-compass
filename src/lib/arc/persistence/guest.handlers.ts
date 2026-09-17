@@ -68,6 +68,20 @@ export interface GuestDeps {
   now(): Date;
   /** Overridable only so tests can pin the credential; production is random. */
   newToken?: () => string;
+  /**
+   * Phase 9G Task 4. When present, the save goes through the trusted
+   * reconciling transaction so the canonical draft, the AI provenance/review
+   * sidecar and the audit events commit together. Absent (or with no sidecar)
+   * the ordinary optimistically locked draft save is used unchanged.
+   */
+  reconcileAutosave?: (args: {
+    guestWorkspaceId: string;
+    guestTokenHash: string;
+    expectedLockVersion: number;
+    nextDraft: WorkflowDraft;
+    canonical: unknown;
+    schemaVersion: string;
+  }) => Promise<GuestSaveResult>;
 }
 
 export interface GuestMigrationDeps extends GuestDeps {
@@ -172,6 +186,17 @@ export async function saveGuestDraftHandler(
   const row = await deps.store.findByHash(tokenHash);
   if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
     return { ok: false, reason: "expired" };
+  }
+
+  if (deps.reconcileAutosave) {
+    return deps.reconcileAutosave({
+      guestWorkspaceId: row.id,
+      guestTokenHash: tokenHash,
+      expectedLockVersion: input.expectedLockVersion,
+      nextDraft: validated.draft,
+      canonical: toCanonicalInputs(validated.draft) as unknown,
+      schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
+    });
   }
 
   const saved = await deps.store.updateDraft({

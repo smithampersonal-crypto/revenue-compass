@@ -101,8 +101,58 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }): Promise<GuestSaveResult> => {
     const { token } = await requestCookieContext();
+    const store = await guestStore();
+
     return saveGuestDraftHandler(
-      { store: await guestStore(), now: () => new Date() },
+      {
+        store,
+        now: () => new Date(),
+        // Phase 9G Task 4. Ownership stays credential-bound; a signed-in
+        // accountant working inside a temporary workspace is recorded as the
+        // named actor on the review event, never as its owner.
+        reconcileAutosave: async (args) => {
+          const { autosaveWithReconciliation } = await import(
+            "@/lib/arc/ai/autosave-reconciliation.handlers"
+          );
+          const { createAutosaveReconciliationStore } = await import(
+            "@/lib/arc/ai/autosave.store.server"
+          );
+          const { readOptionalSessionUserId } = await import("@/lib/arc/ai/caller.server");
+
+          const saveDraftOnly = async () => {
+            const saved = await store.updateDraft({
+              tokenHash: args.guestTokenHash,
+              expectedLockVersion: args.expectedLockVersion,
+              canonical: args.canonical,
+              schemaVersion: args.schemaVersion,
+            });
+            if (!saved) return null;
+            return { lockVersion: saved.lock_version, savedAt: saved.updated_at };
+          };
+
+          const outcome = await autosaveWithReconciliation(
+            {
+              store: await createAutosaveReconciliationStore(saveDraftOnly),
+              now: () => new Date(),
+            },
+            {
+              scope: {
+                revisionId: null,
+                guestWorkspaceId: args.guestWorkspaceId,
+                ownerUserId: null,
+                guestTokenHash: args.guestTokenHash,
+                actorUserId: await readOptionalSessionUserId(),
+              },
+              expectedLockVersion: args.expectedLockVersion,
+              nextDraft: args.nextDraft,
+              canonical: args.canonical,
+              schemaVersion: args.schemaVersion,
+            },
+          );
+          if (!outcome.ok) return { ok: false, reason: "conflict" };
+          return { ok: true, lockVersion: outcome.lockVersion, savedAt: outcome.savedAt };
+        },
+      },
       { token, expectedLockVersion: data.expectedLockVersion, draft: data.draft },
     );
   });
