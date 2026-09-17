@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
+import {
+  createConsiderationEventDraft,
+  createEmptyDraft,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import { deriveCanonicalId } from "../identity";
 import {
@@ -16,7 +20,12 @@ import {
 } from "../merge";
 import type { AiReviewItem } from "../review-state";
 import type { AiContractAnalysis } from "../schema";
-import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
+import {
+  fixtureAAnalysis,
+  fixtureMultiElementAnalysis,
+  guidancePackFixture,
+  RUN_ID,
+} from "./merge-fixtures";
 
 const PROMISE_ID = deriveCanonicalId("promise", "promise:saas");
 const PO_ID = deriveCanonicalId("performance_obligation", "po:saas");
@@ -356,5 +365,183 @@ describe("merged drafts are always structurally valid", () => {
     const corrupt = createEmptyDraft();
     (corrupt.contract as unknown as { currency: string }).currency = "EUR";
     expect(() => run(fixtureAAnalysis(), corrupt)).toThrowError(AiMergeError);
+  });
+});
+
+/* --------------------- material fingerprints reopen changed conclusions */
+
+describe("review fingerprints follow the material conclusion, not the display text", () => {
+  const AT = "2027-02-01T00:00:00.000Z";
+  const MOD_ID = deriveCanonicalId("modification", "modification:primary");
+  const VC_ID = deriveCanonicalId("variable_component", "vc:bonus");
+
+  /** Resolves every derived item with a resolution valid for its own state. */
+  function resolveAll(state: AiAnalysisState): AiAnalysisState {
+    return {
+      ...state,
+      reviewItems: state.reviewItems.map((item) =>
+        item.state === "red"
+          ? {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "manual_red" as const,
+                at: AT,
+                reason: "reviewed_current_treatment" as const,
+                note: null,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+            }
+          : {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "affirmed" as const,
+                at: AT,
+                method: "individual" as const,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+              affirmedAt: AT,
+              affirmedMethod: "individual" as const,
+            },
+      ),
+    };
+  }
+
+  function draftWithManualBilling(): WorkflowDraft {
+    const base = createEmptyDraft();
+    return {
+      ...base,
+      contractBalances: {
+        ...base.contractBalances,
+        considerationEvents: [
+          {
+            ...createConsiderationEventDraft(1, "ce-manual-1"),
+            amountInput: "120000",
+            invoiceDate: "2027-01-01",
+            unconditionalRightDate: "2027-01-01",
+          },
+        ],
+      },
+    };
+  }
+
+  function withModification(analysis: AiContractAnalysis): AiContractAnalysis {
+    analysis.contractModifications = {
+      ...analysis.contractModifications,
+      hasModification: "yes",
+      effectiveDate: "2027-07-01",
+      addedGoodsOrServices: "Additional user seats.",
+      priceIncreaseInput: "20000",
+      treatmentCandidate: "prospective",
+      rationale: "An amendment adds seats.",
+      reviewState: "needs_review",
+    };
+    return analysis;
+  }
+
+  function withBonusComponent(analysis: AiContractAnalysis): AiContractAnalysis {
+    analysis.transactionPrice.variableConsiderationComponents = [
+      {
+        semanticKey: "vc:bonus",
+        description: "Go-live bonus.",
+        type: "bonus",
+        contractualRateOrAmountInput: "10000",
+        unitDescription: null,
+        billingFrequency: null,
+        trigger: "Go-live before 30 June.",
+        estimationMethodProposal: "most_likely_amount",
+        constraintAssessment: "Constrained until go-live is achieved.",
+        citations: analysis.billingTerms[0]!.citations,
+        guidanceIds: [30],
+        reviewState: "needs_review",
+      },
+    ];
+    return analysis;
+  }
+
+  /** First run + affirmation of everything, then a second deterministic run. */
+  function reanalyze(
+    first: AiContractAnalysis,
+    second: AiContractAnalysis,
+    draft: WorkflowDraft = createEmptyDraft(),
+    seedState: AiAnalysisState = createEmptyAiAnalysisState(),
+  ) {
+    const one = run(first, draft, seedState);
+    const two = run(second, one.draft, resolveAll(one.aiState), RUN_2);
+    return { one, two };
+  }
+
+  const BILLING_KEY = "billing:billing:annual-advance";
+
+  it("reopens a billing item when the contractual amount changes under identical prose", () => {
+    const changed = fixtureAAnalysis();
+    changed.billingTerms[0]!.amountOrRateInput = "150000";
+    const { one, two } = reanalyze(fixtureAAnalysis(), changed, draftWithManualBilling());
+    expect(itemFor(one.issues, BILLING_KEY)?.state).toBe("yellow");
+    expect(itemFor(two.issues, BILLING_KEY)?.state).toBe("yellow");
+  });
+
+  it("reopens a billing item when timing, frequency or payment terms change", () => {
+    const changed = fixtureAAnalysis();
+    changed.billingTerms[0]!.billingTiming = "arrears";
+    changed.billingTerms[0]!.frequency = "quarterly";
+    changed.billingTerms[0]!.paymentTermsDays = 60;
+    const { two } = reanalyze(fixtureAAnalysis(), changed, draftWithManualBilling());
+    expect(itemFor(two.issues, BILLING_KEY)?.state).toBe("yellow");
+  });
+
+  it("carries the billing affirmation forward when nothing material changed", () => {
+    const { two } = reanalyze(fixtureAAnalysis(), fixtureAAnalysis(), draftWithManualBilling());
+    expect(itemFor(two.issues, BILLING_KEY)?.state).toBe("resolved");
+  });
+
+  it("reopens a performance-obligation item when the proposed grouping changes", () => {
+    const tombstoned: AiAnalysisState = {
+      ...createEmptyAiAnalysisState(),
+      tombstones: ["po:saas"],
+    };
+    const changed = fixtureMultiElementAnalysis();
+    changed.performanceObligations[0]!.promiseKeys = ["promise:saas", "promise:support"];
+    changed.performanceObligations[0]!.satisfactionPattern = "point_in_time";
+    const { one, two } = reanalyze(
+      fixtureMultiElementAnalysis(),
+      changed,
+      createEmptyDraft(),
+      tombstoned,
+    );
+    expect(itemFor(one.issues, "po:po:saas")?.state).toBe("yellow");
+    expect(itemFor(two.issues, "po:po:saas")?.state).toBe("yellow");
+  });
+
+  it("reopens a modification item when its structural conclusion changes", () => {
+    const changed = withModification(fixtureAAnalysis());
+    changed.contractModifications.treatmentCandidate = "separate_contract";
+    changed.contractModifications.priceIncreaseInput = "45000";
+    const { two } = reanalyze(withModification(fixtureAAnalysis()), changed);
+    expect(itemFor(two.issues, `modification:${MOD_ID}.phase5cFacts`)?.state).toBe("red");
+  });
+
+  it("reopens a variable-consideration item when its material amount changes", () => {
+    const changed = withBonusComponent(fixtureAAnalysis());
+    changed.transactionPrice.variableConsiderationComponents[0]!.contractualRateOrAmountInput =
+      "40000";
+    const { two } = reanalyze(withBonusComponent(fixtureAAnalysis()), changed);
+    expect(itemFor(two.issues, `vc:${VC_ID}.inception`)?.state).toBe("red");
+  });
+
+  it("reopens only the changed conclusion across a whole re-analysis", () => {
+    const changed = fixtureAAnalysis();
+    changed.billingTerms[0]!.amountOrRateInput = "150000";
+    const { one, two } = reanalyze(fixtureAAnalysis(), changed, draftWithManualBilling());
+
+    expect(one.issues.length).toBeGreaterThan(3);
+    expect(itemFor(two.issues, BILLING_KEY)?.state).toBe("yellow");
+    for (const item of two.issues) {
+      if (item.targetKey === BILLING_KEY) continue;
+      const before = itemFor(one.issues, item.targetKey);
+      if (before === undefined) continue;
+      expect(item.state).toBe("resolved");
+    }
   });
 });
