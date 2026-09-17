@@ -15,6 +15,41 @@ if (typeof document !== "undefined") {
   // server round trip. Component tests get a deterministic double so the
   // workspace opens as an empty editable analysis; suites that assert guest
   // behaviour replace this with their own doubles.
+  // Phase 9G — Task 5. The analysis workspace reads the safe AI workspace
+  // state once it has an editable server-backed analysis. Component tests get
+  // an inert double: no analysis, no active run, nothing to poll. Suites that
+  // assert AI behaviour replace it with their own doubles.
+  vi.mock("@/lib/arc/ai/workspace.functions", () => {
+    const idle = async () => ({
+      hasAnalysis: false,
+      activeRun: null,
+      latestRun: null,
+      lastSuccessfulRunId: null,
+      sourceState: "none" as const,
+      sourceSetFingerprint: null,
+      reviewIssueCount: 0,
+      staleSourceAcknowledged: false,
+      allowance: {
+        scope: "authenticated" as const,
+        limit: 10,
+        used: 0,
+        remaining: 10,
+        resetAt: null,
+      },
+      failure: null,
+    });
+    return {
+      getAiWorkspaceState: idle,
+      requestAiAnalysis: async () => ({
+        ...(await idle()),
+        executionDisposition: "start_execution" as const,
+      }),
+      affirmAiReviewItem: idle,
+      resolveAiReviewIssue: idle,
+      acknowledgeAiStaleSources: idle,
+    };
+  });
+
   vi.mock("@/lib/arc/persistence/guest.functions", async () => {
     const { createEmptyDraft } = await import("@/lib/asc606-workflow");
     return {

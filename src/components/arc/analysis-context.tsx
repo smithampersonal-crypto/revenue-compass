@@ -25,6 +25,19 @@ import type { GuestWorkspaceDto } from "@/lib/arc/persistence/guest.functions";
 import type { DemoScenario } from "@/lib/demo-scenarios";
 import { serializeDraft } from "@/lib/arc/persistence/schema";
 import type { SaveStatus } from "@/lib/arc/persistence/save-status";
+import { executeAiAnalysis } from "@/lib/arc/ai/runs.functions";
+import {
+  acknowledgeAiStaleSources,
+  affirmAiReviewItem,
+  getAiWorkspaceState,
+  requestAiAnalysis,
+  resolveAiReviewIssue,
+} from "@/lib/arc/ai/workspace.functions";
+import {
+  useAiWorkspaceController,
+  type AiWorkspaceController,
+  type AiWorkspacePorts,
+} from "@/hooks/use-ai-workspace-controller";
 
 /**
  * Presentation-only provenance of the analysis currently open. It affects
@@ -119,6 +132,12 @@ export interface AnalysisContextValue {
   unknownSample: boolean;
   resetAnalysis: () => void;
   persistence: AnalysisPersistence;
+  /**
+   * Phase 9G — Task 5. The AI workspace controller for the analysis currently
+   * open. All of its state is server-derived through the safe Task 3 read; the
+   * provider only supplies the autosave flush and the canonical reload.
+   */
+  ai: AiWorkspaceController;
 }
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
@@ -518,6 +537,84 @@ export function AnalysisProvider({
     void runSave(loaded);
   }, [loaded, runSave]);
 
+  /**
+   * Phase 9G — Task 5. Waits for the accepted Task 4 autosave to settle so a
+   * deliberate AI analysis can only ever run against the authoritative saved
+   * canonical draft. It is not a second save mechanism: it drives the existing
+   * pipeline and reports whether the server now holds the current draft.
+   */
+  const flushPendingSave = useCallback(async (): Promise<{ ok: boolean }> => {
+    if (!persistenceEnabled) return { ok: true };
+    const target = loadedRef.current;
+    if (!target || target.readOnly) return { ok: false };
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (blockedRef.current) return { ok: false };
+      if (serializeDraft(draftRef.current) === savedSnapshotRef.current) return { ok: true };
+      if (inFlightRef.current) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        continue;
+      }
+      await runSave(target);
+    }
+    return {
+      ok: !blockedRef.current && serializeDraft(draftRef.current) === savedSnapshotRef.current,
+    };
+  }, [persistenceEnabled, runSave]);
+
+  /**
+   * A successful AI run applied a new canonical draft on the server. Autosave
+   * is stopped first so a pre-AI in-memory draft can never be written over the
+   * applied result, and the authoritative copy is then reloaded.
+   */
+  const reloadAfterAiApply = useCallback(() => {
+    blockedRef.current = true;
+    reload();
+  }, [reload]);
+
+  const getAiState = useServerFn(getAiWorkspaceState);
+  const requestAi = useServerFn(requestAiAnalysis);
+  const executeAi = useServerFn(executeAiAnalysis);
+  const affirmAi = useServerFn(affirmAiReviewItem);
+  const resolveAi = useServerFn(resolveAiReviewIssue);
+  const acknowledgeAi = useServerFn(acknowledgeAiStaleSources);
+
+  const aiPorts = useMemo<AiWorkspacePorts>(
+    () => ({
+      getWorkspaceState: (data) => getAiState({ data }),
+      requestAnalysis: (data) => requestAi({ data }),
+      executeAnalysis: (data) => executeAi({ data }),
+      affirmReviewItem: (data) => affirmAi({ data }),
+      resolveReviewIssue: (data) => resolveAi({ data }),
+      acknowledgeStaleSources: (data) => acknowledgeAi({ data }),
+      flushAutosave: flushPendingSave,
+      reloadCanonicalAnalysis: reloadAfterAiApply,
+    }),
+    [
+      getAiState,
+      requestAi,
+      executeAi,
+      affirmAi,
+      resolveAi,
+      acknowledgeAi,
+      flushPendingSave,
+      reloadAfterAiApply,
+    ],
+  );
+
+  // AI is available only for a server-backed, editable analysis. A sample, an
+  // in-memory draft and a historical revision disable the controller entirely.
+  const aiScopeKey =
+    loaded && !loaded.readOnly
+      ? loaded.kind === "guest"
+        ? "guest"
+        : `revision:${loaded.revision.revisionId}`
+      : null;
+  const ai = useAiWorkspaceController({
+    scopeKey: aiScopeKey,
+    revisionId: loaded?.kind === "contract" ? loaded.revision.revisionId : null,
+    ports: aiPorts,
+  });
+
   /** True from confirmation until the finalization request resolves. */
   const [finalizing, setFinalizing] = useState(false);
 
@@ -633,8 +730,10 @@ export function AnalysisProvider({
       // the sample origin, is untouched); a manual analysis resets to blank.
       resetAnalysis,
       persistence,
+      ai,
     }),
     [
+      ai,
       draft,
       setDraft,
       result,
