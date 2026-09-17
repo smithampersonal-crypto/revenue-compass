@@ -55,7 +55,7 @@ function draft(): WorkflowDraft {
     ],
     variableConsiderationComponents: [
       {
-        ...createVcComponentDraft(1, VC_ID, "usage_based"),
+        ...createVcComponentDraft(1, VC_ID, "usage_as_incurred"),
         meters: [{ ...createVcMeterDraft(1, `${VC_ID}-m1`), rateAmountInput: "0.10" }],
       },
     ],

@@ -823,7 +823,7 @@ function draftWithMeter(): WorkflowDraft {
     variableConsiderationComponents: [
       {
         ...component,
-        treatment: "usage_based",
+        treatment: "usage_as_incurred",
         meters: [
           {
             ...createVcMeterDraft(1, AI_METER_ID),
@@ -893,7 +893,7 @@ describe("the composite service-period recognition target", () => {
       id: "rev-sp",
       targetKey: target,
       state: "resolved",
-      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-sp" },
+      resolution: { kind: "affirmed", at: NOW, method: "individual", reviewFingerprint: "rf-sp" },
       reviewFingerprint: "rf-sp",
     });
     const previous = baseDraft();
@@ -949,7 +949,7 @@ describe("the composite Phase 5C modification target", () => {
       id: "rev-5c",
       targetKey: target,
       state: "resolved",
-      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-5c" },
+      resolution: { kind: "affirmed", at: NOW, method: "individual", reviewFingerprint: "rf-5c" },
       reviewFingerprint: "rf-5c",
     });
     return reconcileAiEdits({
@@ -1131,7 +1131,7 @@ describe("the object:<id> retained-object review target", () => {
       id: "rev-obj",
       targetKey: target,
       state: "resolved",
-      resolution: { kind: "affirmed", at: NOW, method: "affirmed", reviewFingerprint: "rf-obj" },
+      resolution: { kind: "affirmed", at: NOW, method: "individual", reviewFingerprint: "rf-obj" },
       reviewFingerprint: "rf-obj",
     });
     const result = reconcileAiEdits({
