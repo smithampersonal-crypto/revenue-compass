@@ -298,7 +298,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           fieldProvenance: raw["field_provenance"] as AiAnalysisState["fieldProvenance"],
           objectProvenance: raw["object_provenance"] as AiAnalysisState["objectProvenance"],
           tombstones: raw["tombstones"] as string[],
-          reviewItems: raw["review_items"] as AiAnalysisState["reviewItems"],
+          // Persisted review JSON is data, never a typed value: every row is
+          // re-validated here before it can reach re-analysis carry-forward.
+          reviewItems: normalizePersistedReviewItems(raw["review_items"]),
         };
       };
 
