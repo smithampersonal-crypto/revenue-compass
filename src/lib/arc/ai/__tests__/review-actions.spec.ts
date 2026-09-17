@@ -115,6 +115,7 @@ describe("Phase 9G review actions — yellow affirmation", () => {
         guestTokenHash: null,
         revisionId: REVISION,
         guestWorkspaceId: null,
+        actorUserId: USER,
         expectedLockVersion: 7,
         reviewItemId: "rev-yellow-1",
         expectedReviewFingerprint: FINGERPRINT,
@@ -137,8 +138,30 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       guestTokenHash: HASH,
       revisionId: null,
       guestWorkspaceId: GUEST,
+      actorUserId: null,
       expectedLockVersion: 4,
       method: "page_all",
+    });
+  });
+
+  it("names a signed-in accountant working in a temporary workspace", async () => {
+    const recorded = empty();
+    await affirmReviewItemHandler(
+      { store: storeFor(recorded) },
+      { ...guestCaller, authenticatedUserId: USER },
+      {
+        reviewItemId: "rev-yellow-1",
+        expectedReviewFingerprint: FINGERPRINT,
+        // The browser cannot substitute anyone else's identity.
+        actorUserId: "99999999-9999-4999-8999-999999999999",
+      } as never,
+    );
+
+    expect(recorded.affirm[0]).toMatchObject({
+      ownerUserId: null,
+      guestTokenHash: HASH,
+      guestWorkspaceId: GUEST,
+      actorUserId: USER,
     });
   });
 
@@ -237,6 +260,7 @@ describe("Phase 9G review actions — manual red resolution", () => {
       guestTokenHash: null,
       revisionId: REVISION,
       guestWorkspaceId: null,
+      actorUserId: USER,
       expectedLockVersion: 7,
       reviewItemId: "rev-red-1",
       expectedReviewFingerprint: FINGERPRINT,
@@ -309,6 +333,7 @@ describe("Phase 9G review actions — stale-source acknowledgment", () => {
       guestTokenHash: null,
       revisionId: REVISION,
       guestWorkspaceId: null,
+      actorUserId: USER,
       expectedLockVersion: 7,
       expectedSourceSetFingerprint: SOURCE_FINGERPRINT,
     });
@@ -348,6 +373,7 @@ describe("Phase 9G review actions — stale-source acknowledgment", () => {
       guestTokenHash: HASH,
       guestWorkspaceId: GUEST,
       ownerUserId: null,
+      actorUserId: null,
       expectedLockVersion: 4,
     });
     expect(recorded.otherCalls).toEqual([]);

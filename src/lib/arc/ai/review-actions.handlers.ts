@@ -48,6 +48,13 @@ export interface AiReviewOwnerScopeArgs {
   guestTokenHash: string | null;
   revisionId: string | null;
   guestWorkspaceId: string | null;
+  /**
+   * Who performed the action. Ownership and actor identity are different
+   * things: a temporary workspace is always owned by its credential, but a
+   * signed-in accountant working inside one is a named actor and the audit
+   * trail must say so. Taken from the verified session, never from the request.
+   */
+  actorUserId: string | null;
   expectedLockVersion: number;
 }
 
@@ -110,6 +117,7 @@ async function ownerScopeFor(
       guestTokenHash: null,
       revisionId: revision.id,
       guestWorkspaceId: null,
+      actorUserId: caller.userId,
       expectedLockVersion: revision.lockVersion,
     };
   }
@@ -121,6 +129,7 @@ async function ownerScopeFor(
     guestTokenHash: caller.guestTokenHash,
     revisionId: null,
     guestWorkspaceId: workspace.id,
+    actorUserId: caller.authenticatedUserId ?? null,
     expectedLockVersion: workspace.lockVersion,
   };
 }

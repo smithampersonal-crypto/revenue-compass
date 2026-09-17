@@ -37,7 +37,7 @@ select '05 every Phase 9G routine exists',
          where n.nspname = 'public'
            and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
-                             'arc_protect_ai_review_event')) = 5;
+                             'arc_ai_review_actor', 'arc_protect_ai_review_event')) = 6;
 
 insert into arc_test_results
 select '06 no Phase 9G routine is executable by anon or signed-in users',
@@ -45,7 +45,8 @@ select '06 no Phase 9G routine is executable by anon or signed-in users',
          select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public'
             and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
-                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint')
+                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
+                              'arc_ai_review_actor')
             and (has_function_privilege('anon', p.oid, 'execute')
                  or has_function_privilege('authenticated', p.oid, 'execute')));
 
@@ -55,8 +56,10 @@ select '07 every Phase 9G routine is executable by the service role',
          select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
           where n.nspname = 'public'
             and p.proname in ('arc_affirm_ai_review_item', 'arc_resolve_ai_review_issue',
-                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint')
+                              'arc_acknowledge_ai_stale_sources', 'arc_ai_source_set_fingerprint',
+                              'arc_ai_review_actor')
             and not has_function_privilege('service_role', p.oid, 'execute'));
+
 
 insert into arc_test_results
 select '08 the acknowledgment columns live on the AI sidecar, not the canonical draft',
@@ -95,6 +98,12 @@ declare
   v_new_lock integer;
   v_already boolean;
   v_event uuid;
+  v_event2 uuid;
+
+  v_run uuid := gen_random_uuid();
+  v_run_g uuid := gen_random_uuid();
+  n integer;
+
   v_fp text;
   v_expected_fp text;
   v_items jsonb;
@@ -158,10 +167,28 @@ begin
                        'valueFingerprint', 'vf-3', 'reviewFingerprint', v_rf_hard,
                        'resolution', null, 'affirmedAt', null, 'affirmedMethod', null));
 
-  insert into public.ai_analysis_state (revision_id, review_items, source_state)
-  values (v_rev, v_items, 'stale');
-  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state)
-  values (v_guest, v_items, 'stale');
+  -- A stale sidecar is a sidecar whose previous successful analysis is now out
+  -- of date. Both parts are required before anything can be acknowledged.
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
+                              output_schema_version, guidance_registry_hash, owner_user_id,
+                              openai_started_at, completed_at)
+  values (v_run, v_rev, 'authenticated', 'succeeded', 'fp-9g', '{}'::jsonb,
+          'm', 'high', 'p9g', 's1', 'h9g', v_user, now(), now());
+  insert into public.ai_runs (id, guest_workspace_id, guest_token_hash, quota_scope, stage,
+                              source_set_fingerprint, pre_run_canonical_inputs, model,
+                              reasoning_effort, prompt_version, output_schema_version,
+                              guidance_registry_hash, openai_started_at, completed_at)
+  values (v_run_g, v_guest, v_hash, 'guest', 'succeeded', 'fp-9g', '{}'::jsonb,
+          'm', 'high', 'p9g', 's1', 'h9g', now(), now());
+
+  insert into public.ai_analysis_state (revision_id, review_items, source_state,
+                                        last_successful_run_id)
+  values (v_rev, v_items, 'stale', v_run);
+  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state,
+                                        last_successful_run_id)
+  values (v_guest, v_items, 'stale', v_run_g);
+
 
   /* --------------------------------------------- source fingerprint (10-12) */
 
@@ -379,12 +406,16 @@ begin
                     and e.review_item_id is null);
 
   insert into arc_test_results
-  select '33 acknowledging resolves no review item and consumes no AI allowance',
+  select '33a the acknowledgment is recorded against the analysis whose sources went stale',
+         (select ai_run_id from public.ai_review_events where id = v_event) = v_run;
+
+  insert into arc_test_results
+  select '33 acknowledging resolves no review item, starts no run and consumes no AI allowance',
          (select value ->> 'state' from public.ai_analysis_state s,
                  lateral jsonb_array_elements(s.review_items) value
            where s.revision_id = v_rev and value ->> 'id' = v_hard) = 'red'
      and not exists (select 1 from public.ai_monthly_usage where user_id = v_user)
-     and not exists (select 1 from public.ai_runs where revision_id = v_rev);
+     and (select count(*) from public.ai_runs where revision_id = v_rev) = 1;
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   begin
@@ -396,20 +427,53 @@ begin
   insert into arc_test_results
   values ('34 a client-invented source fingerprint cannot become authoritative', ok);
 
-  -- The selection changes: the stored acknowledgment is now simply not the
-  -- current fingerprint any more, and its history survives untouched.
+  -- The selection changes. The authoritative source-mutation path clears the
+  -- current acknowledgment even though the sidecar was already stale, and the
+  -- historical event survives untouched.
   insert into public.revision_source_documents (revision_id, source_document_id)
   values (v_rev, v_doc2);
+  perform public.arc_mark_ai_sources_stale(v_rev, null);
+
   insert into arc_test_results
-  select '35 changing the selected sources invalidates the acknowledgment',
+  select '35 changing the selected sources clears the current acknowledgment',
          (select acknowledged_source_fingerprint from public.ai_analysis_state
-           where revision_id = v_rev) <> public.arc_ai_source_set_fingerprint(v_rev, null);
+           where revision_id = v_rev) is null
+     and (select source_acknowledged_at from public.ai_analysis_state
+           where revision_id = v_rev) is null
+     and (select source_acknowledged_by from public.ai_analysis_state
+           where revision_id = v_rev) is null;
 
   insert into arc_test_results
   select '36 the historical acknowledgment event is never deleted',
          (select count(*) from public.ai_review_events
            where event_type = 'stale_sources_acknowledged'
              and source_set_fingerprint = v_expected_fp) = 1;
+
+  -- A -> B -> A: returning to the previously acknowledged source set does not
+  -- resurrect the old acknowledgment, and the fresh one is its own event.
+  delete from public.revision_source_documents
+   where revision_id = v_rev and source_document_id = v_doc2;
+  insert into arc_test_results
+  select '36a returning to an earlier source set does not resurrect its acknowledgment',
+         public.arc_ai_source_set_fingerprint(v_rev, null) = v_expected_fp
+     and (select acknowledged_source_fingerprint from public.ai_analysis_state
+           where revision_id = v_rev) is null;
+
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select event_id into v_event2
+    from public.arc_acknowledge_ai_stale_sources(v_user, null, v_rev, null, v_lock, v_expected_fp);
+  insert into arc_test_results
+  select '36b the same source set can be acknowledged again as a separate audit fact',
+         v_event2 is distinct from v_event
+     and (select count(*) from public.ai_review_events
+           where revision_id = v_rev and event_type = 'stale_sources_acknowledged'
+             and source_set_fingerprint = v_expected_fp) = 2;
+
+  -- Put the selection back where the remaining assertions expect it.
+  insert into public.revision_source_documents (revision_id, source_document_id)
+  values (v_rev, v_doc2);
+  perform public.arc_mark_ai_sources_stale(v_rev, null);
+
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   begin
@@ -519,6 +583,42 @@ begin
   insert into arc_test_results
   values ('48 an event cannot belong to two owner scopes at once', ok);
 
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_section, review_severity,
+                                         review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'yellow_affirmed', 'rev-x', 'step_2', 'yellow', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48a an item event without its target cannot be persisted', ok);
+
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_target_key, review_section,
+                                         review_severity, review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'yellow_affirmed', 'rev-x', 'step2:po', 'page_seven',
+            'yellow', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48b an item event outside the approved workflow sections cannot be persisted', ok);
+
+  begin
+    insert into public.ai_review_events (revision_id, actor_user_id, actor_kind, event_type,
+                                         review_item_id, review_target_key, review_section,
+                                         review_severity, review_fingerprint)
+    values (v_rev, v_user, 'authenticated', 'review_item_reopened', 'rev-x', 'step2:po', 'step_2',
+            'red', 'fp-x');
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('48c a reopen can never be attributed to a person', ok);
+
+
   /* ------------------------------------------ lifecycle compatibility (52) */
 
   -- Account deletion and temporary-workspace expiry must still work: history
@@ -529,6 +629,346 @@ begin
          not exists (select 1 from public.ai_review_events where guest_workspace_id = v_guest)
      and exists (select 1 from public.ai_review_events where revision_id = v_rev);
 end $phase9g$;
+
+/* ------------------------------------------------------------------------
+ * 53-56 — a conclusion may legitimately be reviewed again in a later cycle.
+ * ---------------------------------------------------------------------- */
+
+do $phase9g_cycle$
+declare
+  v_user uuid := gen_random_uuid();
+  v_customer uuid; v_contract uuid; v_analysis uuid; v_rev uuid;
+  v_lock integer; v_already boolean; v_e1 uuid; v_e2 uuid; v_e3 uuid; n integer;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9g-cycle@example.test', '', now(), now(), now());
+  insert into public.customers (owner_user_id, name) values (v_user, 'Cycle')
+    returning id into v_customer;
+  insert into public.contracts (customer_id, title) values (v_customer, 'Cycle')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev;
+
+  insert into public.ai_analysis_state (revision_id, review_items, source_state)
+  values (v_rev, jsonb_build_array(jsonb_build_object(
+    'id', 'r1', 'targetKey', 'step2:po', 'section', 'step_2', 'state', 'red', 'severity', 'red',
+    'reviewFingerprint', 'F1')), 'current');
+
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select event_id into v_e1 from public.arc_resolve_ai_review_issue(
+    v_user, null, v_rev, null, v_lock, 'r1', 'F1', 'not_applicable', null);
+
+  -- Re-analysis changes the conclusion (F2), then a later re-analysis brings
+  -- the same material conclusion (F1) back and leaves it open for review.
+  update public.ai_analysis_state set review_items = jsonb_build_array(jsonb_build_object(
+    'id', 'r1', 'targetKey', 'step2:po', 'section', 'step_2', 'state', 'red', 'severity', 'red',
+    'reviewFingerprint', 'F2')) where revision_id = v_rev;
+  update public.ai_analysis_state set review_items = jsonb_build_array(jsonb_build_object(
+    'id', 'r1', 'targetKey', 'step2:po', 'section', 'step_2', 'state', 'red', 'severity', 'red',
+    'reviewFingerprint', 'F1')) where revision_id = v_rev;
+
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select event_id into v_e2 from public.arc_resolve_ai_review_issue(
+    v_user, null, v_rev, null, v_lock, 'r1', 'F1', 'not_applicable', null);
+
+  select count(*) into n from public.ai_review_events
+   where revision_id = v_rev and review_item_id = 'r1' and event_type = 'red_manually_resolved';
+  insert into arc_test_results
+  values ('53 a later review cycle records its own immutable audit event', n = 2 and v_e2 <> v_e1);
+
+  -- An immediate retry of the latest action is still idempotent, and it refers
+  -- to the most recent event rather than the historical one.
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select already_resolved, event_id into v_already, v_e3
+    from public.arc_resolve_ai_review_issue(
+      v_user, null, v_rev, null, v_lock, 'r1', 'F1', 'not_applicable', null);
+  select count(*) into n from public.ai_review_events
+   where revision_id = v_rev and review_item_id = 'r1' and event_type = 'red_manually_resolved';
+  insert into arc_test_results
+  values ('54 an immediate retry adds no duplicate and returns the most recent event',
+          v_already and n = 2 and v_e3 = v_e2);
+end $phase9g_cycle$;
+
+/* ------------------------------------------------------------------------
+ * 55-60 — reconciliation-driven reopen events written by the AI apply.
+ * ---------------------------------------------------------------------- */
+
+do $phase9g_reopen$
+declare
+  v_user uuid := gen_random_uuid();
+  v_customer uuid; v_contract uuid; v_analysis uuid; v_rev uuid;
+  v_run uuid := gen_random_uuid();
+  v_lock integer; v_after integer; n integer; v_reopen record; v_idem boolean;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9g-reopen@example.test', '', now(), now(), now());
+  insert into public.customers (owner_user_id, name) values (v_user, 'Reopen')
+    returning id into v_customer;
+  insert into public.contracts (customer_id, title) values (v_customer, 'Reopen')
+    returning id into v_contract;
+  insert into public.analyses (contract_id) values (v_contract) returning id into v_analysis;
+  insert into public.analysis_revisions (analysis_id, revision_number, canonical_inputs, schema_version)
+  values (v_analysis, 1, '{}'::jsonb, 'arc.workflow.v1') returning id into v_rev;
+
+  insert into public.ai_analysis_state (revision_id, review_items, source_state,
+                                        acknowledged_source_fingerprint, source_acknowledged_at,
+                                        source_acknowledged_by)
+  values (v_rev, jsonb_build_array(
+    jsonb_build_object('id', 'y1', 'targetKey', 'step3:price', 'section', 'step_3',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'Y1'),
+    jsonb_build_object('id', 'k1', 'targetKey', 'step4:alloc', 'section', 'step_4',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'K1')),
+    'stale', repeat('d', 64), now(), v_user);
+
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  perform public.arc_affirm_ai_review_item(v_user, null, v_rev, null, v_lock, 'y1', 'Y1');
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  perform public.arc_affirm_ai_review_item(v_user, null, v_rev, null, v_lock, 'k1', 'K1');
+
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
+                              output_schema_version, guidance_registry_hash, owner_user_id,
+                              openai_started_at)
+  values (v_run, v_rev, 'authenticated', 'applying', 'fp-reopen', '{}'::jsonb,
+          'm', 'high', 'p9g', 's1', 'h9g', v_user, now());
+
+  -- y1 reopens as a red issue; k1 keeps its eligible carried-forward resolution.
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  select lock_version, idempotent into v_after, v_idem from public.arc_apply_ai_run(
+    v_run, v_user, null, v_lock, '{"origin":"ai"}'::jsonb, 'arc.workflow.v1',
+    jsonb_build_object('sourceState', 'current', 'reviewItems', jsonb_build_array(
+      jsonb_build_object('id', 'y1', 'targetKey', 'step3:price', 'section', 'step_3',
+                         'state', 'red', 'severity', 'red', 'reviewFingerprint', 'Y2'),
+      jsonb_build_object('id', 'k1', 'targetKey', 'step4:alloc', 'section', 'step_4',
+                         'state', 'resolved', 'severity', 'yellow', 'reviewFingerprint', 'K1'))),
+    'fp-reopen', '{}'::jsonb, '{}'::jsonb, 1);
+
+  select * into v_reopen from public.ai_review_events
+   where revision_id = v_rev and event_type = 'review_item_reopened';
+
+  insert into arc_test_results
+  select '55 a resolved conclusion that re-analysis reopens is recorded exactly once',
+         (select count(*) from public.ai_review_events
+           where revision_id = v_rev and event_type = 'review_item_reopened') = 1
+     and v_reopen.review_item_id = 'y1'
+     and v_reopen.review_fingerprint = 'Y2'
+     and v_reopen.review_target_key = 'step3:price'
+     and v_reopen.review_section = 'step_3'
+     and v_reopen.ai_run_id = v_run
+     and v_reopen.actor_kind = 'system'
+     and v_reopen.actor_user_id is null;
+
+  insert into arc_test_results
+  select '56 the reopen records the new severity, not the old one',
+         v_reopen.review_severity = 'red';
+
+  insert into arc_test_results
+  select '57 the earlier affirmation event is left exactly as it was',
+         (select count(*) from public.ai_review_events
+           where revision_id = v_rev and event_type = 'yellow_affirmed'
+             and review_item_id = 'y1' and review_fingerprint = 'Y1') = 1;
+
+  insert into arc_test_results
+  select '58 an eligible carried-forward resolution is not a reopen',
+         not exists (select 1 from public.ai_review_events
+                      where revision_id = v_rev and event_type = 'review_item_reopened'
+                        and review_item_id = 'k1');
+
+  insert into arc_test_results
+  select '59 a successful analysis clears an obsolete stale-source acknowledgment',
+         (select acknowledged_source_fingerprint from public.ai_analysis_state
+           where revision_id = v_rev) is null
+     and (select source_acknowledged_at from public.ai_analysis_state
+           where revision_id = v_rev) is null;
+
+  -- Response-loss retry of the committed apply.
+  select lock_version, idempotent into v_after, v_idem from public.arc_apply_ai_run(
+    v_run, v_user, null, v_after, '{"origin":"ai"}'::jsonb, 'arc.workflow.v1',
+    jsonb_build_object('sourceState', 'current', 'reviewItems', '[]'::jsonb),
+    'fp-reopen', '{}'::jsonb, '{}'::jsonb, 1);
+  insert into arc_test_results
+  select '60 a response-loss retry of the apply adds no second reopen event',
+         v_idem
+     and (select count(*) from public.ai_review_events
+           where revision_id = v_rev and event_type = 'review_item_reopened') = 1;
+end $phase9g_reopen$;
+
+/* ------------------------------------------------------------------------
+ * 61-66 — actor identity inside a temporary workspace, the "Save to My
+ * Contracts" re-home, and account/workspace lifecycle deletion.
+ * ---------------------------------------------------------------------- */
+
+do $phase9g_actor$
+declare
+  v_user uuid := gen_random_uuid();
+  v_guest uuid; v_guest2 uuid;
+  v_hash text := repeat('5', 64);
+  v_hash2 text := repeat('6', 64);
+  v_lock integer; v_anon_event uuid; v_named_event uuid; n integer;
+  v_before public.ai_review_events;
+  v_after public.ai_review_events;
+  mig record; ok boolean;
+begin
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                          email_confirmed_at, created_at, updated_at)
+  values (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          '9g-actor@example.test', '', now(), now(), now());
+
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest;
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
+  values (v_hash2, '{}'::jsonb, 'arc.workflow.v1', now() + interval '9 hours')
+    returning id into v_guest2;
+
+  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state)
+  values (v_guest, jsonb_build_array(
+    jsonb_build_object('id', 'y1', 'targetKey', 'step3:price', 'section', 'step_3',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'Y1'),
+    jsonb_build_object('id', 'y2', 'targetKey', 'step5:timing', 'section', 'step_5',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'Y2')),
+    'current');
+  insert into public.ai_analysis_state (guest_workspace_id, review_items, source_state)
+  values (v_guest2, jsonb_build_array(
+    jsonb_build_object('id', 'y1', 'targetKey', 'step3:price', 'section', 'step_3',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'Y1')),
+    'current');
+
+  -- An anonymous visitor.
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest;
+  select event_id into v_anon_event from public.arc_affirm_ai_review_item(
+    null, v_hash, null, v_guest, v_lock, 'y1', 'Y1');
+  insert into arc_test_results
+  select '61 an anonymous visitor is recorded as an anonymous temporary-workspace actor',
+         (select actor_kind = 'guest' and actor_user_id is null
+            from public.ai_review_events where id = v_anon_event);
+
+  -- The same temporary workspace, but a signed-in accountant is working in it.
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest;
+  select event_id into v_named_event from public.arc_affirm_ai_review_item(
+    null, v_hash, null, v_guest, v_lock, 'y2', 'Y2', 'individual', v_user);
+  insert into arc_test_results
+  select '62 a signed-in accountant in a temporary workspace is a named actor',
+         (select actor_kind = 'authenticated' and actor_user_id = v_user
+                 and guest_workspace_id = v_guest
+            from public.ai_review_events where id = v_named_event);
+
+  -- An identity that does not exist is refused rather than recorded, and the
+  -- temporary-workspace credential still decides ownership.
+  select lock_version into v_lock from public.guest_workspaces where id = v_guest2;
+  begin
+    perform public.arc_affirm_ai_review_item(null, v_hash2, null, v_guest2, v_lock, 'y1', 'Y1',
+                                             'individual', gen_random_uuid());
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('63 an actor identity that does not exist cannot be recorded', ok);
+
+  begin
+    perform public.arc_affirm_ai_review_item(null, v_hash2, null, v_guest, v_lock, 'y1', 'Y1',
+                                             'individual', v_user);
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('63a a named actor never substitutes for the workspace credential', ok);
+
+  /* ------------------------------ Save to My Contracts re-homes the history */
+
+  select * into v_before from public.ai_review_events where id = v_named_event;
+  select * into mig from public.arc_migrate_guest_workspace_v3(
+    v_guest, v_user, null, 'Saved Customer', 'Saved Contract', null);
+  select * into v_after from public.ai_review_events where id = v_named_event;
+
+  insert into arc_test_results
+  select '64 saving a temporary workspace re-homes its review history unchanged',
+         v_after.revision_id = mig.revision_id
+     and v_after.guest_workspace_id is null
+     and v_after.id = v_before.id
+     and v_after.event_type = v_before.event_type
+     and v_after.review_item_id = v_before.review_item_id
+     and v_after.review_fingerprint = v_before.review_fingerprint
+     and v_after.review_target_key = v_before.review_target_key
+     and v_after.review_section = v_before.review_section
+     and v_after.actor_kind = v_before.actor_kind
+     and v_after.actor_user_id = v_before.actor_user_id
+     and v_after.ai_run_id is not distinct from v_before.ai_run_id
+     and v_after.created_at = v_before.created_at
+     and v_after.manual_red_reason is not distinct from v_before.manual_red_reason
+     and v_after.note is not distinct from v_before.note
+     and v_after.source_set_fingerprint is not distinct from v_before.source_set_fingerprint;
+
+  delete from public.guest_workspaces where id = v_guest;
+  select count(*) into n from public.ai_review_events
+   where revision_id = mig.revision_id;
+  insert into arc_test_results
+  values ('65 the saved review history survives cleanup of the retired workspace', n = 2);
+
+  -- The re-home permission does not linger: ordinary history is still immutable.
+  begin
+    update public.ai_review_events set revision_id = null, guest_workspace_id = v_guest2
+     where id = v_named_event;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('65a the re-home permission does not leave a general update capability', ok);
+
+  -- Account deletion removes the account and everything under it, without ever
+  -- colliding with append-only history.
+  begin
+    delete from public.ai_review_events where revision_id = mig.revision_id;
+    ok := false;
+  exception when others then ok := true;
+  end;
+  insert into arc_test_results
+  values ('65b history cannot be deleted while its analysis exists', ok);
+
+  begin
+    delete from public.customers where id = mig.customer_id;
+    ok := true;
+  exception when others then ok := false;
+  end;
+  insert into arc_test_results
+  values ('66 deleting the contract hierarchy takes its review history with it', ok);
+
+  insert into arc_test_results
+  select '66a no review history is left behind',
+         not exists (select 1 from public.ai_review_events where revision_id = mig.revision_id);
+
+  begin
+    delete from auth.users where id = v_user;
+    ok := true;
+  exception when others then ok := false;
+  end;
+  insert into arc_test_results values ('66b deleting the account still succeeds', ok);
+
+  delete from public.guest_workspaces where id = v_guest2;
+  insert into arc_test_results
+  select '66c an unsaved temporary workspace still expires cleanly',
+         not exists (select 1 from public.guest_workspaces where id = v_guest2);
+end $phase9g_actor$;
+
+/* ------------------------------ 67-68 the unaudited bypasses are retired */
+
+insert into arc_test_results
+select '67 no routine can replace the review array or affirm without an audit event',
+       not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public'
+                      and p.proname in ('arc_set_ai_review_state', 'arc_affirm_ai_review_scope'));
+
+insert into arc_test_results
+select '68 not even the service role may update or delete review history directly',
+       not has_table_privilege('service_role', 'public.ai_review_events', 'update')
+   and not has_table_privilege('service_role', 'public.ai_review_events', 'delete');
+
+
 
 /* --------------------------------------------- 49 direct access is denied */
 

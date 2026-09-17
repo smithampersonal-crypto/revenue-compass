@@ -29,8 +29,16 @@ select '03 every Phase 9F routine exists',
          where n.nspname = 'public'
            and p.proname in ('arc_advance_ai_run_stage', 'arc_record_ai_preflight',
                              'arc_apply_ai_run', 'arc_restore_pre_ai_run',
-                             'arc_set_ai_review_state', 'arc_affirm_ai_review_scope',
-                             'arc_mark_ai_sources_stale', 'arc_ai_scope_has_active_run')) = 8;
+                             'arc_mark_ai_sources_stale', 'arc_ai_scope_has_active_run')) = 6;
+
+-- Phase 9G Task 2 retired the two unaudited review-mutation routines: one
+-- could replace the whole review array, the other resolved affirmation items
+-- without writing an audit event. Neither may come back.
+insert into arc_test_results
+select '03b the unaudited review-mutation routines are retired',
+       not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public'
+                      and p.proname in ('arc_set_ai_review_state', 'arc_affirm_ai_review_scope'));
 
 insert into arc_test_results
 select '04 no Phase 9F routine is executable by anon or signed-in users',
@@ -39,9 +47,10 @@ select '04 no Phase 9F routine is executable by anon or signed-in users',
           where n.nspname = 'public'
             and p.proname in ('arc_advance_ai_run_stage', 'arc_record_ai_preflight',
                               'arc_apply_ai_run', 'arc_restore_pre_ai_run',
-                              'arc_set_ai_review_state', 'arc_affirm_ai_review_scope')
+                              'arc_mark_ai_sources_stale')
             and (has_function_privilege('anon', p.oid, 'execute')
                  or has_function_privilege('authenticated', p.oid, 'execute')));
+
 
 /* --------------------------------------------------------- 05 behaviour */
 
@@ -382,34 +391,40 @@ begin
 
   /* ---------------------------------------------------- review (28-30) */
 
+  -- Review resolution now has exactly one authoritative path: the audited
+  -- Phase 9G routines. The retired scope-affirmation shortcut is gone.
   delete from public.ai_analysis_state where revision_id = v_rev;
   insert into public.ai_analysis_state (revision_id, source_state, review_items)
   values (v_rev, 'current', jsonb_build_array(
-    jsonb_build_object('id', 'y1', 'section', 'step_2', 'state', 'yellow'),
-    jsonb_build_object('id', 'r1', 'section', 'step_2', 'state', 'red')));
+    jsonb_build_object('id', 'y1', 'targetKey', 'step2:po', 'section', 'step_2',
+                       'state', 'yellow', 'severity', 'yellow', 'reviewFingerprint', 'fp-y1'),
+    jsonb_build_object('id', 'r1', 'targetKey', 'step2:promise', 'section', 'step_2',
+                       'state', 'red', 'severity', 'red', 'reviewFingerprint', 'fp-r1')));
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
-  select lock_version, affirmed_count into v_lock_after, v_affirmed
-  from public.arc_affirm_ai_review_scope(v_user, null, v_rev, null, v_lock, 'step_2');
+  perform public.arc_affirm_ai_review_item(v_user, null, v_rev, null, v_lock, 'y1', 'fp-y1');
   select review_items into v_items from public.ai_analysis_state where revision_id = v_rev;
 
   insert into arc_test_results
-  select '28 affirmation resolves yellow items only',
-         v_affirmed = 1
-     and (v_items -> 0 ->> 'state') = 'resolved'
-     and (v_items -> 0 ->> 'affirmedAt') is not null;
+  select '28 affirmation resolves yellow items only, and always leaves an audit event',
+         (v_items -> 0 ->> 'state') = 'resolved'
+     and (v_items -> 0 ->> 'affirmedAt') is not null
+     and exists (select 1 from public.ai_review_events e
+                  where e.revision_id = v_rev and e.review_item_id = 'y1'
+                    and e.event_type = 'yellow_affirmed');
 
   insert into arc_test_results
   select '29 a red issue is never resolved by affirmation',
          (v_items -> 1 ->> 'state') = 'red';
 
   begin
-    perform public.arc_set_ai_review_state(v_user, null, v_final_rev, null, 1, '[]'::jsonb);
+    perform public.arc_affirm_ai_review_item(v_user, null, v_final_rev, null, 1, 'y1', 'fp-y1');
     ok := false;
   exception when others then ok := true;
   end;
   insert into arc_test_results values (
     '30 finalized review history cannot be changed', ok);
+
 
   /* -------------------------------------------- source lifecycle (31-33) */
 
