@@ -24,12 +24,15 @@ import {
   isAiReviewReasonCode,
   isAiReviewResolution,
   isAiReviewSection,
-  resolutionAllowedForState,
+  isAiReviewSeverity,
+  resolutionAllowedForSeverity,
+  stateAgreesWithSeverity,
   type AiAffirmationMethod,
   type AiReviewCitationRef,
   type AiReviewItem,
   type AiReviewItemState,
   type AiReviewResolution,
+  type AiReviewSeverity,
 } from "./review-state";
 
 function parseCitations(value: unknown): AiReviewCitationRef[] {
