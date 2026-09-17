@@ -145,7 +145,6 @@ describe("Phase 9G review actions — yellow affirmation", () => {
   });
 
   it("names a signed-in accountant working in a temporary workspace", async () => {
-
     const recorded = empty();
     await affirmReviewItemHandler(
       { store: storeFor(recorded) },
@@ -165,7 +164,6 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       actorUserId: USER,
     });
   });
-
 
   it("refuses an unknown affirmation method", async () => {
     const recorded = empty();

@@ -58,7 +58,6 @@ export interface AiReviewOwnerScopeArgs {
   expectedLockVersion: number;
 }
 
-
 export interface AiReviewItemActionArgs extends AiReviewOwnerScopeArgs {
   reviewItemId: string;
   expectedReviewFingerprint: string;
