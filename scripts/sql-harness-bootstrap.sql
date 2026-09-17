@@ -71,3 +71,9 @@ create or replace function storage.foldername(name text) returns text[]
 grant usage on schema storage to anon, authenticated, service_role;
 grant all on storage.objects to service_role;
 grant all on storage.buckets to service_role;
+
+-- The hosted project's storage bucket is created through managed tooling, not
+-- a migration, so the harness provides the same fixture locally.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('arc-source-documents', 'arc-source-documents', false, 10485760, array['application/pdf'])
+on conflict (id) do nothing;
