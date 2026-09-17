@@ -97,10 +97,14 @@ export async function autosaveWithReconciliation(
   deps: AutosaveReconciliationDeps,
   input: AutosaveInput,
 ): Promise<AutosaveOutcome> {
-  const aiState = await deps.store.loadAiState(input.scope);
+  const loaded = await deps.store.loadAiState(input.scope);
+
+  // A persisted review payload ARC cannot fully read is never repaired by an
+  // ordinary autosave: nothing is written at all.
+  if (loaded.status === "unreadable") return { ok: false, reason: "unavailable" };
 
   // No sidecar: ordinary autosave, byte-for-byte the pre-Task-4 behaviour.
-  if (aiState === null) {
+  if (loaded.status === "absent") {
     const saved = await deps.store.saveDraftOnly({
       scope: input.scope,
       expectedLockVersion: input.expectedLockVersion,
@@ -111,18 +115,14 @@ export async function autosaveWithReconciliation(
     return { ok: true, ...saved, reconciled: false };
   }
 
+  const aiState = loaded.state;
+
   const previousDraft = await deps.store.loadSavedDraft(input.scope);
   if (previousDraft === null) {
-    // ARC cannot prove what changed, so it reconciles nothing rather than
-    // guessing; the canonical save still obeys the optimistic lock.
-    const saved = await deps.store.saveDraftOnly({
-      scope: input.scope,
-      expectedLockVersion: input.expectedLockVersion,
-      canonical: input.canonical,
-      schemaVersion: input.schemaVersion,
-    });
-    if (saved === null) return { ok: false, reason: "conflict" };
-    return { ok: true, ...saved, reconciled: false };
+    // Once a sidecar exists, ARC cannot know which AI conclusions an edit
+    // touched without the authoritative previous draft. It fails closed rather
+    // than persisting a draft whose provenance it could not reconcile.
+    return { ok: false, reason: "unavailable" };
   }
 
   const reconciliation = reconcileAiEdits({
