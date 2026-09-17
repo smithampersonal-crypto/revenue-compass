@@ -423,6 +423,9 @@ export function carryForwardReviewResolutions(
     // Defence in depth: a prior row is never trusted merely because it exists.
     // Its resolution must itself be structurally valid, bound to the prior
     // item's own fingerprint, and of a kind that prior state could carry.
+    // Approval is never inferred from the existence of resolution metadata:
+    // the prior item must itself have been resolved.
+    if (old.state !== "resolved") return item;
     if (!isAiReviewResolution(old.resolution)) return item;
     if (old.resolution.reviewFingerprint !== old.reviewFingerprint) return item;
     // The kind of resolution must be legitimate for BOTH the severity it was
