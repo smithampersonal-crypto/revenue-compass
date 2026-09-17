@@ -25,7 +25,7 @@ import {
   AI_REVIEW_NOTE_LIMIT,
   AI_REVIEW_NOTE_TOO_LONG,
 } from "./review-actions.handlers";
-import { AI_AFFIRMATION_METHODS, AI_REVIEW_REASON_CODES } from "./review-state";
+import { MANUAL_RED_REASONS as APPROVED_RED_REASONS } from "./review-state";
 import type { AiAffirmationMethod, ManualRedReason } from "./review-state";
 import { AI_RUN_NOT_AVAILABLE, AI_WORKSPACE_NOT_EDITABLE } from "./runs.handlers";
 
@@ -37,15 +37,15 @@ export const AI_WORKSPACE_REQUEST_INVALID =
 export const AI_WORKSPACE_ACTION_FAILED =
   "That action could not be completed. Reload the analysis and try again.";
 
-const MANUAL_RED_REASONS: ReadonlySet<string> = new Set<string>(
-  AI_REVIEW_REASON_CODES.filter((code): code is ManualRedReason =>
-    (["reviewed_current_treatment", "outside_source_information", "not_applicable"] as const).includes(
-      code as ManualRedReason,
-    ),
-  ),
-);
+const MANUAL_RED_REASONS: ReadonlySet<string> = new Set<string>(APPROVED_RED_REASONS);
 
-const AFFIRMATION_METHODS: ReadonlySet<string> = new Set<string>(AI_AFFIRMATION_METHODS);
+/** The three methods Task 2 accepts from a browser request. */
+const AFFIRMATION_METHODS: ReadonlySet<string> = new Set<string>([
+  "individual",
+  "page_all",
+  "global_all",
+]);
+
 
 /**
  * The allowlist of messages that may stay distinguishable. Each is ARC-owned,
