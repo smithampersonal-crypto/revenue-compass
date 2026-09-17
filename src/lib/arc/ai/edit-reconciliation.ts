@@ -249,7 +249,9 @@ function modificationScopeProjection(row: Row): Row {
   return {
     scopeChangeDescription: row["scopeChangeDescription"] ?? null,
     removedPoIds: removed.sort(),
-    modifiedPerformanceObligations: modified.map((po) => pick((po ?? {}) as Row, MODIFIED_PO_FIELDS)),
+    modifiedPerformanceObligations: modified.map((po) =>
+      pick((po ?? {}) as Row, MODIFIED_PO_FIELDS),
+    ),
   };
 }
 
@@ -355,12 +357,7 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
     ]),
   ],
   cash: [
-    plainGroup("collection", [
-      "considerationEventId",
-      "amountInput",
-      "collectionDate",
-      "basis",
-    ]),
+    plainGroup("collection", ["considerationEventId", "amountInput", "collectionDate", "basis"]),
   ],
 };
 

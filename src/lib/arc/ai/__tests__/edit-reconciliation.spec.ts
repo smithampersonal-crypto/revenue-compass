@@ -704,7 +704,10 @@ describe("review targets react only to their own accounting conclusion", () => {
   });
 
   it("does not reopen a classification review when SSP changes", () => {
-    const before = canonicalReviewTargetFingerprint(baseDraft(), fieldKeys.po(PO_ID, "classification"));
+    const before = canonicalReviewTargetFingerprint(
+      baseDraft(),
+      fieldKeys.po(PO_ID, "classification"),
+    );
     const after = canonicalReviewTargetFingerprint(
       withSspChange(),
       fieldKeys.po(PO_ID, "classification"),

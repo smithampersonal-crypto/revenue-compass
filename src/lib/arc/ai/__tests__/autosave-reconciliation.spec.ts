@@ -96,8 +96,7 @@ function harness(options: {
 }): Harness {
   const calls = { draftOnly: [] as unknown[], reconciled: [] as unknown[] };
   const store: AutosaveReconciliationStore = {
-    loadSavedDraft: async () =>
-      options.savedUnavailable ? null : (options.saved ?? savedDraft()),
+    loadSavedDraft: async () => (options.savedUnavailable ? null : (options.saved ?? savedDraft())),
     loadAiState: async () =>
       options.unreadableSidecar
         ? { status: "unreadable" as const }

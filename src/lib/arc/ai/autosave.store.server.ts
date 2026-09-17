@@ -125,7 +125,8 @@ export async function createAutosaveReconciliationStore(
           fieldProvenance:
             (row.field_provenance as AiAnalysisState["fieldProvenance"]) ?? empty.fieldProvenance,
           objectProvenance:
-            (row.object_provenance as AiAnalysisState["objectProvenance"]) ?? empty.objectProvenance,
+            (row.object_provenance as AiAnalysisState["objectProvenance"]) ??
+            empty.objectProvenance,
           tombstones: Array.isArray(row.tombstones) ? (row.tombstones as string[]) : [],
           reviewItems: payload.items,
         },

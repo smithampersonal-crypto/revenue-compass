@@ -47,9 +47,7 @@ export type AutosaveOutcome =
  * destroy the very evidence finalization depends on.
  */
 export type AiSidecarLoad =
-  | { status: "absent" }
-  | { status: "loaded"; state: AiAnalysisState }
-  | { status: "unreadable" };
+  { status: "absent" } | { status: "loaded"; state: AiAnalysisState } | { status: "unreadable" };
 
 export interface AutosaveReconciliationStore {
   /** The authoritative pre-save canonical draft, or null when unavailable. */
