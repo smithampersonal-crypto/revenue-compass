@@ -141,7 +141,28 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       actorUserId: null,
       expectedLockVersion: 4,
       method: "page_all",
+  });
+
+  it("names a signed-in accountant working in a temporary workspace", async () => {
+    const recorded = empty();
+    await affirmReviewItemHandler(
+      { store: storeFor(recorded) },
+      { ...guestCaller, authenticatedUserId: USER },
+      {
+        reviewItemId: "rev-yellow-1",
+        expectedReviewFingerprint: FINGERPRINT,
+        // The browser cannot substitute anyone else's identity.
+        actorUserId: "99999999-9999-4999-8999-999999999999",
+      } as never,
+    );
+
+    expect(recorded.affirm[0]).toMatchObject({
+      ownerUserId: null,
+      guestTokenHash: HASH,
+      guestWorkspaceId: GUEST,
+      actorUserId: USER,
     });
+
   });
 
   it("refuses an unknown affirmation method", async () => {
