@@ -1928,7 +1928,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /* ---------------------------------------------------------------- finalize */
 
   const ranked = rankReviewItems(sortReviewItems(issues));
-  const reviewItems = applyPriorAffirmations(ranked, previousState.reviewItems);
+  const reviewItems = carryForwardReviewResolutions(ranked, previousState.reviewItems);
 
   const validated = validateDraftForPersistence(draft);
   if (!validated.ok) {
