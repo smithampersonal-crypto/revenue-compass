@@ -121,7 +121,7 @@ describe("Task 3 handler errors are allowlisted", () => {
     raw.cause = new Error(HOSTILE);
     const sanitized = sanitizeWorkspaceError(raw);
     expect(sanitized.message).toBe(AI_WORKSPACE_ACTION_FAILED);
-    expectNoLeak(JSON.stringify({ message: sanitized.message, ...sanitized }));
+    expectNoLeak(JSON.stringify({ ...sanitized, message: sanitized.message }));
     expect((sanitized as Error & { cause?: unknown }).cause).toBeUndefined();
     expect(sanitizeWorkspaceError("boom").message).toBe(AI_WORKSPACE_ACTION_FAILED);
     expect(sanitizeWorkspaceError(null).message).toBe(AI_WORKSPACE_ACTION_FAILED);
