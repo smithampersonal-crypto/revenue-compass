@@ -37,7 +37,7 @@ function run(
   });
 }
 
-function itemFor(issues: readonly { targetKey: string; state: string }[], targetKey: string) {
+function itemFor(issues: readonly AiReviewItem[], targetKey: string) {
   return issues.find((issue) => issue.targetKey === targetKey);
 }
 
