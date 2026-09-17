@@ -253,6 +253,7 @@ describe("carry-forward trusts nothing it has not verified itself", () => {
     targetKey: "transactionPrice.input",
     section: "step_3",
     state: "yellow",
+    severity: "yellow",
     reasonCode: "manual_value_preserved",
     reason: "r",
     guidanceIds: [],
