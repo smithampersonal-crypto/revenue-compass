@@ -46,7 +46,6 @@ const AFFIRMATION_METHODS: ReadonlySet<string> = new Set<string>([
   "global_all",
 ]);
 
-
 /**
  * The allowlist of messages that may stay distinguishable. Each is ARC-owned,
  * settled copy that an accountant is meant to act on.
@@ -95,9 +94,7 @@ export function parseReviewItemTarget(input: {
   return { reviewItemId, expectedReviewFingerprint };
 }
 
-export function parseSourceFingerprint(input: {
-  expectedSourceSetFingerprint?: unknown;
-}): string {
+export function parseSourceFingerprint(input: { expectedSourceSetFingerprint?: unknown }): string {
   const fingerprint = text(input?.expectedSourceSetFingerprint, 200);
   if (!fingerprint) refuse(AI_REVIEW_ACTION_UNAVAILABLE);
   return fingerprint;

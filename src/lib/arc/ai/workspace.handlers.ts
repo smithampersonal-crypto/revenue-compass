@@ -51,13 +51,7 @@ import {
  * browser's coarse view of it, so no internal stage name crosses the boundary.
  */
 export type AiWorkspacePhase =
-  | "preparing"
-  | "analyzing"
-  | "validating"
-  | "applying"
-  | "succeeded"
-  | "failed";
-
+  "preparing" | "analyzing" | "validating" | "applying" | "succeeded" | "failed";
 
 export interface AiWorkspaceRunDto {
   runId: string;
@@ -247,7 +241,6 @@ export async function aiWorkspaceStateHandler(
     presented && presented.category === "allowance_exhausted" && usage.remaining > 0
       ? null
       : presented;
-
 
   return {
     hasAnalysis,

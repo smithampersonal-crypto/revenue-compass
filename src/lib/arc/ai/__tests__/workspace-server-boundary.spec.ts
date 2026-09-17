@@ -143,10 +143,7 @@ describe("Task 3 handler errors are allowlisted", () => {
 });
 
 describe("every Task 3 server function uses the boundary", () => {
-  const source = readFileSync(
-    join(process.cwd(), "src/lib/arc/ai/workspace.functions.ts"),
-    "utf8",
-  );
+  const source = readFileSync(join(process.cwd(), "src/lib/arc/ai/workspace.functions.ts"), "utf8");
 
   it("runs no raw validator inside a server function", () => {
     expect(source).not.toContain(".parse(");

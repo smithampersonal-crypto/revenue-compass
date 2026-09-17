@@ -350,7 +350,6 @@ describe("AI workspace active run and reconnect", () => {
     }
   });
 
-
   it("presents a terminal successful run and no active run", async () => {
     const done = runRow({
       id: "run-done",

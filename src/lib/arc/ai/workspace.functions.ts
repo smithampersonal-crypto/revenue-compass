@@ -153,10 +153,12 @@ export const resolveAiReviewIssue = createServerFn({ method: "POST" })
  * the trusted routine re-derives the authoritative one and fails closed.
  */
 export const acknowledgeAiStaleSources = createServerFn({ method: "POST" })
-  .inputValidator((input: { expectedSourceSetFingerprint: string; revisionId?: string | null }) => ({
-    expectedSourceSetFingerprint: parseSourceFingerprint(input),
-    revisionId: parseRevisionTarget(input),
-  }))
+  .inputValidator(
+    (input: { expectedSourceSetFingerprint: string; revisionId?: string | null }) => ({
+      expectedSourceSetFingerprint: parseSourceFingerprint(input),
+      revisionId: parseRevisionTarget(input),
+    }),
+  )
   .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
     safeWorkspaceCall(async () => {
       const deps = await workspaceDeps();
