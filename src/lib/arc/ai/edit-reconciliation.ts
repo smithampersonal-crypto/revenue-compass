@@ -30,11 +30,23 @@ const OBJECT_FAMILIES: readonly ObjectFamily[] = [
   "cash",
 ];
 
-/** Families that are advisory or diagnostic and have no canonical value. */
-const UNREPRESENTABLE_PREFIXES = ["additionalTopic:", "issue:"];
+/**
+ * Families that are advisory or diagnostic and have no canonical value, plus
+ * relationship and tombstone keys ARC cannot bind to an authoritative
+ * canonical object. A tombstoned item legitimately has no current canonical
+ * representation, so it is never fingerprinted against a live object.
+ */
+const UNREPRESENTABLE_PREFIXES = [
+  "additionalTopic:",
+  "issue:",
+  "tombstone:",
+  "recognition:",
+  "ssp:",
+];
 
 interface ParsedKey {
-  family: ObjectFamily | "contract" | "criterion" | "transactionPrice" | "structural" | null;
+  family:
+    ObjectFamily | "contract" | "criterion" | "transactionPrice" | "structural" | "object" | null;
   canonicalId: string | null;
   field: string | null;
   criterionId?: string;
@@ -44,6 +56,11 @@ interface ParsedKey {
 export function parseCanonicalKey(key: string): ParsedKey {
   for (const prefix of UNREPRESENTABLE_PREFIXES) {
     if (key.startsWith(prefix)) return { family: null, canonicalId: null, field: null };
+  }
+  // A whole object retained across re-analysis: the complete canonical object
+  // carrying this ID, whatever family it belongs to.
+  if (key.startsWith("object:")) {
+    return { family: "object", canonicalId: key.slice("object:".length), field: null };
   }
   for (const family of OBJECT_FAMILIES) {
     if (key.startsWith(`${family}:`)) {
@@ -136,11 +153,47 @@ export function canonicalFieldValue(
     const record = draft as unknown as Record<string, unknown>;
     return { representable: parsed.field in record, value: record[parsed.field] ?? null };
   }
+  if (parsed.family === "object") return { representable: false, value: null };
 
   const row = rowFor(draft, parsed.family, parsed.canonicalId!) as
     Record<string, unknown> | undefined;
   if (row === undefined) return { representable: true, value: null };
+
+  // A usage meter created from an AI proposal has ONE deterministic identity,
+  // exactly as the merge engine derives it. Meters are never fuzzy-matched.
+  if (parsed.family === "vc" && parsed.field.startsWith(`${METER_PREFIX}.`)) {
+    const property = parsed.field.slice(METER_PREFIX.length + 1);
+    const meter = aiMeterOf(row, parsed.canonicalId!);
+    if (meter === undefined) return { representable: true, value: null };
+    return { representable: property in meter, value: meter[property] ?? null };
+  }
+
+  // `servicePeriod` is a synthetic recognition target, not a stored property:
+  // it exists only when BOTH authoritative service dates are present.
+  if (parsed.family === "po" && parsed.field === SERVICE_PERIOD_FIELD) {
+    const start = row["serviceStart"];
+    const end = row["serviceEnd"];
+    const complete = isSupplied(start) && isSupplied(end);
+    return { representable: true, value: complete ? { start, end } : null };
+  }
+
+  // The Phase 5C workpaper is a composite conclusion, never a scalar: it is
+  // deliberately not something an automatic red cure can prove complete.
+  if (parsed.family === "modification" && parsed.field === PHASE_5C_FIELD) {
+    return { representable: false, value: null };
+  }
+
   return { representable: true, value: row[parsed.field] ?? null };
+}
+
+const METER_PREFIX = "meter";
+const SERVICE_PERIOD_FIELD = "servicePeriod";
+const PHASE_5C_FIELD = "phase5cFacts";
+
+/** The single meter identity the merge engine creates for a VC component. */
+function aiMeterOf(row: Record<string, unknown>, canonicalId: string): Row | undefined {
+  const meters = Array.isArray(row["meters"]) ? (row["meters"] as Row[]) : [];
+  return meters.find((meter) => meter["id"] === `${canonicalId}-m1`);
 }
 
 /** A deterministic marker for "the object this target names no longer exists". */
@@ -369,6 +422,30 @@ function familyOf(draft: WorkflowDraft, canonicalId: string): ObjectFamily | nul
 }
 
 /**
+ * A synthetic review target the merge engine raises that is NOT a stored
+ * property. Each maps deliberately to a material projection: the recognition
+ * conclusion, the complete modification workpaper, or the usage conclusion.
+ */
+function compositeTargetGroup(family: ObjectFamily, field: string): string | "object" | null {
+  if (family === "po" && field === SERVICE_PERIOD_FIELD) return "recognition";
+  if (family === "modification" && field === PHASE_5C_FIELD) return "object";
+  if (family === "vc" && field.startsWith(`${METER_PREFIX}.`)) return "usage";
+  return null;
+}
+
+/**
+ * Which promises belong to this performance obligation. Grouping is part of a
+ * performance obligation's accounting structure even though it is stored on
+ * the promises. Identity only — never array position.
+ */
+function memberPromiseIds(draft: WorkflowDraft, canonicalId: string): string[] {
+  return draft.promises
+    .filter((promise) => promise.performanceObligationId === canonicalId)
+    .map((promise) => promise.id)
+    .sort();
+}
+
+/**
  * The complete material canonical contents of an AI-created object, for one
  * question only: did the accountant materially edit it? Every user-editable
  * material field counts, not just the subset AI originally supplied.
@@ -382,6 +459,9 @@ export function canonicalObjectEditFingerprint(
   const row = rowFor(draft, family, canonicalId) as Row;
   const projection: Row = { family };
   for (const group of MATERIAL_GROUPS[family]) projection[group.name] = group.project(row);
+  // Grouping belongs to the whole performance obligation, never to its
+  // standalone-selling-price or recognition conclusion.
+  if (family === "po") projection["membership"] = memberPromiseIds(draft, canonicalId);
   return valueFingerprint(projection);
 }
 
@@ -401,6 +481,11 @@ export function canonicalReviewTargetFingerprint(
   const parsed = parseCanonicalKey(targetKey);
   if (parsed.family === null) return null;
 
+  // `object:<id>` names the whole canonical object ARC retained.
+  if (parsed.family === "object") {
+    return canonicalObjectEditFingerprint(draft, parsed.canonicalId!);
+  }
+
   if (OBJECT_FAMILIES.includes(parsed.family as ObjectFamily)) {
     const family = parsed.family as ObjectFamily;
     const row = rowFor(draft, family, parsed.canonicalId!) as Row | undefined;
@@ -408,8 +493,13 @@ export function canonicalReviewTargetFingerprint(
     if (parsed.field === null) {
       return canonicalObjectEditFingerprint(draft, parsed.canonicalId!) ?? absentMarker(targetKey);
     }
+    const composite = compositeTargetGroup(family, parsed.field);
+    if (composite === "object") {
+      return canonicalObjectEditFingerprint(draft, parsed.canonicalId!) ?? absentMarker(targetKey);
+    }
+    const groupName = composite ?? parsed.field;
     const group = MATERIAL_GROUPS[family].find((candidate) =>
-      candidate.fields.includes(parsed.field!),
+      composite === null ? candidate.fields.includes(groupName) : candidate.name === groupName,
     );
     if (group !== undefined) {
       return valueFingerprint({ family, group: group.name, material: group.project(row) });
@@ -432,6 +522,40 @@ export function canonicalReviewTargetFingerprint(
   const { representable, value } = canonicalFieldValue(draft, targetKey);
   if (!representable) return null;
   return valueFingerprint({ targetKey, value });
+}
+
+/**
+ * How Task 4 deliberately classifies a target key. Exported so a regression
+ * can prove no merge-emitted key silently falls through to an undefined
+ * property read.
+ */
+export type TargetClassification =
+  "exact_scalar" | "material_group" | "composite" | "unrepresentable";
+
+export function classifyReviewTarget(
+  draft: WorkflowDraft,
+  targetKey: string,
+): TargetClassification {
+  const parsed = parseCanonicalKey(targetKey);
+  if (parsed.family === null) return "unrepresentable";
+  if (parsed.family === "object") {
+    return canonicalObjectEditFingerprint(draft, parsed.canonicalId!) === null
+      ? "unrepresentable"
+      : "composite";
+  }
+  if (parsed.family === "transactionPrice") {
+    return parsed.field === "input" ? "composite" : "exact_scalar";
+  }
+  if (OBJECT_FAMILIES.includes(parsed.family as ObjectFamily)) {
+    const family = parsed.family as ObjectFamily;
+    if (parsed.field === null) return "composite";
+    if (compositeTargetGroup(family, parsed.field) !== null) return "composite";
+    const group = MATERIAL_GROUPS[family].find((candidate) =>
+      candidate.fields.includes(parsed.field!),
+    );
+    return group === undefined ? "exact_scalar" : "material_group";
+  }
+  return "exact_scalar";
 }
 
 /* -------------------------------------------------------------- interfaces */
