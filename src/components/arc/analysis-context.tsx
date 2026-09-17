@@ -497,23 +497,37 @@ export function AnalysisProvider({
     [saveRevision, saveGuest, queryClient, queryKey],
   );
 
+  /**
+   * True only when the workspace currently adopted has a save outstanding. A
+   * superseded generation's unresolved request does not count.
+   */
+  const currentSaveInFlight = useCallback(
+    () => saveInFlightRef.current?.generation === reloadGenerationRef.current,
+    [],
+  );
 
   /**
    * The single awaitable entry point to the autosave pipeline. A caller that
-   * arrives while a cycle is running joins that cycle's promise instead of
-   * starting a second one, so "the save has settled" is a real answer rather
-   * than a guess based on elapsed time.
+   * arrives while a cycle for the same generation is running joins that
+   * cycle's promise instead of starting a second one, so "the save has
+   * settled" is a real answer rather than a guess based on elapsed time. A
+   * slot owned by a superseded generation is never joined: the newly adopted
+   * workspace starts its own cycle immediately.
    */
   const runSave = useCallback(
     async (target: LoadedAnalysis): Promise<SaveCycleResult> => {
+      const generation = reloadGenerationRef.current;
       const existing = saveInFlightRef.current;
-      if (existing) return existing;
-      const task = performSaveCycle(target);
-      saveInFlightRef.current = task;
+      if (existing && existing.generation === generation) return existing.promise;
+
+      const promise = performSaveCycle(target, generation);
+      const slot = { generation, promise };
+      saveInFlightRef.current = slot;
       try {
-        return await task;
+        return await promise;
       } finally {
-        if (saveInFlightRef.current === task) saveInFlightRef.current = null;
+        // A stale task's cleanup can never clear a newer generation's slot.
+        if (saveInFlightRef.current === slot) saveInFlightRef.current = null;
       }
     },
     [performSaveCycle],
@@ -530,7 +544,8 @@ export function AnalysisProvider({
       // outstanding, so an "Unsaved changes" or "Save failed" state (and its
       // retry action) must clear. A conflict is deliberately never cleared
       // this way — the server may hold a genuinely newer version.
-      if (!inFlightRef.current) {
+      if (!currentSaveInFlight()) {
+
         setStatus((current) =>
           current.kind === "unsaved" || current.kind === "error"
             ? { kind: "saved", at: lastSavedAtRef.current }
