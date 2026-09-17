@@ -326,8 +326,28 @@ describe("AI workspace active run and reconnect", () => {
     const { deps } = fixture({ activeRun: active, latestRun: active });
     const state = await aiWorkspaceStateHandler(deps, revisionCaller);
     expect(state.activeRun?.runId).toBe("run-active");
-    expect(state.activeRun?.phase).toBe("analyzing");
+    // Validation is its own progress step; it must not collapse into analysis.
+    expect(state.activeRun?.phase).toBe("validating");
     expect(state.activeRun?.active).toBe(true);
+  });
+
+  it("preserves every approved progress phase distinctly", async () => {
+    const expected: Array<[AiRunRow["stage"], string]> = [
+      ["created", "preparing"],
+      ["extracting", "preparing"],
+      ["preflight_ready", "preparing"],
+      ["analyzing", "analyzing"],
+      ["validating", "validating"],
+      ["applying", "applying"],
+      ["succeeded", "succeeded"],
+      ["api_failed", "failed"],
+    ];
+    for (const [stage, phase] of expected) {
+      const run = runRow({ id: `run-${stage}`, stage });
+      const { deps } = fixture({ latestRun: run, activeRun: run });
+      const state = await aiWorkspaceStateHandler(deps, revisionCaller);
+      expect(state.latestRun?.phase).toBe(phase);
+    }
   });
 
   it("presents a terminal successful run and no active run", async () => {
@@ -503,5 +523,67 @@ describe("browser-facing review actions", () => {
       expectedReviewFingerprint: "fp-1",
     });
     expect(calls.createRun).toBe(0);
+  });
+});
+
+describe("stale allowance exhaustion never contradicts the current allowance", () => {
+  const exhaustedRun = () =>
+    runRow({
+      id: "run-exhausted",
+      stage: "preflight_failed",
+      failureStage: "preflight",
+      failureCategory: "preflight",
+      failureCode: "allowance_exhausted",
+      allowanceConsumed: false,
+      completedAt: "2026-09-30T23:00:00.000Z",
+    });
+
+  it("keeps the allowance-exhausted presentation while the allowance is truly spent", async () => {
+    const { deps } = fixture({ latestRun: exhaustedRun(), monthlyUsed: 10 });
+    const state = await aiWorkspaceStateHandler(deps, revisionCaller);
+    expect(state.allowance.remaining).toBe(0);
+    expect(state.failure?.category).toBe("allowance_exhausted");
+  });
+
+  it("drops the stale warning once the allowance is available again", async () => {
+    const { deps } = fixture({ latestRun: exhaustedRun(), monthlyUsed: 0 });
+    const state = await aiWorkspaceStateHandler(deps, revisionCaller);
+    expect(state.allowance.remaining).toBe(10);
+    expect(state.failure).toBeNull();
+  });
+
+  it("follows the same rule for a signed-in temporary workspace", async () => {
+    const signedInGuest: AiCallerScope = { ...guestCaller, authenticatedUserId: USER };
+    const spent = fixture({ latestRun: exhaustedRun(), monthlyUsed: 10 });
+    expect((await aiWorkspaceStateHandler(spent.deps, signedInGuest)).failure?.category).toBe(
+      "allowance_exhausted",
+    );
+    const reset = fixture({ latestRun: exhaustedRun(), monthlyUsed: 2 });
+    expect((await aiWorkspaceStateHandler(reset.deps, signedInGuest)).failure).toBeNull();
+  });
+
+  it("leaves ordinary provider and validation failures untouched", async () => {
+    const api = fixture({
+      latestRun: runRow({
+        stage: "api_failed",
+        failureCategory: "api",
+        failureCode: "api_failure",
+      }),
+      monthlyUsed: 0,
+    });
+    expect((await aiWorkspaceStateHandler(api.deps, revisionCaller)).failure?.category).toBe(
+      "ai_service",
+    );
+    const validation = fixture({
+      latestRun: runRow({
+        stage: "response_invalid",
+        failureCategory: "response",
+        failureCode: "citation_validation_failure",
+      }),
+      monthlyUsed: 0,
+    });
+    expect((await aiWorkspaceStateHandler(validation.deps, revisionCaller)).failure?.category).toBe(
+      "arc_validation",
+    );
   });
 });

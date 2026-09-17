@@ -50,7 +50,8 @@ import {
  * Presentation phases. The persisted lifecycle is unchanged; this is only the
  * browser's coarse view of it, so no internal stage name crosses the boundary.
  */
-export type AiWorkspacePhase = "preparing" | "analyzing" | "applying" | "succeeded" | "failed";
+export type AiWorkspacePhase =
+  "preparing" | "analyzing" | "validating" | "applying" | "succeeded" | "failed";
 
 export interface AiWorkspaceRunDto {
   runId: string;
@@ -138,8 +139,10 @@ function phaseOf(stage: AiRunStage): AiWorkspacePhase {
     case "preflight_ready":
       return "preparing";
     case "analyzing":
-    case "validating":
       return "analyzing";
+    case "validating":
+      return "validating";
+
     case "applying":
       return "applying";
     case "succeeded":
@@ -220,7 +223,7 @@ export async function aiWorkspaceStateHandler(
 
   // A failure presentation exists only for a terminal failed run, and it is
   // selected from persisted lifecycle facts — never from persisted copy.
-  const failure =
+  const presented =
     latest && !isActiveStage(latest.stage) && latest.stage !== "succeeded"
       ? presentAiFailure({
           failureCategory: latest.failureCategory,
@@ -229,6 +232,15 @@ export async function aiWorkspaceStateHandler(
           allowanceConsumed: latest.allowanceConsumed,
         })
       : null;
+
+  // "No analyses remaining" is a statement about right now, not about the
+  // month that run failed in. The immutable run stays exactly as recorded; the
+  // presentation defers to the authoritative current allowance, so a UTC-month
+  // reset cannot leave the browser holding two contradictory truths.
+  const failure =
+    presented && presented.category === "allowance_exhausted" && usage.remaining > 0
+      ? null
+      : presented;
 
   return {
     hasAnalysis,

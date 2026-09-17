@@ -10,13 +10,26 @@
  * identity, actor identity, quota, lock versions, timestamps, source
  * fingerprints and provider configuration are all derived on the server, so
  * hostile extra payload fields are simply discarded.
+ *
+ * Both edges are sanitised by `workspace.boundary`: input is parsed by pure
+ * helpers that refuse with settled ARC copy, and every handler runs inside
+ * `safeWorkspaceCall`, so nothing but an allowlisted ARC message can cross the
+ * RPC boundary back to the browser.
  */
 
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 
 import { GUIDANCE_REGISTRY_HASH } from "@/lib/arc/guidance/registry";
 
+import {
+  parseAffirmationMethod,
+  parseManualRedReason,
+  parseReviewItemTarget,
+  parseReviewNote,
+  parseRevisionTarget,
+  parseSourceFingerprint,
+  safeWorkspaceCall,
+} from "./workspace.boundary";
 import {
   acknowledgeAiStaleSourcesAction,
   affirmAiReviewItemAction,
@@ -51,18 +64,6 @@ async function callerFor(
   return resolveAiCallerFromRequest(deps.store, requestedRevisionId);
 }
 
-const revisionTarget = (input: { revisionId?: string | null } | undefined) =>
-  z
-    .string()
-    .uuid()
-    .nullable()
-    .parse(input?.revisionId ?? null);
-
-const reviewItemTarget = (input: { reviewItemId: string; expectedReviewFingerprint: string }) => ({
-  reviewItemId: z.string().min(1).max(200).parse(input?.reviewItemId),
-  expectedReviewFingerprint: z.string().min(1).max(200).parse(input?.expectedReviewFingerprint),
-});
-
 /**
  * The one authoritative workspace read. Side-effect free: it starts nothing,
  * charges nothing, writes nothing and contacts no provider, so it is safe to
@@ -70,12 +71,14 @@ const reviewItemTarget = (input: { reviewItemId: string; expectedReviewFingerpri
  */
 export const getAiWorkspaceState = createServerFn({ method: "POST" })
   .inputValidator((input: { revisionId?: string | null } | undefined) => ({
-    revisionId: revisionTarget(input),
+    revisionId: parseRevisionTarget(input),
   }))
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> => {
-    const deps = await workspaceDeps();
-    return aiWorkspaceStateHandler(deps, await callerFor(deps, data.revisionId));
-  });
+  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+    safeWorkspaceCall(async () => {
+      const deps = await workspaceDeps();
+      return aiWorkspaceStateHandler(deps, await callerFor(deps, data.revisionId));
+    }),
+  );
 
 /**
  * The deliberate Analyze / Re-analyze request. Never triggered by an edit, a
@@ -83,12 +86,14 @@ export const getAiWorkspaceState = createServerFn({ method: "POST" })
  */
 export const requestAiAnalysis = createServerFn({ method: "POST" })
   .inputValidator((input: { revisionId?: string | null } | undefined) => ({
-    revisionId: revisionTarget(input),
+    revisionId: parseRevisionTarget(input),
   }))
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> => {
-    const deps = await workspaceDeps();
-    return requestAiAnalysisHandler(deps, await callerFor(deps, data.revisionId));
-  });
+  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+    safeWorkspaceCall(async () => {
+      const deps = await workspaceDeps();
+      return requestAiAnalysisHandler(deps, await callerFor(deps, data.revisionId));
+    }),
+  );
 
 /** Yellow affirmation of one displayed conclusion. */
 export const affirmAiReviewItem = createServerFn({ method: "POST" })
@@ -99,22 +104,21 @@ export const affirmAiReviewItem = createServerFn({ method: "POST" })
       method?: string;
       revisionId?: string | null;
     }) => ({
-      ...reviewItemTarget(input),
-      method: z
-        .enum(["individual", "page_all", "global_all"])
-        .optional()
-        .parse(input?.method ?? undefined),
-      revisionId: revisionTarget(input),
+      ...parseReviewItemTarget(input),
+      method: parseAffirmationMethod(input),
+      revisionId: parseRevisionTarget(input),
     }),
   )
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> => {
-    const deps = await workspaceDeps();
-    return affirmAiReviewItemAction(deps, await callerFor(deps, data.revisionId), {
-      reviewItemId: data.reviewItemId,
-      expectedReviewFingerprint: data.expectedReviewFingerprint,
-      method: data.method,
-    });
-  });
+  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+    safeWorkspaceCall(async () => {
+      const deps = await workspaceDeps();
+      return affirmAiReviewItemAction(deps, await callerFor(deps, data.revisionId), {
+        reviewItemId: data.reviewItemId,
+        expectedReviewFingerprint: data.expectedReviewFingerprint,
+        method: data.method,
+      });
+    }),
+  );
 
 /** Manual resolution of one red AI review issue. */
 export const resolveAiReviewIssue = createServerFn({ method: "POST" })
@@ -126,27 +130,23 @@ export const resolveAiReviewIssue = createServerFn({ method: "POST" })
       note?: string | null;
       revisionId?: string | null;
     }) => ({
-      ...reviewItemTarget(input),
-      reason: z
-        .enum(["reviewed_current_treatment", "outside_source_information", "not_applicable"])
-        .parse(input?.reason),
-      note: z
-        .string()
-        .max(2000)
-        .nullish()
-        .parse(input?.note ?? null),
-      revisionId: revisionTarget(input),
+      ...parseReviewItemTarget(input),
+      reason: parseManualRedReason(input),
+      note: parseReviewNote(input),
+      revisionId: parseRevisionTarget(input),
     }),
   )
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> => {
-    const deps = await workspaceDeps();
-    return resolveAiReviewIssueAction(deps, await callerFor(deps, data.revisionId), {
-      reviewItemId: data.reviewItemId,
-      expectedReviewFingerprint: data.expectedReviewFingerprint,
-      reason: data.reason,
-      note: data.note ?? null,
-    });
-  });
+  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+    safeWorkspaceCall(async () => {
+      const deps = await workspaceDeps();
+      return resolveAiReviewIssueAction(deps, await callerFor(deps, data.revisionId), {
+        reviewItemId: data.reviewItemId,
+        expectedReviewFingerprint: data.expectedReviewFingerprint,
+        reason: data.reason,
+        note: data.note,
+      });
+    }),
+  );
 
 /**
  * Stale-source acknowledgment. The browser echoes the fingerprint it showed;
@@ -155,17 +155,15 @@ export const resolveAiReviewIssue = createServerFn({ method: "POST" })
 export const acknowledgeAiStaleSources = createServerFn({ method: "POST" })
   .inputValidator(
     (input: { expectedSourceSetFingerprint: string; revisionId?: string | null }) => ({
-      expectedSourceSetFingerprint: z
-        .string()
-        .min(1)
-        .max(200)
-        .parse(input?.expectedSourceSetFingerprint),
-      revisionId: revisionTarget(input),
+      expectedSourceSetFingerprint: parseSourceFingerprint(input),
+      revisionId: parseRevisionTarget(input),
     }),
   )
-  .handler(async ({ data }): Promise<AiWorkspaceStateDto> => {
-    const deps = await workspaceDeps();
-    return acknowledgeAiStaleSourcesAction(deps, await callerFor(deps, data.revisionId), {
-      expectedSourceSetFingerprint: data.expectedSourceSetFingerprint,
-    });
-  });
+  .handler(async ({ data }): Promise<AiWorkspaceStateDto> =>
+    safeWorkspaceCall(async () => {
+      const deps = await workspaceDeps();
+      return acknowledgeAiStaleSourcesAction(deps, await callerFor(deps, data.revisionId), {
+        expectedSourceSetFingerprint: data.expectedSourceSetFingerprint,
+      });
+    }),
+  );
