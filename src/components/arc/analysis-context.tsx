@@ -298,13 +298,17 @@ export function AnalysisProvider({
    * report spurious unsaved changes.
    */
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
-  const inFlightRef = useRef(false);
   /**
    * The autosave cycle currently running, as the promise that actually
-   * represents its lifetime. Anything that needs to know whether the server
-   * holds the current draft awaits this rather than polling a boolean.
+   * represents its lifetime, together with the reload generation that owns it.
+   * A superseded generation's request may still physically exist, but it no
+   * longer owns the current workspace's autosave slot: the newly adopted
+   * workspace must be able to start its own save immediately.
    */
-  const saveInFlightRef = useRef<Promise<SaveCycleResult> | null>(null);
+  const saveInFlightRef = useRef<{ generation: number; promise: Promise<SaveCycleResult> } | null>(
+    null,
+  );
+
 
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
