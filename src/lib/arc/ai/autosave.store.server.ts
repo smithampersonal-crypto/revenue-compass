@@ -16,11 +16,12 @@ import { parseCanonicalInputs } from "@/lib/arc/persistence/schema";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 
 import type {
+  AiSidecarLoad,
   AutosaveReconciliationStore,
   AutosaveScope,
 } from "./autosave-reconciliation.handlers";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
-import { normalizePersistedReviewItems } from "./review-normalization";
+import { normalizePersistedReviewPayload } from "./review-normalization";
 
 interface CodedError {
   code?: string;
