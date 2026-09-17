@@ -36,13 +36,26 @@ export interface AutosaveScope {
 export type AutosaveOutcome =
   | { ok: true; lockVersion: number; savedAt: string; reconciled: boolean }
   | { ok: false; reason: "conflict" }
+  | { ok: false; reason: "unavailable" }
   | { ok: false; reason: "expired" };
+
+/**
+ * What the store found when it looked for this analysis's AI sidecar.
+ *
+ * `unreadable` means a persisted review payload could not be fully
+ * interpreted. That is never repaired here: silently normalizing it away would
+ * destroy the very evidence finalization depends on.
+ */
+export type AiSidecarLoad =
+  | { status: "absent" }
+  | { status: "loaded"; state: AiAnalysisState }
+  | { status: "unreadable" };
 
 export interface AutosaveReconciliationStore {
   /** The authoritative pre-save canonical draft, or null when unavailable. */
   loadSavedDraft(scope: AutosaveScope): Promise<WorkflowDraft | null>;
-  /** The current AI sidecar, or null when this analysis has never used AI. */
-  loadAiState(scope: AutosaveScope): Promise<AiAnalysisState | null>;
+  /** The current AI sidecar, if this analysis has ever used AI. */
+  loadAiState(scope: AutosaveScope): Promise<AiSidecarLoad>;
   /** The existing draft-only autosave, unchanged for manual-only analyses. */
   saveDraftOnly(args: {
     scope: AutosaveScope;
