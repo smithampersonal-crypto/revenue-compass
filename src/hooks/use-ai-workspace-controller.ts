@@ -212,7 +212,8 @@ export function useAiWorkspaceController(
       setMessage(safeControllerMessage(error));
       if (workspaceRef.current === null) setLoadState("error");
     } finally {
-      readInFlightRef.current = false;
+      // Only the read that still owns the gate may release it.
+      if (readInFlightRef.current === token) readInFlightRef.current = null;
     }
   }, [adopt, enabled]);
 
