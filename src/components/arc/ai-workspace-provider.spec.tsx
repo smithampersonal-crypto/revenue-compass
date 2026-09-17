@@ -79,7 +79,7 @@ vi.mock("@/lib/arc/ai/runs.functions", () => ({
 }));
 
 /** The authoritative guest copy the server would return on a fresh load. */
-const guestServer = vi.hoisted(() => ({ lockVersion: 1, customerName: "", loads: 0 }));
+const guestServer = vi.hoisted(() => ({ lockVersion: 1, customerName: "" }));
 
 /** Lets a queued save be held in flight, the way a slow network would. */
 const savePending = vi.hoisted(() => ({ release: null as null | (() => void) }));
@@ -104,7 +104,6 @@ vi.mock("@/lib/arc/persistence/guest.functions", async () => {
       draft: { ...createEmptyDraft(), customerName: guestServer.customerName },
       lockVersion: guestServer.lockVersion,
       expiresAt: new Date(Date.now() + 9 * 3_600_000).toISOString(),
-      loaded: (guestServer.loads += 1),
       schemaVersion: "arc.workflow.v1",
       resumed: false,
     }),
@@ -160,7 +159,6 @@ beforeEach(() => {
   server.executes = 0;
   guestServer.lockVersion = 1;
   guestServer.customerName = "";
-  guestServer.loads = 0;
   savePending.release = null;
   guestSave.mockClear();
 });
