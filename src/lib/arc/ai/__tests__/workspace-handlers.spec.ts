@@ -326,9 +326,30 @@ describe("AI workspace active run and reconnect", () => {
     const { deps } = fixture({ activeRun: active, latestRun: active });
     const state = await aiWorkspaceStateHandler(deps, revisionCaller);
     expect(state.activeRun?.runId).toBe("run-active");
-    expect(state.activeRun?.phase).toBe("analyzing");
+    // Validation is its own progress step; it must not collapse into analysis.
+    expect(state.activeRun?.phase).toBe("validating");
     expect(state.activeRun?.active).toBe(true);
   });
+
+  it("preserves every approved progress phase distinctly", async () => {
+    const expected: Array<[AiRunRow["stage"], string]> = [
+      ["created", "preparing"],
+      ["extracting", "preparing"],
+      ["preflight_ready", "preparing"],
+      ["analyzing", "analyzing"],
+      ["validating", "validating"],
+      ["applying", "applying"],
+      ["succeeded", "succeeded"],
+      ["api_failed", "failed"],
+    ];
+    for (const [stage, phase] of expected) {
+      const run = runRow({ id: `run-${stage}`, stage });
+      const { deps } = fixture({ latestRun: run, activeRun: run });
+      const state = await aiWorkspaceStateHandler(deps, revisionCaller);
+      expect(state.latestRun?.phase).toBe(phase);
+    }
+  });
+
 
   it("presents a terminal successful run and no active run", async () => {
     const done = runRow({
