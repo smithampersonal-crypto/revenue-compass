@@ -29,8 +29,16 @@ select '03 every Phase 9F routine exists',
          where n.nspname = 'public'
            and p.proname in ('arc_advance_ai_run_stage', 'arc_record_ai_preflight',
                              'arc_apply_ai_run', 'arc_restore_pre_ai_run',
-                             'arc_set_ai_review_state', 'arc_affirm_ai_review_scope',
-                             'arc_mark_ai_sources_stale', 'arc_ai_scope_has_active_run')) = 8;
+                             'arc_mark_ai_sources_stale', 'arc_ai_scope_has_active_run')) = 6;
+
+-- Phase 9G Task 2 retired the two unaudited review-mutation routines: one
+-- could replace the whole review array, the other resolved affirmation items
+-- without writing an audit event. Neither may come back.
+insert into arc_test_results
+select '03b the unaudited review-mutation routines are retired',
+       not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public'
+                      and p.proname in ('arc_set_ai_review_state', 'arc_affirm_ai_review_scope'));
 
 insert into arc_test_results
 select '04 no Phase 9F routine is executable by anon or signed-in users',
@@ -39,9 +47,10 @@ select '04 no Phase 9F routine is executable by anon or signed-in users',
           where n.nspname = 'public'
             and p.proname in ('arc_advance_ai_run_stage', 'arc_record_ai_preflight',
                               'arc_apply_ai_run', 'arc_restore_pre_ai_run',
-                              'arc_set_ai_review_state', 'arc_affirm_ai_review_scope')
+                              'arc_mark_ai_sources_stale')
             and (has_function_privilege('anon', p.oid, 'execute')
                  or has_function_privilege('authenticated', p.oid, 'execute')));
+
 
 /* --------------------------------------------------------- 05 behaviour */
 
