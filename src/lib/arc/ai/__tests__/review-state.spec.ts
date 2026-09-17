@@ -223,7 +223,7 @@ describe("ranking and resolution carry-forward", () => {
 
   it("carries a manual red resolution only to the same red item and fingerprint", () => {
     const manual: AiReviewItem = {
-      ...item("resolved", "a"),
+      ...item("resolved", "a", "red"),
       resolution: {
         kind: "manual_red",
         at: "2027-02-01T00:00:00.000Z",
