@@ -309,7 +309,6 @@ export function AnalysisProvider({
     null,
   );
 
-
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
   /**
@@ -545,8 +544,6 @@ export function AnalysisProvider({
       // retry action) must clear. A conflict is deliberately never cleared
       // this way — the server may hold a genuinely newer version.
       if (!currentSaveInFlight()) {
-
-
         setStatus((current) =>
           current.kind === "unsaved" || current.kind === "error"
             ? { kind: "saved", at: lastSavedAtRef.current }
@@ -645,7 +642,6 @@ export function AnalysisProvider({
       if (!result.ok) return { ok: false };
     }
   }, [persistenceEnabled, runSave]);
-
 
   /**
    * A successful AI run applied a new canonical draft on the server. Autosave

@@ -477,4 +477,3 @@ describe("the analysis workspace AI controller", () => {
     });
   }
 });
-
