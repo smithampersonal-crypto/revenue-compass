@@ -50,7 +50,14 @@ import {
  * Presentation phases. The persisted lifecycle is unchanged; this is only the
  * browser's coarse view of it, so no internal stage name crosses the boundary.
  */
-export type AiWorkspacePhase = "preparing" | "analyzing" | "applying" | "succeeded" | "failed";
+export type AiWorkspacePhase =
+  | "preparing"
+  | "analyzing"
+  | "validating"
+  | "applying"
+  | "succeeded"
+  | "failed";
+
 
 export interface AiWorkspaceRunDto {
   runId: string;
