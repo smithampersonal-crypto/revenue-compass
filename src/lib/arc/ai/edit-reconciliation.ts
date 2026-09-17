@@ -510,13 +510,22 @@ export function canonicalReviewTargetFingerprint(
   }
 
   if (parsed.family === "transactionPrice") {
-    return valueFingerprint({
-      transactionPriceInput: draft.transactionPriceInput,
-      hasVariableConsideration: draft.hasVariableConsideration,
-      variableConsideration: draft.variableConsiderationComponents
-        .map((row) => canonicalObjectEditFingerprint(draft, row.id) ?? row.id)
-        .sort(),
-    });
+    // The transaction-price family is NOT homogeneous. `input` is the composite
+    // fixed-plus-variable conclusion; `notes` is an ordinary canonical field;
+    // the advisory topics (financing, noncash, consideration payable to the
+    // customer) have no canonical field at all, so ARC has nothing to compare
+    // and must never treat an unrelated accounting edit as a review of them.
+    // Anything else is unknown and fails closed for the same reason.
+    if (parsed.field === "input") {
+      return valueFingerprint({
+        transactionPriceInput: draft.transactionPriceInput,
+        hasVariableConsideration: draft.hasVariableConsideration,
+        variableConsideration: draft.variableConsiderationComponents
+          .map((row) => canonicalObjectEditFingerprint(draft, row.id) ?? row.id)
+          .sort(),
+      });
+    }
+    if (parsed.field !== "notes") return null;
   }
 
   const { representable, value } = canonicalFieldValue(draft, targetKey);
@@ -544,7 +553,9 @@ export function classifyReviewTarget(
       : "composite";
   }
   if (parsed.family === "transactionPrice") {
-    return parsed.field === "input" ? "composite" : "exact_scalar";
+    if (parsed.field === "input") return "composite";
+    if (parsed.field === "notes") return "exact_scalar";
+    return "unrepresentable";
   }
   if (OBJECT_FAMILIES.includes(parsed.family as ObjectFamily)) {
     const family = parsed.family as ObjectFamily;
