@@ -17,7 +17,7 @@
 
 import type { AiCallerScope, AiRunStore } from "./runs.handlers";
 import { AI_WORKSPACE_NOT_EDITABLE } from "./runs.handlers";
-import type { AffirmationMethod, ManualRedReason } from "./review-normalization";
+import type { AiAffirmationMethod, ManualRedReason } from "./review-state";
 
 /* ---------------------------------------------------------------- copy */
 
@@ -28,7 +28,7 @@ export const AI_REVIEW_ACTION_FAILED = "That review action could not be complete
 export const AI_REVIEW_NOTE_LIMIT = 2000;
 export const AI_REVIEW_NOTE_TOO_LONG = `Please keep that note under ${AI_REVIEW_NOTE_LIMIT} characters.`;
 
-const AFFIRMATION_METHODS: ReadonlySet<string> = new Set<AffirmationMethod>([
+const AFFIRMATION_METHODS: ReadonlySet<string> = new Set<AiAffirmationMethod>([
   "individual",
   "page_all",
   "global_all",
@@ -71,7 +71,7 @@ export interface AiSourceAcknowledgementResult {
 
 export interface AiReviewActionStore extends AiRunStore {
   affirmReviewItem(
-    args: AiReviewItemActionArgs & { method: AffirmationMethod },
+    args: AiReviewItemActionArgs & { method: AiAffirmationMethod },
   ): Promise<AiReviewActionResult>;
   resolveReviewIssue(
     args: AiReviewItemActionArgs & { reason: ManualRedReason; note: string | null },
@@ -162,7 +162,7 @@ export async function affirmReviewItemHandler(
       ...scope,
       reviewItemId,
       expectedReviewFingerprint,
-      method: method as AffirmationMethod,
+      method: method as AiAffirmationMethod,
     });
     return {
       applied: true,

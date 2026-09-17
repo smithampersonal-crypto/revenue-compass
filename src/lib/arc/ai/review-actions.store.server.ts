@@ -40,12 +40,18 @@ function firstRow<T>(data: unknown): T | null {
 export async function createAiReviewActionStore(): Promise<AiReviewActionStore> {
   const runStore = await createAiRunStore();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  // The Phase 9G routines are newer than the generated database types, so the
+  // call surface is narrowed locally instead of being typed against them.
+  const rpc = supabaseAdmin.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: CodedError | null }>;
 
   return {
     ...runStore,
 
     affirmReviewItem: async (args) => {
-      const { data, error } = await supabaseAdmin.rpc("arc_affirm_ai_review_item", {
+      const { data, error } = await rpc("arc_affirm_ai_review_item", {
         p_owner_user_id: args.ownerUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
@@ -54,7 +60,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
         p_review_item_id: args.reviewItemId,
         p_expected_review_fingerprint: args.expectedReviewFingerprint,
         p_method: args.method,
-      } as never);
+      });
       if (error) fail("affirm review item", error);
       const row = firstRow<{
         lock_version: number;
@@ -70,7 +76,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
     },
 
     resolveReviewIssue: async (args) => {
-      const { data, error } = await supabaseAdmin.rpc("arc_resolve_ai_review_issue", {
+      const { data, error } = await rpc("arc_resolve_ai_review_issue", {
         p_owner_user_id: args.ownerUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
@@ -80,7 +86,7 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
         p_expected_review_fingerprint: args.expectedReviewFingerprint,
         p_reason: args.reason,
         p_note: args.note,
-      } as never);
+      });
       if (error) fail("resolve review issue", error);
       const row = firstRow<{
         lock_version: number;
@@ -96,14 +102,14 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
     },
 
     acknowledgeStaleSources: async (args) => {
-      const { data, error } = await supabaseAdmin.rpc("arc_acknowledge_ai_stale_sources", {
+      const { data, error } = await rpc("arc_acknowledge_ai_stale_sources", {
         p_owner_user_id: args.ownerUserId,
         p_guest_token_hash: args.guestTokenHash,
         p_revision_id: args.revisionId,
         p_guest_workspace_id: args.guestWorkspaceId,
         p_expected_lock_version: args.expectedLockVersion,
         p_expected_source_set_fingerprint: args.expectedSourceSetFingerprint,
-      } as never);
+      });
       if (error) fail("acknowledge stale sources", error);
       const row = firstRow<{
         lock_version: number;
