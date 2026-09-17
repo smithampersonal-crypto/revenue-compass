@@ -998,7 +998,11 @@ describe("nested variable-consideration meter provenance", () => {
     const state = meterState(previous);
     const next = structuredClone(previous);
     next.variableConsiderationComponents[0]!.meters[0]!.rateAmountInput = "0.20";
-    const result = reconcileAiEdits({ previousDraft: previous, nextDraft: next, currentAiState: state });
+    const result = reconcileAiEdits({
+      previousDraft: previous,
+      nextDraft: next,
+      currentAiState: state,
+    });
     const after = result.aiState.fieldProvenance[key]!;
     expect(after.state).toBe("ai_generated_user_edited");
     expect(after.valueFingerprint).toBe(state.fieldProvenance[key]!.valueFingerprint);

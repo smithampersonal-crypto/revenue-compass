@@ -41,9 +41,7 @@ function draft(): WorkflowDraft {
     hasVariableConsideration: true,
     hasContractModifications: true,
     transactionPriceInput: "120000",
-    promises: [
-      { ...createPromiseDraft(1, PROMISE_ID), performanceObligationId: PO_ID },
-    ],
+    promises: [{ ...createPromiseDraft(1, PROMISE_ID), performanceObligationId: PO_ID }],
     performanceObligations: [
       {
         ...createPoDraft(1, PO_ID),

@@ -46,13 +46,7 @@ const UNREPRESENTABLE_PREFIXES = [
 
 interface ParsedKey {
   family:
-    | ObjectFamily
-    | "contract"
-    | "criterion"
-    | "transactionPrice"
-    | "structural"
-    | "object"
-    | null;
+    ObjectFamily | "contract" | "criterion" | "transactionPrice" | "structural" | "object" | null;
   canonicalId: string | null;
   field: string | null;
   criterionId?: string;
@@ -536,12 +530,12 @@ export function canonicalReviewTargetFingerprint(
  * property read.
  */
 export type TargetClassification =
-  | "exact_scalar"
-  | "material_group"
-  | "composite"
-  | "unrepresentable";
+  "exact_scalar" | "material_group" | "composite" | "unrepresentable";
 
-export function classifyReviewTarget(draft: WorkflowDraft, targetKey: string): TargetClassification {
+export function classifyReviewTarget(
+  draft: WorkflowDraft,
+  targetKey: string,
+): TargetClassification {
   const parsed = parseCanonicalKey(targetKey);
   if (parsed.family === null) return "unrepresentable";
   if (parsed.family === "object") {
