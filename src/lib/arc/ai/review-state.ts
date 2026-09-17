@@ -168,8 +168,7 @@ export function isAiReviewResolution(value: unknown): value is AiReviewResolutio
   if (row["kind"] === "affirmed") return isAiAffirmationMethod(row["method"]);
   if (row["kind"] === "manual_red") {
     return (
-      isManualRedReason(row["reason"]) &&
-      (row["note"] === null || typeof row["note"] === "string")
+      isManualRedReason(row["reason"]) && (row["note"] === null || typeof row["note"] === "string")
     );
   }
   return false;
@@ -221,13 +220,9 @@ export interface ReviewDerivationInput {
 }
 
 /** The material projection a review item is fingerprinted against. */
-export function reviewMaterialOf(input: {
-  value: unknown;
-  material?: unknown;
-}): unknown {
+export function reviewMaterialOf(input: { value: unknown; material?: unknown }): unknown {
   return input.material === undefined ? input.value : input.material;
 }
-
 
 /**
  * The single deterministic material fingerprint of a review item: its identity,

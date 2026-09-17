@@ -325,9 +325,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     recognitionRationale: po.recognitionRationale,
   });
 
-  const recognitionMaterial = (
-    proposal: AiContractAnalysis["recognitionProposals"][number],
-  ) => ({
+  const recognitionMaterial = (proposal: AiContractAnalysis["recognitionProposals"][number]) => ({
     performanceObligationKey: proposal.performanceObligationKey,
     satisfactionPattern: proposal.satisfactionPattern,
     recognitionMethod: proposal.recognitionMethod,
@@ -335,8 +333,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     serviceEndDate: proposal.serviceEndDate,
     measureDescription: proposal.measureDescription,
     recognitionEventDescription: proposal.recognitionEventDescription,
-    recognitionDateIfContractuallyDeterminable:
-      proposal.recognitionDateIfContractuallyDeterminable,
+    recognitionDateIfContractuallyDeterminable: proposal.recognitionDateIfContractuallyDeterminable,
     rationale: proposal.rationale,
   });
 
