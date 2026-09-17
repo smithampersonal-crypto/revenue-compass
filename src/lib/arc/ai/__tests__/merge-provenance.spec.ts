@@ -171,6 +171,12 @@ describe("a historical affirmation can never clear a blocking issue", () => {
       reviewItems: state.reviewItems.map((item) => ({
         ...item,
         state: "resolved" as const,
+        resolution: {
+          kind: "affirmed" as const,
+          at: "2027-02-01T00:00:00.000Z",
+          method: "individual" as const,
+          reviewFingerprint: item.reviewFingerprint,
+        },
         affirmedAt: "2027-02-01T00:00:00.000Z",
         affirmedMethod: "individual" as const,
       })),

@@ -14,6 +14,7 @@ import {
   mergeAiAnalysis,
   type AiAnalysisState,
 } from "../merge";
+import type { AiReviewItem } from "../review-state";
 import type { AiContractAnalysis } from "../schema";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
@@ -37,7 +38,7 @@ function run(
   });
 }
 
-function itemFor(issues: readonly { targetKey: string; state: string }[], targetKey: string) {
+function itemFor(issues: readonly AiReviewItem[], targetKey: string) {
   return issues.find((issue) => issue.targetKey === targetKey);
 }
 
@@ -158,6 +159,12 @@ describe("Fixture C — re-analysis preserves user work", () => {
       reviewItems: first.aiState.reviewItems.map((item) => ({
         ...item,
         state: "resolved" as const,
+        resolution: {
+          kind: "affirmed" as const,
+          at: "2027-02-01T00:00:00.000Z",
+          method: "individual" as const,
+          reviewFingerprint: item.reviewFingerprint,
+        },
         affirmedAt: "2027-02-01T00:00:00.000Z",
         affirmedMethod: "individual" as const,
       })),
@@ -276,6 +283,62 @@ describe("Fixture E — usage-based billing", () => {
     expect(component.meters[0]?.rateAmountInput).toBe("1.35");
     // Not one future month of usage is invented.
     expect(component.usagePeriods).toHaveLength(0);
+  });
+});
+
+/* ------------------------------- review items carry their own evidence */
+
+describe("review items carry the evidence of the conclusion they review", () => {
+  it("attaches the proposing conclusion's citation to a preserved manual value", () => {
+    const manual: WorkflowDraft = { ...createEmptyDraft(), transactionPriceInput: "125000" };
+    const { issues } = run(fixtureAAnalysis(), manual);
+    const item = itemFor(issues, "transactionPrice.input");
+    expect(item?.citations).toEqual([
+      {
+        documentId: "doc-fixture-1",
+        pageStart: 1,
+        pageEnd: 1,
+        evidenceMode: "text",
+        excerpt: "120,000",
+      },
+    ]);
+  });
+
+  it("attaches its own conclusion's citation to a missing-input issue", () => {
+    const analysis = fixtureAAnalysis();
+    analysis.sspAndAllocation.items[0]!.observableSspEvidence = "not_observable";
+    analysis.sspAndAllocation.items[0]!.observedAmountInput = null;
+    analysis.sspAndAllocation.items[0]!.proposedMethod = "adjusted_market_assessment";
+    analysis.sspAndAllocation.items[0]!.reviewState = "needs_user_input";
+    const { issues } = run(analysis);
+    const item = itemFor(issues, `po:${PO_ID}.sspInput`);
+    expect(item?.state).toBe("red");
+    expect(item?.citations).toEqual(analysis.sspAndAllocation.items[0]!.citations);
+  });
+
+  it("fabricates no citation for a synthetic tombstone or omission item", () => {
+    const first = run(fixtureAAnalysis());
+    const withoutPo: WorkflowDraft = {
+      ...first.draft,
+      performanceObligations: [],
+      promises: first.draft.promises.map((promise) => ({
+        ...promise,
+        performanceObligationId: null,
+      })),
+    };
+    const second = run(fixtureAAnalysis(), withoutPo, first.aiState, RUN_2);
+    for (const issue of second.issues.filter((row) => row.targetKey.startsWith("object:"))) {
+      expect(issue.citations).toEqual([]);
+    }
+  });
+
+  it("gives every derived item a material review fingerprint", () => {
+    const { issues } = run(fixtureAAnalysis());
+    expect(issues.length).toBeGreaterThan(0);
+    for (const issue of issues) {
+      expect(issue.reviewFingerprint).toHaveLength(16);
+      expect(issue.resolution).toBeNull();
+    }
   });
 });
 

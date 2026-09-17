@@ -13,21 +13,58 @@
 import { getGuidancePolicy } from "@/lib/arc/guidance/policy";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
-import { stableHash } from "./identity";
+import { normalizeCitationText } from "./citations";
+import { canonicalJson, stableHash, valueFingerprint } from "./identity";
 import type { AiReviewState } from "./schema";
 
 export type AiReviewItemState = "yellow" | "red" | "resolved";
 
 export type AiAffirmationMethod = "individual" | "page_all" | "global_all" | "edited";
 
+/**
+ * The evidence material of a review item. Only validated Phase 9F citation
+ * values reach this shape; nothing here is ever model-authored free text that
+ * bypassed `validateAiCitations()`.
+ */
+export interface AiReviewCitationRef {
+  documentId: string;
+  pageStart: number;
+  pageEnd: number;
+  evidenceMode: "text" | "visual";
+  excerpt: string | null;
+}
+
+export type ManualRedReason =
+  "reviewed_current_treatment" | "outside_source_information" | "not_applicable";
+
+export type AiReviewResolution =
+  | {
+      kind: "affirmed";
+      at: string;
+      method: AiAffirmationMethod;
+      reviewFingerprint: string;
+    }
+  | {
+      kind: "manual_red";
+      at: string;
+      reason: ManualRedReason;
+      note: string | null;
+      reviewFingerprint: string;
+    };
+
 export interface AiReviewItem {
   id: string;
   targetKey: string;
   section: GuidanceReviewSection;
   state: AiReviewItemState;
+  reasonCode: AiReviewReasonCode;
   reason: string;
   guidanceIds: number[];
+  citations: AiReviewCitationRef[];
   valueFingerprint: string;
+  reviewFingerprint: string;
+  resolution: AiReviewResolution | null;
+  /** Retained until every persisted Phase 9F row has been normalized. */
   affirmedAt: string | null;
   affirmedMethod: AiAffirmationMethod | null;
 }
@@ -60,7 +97,14 @@ export interface ReviewDerivationInput {
   reasonCode: AiReviewReasonCode;
   reason: string;
   guidanceIds: readonly number[];
-  valueFingerprint: string;
+  /** Validated citation material of the exact conclusion under review. */
+  citations: readonly AiReviewCitationRef[];
+  /**
+   * The server-derived reviewed value. Both fingerprints are computed from
+   * this one value, so a caller can never fingerprint one value while
+   * reviewing another.
+   */
+  value: unknown;
   /** The validated AI review state for the underlying conclusion, if any. */
   aiReviewState?: AiReviewState | null;
   /**
@@ -69,6 +113,49 @@ export interface ReviewDerivationInput {
    * proposed conclusion.
    */
   blocking?: boolean;
+}
+
+/**
+ * The single deterministic material fingerprint of a review item: its identity,
+ * the reviewed value, the Guidance set and the citation set. Input order and
+ * byte-identical duplicates never change it; a materially different value,
+ * reason, Guidance reference or piece of evidence always does.
+ */
+export function buildReviewFingerprint(input: {
+  id: string;
+  targetKey: string;
+  reasonCode: AiReviewReasonCode;
+  value: unknown;
+  guidanceIds: readonly number[];
+  citations: readonly AiReviewCitationRef[];
+}): string {
+  const guidanceIds = [...new Set(input.guidanceIds)].sort((a, b) => a - b);
+  const citationByIdentity = new Map(
+    input.citations.map((citation) => {
+      const normalized = {
+        documentId: citation.documentId,
+        pageStart: citation.pageStart,
+        pageEnd: citation.pageEnd,
+        evidenceMode: citation.evidenceMode,
+        excerpt: normalizeCitationText(citation.excerpt ?? ""),
+      };
+      return [canonicalJson(normalized), normalized] as const;
+    }),
+  );
+  const citations = [...citationByIdentity.values()].sort((a, b) =>
+    canonicalJson(a).localeCompare(canonicalJson(b)),
+  );
+
+  return stableHash(
+    canonicalJson({
+      id: input.id,
+      targetKey: input.targetKey,
+      reasonCode: input.reasonCode,
+      value: input.value,
+      guidanceIds,
+      citations,
+    }),
+  );
 }
 
 /** Deterministic review-item identity. No UUID, no counter, no clock. */
@@ -136,14 +223,26 @@ const ALWAYS_VISIBLE = new Set<AiReviewReasonCode>([
 export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | null {
   const state = classifyReviewState(input);
   if (state === null) return null;
+  const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
   return {
-    id: reviewItemId(input.targetKey, input.section, input.reasonCode),
+    id,
     targetKey: input.targetKey,
     section: input.section,
     state,
+    reasonCode: input.reasonCode,
     reason: input.reason,
     guidanceIds: [...input.guidanceIds].sort((a, b) => a - b),
-    valueFingerprint: input.valueFingerprint,
+    citations: input.citations.map((citation) => ({ ...citation })),
+    valueFingerprint: valueFingerprint(input.value),
+    reviewFingerprint: buildReviewFingerprint({
+      id,
+      targetKey: input.targetKey,
+      reasonCode: input.reasonCode,
+      value: input.value,
+      guidanceIds: input.guidanceIds,
+      citations: input.citations,
+    }),
+    resolution: null,
     affirmedAt: null,
     affirmedMethod: null,
   };
@@ -170,36 +269,34 @@ export function rankReviewItems(items: readonly AiReviewItem[]): AiReviewItem[] 
 }
 
 /**
- * Carries a prior resolution forward only when the item's identity AND the
- * exact reviewed value are unchanged, AND the newly derived item is still a
- * yellow affirmation item. A changed value invalidates the old affirmation —
- * an accountant never affirms accounting they have not seen — and a red issue
- * can never be affirmed away by a historical resolution of a yellow one.
+ * Carries a prior resolution forward only when the item's identity AND its
+ * material review fingerprint are unchanged, and only into a state that
+ * matches the kind of resolution given. A changed value, citation set,
+ * Guidance set or reason reopens the item — an accountant never affirms
+ * accounting they have not seen. A newly red item never inherits an
+ * affirmation, and a yellow item never inherits a manual red resolution.
  */
-export function applyPriorAffirmations(
+export function carryForwardReviewResolutions(
   next: readonly AiReviewItem[],
   previous: readonly AiReviewItem[],
 ): AiReviewItem[] {
-  const priorById = new Map(previous.map((item) => [item.id, item] as const));
+  const prior = new Map(previous.map((item) => [item.id, item] as const));
   return next.map((item) => {
-    const prior = priorById.get(item.id);
-    if (
-      prior === undefined ||
-      prior.state !== "resolved" ||
-      // Only a still-yellow item may inherit a resolution. A newly blocking
-      // item keeps its red state and carries no affirmation metadata.
-      item.state !== "yellow" ||
-      prior.targetKey !== item.targetKey ||
-      prior.valueFingerprint !== item.valueFingerprint
-    ) {
-      return item;
+    const old = prior.get(item.id);
+    if (!old?.resolution || old.reviewFingerprint !== item.reviewFingerprint) return item;
+    if (item.state === "yellow" && old.resolution.kind === "affirmed") {
+      return {
+        ...item,
+        state: "resolved",
+        resolution: old.resolution,
+        affirmedAt: old.resolution.at,
+        affirmedMethod: old.resolution.method,
+      };
     }
-    return {
-      ...item,
-      state: "resolved",
-      affirmedAt: prior.affirmedAt,
-      affirmedMethod: prior.affirmedMethod,
-    };
+    if (item.state === "red" && old.resolution.kind === "manual_red") {
+      return { ...item, state: "resolved", resolution: old.resolution };
+    }
+    return item;
   });
 }
 

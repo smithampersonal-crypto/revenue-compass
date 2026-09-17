@@ -57,14 +57,15 @@ import {
   type AiObjectKind,
 } from "./identity";
 import {
-  applyPriorAffirmations,
+  carryForwardReviewResolutions,
   deriveReviewItem,
   rankReviewItems,
   sortReviewItems,
+  type AiReviewCitationRef,
   type AiReviewItem,
   type AiReviewReasonCode,
 } from "./review-state";
-import type { AiContractAnalysis, AiReviewState } from "./schema";
+import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
@@ -247,12 +248,28 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* --------------------------------------------------------- review issues */
 
+  /**
+   * Every review item carries the validated citations of the exact conclusion
+   * that supplied its value. A synthetic item with no source evidence — an
+   * omission, a tombstone, a required identifier ARC never reads from the
+   * analysis — passes none, and none is fabricated for it.
+   */
+  const reviewCitations = (citations: readonly AiCitation[] | undefined): AiReviewCitationRef[] =>
+    (citations ?? []).map((citation) => ({
+      documentId: citation.documentId,
+      pageStart: citation.pageStart,
+      pageEnd: citation.pageEnd,
+      evidenceMode: citation.evidenceMode,
+      excerpt: citation.excerpt ?? null,
+    }));
+
   const raise = (input: {
     targetKey: string;
     section: GuidanceReviewSection;
     reasonCode: AiReviewReasonCode;
     reason: string;
     guidanceIds?: readonly number[];
+    citations?: readonly AiCitation[];
     value: unknown;
     aiReviewState?: AiReviewState | null;
     blocking?: boolean;
@@ -263,7 +280,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reasonCode: input.reasonCode,
       reason: input.reason,
       guidanceIds: onlyKnownGuidance(input.guidanceIds ?? []),
-      valueFingerprint: valueFingerprint(input.value),
+      citations: reviewCitations(input.citations),
+      value: input.value,
       aiReviewState: input.aiReviewState ?? null,
       blocking: input.blocking ?? false,
     });
@@ -282,6 +300,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     apply: (value: T) => void;
     section: GuidanceReviewSection;
     guidanceIds?: readonly number[];
+    citations?: readonly AiCitation[];
     aiReviewState?: AiReviewState | null;
     label: string;
   }
@@ -313,6 +332,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
             state === "prior_finalized" ? "prior_finalized_conflict" : "manual_value_preserved",
           reason: `${input.label}: the recorded value was kept; the AI analysis proposed a different value.`,
           guidanceIds,
+          citations: input.citations ?? [],
           // A difference item is reviewed as a DIFFERENCE: the affirmation an
           // accountant gave to "keep 125,000 over the AI's 150,000" must not
           // survive the AI later proposing 180,000.
@@ -376,6 +396,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_value_preserved",
         reason: `${input.label}: your edited value was kept; the AI analysis proposed a different value.`,
         guidanceIds,
+        citations: input.citations ?? [],
         value: { preservedValue: input.current, proposedValue: input.proposed },
         aiReviewState: input.aiReviewState ?? null,
       });
@@ -442,6 +463,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         draft.contract = { ...draft.contract, customerName: value };
       },
       section: "step_1",
+      citations: customer.citations,
       aiReviewState: customer.reviewState,
       label: "Customer name",
     });
@@ -459,6 +481,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       },
       section: "step_1",
       guidanceIds: assessment.contractEffectiveDate.guidanceIds,
+      citations: assessment.contractEffectiveDate.citations,
       aiReviewState: assessment.contractEffectiveDate.reviewState,
       label: "Contract effective date",
     });
@@ -538,6 +561,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         },
         section,
         guidanceIds: entry.judgment.guidanceIds,
+        citations: entry.judgment.citations,
         aiReviewState: entry.judgment.reviewState,
         label: entry.label,
       });
@@ -562,6 +586,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           },
           section,
           guidanceIds: entry.judgment.guidanceIds,
+          citations: entry.judgment.citations,
           aiReviewState: entry.judgment.reviewState,
           label: `${entry.label} rationale`,
         });
@@ -577,6 +602,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           ? `${entry.label}: the contract does not establish this criterion. An accountant judgment is required.`
           : `${entry.label}: affirm the AI conclusion.`,
       guidanceIds: entry.judgment.guidanceIds,
+      citations: entry.judgment.citations,
       value: draft.contract.criteria[entry.criterion]?.answer ?? null,
       aiReviewState: entry.judgment.reviewState,
       blocking: answer === null && draft.contract.criteria[entry.criterion]?.answer === null,
@@ -601,6 +627,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "ai_proposal_tombstoned",
         reason: `The AI analysis still proposes "${aiPromise.description.slice(0, 120)}", which you previously removed. It has not been recreated.`,
         guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
         value: aiPromise.semanticKey,
         aiReviewState: "needs_review",
       });
@@ -618,6 +645,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis proposes a promise that matches one you entered manually. Your promise was kept and no duplicate was created.",
         guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
         value: {
           manualPromiseId: manualTwin.id,
           semanticKey: aiPromise.semanticKey,
@@ -661,6 +689,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ kind: value }),
       section,
       guidanceIds: aiPromise.guidanceIds,
+      citations: aiPromise.citations,
       aiReviewState: aiPromise.reviewState,
       label: "Promise type",
     });
@@ -673,6 +702,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ description: value }),
       section,
       guidanceIds: aiPromise.guidanceIds,
+      citations: aiPromise.citations,
       aiReviewState: aiPromise.reviewState,
       label: "Promise description",
     });
@@ -699,6 +729,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         apply: (value) => update({ [spec.field]: value } as Partial<PromiseDraft>),
         section,
         guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
         aiReviewState: aiPromise.reviewState,
         label: spec.label,
       });
@@ -711,6 +742,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ distinctRationale: value }),
       section,
       guidanceIds: aiPromise.guidanceIds,
+      citations: aiPromise.citations,
       aiReviewState: aiPromise.reviewState,
       label: "Distinctness rationale",
     });
@@ -725,6 +757,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "This customer option needs your judgment on whether it conveys a material right. The AI analysis does not supply that conclusion structurally.",
         guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
         value: null,
         aiReviewState: "needs_user_input",
         blocking: true,
@@ -748,6 +781,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis still proposes a performance obligation you previously removed. It has not been recreated.",
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         value: aiPo.semanticKey,
         aiReviewState: "needs_review",
       });
@@ -769,6 +803,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           reasonCode: "unsafe_semantic_relationship",
           reason: `The AI analysis groups an unknown promise (${promiseKey}) into this performance obligation. The relationship was not applied.`,
           guidanceIds: aiPo.guidanceIds,
+          citations: aiPo.citations,
           value: promiseKey,
           aiReviewState: aiPo.reviewState,
           blocking: true,
@@ -795,6 +830,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis groups promises you have already assigned to different performance obligations. Nothing was changed and no new performance obligation was created.",
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         value: {
           manualPoIds: [...hostManualPoIds].sort(),
           semanticKey: aiPo.semanticKey,
@@ -819,6 +855,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis proposes a performance obligation grouping you have already recorded. Your performance obligation and its promise assignments were kept and no duplicate was created.",
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         value: {
           manualPoId: canonicalId,
           semanticKey: aiPo.semanticKey,
@@ -852,6 +889,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ name: value }),
       section,
       guidanceIds: aiPo.guidanceIds,
+      citations: aiPo.citations,
       aiReviewState: aiPo.reviewState,
       label: "Performance obligation name",
     });
@@ -873,6 +911,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         },
         section,
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         aiReviewState: aiPo.reviewState,
         label: "Performance obligation assignment",
       });
@@ -903,6 +942,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         apply: (value) => update({ classification: value }),
         section,
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         aiReviewState: aiPo.reviewState,
         label: "Performance obligation classification",
       });
@@ -920,6 +960,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ classificationRationale: value }),
           section,
           guidanceIds: aiPo.guidanceIds,
+          citations: aiPo.citations,
           aiReviewState: aiPo.reviewState,
           label: "Classification rationale",
         });
@@ -932,6 +973,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "ARC could not determine this performance obligation's classification deterministically. Select it yourself.",
         guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
         value: null,
         aiReviewState: aiPo.reviewState,
         blocking: true,
@@ -956,6 +998,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "A recognition proposal refers to a performance obligation ARC did not create. It was not applied.",
         guidanceIds: proposal.guidanceIds,
+        citations: proposal.citations,
         value: proposal.performanceObligationKey,
         aiReviewState: proposal.reviewState,
         blocking: true,
@@ -984,6 +1027,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
               ? `ARC's deterministic engine recognizes revenue ratably over time or at a point in time. The proposed ${proposal.recognitionMethod.replace("_", " ")} is not supported, so no recognition method was set.`
               : "The AI analysis could not determine a recognition method. Select one yourself.",
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           value: null,
           aiReviewState: proposal.reviewState,
           blocking: true,
@@ -1001,6 +1045,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ recognitionMethod: value }),
       section,
       guidanceIds: proposal.guidanceIds,
+      citations: proposal.citations,
       aiReviewState: proposal.reviewState,
       label: "Recognition method",
     });
@@ -1018,6 +1063,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         apply: (value) => update({ recognitionRationale: value }),
         section,
         guidanceIds: proposal.guidanceIds,
+        citations: proposal.citations,
         aiReviewState: proposal.reviewState,
         label: "Recognition rationale",
       });
@@ -1035,6 +1081,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ serviceStart: value as IsoDate }),
           section,
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           aiReviewState: proposal.reviewState,
           label: "Service start",
         });
@@ -1046,6 +1093,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ serviceEnd: value as IsoDate }),
           section,
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           aiReviewState: proposal.reviewState,
           label: "Service end",
         });
@@ -1057,6 +1105,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           reason:
             "The service period could not be read as exact calendar dates, so it was left blank. Enter the start and end dates.",
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           value: null,
           aiReviewState: proposal.reviewState,
           blocking: true,
@@ -1073,6 +1122,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ recognitionDate: value as IsoDate }),
           section,
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           aiReviewState: proposal.reviewState,
           label: "Recognition date",
         });
@@ -1084,6 +1134,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           reason:
             "The point-in-time recognition date is not contractually determinable. Enter the transfer date.",
           guidanceIds: proposal.guidanceIds,
+          citations: proposal.citations,
           value: null,
           aiReviewState: proposal.reviewState,
           blocking: true,
@@ -1105,6 +1156,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "A standalone selling price refers to a performance obligation ARC did not create. It was not applied.",
         guidanceIds: item.guidanceIds,
+        citations: item.citations,
         value: item.appliesToKey,
         aiReviewState: item.reviewState,
         blocking: true,
@@ -1129,6 +1181,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         apply: (value) => update({ sspInput: value }),
         section,
         guidanceIds: item.guidanceIds,
+        citations: item.citations,
         aiReviewState: item.reviewState,
         label: "Standalone selling price",
       });
@@ -1144,6 +1197,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ sspBasis: value }),
           section,
           guidanceIds: item.guidanceIds,
+          citations: item.citations,
           aiReviewState: item.reviewState,
           label: "Standalone selling price basis",
         });
@@ -1155,6 +1209,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "missing_ssp",
         reason: `A standalone selling price is required to allocate the transaction price and the contract does not evidence one. ${item.missingInformation}`,
         guidanceIds: item.guidanceIds,
+        citations: item.citations,
         value: null,
         aiReviewState: item.reviewState,
         blocking: true,
@@ -1179,6 +1234,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         "step_3",
       ),
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+      citations: analysis.transactionPrice.transactionPriceConclusion.citations,
       aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
       label: "Fixed transaction price",
     });
@@ -1196,6 +1252,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         },
         section: "step_3",
         guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+        citations: analysis.transactionPrice.transactionPriceConclusion.citations,
         aiReviewState: analysis.transactionPrice.transactionPriceConclusion.reviewState,
         label: "Transaction price notes",
       });
@@ -1208,6 +1265,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reason:
         "No exact fixed consideration amount was determinable from the contract. Enter the transaction price.",
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+      citations: analysis.transactionPrice.transactionPriceConclusion.citations,
       value: null,
       aiReviewState: "needs_user_input",
       blocking: true,
@@ -1238,6 +1296,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reasonCode: "advisory_topic",
       reason: `${judgment.label}: ${judgment.value.rationale}`,
       guidanceIds: judgment.value.guidanceIds,
+      citations: judgment.value.citations,
       value: judgment.value.outcome,
       aiReviewState: judgment.value.reviewState,
     });
@@ -1262,6 +1321,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis still proposes a variable-consideration component you previously removed. It has not been recreated.",
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: component.semanticKey,
         aiReviewState: "needs_review",
       });
@@ -1278,6 +1338,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "missing_required_input",
         reason: `"${component.description.slice(0, 120)}" could increase or decrease the transaction price. ARC will not guess the direction — record this component yourself.`,
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: component.type,
         aiReviewState: component.reviewState,
         blocking: true,
@@ -1296,6 +1357,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis proposes a variable-consideration component that matches one you entered manually. Yours was kept and no duplicate was created.",
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: {
           manualVcId: manualVcTwin.id,
           semanticKey: component.semanticKey,
@@ -1339,6 +1401,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The latest AI analysis treats this variable consideration as a different kind of component than the one in your workpaper. ARC kept the existing component — review the change yourself.",
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: { current: existingRow.treatment, proposed: proposedTreatment },
         aiReviewState: component.reviewState,
         blocking: true,
@@ -1362,6 +1425,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       apply: (value) => update({ description: value }),
       section,
       guidanceIds: component.guidanceIds,
+      citations: component.citations,
       aiReviewState: component.reviewState,
       label: "Variable-consideration description",
     });
@@ -1407,6 +1471,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
               apply: (value) => patchMeter({ [spec.field]: value } as Partial<VcMeterDraft>),
               section,
               guidanceIds: component.guidanceIds,
+              citations: component.citations,
               aiReviewState: component.reviewState,
               label: `Usage meter ${spec.field}`,
             });
@@ -1420,6 +1485,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "Usage-based consideration is recognized as usage occurs. Enter actual usage quantities — ARC never forecasts volume from the contract.",
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: null,
         aiReviewState: "needs_user_input",
         blocking: true,
@@ -1436,6 +1502,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ estimationMethod: value }),
           section,
           guidanceIds: component.guidanceIds,
+          citations: component.citations,
           aiReviewState: component.reviewState,
           label: "Estimation method",
         });
@@ -1448,6 +1515,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "missing_required_input",
         reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
         guidanceIds: component.guidanceIds,
+        citations: component.citations,
         value: null,
         aiReviewState:
           component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
@@ -1479,6 +1547,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis also identifies a contract modification. Your own modification workpaper was kept and no duplicate was created — confirm they describe the same amendment.",
         guidanceIds: modifications.guidanceIds,
+        citations: modifications.citations,
         value: {
           manualModificationIds: manualModifications.map((row) => row.id).sort(),
           semanticKey,
@@ -1517,6 +1586,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ modificationDate: value as IsoDate }),
           section: modificationSection,
           guidanceIds: modifications.guidanceIds,
+          citations: modifications.citations,
           aiReviewState: modifications.reviewState,
           label: "Modification date",
         });
@@ -1529,6 +1599,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         apply: (value) => update({ scopeChangeDescription: value }),
         section: modificationSection,
         guidanceIds: modifications.guidanceIds,
+        citations: modifications.citations,
         aiReviewState: modifications.reviewState,
         label: "Scope change",
       });
@@ -1542,6 +1613,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ considerationMagnitudeInput: value }),
           section: modificationSection,
           guidanceIds: modifications.guidanceIds,
+          citations: modifications.citations,
           aiReviewState: modifications.reviewState,
           label: "Change in consideration",
         });
@@ -1557,6 +1629,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           apply: (value) => update({ priceReflectsAddedGoodsSsp: value }),
           section: modificationSection,
           guidanceIds: modifications.guidanceIds,
+          citations: modifications.citations,
           aiReviewState: modifications.reviewState,
           label: "Price reflects standalone selling price of added goods",
         });
@@ -1572,6 +1645,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "A contract modification was identified. Complete the modification workpaper — approval, scope effects, remaining and modified standalone selling prices and recognition — before this analysis can be finalized.",
         guidanceIds: modifications.guidanceIds,
+        citations: modifications.citations,
         value: canonicalId,
         aiReviewState: modifications.reviewState,
         blocking: true,
@@ -1593,6 +1667,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reason:
         "ARC could not determine from the evidence whether this contract has been modified. Answer this yourself.",
       guidanceIds: modifications.guidanceIds,
+      citations: modifications.citations,
       value: draft.hasContractModifications,
       aiReviewState: "needs_user_input",
       blocking: true,
@@ -1615,6 +1690,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis still proposes a billing schedule you previously removed. It has not been recreated.",
         guidanceIds: [],
+        citations: term.citations,
         value: semanticKey,
         aiReviewState: "needs_review",
       });
@@ -1631,6 +1707,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_structure_preserved",
         reason: `You have already entered billing events, so ARC did not create a second schedule for "${term.description.slice(0, 100)}". Compare the AI billing terms with your own events.`,
         guidanceIds: [],
+        citations: term.citations,
         value: {
           manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
           semanticKey,
@@ -1656,6 +1733,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "billing_schedule_not_derivable",
         reason: `ARC could not construct a billing schedule for "${term.description.slice(0, 100)}" from structured contract terms alone (${schedule.reason.replace(/_/g, " ")}). Enter the billing events yourself.`,
         guidanceIds: [],
+        citations: term.citations,
         value: schedule.reason,
         aiReviewState: term.reviewState,
         blocking: true,
@@ -1709,6 +1787,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           reason:
             "ARC could not derive a contractual due date for this invoice from structured terms, so no projected collection was created.",
           guidanceIds: [],
+          citations: projection.citations,
           value: projected.reason,
           aiReviewState: projection.reviewState,
         });
@@ -1745,6 +1824,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       reasonCode: "advisory_topic",
       reason: `${topic.topic.replace(/_/g, " ")}: ${topic.conclusion}`,
       guidanceIds: topic.guidanceIds,
+      citations: topic.citations,
       value: topic.conclusion,
       aiReviewState: topic.reviewState,
       blocking: topic.applicable === "unknown" ? false : false,
@@ -1777,6 +1857,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
             : "accountant_affirmation_required",
       reason: issue.message,
       guidanceIds: issue.guidanceIds,
+      citations: issue.citations,
       value: issue.message,
       aiReviewState: issue.reviewState,
       blocking: issue.reviewState === "needs_user_input" || issue.reviewState === "source_conflict",
@@ -1852,7 +1933,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /* ---------------------------------------------------------------- finalize */
 
   const ranked = rankReviewItems(sortReviewItems(issues));
-  const reviewItems = applyPriorAffirmations(ranked, previousState.reviewItems);
+  const reviewItems = carryForwardReviewResolutions(ranked, previousState.reviewItems);
 
   const validated = validateDraftForPersistence(draft);
   if (!validated.ok) {
