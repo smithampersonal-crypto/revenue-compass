@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
@@ -98,6 +98,17 @@ function AnalysisLayout() {
 
 function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
   const { unknownSample, persistence, canEdit, historical, ai } = useAnalysis();
+  const navigate = useNavigate();
+
+  // Analyzing without a contract PDF sends the accountant into the existing
+  // Source Documents upload step, in this very same analysis: the contract,
+  // revision and temporary-workspace identity in the URL are preserved.
+  const openSourceUpload = () => {
+    void navigate({
+      to: "/analysis/documents",
+      search: (previous: Record<string, unknown>) => ({ ...previous, upload: "1" }),
+    });
+  };
 
   return (
     <PublicAppShell>
@@ -147,7 +158,7 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
 
         <AnalysisContextBar />
 
-        <AiAnalysisAction ai={ai} />
+        <AiAnalysisAction ai={ai} onAddSources={openSourceUpload} />
 
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a

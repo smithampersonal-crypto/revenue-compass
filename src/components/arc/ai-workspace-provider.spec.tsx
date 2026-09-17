@@ -12,13 +12,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AnalysisProvider, useAnalysis } from "./analysis-context";
 import { AiAnalysisAction } from "./AiAnalysisAction";
+import type { AiWorkspaceStateDto } from "@/lib/arc/ai/workspace.handlers";
 
-const idle = {
+// Explicitly typed, so a fixture can never invent a state the server DTO
+// cannot actually produce.
+const idle: AiWorkspaceStateDto = {
   hasAnalysis: false,
   activeRun: null,
   latestRun: null,
   lastSuccessfulRunId: null,
-  sourceState: "ready" as const,
+  sourceState: "none",
+  hasIncludedSources: true,
   sourceSetFingerprint: null,
   reviewIssueCount: 0,
   staleSourceAcknowledged: false,
@@ -32,11 +36,11 @@ const idle = {
   failure: null,
 };
 
-const active = {
+const active: AiWorkspaceStateDto = {
   ...idle,
   activeRun: {
     runId: "run-1",
-    phase: "analyzing" as const,
+    phase: "analyzing",
     active: true,
     sourceCount: 1,
     pageCount: 4,
@@ -45,15 +49,19 @@ const active = {
   },
 };
 
-const succeeded = {
+const succeeded: AiWorkspaceStateDto = {
   ...idle,
   hasAnalysis: true,
   lastSuccessfulRunId: "run-1",
-  latestRun: { ...active.activeRun, phase: "succeeded" as const, active: false },
+  latestRun: { ...active.activeRun!, phase: "succeeded", active: false },
 };
 
+/** The same authoritative state with no contract PDF included. */
+const idleWithoutSources: AiWorkspaceStateDto = { ...idle, hasIncludedSources: false };
+
 const server = vi.hoisted(() => ({
-  current: null as Record<string, unknown> | null,
+  current: null as AiWorkspaceStateDto | null,
+  addSources: 0,
   reads: 0,
   executes: 0,
   requests: 0,
@@ -185,7 +193,12 @@ function Task6Probe() {
   const { ai, draft, setDraft } = useAnalysis();
   return (
     <div>
-      <AiAnalysisAction ai={ai} />
+      <AiAnalysisAction
+        ai={ai}
+        onAddSources={() => {
+          server.addSources += 1;
+        }}
+      />
       <label>
         Accounting note
         <input
@@ -232,6 +245,7 @@ beforeEach(() => {
   server.reads = 0;
   server.executes = 0;
   server.requests = 0;
+  server.addSources = 0;
   guestServer.lockVersion = 1;
   guestServer.notes = "";
   savePending.release = null;
@@ -532,7 +546,7 @@ describe("Task 6 production presentation through the real provider", () => {
     ] as const) {
       server.current = {
         ...active,
-        activeRun: { ...active.activeRun, phase },
+        activeRun: { ...active.activeRun!, phase },
       };
       await user.click(screen.getByRole("button", { name: "Refresh test status" }));
       await waitFor(() =>
@@ -558,7 +572,7 @@ describe("Task 6 production presentation through the real provider", () => {
     const user = userEvent.setup();
     server.current = {
       ...active,
-      activeRun: { ...active.activeRun, phase: "validating" },
+      activeRun: { ...active.activeRun!, phase: "validating" },
     };
     renderTask6Provider();
 
@@ -569,6 +583,55 @@ describe("Task 6 production presentation through the real provider", () => {
     const note = screen.getByRole("textbox", { name: "Accounting note" });
     await user.type(note, "Still editable");
     expect(note).toHaveValue("Still editable");
+    expect(server.requests).toBe(0);
+    expect(server.executes).toBe(0);
+  });
+});
+
+/**
+ * Phase 9G — Task 6 source prerequisite, end to end through the real provider:
+ * uploading or removing a contract never runs AI by itself, and the deliberate
+ * Analyze click follows the authoritative source-presence fact.
+ */
+describe("Task 6 source prerequisite through the real provider", () => {
+  it("routes to the upload experience, then analyzes only on the next deliberate click", async () => {
+    const user = userEvent.setup();
+    server.current = idleWithoutSources;
+    renderTask6Provider();
+
+    // No contract yet: the click opens the existing upload experience.
+    await user.click(await screen.findByRole("button", { name: "Analyze Contract" }));
+    expect(server.addSources).toBe(1);
+    expect(server.requests).toBe(0);
+    expect(server.executes).toBe(0);
+
+    // The accountant uploads and includes a PDF. Nothing runs from that alone.
+    server.current = idle;
+    await user.click(screen.getByRole("button", { name: "Refresh test status" }));
+    await waitFor(() => expect(server.requests).toBe(0));
+    expect(server.executes).toBe(0);
+
+    // Only the next deliberate click starts the analysis.
+    await user.click(screen.getByRole("button", { name: "Analyze Contract" }));
+    await waitFor(() => expect(server.requests).toBe(1));
+    await waitFor(() => expect(server.executes).toBe(1));
+    expect(server.addSources).toBe(1);
+  });
+
+  it("routes back to the upload experience once the last source is removed", async () => {
+    const user = userEvent.setup();
+    server.current = idle;
+    renderTask6Provider();
+    await screen.findByRole("button", { name: "Analyze Contract" });
+
+    server.current = idleWithoutSources;
+    await user.click(screen.getByRole("button", { name: "Refresh test status" }));
+    await waitFor(() =>
+      expect(screen.getByText(/No contract PDF is included yet/)).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Analyze Contract" }));
+    expect(server.addSources).toBe(1);
     expect(server.requests).toBe(0);
     expect(server.executes).toBe(0);
   });

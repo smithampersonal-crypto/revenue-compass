@@ -13,15 +13,24 @@ function actionLabel(ai: AiWorkspaceController): string {
   return ai.analyzeMode === "reanalyze" ? "Re-analyze Contract" : "Analyze Contract";
 }
 
-export function AiAnalysisAction({ ai }: { ai: AiWorkspaceController }) {
+export function AiAnalysisAction({
+  ai,
+  onAddSources,
+}: {
+  ai: AiWorkspaceController;
+  /** Opens the existing Source Documents upload experience for this analysis. */
+  onAddSources?: (() => void) | undefined;
+}) {
   if (ai.loadState === "idle") return null;
 
   const workspace = ai.workspace;
   const loading = ai.loadState === "loading";
   const loadError = ai.loadState === "error";
   const noAllowance = workspace !== null && workspace.allowance.remaining <= 0;
-  const noSources = workspace?.sourceState === "none";
-  const disabled = loading || loadError || ai.locks.analyze || noAllowance || noSources;
+  // Source presence is the authoritative server fact, never `sourceState`,
+  // which describes AI/source freshness only.
+  const needsSource = workspace !== null && !workspace.hasIncludedSources;
+  const disabled = loading || loadError || ai.locks.analyze || noAllowance;
   const failure = workspaceFailureOf(ai);
   const controllerMessage = failure ? null : ai.message;
 
@@ -48,7 +57,16 @@ export function AiAnalysisAction({ ai }: { ai: AiWorkspaceController }) {
           type="button"
           className="min-h-11"
           disabled={disabled}
-          onClick={() => void ai.analyze()}
+          onClick={() => {
+            // With no contract included, this deliberate click opens the
+            // existing upload experience: no run is requested, no allowance is
+            // used, and nothing about the analysis changes.
+            if (needsSource) {
+              onAddSources?.();
+              return;
+            }
+            void ai.analyze();
+          }}
         >
           {actionLabel(ai)}
         </Button>
@@ -57,9 +75,9 @@ export function AiAnalysisAction({ ai }: { ai: AiWorkspaceController }) {
       {noAllowance ? (
         <p className="text-sm text-muted-foreground">AI analysis limit reached.</p>
       ) : null}
-      {noSources ? (
+      {needsSource && !noAllowance ? (
         <p className="text-sm text-muted-foreground">
-          Add a source document before running AI analysis.
+          No contract PDF is included yet. Analyze Contract will take you to the upload step first.
         </p>
       ) : null}
       {ai.active && ai.progress ? <AiAnalysisProgress progress={ai.progress} /> : null}

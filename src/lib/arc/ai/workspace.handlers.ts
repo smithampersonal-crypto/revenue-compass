@@ -84,6 +84,13 @@ export interface AiWorkspaceStateDto {
   lastSuccessfulRunId: string | null;
   sourceState: "none" | "current" | "stale";
   /**
+   * Whether at least one source document is currently included in this
+   * analysis. Derived server-side from the actual selected associations, and
+   * deliberately distinct from `sourceState`, which describes AI/source
+   * freshness and never document presence. A boolean only: no id, no count.
+   */
+  hasIncludedSources: boolean;
+  /**
    * The authoritative current source-set fingerprint. It crosses to the
    * browser for one reason only: it is the optimistic precondition an approved
    * Task 2 acknowledgment echoes back. The server re-derives it either way, so
@@ -124,6 +131,8 @@ export interface AiWorkspaceSnapshot {
   /** Server-derived fingerprint of the currently selected documents. */
   currentSourceSetFingerprint: string | null;
   sourceState: "none" | "current" | "stale";
+  /** At least one selected source association exists for this scope. */
+  hasIncludedSources: boolean;
   acknowledgedSourceFingerprint: string | null;
   outstandingReviewIssueCount: number;
   /** Temporary workspaces only; null for a saved analysis. */
@@ -260,6 +269,7 @@ export async function aiWorkspaceStateHandler(
     latestRun: latest ? runDto(latest) : null,
     lastSuccessfulRunId: snapshot.lastSuccessfulRunId,
     sourceState: snapshot.sourceState,
+    hasIncludedSources: snapshot.hasIncludedSources,
     sourceSetFingerprint: snapshot.currentSourceSetFingerprint,
     reviewIssueCount: snapshot.outstandingReviewIssueCount,
     staleSourceAcknowledged:

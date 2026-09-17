@@ -103,6 +103,24 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       } as never);
       if (fingerprint.error) fail("source set fingerprint", fingerprint.error);
 
+      // Authoritative source presence, read from the actual selection rows and
+      // from nothing else: never from `source_state`, the fingerprint or a
+      // previous run. Only the existence of a row is read — no id, no count.
+      const selection =
+        caller.kind === "revision"
+          ? await supabaseAdmin
+              .from("revision_source_documents")
+              .select("source_document_id")
+              .eq("revision_id", caller.revisionId)
+              .limit(1)
+          : await supabaseAdmin
+              .from("guest_source_document_selections")
+              .select("source_document_id")
+              .eq("guest_workspace_id", caller.guestWorkspaceId)
+              .limit(1);
+      if (selection.error) fail("included source documents", selection.error);
+      const hasIncludedSources = (selection.data ?? []).length > 0;
+
       let guestWorkspaceExpiresAt: string | null = null;
       if (caller.kind === "guest") {
         const workspace = await supabaseAdmin
@@ -122,6 +140,7 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
         lastSuccessfulRunId: (raw?.["last_successful_run_id"] as string | null) ?? null,
         currentSourceSetFingerprint: (fingerprint.data as string | null) ?? null,
         sourceState: (raw?.["source_state"] as AiWorkspaceSnapshot["sourceState"]) ?? "none",
+        hasIncludedSources,
         acknowledgedSourceFingerprint:
           (raw?.["acknowledged_source_fingerprint"] as string | null) ?? null,
         outstandingReviewIssueCount: items.filter((item) => item.state !== "resolved").length,
