@@ -11,13 +11,14 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AnalysisProvider, useAnalysis } from "./analysis-context";
+import { AiAnalysisAction } from "./AiAnalysisAction";
 
 const idle = {
   hasAnalysis: false,
   activeRun: null,
   latestRun: null,
   lastSuccessfulRunId: null,
-  sourceState: "none" as const,
+  sourceState: "ready" as const,
   sourceSetFingerprint: null,
   reviewIssueCount: 0,
   staleSourceAcknowledged: false,
@@ -180,11 +181,42 @@ function Probe() {
   );
 }
 
+function Task6Probe() {
+  const { ai, draft, setDraft } = useAnalysis();
+  return (
+    <div>
+      <AiAnalysisAction ai={ai} />
+      <label>
+        Accounting note
+        <input
+          value={draft.transactionPriceNotes}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, transactionPriceNotes: event.target.value }))
+          }
+        />
+      </label>
+      <button type="button" onClick={() => void ai.refresh()}>
+        Refresh test status
+      </button>
+    </div>
+  );
+}
+
 function renderProvider() {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <AnalysisProvider sample={undefined} guest>
         <Probe />
+      </AnalysisProvider>
+    </QueryClientProvider>,
+  );
+}
+
+function renderTask6Provider() {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <AnalysisProvider sample={undefined} guest>
+        <Task6Probe />
       </AnalysisProvider>
     </QueryClientProvider>,
   );
@@ -476,4 +508,68 @@ describe("the analysis workspace AI controller", () => {
       expect(guestSave).toHaveBeenCalledTimes(2);
     });
   }
+});
+
+describe("Task 6 production presentation through the real provider", () => {
+  it("follows a deliberate run through all four phases and authoritative success", async () => {
+    const user = userEvent.setup();
+    server.current = idle;
+    renderTask6Provider();
+
+    await user.click(await screen.findByRole("button", { name: "Analyze Contract" }));
+    await waitFor(() => expect(server.requests).toBe(1));
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "AI analysis progress" })).toHaveTextContent(
+        "Analyzing contract",
+      ),
+    );
+
+    for (const [phase, label] of [
+      ["preparing", "Preparing documents"],
+      ["analyzing", "Analyzing contract"],
+      ["validating", "Validating analysis"],
+      ["applying", "Updating workspace"],
+    ] as const) {
+      server.current = {
+        ...active,
+        activeRun: { ...active.activeRun, phase },
+      };
+      await user.click(screen.getByRole("button", { name: "Refresh test status" }));
+      await waitFor(() =>
+        expect(screen.getByRole("status", { name: "AI analysis progress" })).toHaveTextContent(
+          label,
+        ),
+      );
+    }
+
+    server.current = succeeded;
+    await user.click(screen.getByRole("button", { name: "Refresh test status" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("status", { name: "AI analysis progress" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Re-analyze Contract" })).toBeEnabled();
+    expect(server.requests).toBe(1);
+    expect(server.executes).toBe(1);
+  });
+
+  it("renders a reconnected active run immediately without executing and keeps accounting editable", async () => {
+    const user = userEvent.setup();
+    server.current = {
+      ...active,
+      activeRun: { ...active.activeRun, phase: "validating" },
+    };
+    renderTask6Provider();
+
+    expect(await screen.findByRole("status", { name: "AI analysis progress" })).toHaveTextContent(
+      "Validating analysis",
+    );
+    expect(screen.getByRole("button", { name: "Validating analysis…" })).toBeDisabled();
+    const note = screen.getByRole("textbox", { name: "Accounting note" });
+    await user.type(note, "Still editable");
+    expect(note).toHaveValue("Still editable");
+    expect(server.requests).toBe(0);
+    expect(server.executes).toBe(0);
+  });
 });

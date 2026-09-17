@@ -782,3 +782,11 @@ New pure modules: `src/lib/arc/ai/identity.ts`, `adapter.ts`, `review-state.ts`,
 components.
 
 Phase 9E accepted by the director (2026-09-16).
+
+## Phase 9G Task 6 — Analyze Workspace UI
+
+- [ ] Add the single controller-driven Analyze/Re-analyze workspace action.
+- [ ] Render authoritative four-phase progress, allowance, loading, and safe notices.
+- [ ] Apply existing AI locks minimally to Finalize and source-document mutations.
+- [ ] Add component/provider RED→GREEN coverage and preserve Task 5 regressions.
+- [ ] Complete full verification, browser review, security audit, and repository ZIP.
