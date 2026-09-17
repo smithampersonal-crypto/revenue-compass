@@ -688,9 +688,10 @@ describe("review targets react only to their own accounting conclusion", () => {
       currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [open] },
     });
     expect(result.aiState.reviewItems[0]!.state).toBe("yellow");
+    expect(result.reviewEvents).toEqual([]);
   });
 
-  it("does resolve a recognition review when the service period changes", () => {
+  it("does affirm a recognition review when the service period changes", () => {
     const open = reviewItem({ id: "rev-rec", targetKey: recognitionTarget, section: "step_5" });
     const next = baseDraft();
     next.performanceObligations[0]!.serviceEnd = "2028-06-30";
@@ -699,7 +700,7 @@ describe("review targets react only to their own accounting conclusion", () => {
       nextDraft: next,
       currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [open] },
     });
-    expect(result.aiState.reviewItems[0]!.state).toBe("resolved");
+    expect(result.reviewEvents.map((event) => event.type)).toEqual(["yellow_affirmed"]);
   });
 
   it("does not reopen a classification review when SSP changes", () => {
