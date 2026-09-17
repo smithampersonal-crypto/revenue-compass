@@ -36,13 +36,24 @@ export interface AutosaveScope {
 export type AutosaveOutcome =
   | { ok: true; lockVersion: number; savedAt: string; reconciled: boolean }
   | { ok: false; reason: "conflict" }
+  | { ok: false; reason: "unavailable" }
   | { ok: false; reason: "expired" };
+
+/**
+ * What the store found when it looked for this analysis's AI sidecar.
+ *
+ * `unreadable` means a persisted review payload could not be fully
+ * interpreted. That is never repaired here: silently normalizing it away would
+ * destroy the very evidence finalization depends on.
+ */
+export type AiSidecarLoad =
+  { status: "absent" } | { status: "loaded"; state: AiAnalysisState } | { status: "unreadable" };
 
 export interface AutosaveReconciliationStore {
   /** The authoritative pre-save canonical draft, or null when unavailable. */
   loadSavedDraft(scope: AutosaveScope): Promise<WorkflowDraft | null>;
-  /** The current AI sidecar, or null when this analysis has never used AI. */
-  loadAiState(scope: AutosaveScope): Promise<AiAnalysisState | null>;
+  /** The current AI sidecar, if this analysis has ever used AI. */
+  loadAiState(scope: AutosaveScope): Promise<AiSidecarLoad>;
   /** The existing draft-only autosave, unchanged for manual-only analyses. */
   saveDraftOnly(args: {
     scope: AutosaveScope;
@@ -84,10 +95,14 @@ export async function autosaveWithReconciliation(
   deps: AutosaveReconciliationDeps,
   input: AutosaveInput,
 ): Promise<AutosaveOutcome> {
-  const aiState = await deps.store.loadAiState(input.scope);
+  const loaded = await deps.store.loadAiState(input.scope);
+
+  // A persisted review payload ARC cannot fully read is never repaired by an
+  // ordinary autosave: nothing is written at all.
+  if (loaded.status === "unreadable") return { ok: false, reason: "unavailable" };
 
   // No sidecar: ordinary autosave, byte-for-byte the pre-Task-4 behaviour.
-  if (aiState === null) {
+  if (loaded.status === "absent") {
     const saved = await deps.store.saveDraftOnly({
       scope: input.scope,
       expectedLockVersion: input.expectedLockVersion,
@@ -98,18 +113,14 @@ export async function autosaveWithReconciliation(
     return { ok: true, ...saved, reconciled: false };
   }
 
+  const aiState = loaded.state;
+
   const previousDraft = await deps.store.loadSavedDraft(input.scope);
   if (previousDraft === null) {
-    // ARC cannot prove what changed, so it reconciles nothing rather than
-    // guessing; the canonical save still obeys the optimistic lock.
-    const saved = await deps.store.saveDraftOnly({
-      scope: input.scope,
-      expectedLockVersion: input.expectedLockVersion,
-      canonical: input.canonical,
-      schemaVersion: input.schemaVersion,
-    });
-    if (saved === null) return { ok: false, reason: "conflict" };
-    return { ok: true, ...saved, reconciled: false };
+    // Once a sidecar exists, ARC cannot know which AI conclusions an edit
+    // touched without the authoritative previous draft. It fails closed rather
+    // than persisting a draft whose provenance it could not reconcile.
+    return { ok: false, reason: "unavailable" };
   }
 
   const reconciliation = reconcileAiEdits({

@@ -16,11 +16,12 @@ import { parseCanonicalInputs } from "@/lib/arc/persistence/schema";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 
 import type {
+  AiSidecarLoad,
   AutosaveReconciliationStore,
   AutosaveScope,
 } from "./autosave-reconciliation.handlers";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
-import { normalizePersistedReviewItems } from "./review-normalization";
+import { normalizePersistedReviewPayload } from "./review-normalization";
 
 interface CodedError {
   code?: string;
@@ -85,7 +86,7 @@ export async function createAutosaveReconciliationStore(
       return parsed.ok ? parsed.draft : null;
     },
 
-    loadAiState: async (scope: AutosaveScope): Promise<AiAnalysisState | null> => {
+    loadAiState: async (scope: AutosaveScope): Promise<AiSidecarLoad> => {
       const query = supabaseAdmin
         .from("ai_analysis_state")
         .select(
@@ -97,7 +98,7 @@ export async function createAutosaveReconciliationStore(
           ? await query.eq("revision_id", scope.revisionId).maybeSingle()
           : await query.eq("guest_workspace_id", scope.guestWorkspaceId!).maybeSingle();
       if (error) fail("read AI state", error);
-      if (!data) return null;
+      if (!data) return { status: "absent" };
 
       const row = data as unknown as {
         last_successful_run_id: string | null;
@@ -108,17 +109,27 @@ export async function createAutosaveReconciliationStore(
         tombstones: unknown;
         review_items: unknown;
       };
+      // Tolerant normalization is right for merge and carry-forward. At this
+      // WRITE boundary it is not: an unreadable entry must stay on disk so
+      // finalization can still see it.
+      const payload = normalizePersistedReviewPayload(row.review_items);
+      if (payload.malformed) return { status: "unreadable" };
+
       const empty = createEmptyAiAnalysisState();
       return {
-        lastSuccessfulRunId: row.last_successful_run_id,
-        sourceSetFingerprint: row.source_set_fingerprint,
-        sourceState: (row.source_state as AiAnalysisState["sourceState"]) ?? empty.sourceState,
-        fieldProvenance:
-          (row.field_provenance as AiAnalysisState["fieldProvenance"]) ?? empty.fieldProvenance,
-        objectProvenance:
-          (row.object_provenance as AiAnalysisState["objectProvenance"]) ?? empty.objectProvenance,
-        tombstones: Array.isArray(row.tombstones) ? (row.tombstones as string[]) : [],
-        reviewItems: normalizePersistedReviewItems(row.review_items),
+        status: "loaded",
+        state: {
+          lastSuccessfulRunId: row.last_successful_run_id,
+          sourceSetFingerprint: row.source_set_fingerprint,
+          sourceState: (row.source_state as AiAnalysisState["sourceState"]) ?? empty.sourceState,
+          fieldProvenance:
+            (row.field_provenance as AiAnalysisState["fieldProvenance"]) ?? empty.fieldProvenance,
+          objectProvenance:
+            (row.object_provenance as AiAnalysisState["objectProvenance"]) ??
+            empty.objectProvenance,
+          tombstones: Array.isArray(row.tombstones) ? (row.tombstones as string[]) : [],
+          reviewItems: payload.items,
+        },
       };
     },
 
