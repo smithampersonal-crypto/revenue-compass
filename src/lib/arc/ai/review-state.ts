@@ -271,36 +271,34 @@ export function rankReviewItems(items: readonly AiReviewItem[]): AiReviewItem[] 
 }
 
 /**
- * Carries a prior resolution forward only when the item's identity AND the
- * exact reviewed value are unchanged, AND the newly derived item is still a
- * yellow affirmation item. A changed value invalidates the old affirmation —
- * an accountant never affirms accounting they have not seen — and a red issue
- * can never be affirmed away by a historical resolution of a yellow one.
+ * Carries a prior resolution forward only when the item's identity AND its
+ * material review fingerprint are unchanged, and only into a state that
+ * matches the kind of resolution given. A changed value, citation set,
+ * Guidance set or reason reopens the item — an accountant never affirms
+ * accounting they have not seen. A newly red item never inherits an
+ * affirmation, and a yellow item never inherits a manual red resolution.
  */
-export function applyPriorAffirmations(
+export function carryForwardReviewResolutions(
   next: readonly AiReviewItem[],
   previous: readonly AiReviewItem[],
 ): AiReviewItem[] {
-  const priorById = new Map(previous.map((item) => [item.id, item] as const));
+  const prior = new Map(previous.map((item) => [item.id, item] as const));
   return next.map((item) => {
-    const prior = priorById.get(item.id);
-    if (
-      prior === undefined ||
-      prior.state !== "resolved" ||
-      // Only a still-yellow item may inherit a resolution. A newly blocking
-      // item keeps its red state and carries no affirmation metadata.
-      item.state !== "yellow" ||
-      prior.targetKey !== item.targetKey ||
-      prior.valueFingerprint !== item.valueFingerprint
-    ) {
-      return item;
+    const old = prior.get(item.id);
+    if (!old?.resolution || old.reviewFingerprint !== item.reviewFingerprint) return item;
+    if (item.state === "yellow" && old.resolution.kind === "affirmed") {
+      return {
+        ...item,
+        state: "resolved",
+        resolution: old.resolution,
+        affirmedAt: old.resolution.at,
+        affirmedMethod: old.resolution.method,
+      };
     }
-    return {
-      ...item,
-      state: "resolved",
-      affirmedAt: prior.affirmedAt,
-      affirmedMethod: prior.affirmedMethod,
-    };
+    if (item.state === "red" && old.resolution.kind === "manual_red") {
+      return { ...item, state: "resolved", resolution: old.resolution };
+    }
+    return item;
   });
 }
 
