@@ -294,7 +294,13 @@ describe("review items carry the evidence of the conclusion they review", () => 
     const { issues } = run(fixtureAAnalysis(), manual);
     const item = itemFor(issues, "transactionPrice.input");
     expect(item?.citations).toEqual([
-      { documentId: "doc-fixture-1", pageStart: 1, pageEnd: 1, evidenceMode: "text", excerpt: "120,000" },
+      {
+        documentId: "doc-fixture-1",
+        pageStart: 1,
+        pageEnd: 1,
+        evidenceMode: "text",
+        excerpt: "120,000",
+      },
     ]);
   });
 

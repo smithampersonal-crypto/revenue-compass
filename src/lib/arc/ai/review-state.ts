@@ -35,9 +35,7 @@ export interface AiReviewCitationRef {
 }
 
 export type ManualRedReason =
-  | "reviewed_current_treatment"
-  | "outside_source_information"
-  | "not_applicable";
+  "reviewed_current_treatment" | "outside_source_information" | "not_applicable";
 
 export type AiReviewResolution =
   | {

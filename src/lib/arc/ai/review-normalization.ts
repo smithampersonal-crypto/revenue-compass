@@ -96,8 +96,7 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
 
   const affirmedAt = typeof row["affirmedAt"] === "string" ? row["affirmedAt"] : null;
   const affirmedMethod =
-    typeof row["affirmedMethod"] === "string" &&
-    AFFIRMATION_METHODS.includes(row["affirmedMethod"])
+    typeof row["affirmedMethod"] === "string" && AFFIRMATION_METHODS.includes(row["affirmedMethod"])
       ? (row["affirmedMethod"] as AiAffirmationMethod)
       : null;
 
