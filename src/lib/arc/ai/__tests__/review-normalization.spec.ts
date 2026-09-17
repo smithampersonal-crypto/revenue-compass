@@ -84,3 +84,96 @@ describe("persisted review normalization", () => {
     expect(item!.resolution).toBeNull();
   });
 });
+
+describe("persisted resolved state fails closed", () => {
+  const current: AiReviewItem = {
+    id: "rev-current",
+    targetKey: "po:po-1.recognitionMethod",
+    section: "step_5",
+    state: "resolved",
+    reasonCode: "engine_support_gap",
+    reason: "Reviewed.",
+    guidanceIds: [2],
+    citations: [],
+    valueFingerprint: "fp-9",
+    reviewFingerprint: "rfp-9",
+    resolution: {
+      kind: "manual_red",
+      at: "2026-09-01T00:00:00.000Z",
+      reason: "outside_source_information",
+      note: null,
+      reviewFingerprint: "rfp-9",
+    },
+    affirmedAt: null,
+    affirmedMethod: null,
+  };
+
+  const only = (raw: unknown) => normalizePersistedReviewItems([raw])[0];
+
+  it("reopens a resolved row with no resolution at all", () => {
+    const item = only({ ...current, resolution: null });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("reopens a resolved row with a malformed resolution", () => {
+    const item = only({ ...current, resolution: { kind: "manual_red", at: 7 } });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("reopens a resolved row whose resolution is bound to another fingerprint", () => {
+    const item = only({
+      ...current,
+      resolution: { ...current.resolution, reviewFingerprint: "rfp-somewhere-else" },
+    });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("refuses a manual-red resolution on a yellow item", () => {
+    const item = only({ ...current, state: "yellow" });
+    expect(item!.state).toBe("yellow");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("refuses an affirmation on a red item", () => {
+    const item = only({
+      ...current,
+      state: "red",
+      resolution: {
+        kind: "affirmed",
+        at: "2026-09-01T00:00:00.000Z",
+        method: "individual",
+        reviewFingerprint: "rfp-9",
+      },
+    });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("refuses an unknown manual-red reason", () => {
+    const item = only({
+      ...current,
+      resolution: { ...current.resolution, reason: "because_i_said_so" },
+    });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("drops a row whose persisted section is not a known review section", () => {
+    expect(normalizePersistedReviewItems([{ ...current, section: "step_42" }])).toEqual([]);
+  });
+
+  it("drops a row whose persisted reason code is not a known reason code", () => {
+    expect(normalizePersistedReviewItems([{ ...current, reasonCode: "vibes" }])).toEqual([]);
+  });
+
+  it("drops a row whose persisted state is not a known review state", () => {
+    expect(normalizePersistedReviewItems([{ ...current, state: "greenish" }])).toEqual([]);
+  });
+
+  it("keeps a valid current row exactly as persisted", () => {
+    expect(normalizePersistedReviewItems([current])).toEqual([current]);
+  });
+});

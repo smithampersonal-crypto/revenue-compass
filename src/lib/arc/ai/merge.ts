@@ -270,7 +270,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     reason: string;
     guidanceIds?: readonly number[];
     citations?: readonly AiCitation[];
+    /** The displayed reviewed value. */
     value: unknown;
+    /**
+     * The complete material conclusion this item reviews, whenever the
+     * displayed value alone would not distinguish two materially different
+     * accounting conclusions. Display prose is never the material: a changed
+     * amount, timing, grouping or treatment must always reopen the item.
+     */
+    material?: unknown;
     aiReviewState?: AiReviewState | null;
     blocking?: boolean;
   }) => {
@@ -282,11 +290,105 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: onlyKnownGuidance(input.guidanceIds ?? []),
       citations: reviewCitations(input.citations),
       value: input.value,
+      ...(input.material === undefined ? {} : { material: input.material }),
       aiReviewState: input.aiReviewState ?? null,
       blocking: input.blocking ?? false,
     });
     if (item !== null) issues.push(item);
   };
+
+  /* ------------------------------------------- material review projections */
+
+  /**
+   * Canonical deterministic projections of the conclusions ARC raises review
+   * items about. Each carries every structural fact a reasonable reviewer
+   * would reconsider the conclusion over — never a truncated display string.
+   */
+  const promiseMaterial = (promise: AiContractAnalysis["promises"][number]) => ({
+    semanticKey: promise.semanticKey,
+    description: promise.description,
+    promiseType: promise.promiseType,
+    otherPromiseTypeDescription: promise.otherPromiseTypeDescription,
+    explicitOrImplicit: promise.explicitOrImplicit,
+    capableOfBeingDistinct: promise.distinctCapableOfBeingDistinct,
+    separatelyIdentifiable: promise.distinctSeparatelyIdentifiable,
+    distinctConclusion: promise.distinctConclusion,
+    distinctnessRationale: promise.distinctnessRationale,
+  });
+
+  const poMaterial = (po: AiContractAnalysis["performanceObligations"][number]) => ({
+    semanticKey: po.semanticKey,
+    description: po.description,
+    promiseKeys: [...po.promiseKeys].sort(),
+    groupingRationale: po.groupingRationale,
+    satisfactionPattern: po.satisfactionPattern,
+    recognitionRationale: po.recognitionRationale,
+  });
+
+  const recognitionMaterial = (proposal: AiContractAnalysis["recognitionProposals"][number]) => ({
+    performanceObligationKey: proposal.performanceObligationKey,
+    satisfactionPattern: proposal.satisfactionPattern,
+    recognitionMethod: proposal.recognitionMethod,
+    serviceStartDate: proposal.serviceStartDate,
+    serviceEndDate: proposal.serviceEndDate,
+    measureDescription: proposal.measureDescription,
+    recognitionEventDescription: proposal.recognitionEventDescription,
+    recognitionDateIfContractuallyDeterminable: proposal.recognitionDateIfContractuallyDeterminable,
+    rationale: proposal.rationale,
+  });
+
+  const sspMaterial = (item: AiContractAnalysis["sspAndAllocation"]["items"][number]) => ({
+    semanticKey: item.semanticKey,
+    appliesToKey: item.appliesToKey,
+    observableSspEvidence: item.observableSspEvidence,
+    observedAmountInput: item.observedAmountInput,
+    proposedMethod: item.proposedMethod,
+    methodRationale: item.methodRationale,
+    missingInformation: item.missingInformation,
+  });
+
+  const vcMaterial = (
+    component: AiContractAnalysis["transactionPrice"]["variableConsiderationComponents"][number],
+  ) => ({
+    semanticKey: component.semanticKey,
+    description: component.description,
+    type: component.type,
+    contractualRateOrAmountInput: component.contractualRateOrAmountInput,
+    unitDescription: component.unitDescription,
+    billingFrequency: component.billingFrequency,
+    trigger: component.trigger,
+    estimationMethodProposal: component.estimationMethodProposal,
+    constraintAssessment: component.constraintAssessment,
+  });
+
+  const modificationMaterial = () => ({
+    hasModification: analysis.contractModifications.hasModification,
+    effectiveDate: analysis.contractModifications.effectiveDate,
+    addedGoodsOrServices: analysis.contractModifications.addedGoodsOrServices,
+    addedGoodsDistinct: analysis.contractModifications.addedGoodsDistinct,
+    priceIncreaseInput: analysis.contractModifications.priceIncreaseInput,
+    priceReflectsSsp: analysis.contractModifications.priceReflectsSsp,
+    remainingGoodsDistinct: analysis.contractModifications.remainingGoodsDistinct,
+    treatmentCandidate: analysis.contractModifications.treatmentCandidate,
+    rationale: analysis.contractModifications.rationale,
+  });
+
+  const billingMaterial = (term: AiContractAnalysis["billingTerms"][number]) => ({
+    semanticKey: term.semanticKey,
+    description: term.description,
+    billingTiming: term.billingTiming,
+    frequency: term.frequency,
+    invoiceTrigger: term.invoiceTrigger,
+    amountOrRateInput: term.amountOrRateInput,
+    paymentTermsDays: term.paymentTermsDays,
+    dueDateRule: term.dueDateRule,
+  });
+
+  const projectionMaterial = () => ({
+    contractualDueDateBasis: analysis.projectedCollectionAssumptions.contractualDueDateBasis,
+    paymentTermsDays: analysis.projectedCollectionAssumptions.paymentTermsDays,
+    basisExplanation: analysis.projectedCollectionAssumptions.basisExplanation,
+  });
 
   /* ---------------------------------------------------------- scalar merge */
 
@@ -604,6 +706,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: entry.judgment.guidanceIds,
       citations: entry.judgment.citations,
       value: draft.contract.criteria[entry.criterion]?.answer ?? null,
+      material: {
+        criterion: entry.criterion,
+        answer: draft.contract.criteria[entry.criterion]?.answer ?? null,
+        proposedOutcome: entry.judgment.outcome,
+        rationale: entry.judgment.rationale,
+      },
       aiReviewState: entry.judgment.reviewState,
       blocking: answer === null && draft.contract.criteria[entry.criterion]?.answer === null,
     });
@@ -629,6 +737,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: aiPromise.semanticKey,
+        material: promiseMaterial(aiPromise),
         aiReviewState: "needs_review",
       });
       continue;
@@ -651,6 +760,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPromise.semanticKey,
           proposed: aiPromise.description.slice(0, 120),
         },
+        material: { manualPromiseId: manualTwin.id, ...promiseMaterial(aiPromise) },
         aiReviewState: aiPromise.reviewState,
       });
       promiseIdBySemanticKey.set(aiPromise.semanticKey, manualTwin.id);
@@ -759,6 +869,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: null,
+        material: { promiseId: canonicalId, ...promiseMaterial(aiPromise) },
         aiReviewState: "needs_user_input",
         blocking: true,
       });
@@ -783,6 +894,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPo.guidanceIds,
         citations: aiPo.citations,
         value: aiPo.semanticKey,
+        material: poMaterial(aiPo),
         aiReviewState: "needs_review",
       });
       continue;
@@ -805,6 +917,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: aiPo.guidanceIds,
           citations: aiPo.citations,
           value: promiseKey,
+          material: { unknownPromiseKey: promiseKey, ...poMaterial(aiPo) },
           aiReviewState: aiPo.reviewState,
           blocking: true,
         });
@@ -836,6 +949,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPo.semanticKey,
           proposed: aiPo.description.slice(0, 120),
         },
+        material: { manualPoIds: [...hostManualPoIds].sort(), ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
         blocking: true,
       });
@@ -861,6 +975,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: aiPo.semanticKey,
           proposed: aiPo.description.slice(0, 120),
         },
+        material: { manualPoId: canonicalId, ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
       });
     } else {
@@ -975,6 +1090,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: aiPo.guidanceIds,
         citations: aiPo.citations,
         value: null,
+        material: { performanceObligationId: canonicalId, ...poMaterial(aiPo) },
         aiReviewState: aiPo.reviewState,
         blocking: true,
       });
@@ -1000,6 +1116,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: proposal.guidanceIds,
         citations: proposal.citations,
         value: proposal.performanceObligationKey,
+        material: recognitionMaterial(proposal),
         aiReviewState: proposal.reviewState,
         blocking: true,
       });
@@ -1029,6 +1146,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1107,6 +1225,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1136,6 +1255,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: proposal.guidanceIds,
           citations: proposal.citations,
           value: null,
+          material: recognitionMaterial(proposal),
           aiReviewState: proposal.reviewState,
           blocking: true,
         });
@@ -1158,6 +1278,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: item.guidanceIds,
         citations: item.citations,
         value: item.appliesToKey,
+        material: sspMaterial(item),
         aiReviewState: item.reviewState,
         blocking: true,
       });
@@ -1211,6 +1332,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: item.guidanceIds,
         citations: item.citations,
         value: null,
+        material: sspMaterial(item),
         aiReviewState: item.reviewState,
         blocking: true,
       });
@@ -1267,6 +1389,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
       citations: analysis.transactionPrice.transactionPriceConclusion.citations,
       value: null,
+      material: {
+        fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
+        fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
+        currency: analysis.transactionPrice.currency.value,
+        conclusion: analysis.transactionPrice.transactionPriceConclusion.conclusion,
+      },
       aiReviewState: "needs_user_input",
       blocking: true,
     });
@@ -1298,6 +1426,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: judgment.value.guidanceIds,
       citations: judgment.value.citations,
       value: judgment.value.outcome,
+      material: {
+        judgment: judgment.key,
+        outcome: judgment.value.outcome,
+        rationale: judgment.value.rationale,
+      },
       aiReviewState: judgment.value.reviewState,
     });
   }
@@ -1323,6 +1456,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: component.semanticKey,
+        material: vcMaterial(component),
         aiReviewState: "needs_review",
       });
       continue;
@@ -1340,6 +1474,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: component.type,
+        material: vcMaterial(component),
         aiReviewState: component.reviewState,
         blocking: true,
       });
@@ -1363,6 +1498,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           semanticKey: component.semanticKey,
           proposed: component.description.slice(0, 120),
         },
+        material: { manualVcId: manualVcTwin.id, ...vcMaterial(component) },
         aiReviewState: component.reviewState,
       });
       continue;
@@ -1403,6 +1539,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: { current: existingRow.treatment, proposed: proposedTreatment },
+        material: {
+          current: existingRow.treatment,
+          proposed: proposedTreatment,
+          ...vcMaterial(component),
+        },
         aiReviewState: component.reviewState,
         blocking: true,
       });
@@ -1487,6 +1628,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: null,
+        material: vcMaterial(component),
         aiReviewState: "needs_user_input",
         blocking: true,
       });
@@ -1517,6 +1659,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: component.guidanceIds,
         citations: component.citations,
         value: null,
+        material: vcMaterial(component),
         aiReviewState:
           component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
         blocking: true,
@@ -1552,6 +1695,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           manualModificationIds: manualModifications.map((row) => row.id).sort(),
           semanticKey,
           proposed: modifications.rationale.slice(0, 120),
+        },
+        material: {
+          manualModificationIds: manualModifications.map((row) => row.id).sort(),
+          ...modificationMaterial(),
         },
         aiReviewState: modifications.reviewState,
       });
@@ -1647,6 +1794,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: modifications.guidanceIds,
         citations: modifications.citations,
         value: canonicalId,
+        material: { modificationId: canonicalId, ...modificationMaterial() },
         aiReviewState: modifications.reviewState,
         blocking: true,
       });
@@ -1669,6 +1817,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: modifications.guidanceIds,
       citations: modifications.citations,
       value: draft.hasContractModifications,
+      material: modificationMaterial(),
       aiReviewState: "needs_user_input",
       blocking: true,
     });
@@ -1692,6 +1841,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: [],
         citations: term.citations,
         value: semanticKey,
+        material: billingMaterial(term),
         aiReviewState: "needs_review",
       });
       continue;
@@ -1712,6 +1862,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
           semanticKey,
           proposed: term.description.slice(0, 120),
+        },
+        material: {
+          manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
+          ...billingMaterial(term),
         },
         aiReviewState: term.reviewState,
       });
@@ -1735,6 +1889,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         guidanceIds: [],
         citations: term.citations,
         value: schedule.reason,
+        material: {
+          reason: schedule.reason,
+          serviceStart: servicePeriod?.start ?? null,
+          serviceEnd: servicePeriod?.end ?? null,
+          ...billingMaterial(term),
+        },
         aiReviewState: term.reviewState,
         blocking: true,
       });
@@ -1789,6 +1949,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           guidanceIds: [],
           citations: projection.citations,
           value: projected.reason,
+          material: {
+            reason: projected.reason,
+            invoiceDate: event.invoiceDate,
+            termPaymentTermsDays: term.paymentTermsDays,
+            ...projectionMaterial(),
+          },
           aiReviewState: projection.reviewState,
         });
         continue;
@@ -1826,6 +1992,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: topic.guidanceIds,
       citations: topic.citations,
       value: topic.conclusion,
+      material: {
+        topic: topic.topic,
+        applicable: topic.applicable,
+        conclusion: topic.conclusion,
+        rationale: topic.rationale,
+      },
       aiReviewState: topic.reviewState,
       blocking: topic.applicable === "unknown" ? false : false,
     });
@@ -1859,6 +2031,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       guidanceIds: issue.guidanceIds,
       citations: issue.citations,
       value: issue.message,
+      material: {
+        semanticKey: issue.semanticKey,
+        section: issue.section,
+        reviewState: issue.reviewState,
+        message: issue.message,
+        relatedSemanticKeys: [...issue.relatedSemanticKeys].sort(),
+      },
       aiReviewState: issue.reviewState,
       blocking: issue.reviewState === "needs_user_input" || issue.reviewState === "source_conflict",
     });

@@ -241,3 +241,54 @@ describe("ranking and resolution carry-forward", () => {
     expect(sortReviewItems([a, b]).map((row) => row.targetKey)).toEqual(["aaa", "zzz"]);
   });
 });
+
+describe("carry-forward trusts nothing it has not verified itself", () => {
+  const base: AiReviewItem = {
+    id: "rev-x",
+    targetKey: "transactionPrice.input",
+    section: "step_3",
+    state: "yellow",
+    reasonCode: "manual_value_preserved",
+    reason: "r",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "fp-1",
+    reviewFingerprint: "rfp-1",
+    resolution: null,
+    affirmedAt: null,
+    affirmedMethod: null,
+  };
+
+  it("rejects a prior resolution whose embedded fingerprint does not match its own item", () => {
+    const tampered: AiReviewItem = {
+      ...base,
+      state: "resolved",
+      resolution: {
+        kind: "affirmed",
+        at: "2027-02-01T00:00:00.000Z",
+        // Matches the NEXT item but not the prior item it is attached to.
+        reviewFingerprint: "rfp-1",
+        method: "individual",
+      },
+      reviewFingerprint: "rfp-other",
+    };
+    expect(carryForwardReviewResolutions([base], [tampered])[0]!.state).toBe("yellow");
+  });
+
+  it("rejects a prior manual-red resolution carrying an unknown reason", () => {
+    const bogus = {
+      ...base,
+      state: "resolved" as const,
+      resolution: {
+        kind: "manual_red",
+        at: "2027-02-01T00:00:00.000Z",
+        reason: "because_i_said_so",
+        note: null,
+        reviewFingerprint: "rfp-1",
+      } as unknown as AiReviewItem["resolution"],
+    };
+    expect(carryForwardReviewResolutions([{ ...base, state: "red" }], [bogus])[0]!.state).toBe(
+      "red",
+    );
+  });
+});

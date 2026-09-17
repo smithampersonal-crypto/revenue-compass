@@ -91,6 +91,103 @@ export type AiReviewReasonCode =
   | "advisory_topic"
   | "accountant_affirmation_required";
 
+/** Every valid machine reason code, for validating persisted values. */
+export const AI_REVIEW_REASON_CODES: readonly AiReviewReasonCode[] = [
+  "missing_required_input",
+  "source_conflict",
+  "engine_support_gap",
+  "unsupported_recognition_method",
+  "missing_ssp",
+  "unsafe_semantic_relationship",
+  "modification_facts_incomplete",
+  "billing_schedule_not_derivable",
+  "projected_collection_not_derivable",
+  "manual_value_preserved",
+  "manual_structure_preserved",
+  "prior_finalized_conflict",
+  "ai_proposal_omitted",
+  "ai_proposal_tombstoned",
+  "advisory_topic",
+  "accountant_affirmation_required",
+];
+
+export const AI_REVIEW_SECTIONS: readonly GuidanceReviewSection[] = [
+  "step_1",
+  "step_2",
+  "step_3",
+  "step_4",
+  "step_5",
+  "additional_topics",
+];
+
+export const AI_AFFIRMATION_METHODS: readonly AiAffirmationMethod[] = [
+  "individual",
+  "page_all",
+  "global_all",
+  "edited",
+];
+
+export const MANUAL_RED_REASONS: readonly ManualRedReason[] = [
+  "reviewed_current_treatment",
+  "outside_source_information",
+  "not_applicable",
+];
+
+export const AI_REVIEW_ITEM_STATES: readonly AiReviewItemState[] = ["yellow", "red", "resolved"];
+
+export function isAiReviewReasonCode(value: unknown): value is AiReviewReasonCode {
+  return AI_REVIEW_REASON_CODES.includes(value as AiReviewReasonCode);
+}
+
+export function isAiReviewSection(value: unknown): value is GuidanceReviewSection {
+  return AI_REVIEW_SECTIONS.includes(value as GuidanceReviewSection);
+}
+
+export function isAiReviewItemState(value: unknown): value is AiReviewItemState {
+  return AI_REVIEW_ITEM_STATES.includes(value as AiReviewItemState);
+}
+
+export function isAiAffirmationMethod(value: unknown): value is AiAffirmationMethod {
+  return AI_AFFIRMATION_METHODS.includes(value as AiAffirmationMethod);
+}
+
+export function isManualRedReason(value: unknown): value is ManualRedReason {
+  return MANUAL_RED_REASONS.includes(value as ManualRedReason);
+}
+
+/**
+ * Structural validation of a resolution value of unknown provenance. A
+ * resolution object is only ever trusted when every discriminated field is a
+ * value ARC itself defines; an arbitrary persisted string never masquerades as
+ * a typed value.
+ */
+export function isAiReviewResolution(value: unknown): value is AiReviewResolution {
+  if (value === null || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  if (typeof row["at"] !== "string" || typeof row["reviewFingerprint"] !== "string") return false;
+  if (row["kind"] === "affirmed") return isAiAffirmationMethod(row["method"]);
+  if (row["kind"] === "manual_red") {
+    return (
+      isManualRedReason(row["reason"]) && (row["note"] === null || typeof row["note"] === "string")
+    );
+  }
+  return false;
+}
+
+/**
+ * Only an affirmation can clear a yellow item and only an audited manual-red
+ * resolution can clear a red one. A resolved row may legitimately carry either,
+ * because its original severity is not persisted separately.
+ */
+export function resolutionAllowedForState(
+  state: AiReviewItemState,
+  resolution: AiReviewResolution,
+): boolean {
+  if (state === "yellow") return resolution.kind === "affirmed";
+  if (state === "red") return resolution.kind === "manual_red";
+  return true;
+}
+
 export interface ReviewDerivationInput {
   targetKey: string;
   section: GuidanceReviewSection;
@@ -105,6 +202,13 @@ export interface ReviewDerivationInput {
    * reviewing another.
    */
   value: unknown;
+  /**
+   * The complete deterministic material conclusion under review, when the
+   * displayed `value` is only part of it. Never a truncated display string:
+   * two materially different accounting conclusions must never share a
+   * fingerprint, or a stale affirmation would survive a real change.
+   */
+  material?: unknown;
   /** The validated AI review state for the underlying conclusion, if any. */
   aiReviewState?: AiReviewState | null;
   /**
@@ -113,6 +217,11 @@ export interface ReviewDerivationInput {
    * proposed conclusion.
    */
   blocking?: boolean;
+}
+
+/** The material projection a review item is fingerprinted against. */
+export function reviewMaterialOf(input: { value: unknown; material?: unknown }): unknown {
+  return input.material === undefined ? input.value : input.material;
 }
 
 /**
@@ -224,6 +333,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
   const state = classifyReviewState(input);
   if (state === null) return null;
   const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
+  const material = reviewMaterialOf(input);
   return {
     id,
     targetKey: input.targetKey,
@@ -238,7 +348,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
       id,
       targetKey: input.targetKey,
       reasonCode: input.reasonCode,
-      value: input.value,
+      value: material,
       guidanceIds: input.guidanceIds,
       citations: input.citations,
     }),
@@ -284,6 +394,12 @@ export function carryForwardReviewResolutions(
   return next.map((item) => {
     const old = prior.get(item.id);
     if (!old?.resolution || old.reviewFingerprint !== item.reviewFingerprint) return item;
+    // Defence in depth: a prior row is never trusted merely because it exists.
+    // Its resolution must itself be structurally valid, bound to the prior
+    // item's own fingerprint, and of a kind that prior state could carry.
+    if (!isAiReviewResolution(old.resolution)) return item;
+    if (old.resolution.reviewFingerprint !== old.reviewFingerprint) return item;
+    if (!resolutionAllowedForState(old.state, old.resolution)) return item;
     if (item.state === "yellow" && old.resolution.kind === "affirmed") {
       return {
         ...item,
