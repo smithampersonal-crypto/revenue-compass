@@ -292,3 +292,84 @@ describe("carry-forward trusts nothing it has not verified itself", () => {
     );
   });
 });
+
+describe("base severity survives resolution", () => {
+  const yellowItem: AiReviewItem = {
+    id: "rev-s",
+    targetKey: "transactionPrice.input",
+    section: "step_3",
+    state: "yellow",
+    severity: "yellow",
+    reasonCode: "manual_value_preserved",
+    reason: "r",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "fp-1",
+    reviewFingerprint: "rfp-1",
+    resolution: null,
+    affirmedAt: null,
+    affirmedMethod: null,
+  };
+  const redItem: AiReviewItem = { ...yellowItem, state: "red", severity: "red" };
+
+  it("records the derived severity on a new item", () => {
+    const derived = deriveReviewItem({ ...base, blocking: true })!;
+    expect(derived.severity).toBe("red");
+    expect(deriveReviewItem(base)!.severity).toBe("yellow");
+  });
+
+  it("refuses a prior affirmation recorded against a red-severity item", () => {
+    const prior: AiReviewItem = {
+      ...redItem,
+      state: "resolved",
+      resolution: {
+        kind: "affirmed",
+        at: "2027-02-01T00:00:00.000Z",
+        method: "individual",
+        reviewFingerprint: "rfp-1",
+      },
+    };
+    expect(carryForwardReviewResolutions([yellowItem], [prior])[0]!.state).toBe("yellow");
+  });
+
+  it("refuses a prior manual-red resolution recorded against a yellow-severity item", () => {
+    const prior: AiReviewItem = {
+      ...yellowItem,
+      state: "resolved",
+      resolution: {
+        kind: "manual_red",
+        at: "2027-02-01T00:00:00.000Z",
+        reason: "reviewed_current_treatment",
+        note: null,
+        reviewFingerprint: "rfp-1",
+      },
+    };
+    expect(carryForwardReviewResolutions([redItem], [prior])[0]!.state).toBe("red");
+  });
+
+  it("still carries a valid affirmation and a valid manual resolution", () => {
+    const affirmedPrior: AiReviewItem = {
+      ...yellowItem,
+      state: "resolved",
+      resolution: {
+        kind: "affirmed",
+        at: "2027-02-01T00:00:00.000Z",
+        method: "individual",
+        reviewFingerprint: "rfp-1",
+      },
+    };
+    const manualPrior: AiReviewItem = {
+      ...redItem,
+      state: "resolved",
+      resolution: {
+        kind: "manual_red",
+        at: "2027-02-01T00:00:00.000Z",
+        reason: "reviewed_current_treatment",
+        note: null,
+        reviewFingerprint: "rfp-1",
+      },
+    };
+    expect(carryForwardReviewResolutions([yellowItem], [affirmedPrior])[0]!.state).toBe("resolved");
+    expect(carryForwardReviewResolutions([redItem], [manualPrior])[0]!.state).toBe("resolved");
+  });
+});

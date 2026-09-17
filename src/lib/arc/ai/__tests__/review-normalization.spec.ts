@@ -177,3 +177,92 @@ describe("persisted resolved state fails closed", () => {
     expect(normalizePersistedReviewItems([current])).toEqual([current]);
   });
 });
+
+describe("persisted base severity fails closed", () => {
+  const resolvedYellow = {
+    id: "rev-sev",
+    targetKey: "transactionPrice.input",
+    section: "step_3",
+    state: "resolved",
+    severity: "yellow",
+    reasonCode: "manual_value_preserved",
+    reason: "Preserved.",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "fp-1",
+    reviewFingerprint: "rfp-1",
+    resolution: {
+      kind: "affirmed",
+      at: "2027-02-01T00:00:00.000Z",
+      method: "individual",
+      reviewFingerprint: "rfp-1",
+    },
+    affirmedAt: "2027-02-01T00:00:00.000Z",
+    affirmedMethod: "individual",
+  };
+  const only = (raw: unknown) => normalizePersistedReviewItems([raw])[0];
+
+  it("keeps a valid affirmed yellow row resolved", () => {
+    const item = only(resolvedYellow);
+    expect(item!.state).toBe("resolved");
+    expect(item!.severity).toBe("yellow");
+  });
+
+  it("reopens an affirmation recorded against a red-severity row", () => {
+    const item = only({ ...resolvedYellow, severity: "red" });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("reopens a manual-red resolution recorded against a yellow-severity row", () => {
+    const item = only({
+      ...resolvedYellow,
+      resolution: {
+        kind: "manual_red",
+        at: "2027-02-01T00:00:00.000Z",
+        reason: "reviewed_current_treatment",
+        note: null,
+        reviewFingerprint: "rfp-1",
+      },
+    });
+    expect(item!.state).toBe("yellow");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("fails closed when a current row carries no severity at all", () => {
+    const { severity: _omitted, ...withoutSeverity } = resolvedYellow;
+    const item = only(withoutSeverity);
+    expect(item!.state).toBe("red");
+    expect(item!.severity).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("fails closed when a current row carries a malformed severity", () => {
+    const item = only({ ...resolvedYellow, severity: "purple" });
+    expect(item!.state).toBe("red");
+    expect(item!.resolution).toBeNull();
+  });
+
+  it("fails closed when an unresolved row's state and severity disagree", () => {
+    const item = only({ ...resolvedYellow, state: "yellow", severity: "red", resolution: null });
+    expect(item!.state).toBe("red");
+    expect(item!.severity).toBe("red");
+  });
+
+  it("keeps a legacy Phase 9F row readable with a conservative severity", () => {
+    const item = only({
+      id: "rev-legacy-sev",
+      targetKey: "transactionPrice.input",
+      section: "step_3",
+      state: "resolved",
+      reason: "Preserved.",
+      guidanceIds: [],
+      valueFingerprint: "fp-1",
+      affirmedAt: "2026-05-01T00:00:00.000Z",
+      affirmedMethod: "individual",
+    });
+    expect(item!.state).toBe("resolved");
+    expect(item!.severity).toBe("yellow");
+    expect(item!.resolution?.kind).toBe("affirmed");
+  });
+});
