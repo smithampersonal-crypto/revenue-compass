@@ -55,6 +55,7 @@ const server = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
   reads: 0,
   executes: 0,
+  requests: 0,
 }));
 
 vi.mock("@/lib/arc/ai/workspace.functions", () => ({
@@ -63,6 +64,7 @@ vi.mock("@/lib/arc/ai/workspace.functions", () => ({
     return server.current;
   },
   requestAiAnalysis: async () => {
+    server.requests += 1;
     server.current = active;
     return { ...active, executionDisposition: "start_execution" as const };
   },
@@ -82,18 +84,42 @@ vi.mock("@/lib/arc/ai/runs.functions", () => ({
 const guestServer = vi.hoisted(() => ({ lockVersion: 1, notes: "" }));
 
 /** Lets a queued save be held in flight, the way a slow network would. */
-const savePending = vi.hoisted(() => ({ release: null as null | (() => void) }));
+const savePending = vi.hoisted(() => ({
+  release: null as null | (() => void),
+  hold: false,
+  waiters: [] as (() => void)[],
+  /** Drafts the server actually accepted, newest last. */
+  accepted: [] as string[],
+  /** Rejects the next save with the given text. */
+  rejectWith: null as string | null,
+}));
 
 const guestSave = vi.hoisted(() =>
-  vi.fn(async () => {
-    if (savePending.release === null) {
-      return { ok: true as const, lockVersion: 2, savedAt: new Date().toISOString() };
-    }
-    await new Promise<void>((resolve) => {
-      savePending.release = resolve;
-    });
-    return { ok: true as const, lockVersion: 2, savedAt: new Date().toISOString() };
-  }),
+  vi.fn(
+    async (input: {
+      data: { expectedLockVersion: number; draft: { transactionPriceNotes?: string } };
+    }) => {
+      const expected = input?.data?.expectedLockVersion ?? 1;
+      const notes = input?.data?.draft?.transactionPriceNotes ?? "";
+      if (savePending.hold) {
+        await new Promise<void>((resolve) => {
+          savePending.waiters.push(resolve);
+        });
+      }
+      if (savePending.release !== null) {
+        await new Promise<void>((resolve) => {
+          savePending.release = resolve;
+        });
+      }
+      if (savePending.rejectWith !== null) {
+        const message = savePending.rejectWith;
+        savePending.rejectWith = null;
+        throw new Error(message);
+      }
+      savePending.accepted.push(notes);
+      return { ok: true as const, lockVersion: expected + 1, savedAt: new Date().toISOString() };
+    },
+  ),
 );
 
 vi.mock("@/lib/arc/persistence/guest.functions", async () => {
@@ -144,6 +170,12 @@ function Probe() {
       >
         Edit
       </button>
+      <button
+        type="button"
+        onClick={() => setDraft((current) => ({ ...current, transactionPriceNotes: "" }))}
+      >
+        Revert
+      </button>
     </div>
   );
 }
@@ -158,13 +190,23 @@ function renderProvider() {
   );
 }
 
+function releaseHeldSaves() {
+  const waiters = savePending.waiters.splice(0, savePending.waiters.length);
+  for (const resolve of waiters) resolve();
+}
+
 beforeEach(() => {
   server.current = idle;
   server.reads = 0;
   server.executes = 0;
+  server.requests = 0;
   guestServer.lockVersion = 1;
   guestServer.notes = "";
   savePending.release = null;
+  savePending.hold = false;
+  savePending.waiters = [];
+  savePending.accepted = [];
+  savePending.rejectWith = null;
   guestSave.mockClear();
 });
 
@@ -268,5 +310,115 @@ describe("the analysis workspace AI controller", () => {
 
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await waitFor(() => expect(guestSave).toHaveBeenCalled());
+  });
+
+  // A deliberate analysis may only cross the AI boundary once the server holds
+  // the current canonical draft — however slow the save is.
+  it("waits for a slow in-flight save before requesting an analysis", async () => {
+    const user = userEvent.setup();
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    savePending.hold = true;
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(server.requests).toBe(0);
+    expect(server.executes).toBe(0);
+
+    savePending.hold = false;
+    await act(async () => {
+      releaseHeldSaves();
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+
+    await waitFor(() => expect(server.requests).toBe(1));
+    expect(server.executes).toBe(1);
+  });
+
+  // The key regression: the draft is reverted to the old baseline while the
+  // newer save is still unresolved, so equality with the stale snapshot must
+  // not be read as "the server holds this".
+  it("waits out a reverted draft whose newer save is still unresolved", async () => {
+    const user = userEvent.setup();
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    savePending.hold = true;
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(1));
+
+    // Back to the copy the server already holds, while the edit's save is
+    // still in flight.
+    await user.click(screen.getByRole("button", { name: "Revert" }));
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(server.requests).toBe(0);
+
+    savePending.hold = false;
+    await act(async () => {
+      releaseHeldSaves();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+
+    // The edit settled, then the compensating save put the reverted copy back
+    // on the server, and only then did the analysis begin.
+    await waitFor(() => expect(server.requests).toBe(1));
+    expect(savePending.accepted).toEqual(["Edited ", ""]);
+    expect(screen.getByTestId("lock")).toHaveTextContent("3");
+  });
+
+  // Twin of the stale-success regression: a stale rejection must not present
+  // an error against the workspace the AI result has already replaced.
+  it("discards a stale save rejection after the AI-applied draft is adopted", async () => {
+    const user = userEvent.setup();
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    await user.click(screen.getByRole("button", { name: "Analyze" }));
+    await waitFor(() => expect(server.executes).toBe(1));
+
+    savePending.hold = true;
+    savePending.rejectWith = "service_role failed: SQLSTATE 40001 gpt-5.6-terra";
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(guestSave).toHaveBeenCalledTimes(1));
+
+    guestServer.notes = "AI applied";
+    guestServer.lockVersion = 7;
+    server.current = succeeded;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2_100));
+    });
+    await waitFor(() => expect(screen.getByTestId("customer")).toHaveTextContent("AI applied"));
+
+    savePending.hold = false;
+    await act(async () => {
+      releaseHeldSaves();
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+
+    expect(screen.getByTestId("save-status")).not.toHaveTextContent("error");
+    expect(screen.getByTestId("customer")).toHaveTextContent("AI applied");
+    expect(screen.getByTestId("lock")).toHaveTextContent("7");
+  });
+
+  it("still reports an ordinary save failure for the current workspace", async () => {
+    const user = userEvent.setup();
+    renderProvider();
+    await waitFor(() => expect(screen.getByTestId("load")).toHaveTextContent("ready"));
+
+    savePending.rejectWith = "network down";
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByTestId("save-status")).toHaveTextContent("error"));
+
+    // Editing again retries through the ordinary pipeline.
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByTestId("save-status")).toHaveTextContent("saved"));
   });
 });

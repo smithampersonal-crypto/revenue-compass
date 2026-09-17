@@ -146,6 +146,12 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 const AUTOSAVE_DELAY_MS = 750;
 
 /**
+ * The outcome of one complete autosave cycle: success means the server has
+ * accepted the newest in-memory draft, not merely that a request finished.
+ */
+type SaveCycleResult = { ok: boolean };
+
+/**
  * Inert placeholder used only when a historical recording cannot be read. It
  * is derived from an empty draft, never from the historical draft, so no
  * current engine ever sees historical inputs. Every output area is suppressed
@@ -293,6 +299,13 @@ export function AnalysisProvider({
    */
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  /**
+   * The autosave cycle currently running, as the promise that actually
+   * represents its lifetime. Anything that needs to know whether the server
+   * holds the current draft awaits this rather than polling a boolean.
+   */
+  const saveInFlightRef = useRef<Promise<SaveCycleResult> | null>(null);
+
   /** Set on conflict or load failure; stops all further autosaves. */
   const blockedRef = useRef(false);
   /**
@@ -392,13 +405,12 @@ export function AnalysisProvider({
    * The guest workspace uses the same optimistic-lock sequencing; only the
    * transport differs, and the guest credential stays in the HttpOnly cookie.
    */
-  const runSave = useCallback(
-    async (target: LoadedAnalysis) => {
-      if (inFlightRef.current) return;
+  const performSaveCycle = useCallback(
+    async (target: LoadedAnalysis): Promise<SaveCycleResult> => {
       inFlightRef.current = true;
       try {
         for (;;) {
-          if (blockedRef.current) break;
+          if (blockedRef.current) return { ok: false };
           const payload = draftRef.current;
           const snapshot = serializeDraft(payload);
           if (snapshot === savedSnapshotRef.current) {
@@ -406,7 +418,7 @@ export function AnalysisProvider({
             setStatus((current) =>
               current.kind === "saving" ? { kind: "saved", at: lastSavedAtRef.current } : current,
             );
-            break;
+            return { ok: true };
           }
 
           setStatus({ kind: "saving" });
@@ -426,6 +438,9 @@ export function AnalysisProvider({
                     },
                   });
           } catch (error) {
+            // A failure belonging to a superseded copy must not be presented
+            // against the workspace that replaced it.
+            if (generation !== reloadGenerationRef.current) return { ok: false };
             setStatus({
               kind: "error",
               message:
@@ -433,13 +448,13 @@ export function AnalysisProvider({
                   ? error.message
                   : "Your latest edits could not be saved.",
             });
-            break;
+            return { ok: false };
           }
 
           // An authoritative reload started while this save was in flight: the
           // workspace it was saving no longer exists, so nothing it returns may
           // become the current baseline, lock version or status.
-          if (generation !== reloadGenerationRef.current) break;
+          if (generation !== reloadGenerationRef.current) return { ok: false };
 
           if (!outcome.ok) {
             blockedRef.current = true;
@@ -448,7 +463,7 @@ export function AnalysisProvider({
                 ? { kind: "guest-expired" }
                 : { kind: "conflict" },
             );
-            break;
+            return { ok: false };
           }
 
           lockVersionRef.current = outcome.lockVersion;
@@ -471,7 +486,7 @@ export function AnalysisProvider({
 
           if (serializeDraft(draftRef.current) === snapshot) {
             setStatus({ kind: "saved", at: outcome.savedAt });
-            break;
+            return { ok: true };
           }
           // A newer draft arrived mid-save: keep saving before reporting Saved.
         }
@@ -480,6 +495,27 @@ export function AnalysisProvider({
       }
     },
     [saveRevision, saveGuest, queryClient, queryKey],
+  );
+
+  /**
+   * The single awaitable entry point to the autosave pipeline. A caller that
+   * arrives while a cycle is running joins that cycle's promise instead of
+   * starting a second one, so "the save has settled" is a real answer rather
+   * than a guess based on elapsed time.
+   */
+  const runSave = useCallback(
+    async (target: LoadedAnalysis): Promise<SaveCycleResult> => {
+      const existing = saveInFlightRef.current;
+      if (existing) return existing;
+      const task = performSaveCycle(target);
+      saveInFlightRef.current = task;
+      try {
+        return await task;
+      } finally {
+        if (saveInFlightRef.current === task) saveInFlightRef.current = null;
+      }
+    },
+    [performSaveCycle],
   );
 
   // Debounced autosave. A conflict or load failure stops further writes so the
@@ -569,24 +605,26 @@ export function AnalysisProvider({
    * Phase 9G — Task 5. Waits for the accepted Task 4 autosave to settle so a
    * deliberate AI analysis can only ever run against the authoritative saved
    * canonical draft. It is not a second save mechanism: it drives the existing
-   * pipeline and reports whether the server now holds the current draft.
+   * pipeline and succeeds only when no save is outstanding, writes are not
+   * blocked, and the server-accepted snapshot is the current draft. Equality
+   * with a stale baseline while a newer save is unresolved is not success.
    */
   const flushPendingSave = useCallback(async (): Promise<{ ok: boolean }> => {
     if (!persistenceEnabled) return { ok: true };
     const target = loadedRef.current;
     if (!target || target.readOnly) return { ok: false };
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (;;) {
       if (blockedRef.current) return { ok: false };
-      if (serializeDraft(draftRef.current) === savedSnapshotRef.current) return { ok: true };
-      if (inFlightRef.current) {
-        await new Promise((resolve) => setTimeout(resolve, 25));
+      const existing = saveInFlightRef.current;
+      if (existing) {
+        const joined = await existing;
+        if (!joined.ok) return { ok: false };
         continue;
       }
-      await runSave(target);
+      if (serializeDraft(draftRef.current) === savedSnapshotRef.current) return { ok: true };
+      const result = await runSave(target);
+      if (!result.ok) return { ok: false };
     }
-    return {
-      ok: !blockedRef.current && serializeDraft(draftRef.current) === savedSnapshotRef.current,
-    };
   }, [persistenceEnabled, runSave]);
 
   /**
