@@ -338,6 +338,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
   const state = classifyReviewState(input);
   if (state === null) return null;
   const id = reviewItemId(input.targetKey, input.section, input.reasonCode);
+  const material = reviewMaterialOf(input);
   return {
     id,
     targetKey: input.targetKey,
@@ -352,7 +353,7 @@ export function deriveReviewItem(input: ReviewDerivationInput): AiReviewItem | n
       id,
       targetKey: input.targetKey,
       reasonCode: input.reasonCode,
-      value: input.value,
+      value: material,
       guidanceIds: input.guidanceIds,
       citations: input.citations,
     }),
@@ -398,6 +399,12 @@ export function carryForwardReviewResolutions(
   return next.map((item) => {
     const old = prior.get(item.id);
     if (!old?.resolution || old.reviewFingerprint !== item.reviewFingerprint) return item;
+    // Defence in depth: a prior row is never trusted merely because it exists.
+    // Its resolution must itself be structurally valid, bound to the prior
+    // item's own fingerprint, and of a kind that prior state could carry.
+    if (!isAiReviewResolution(old.resolution)) return item;
+    if (old.resolution.reviewFingerprint !== old.reviewFingerprint) return item;
+    if (!resolutionAllowedForState(old.state, old.resolution)) return item;
     if (item.state === "yellow" && old.resolution.kind === "affirmed") {
       return {
         ...item,
