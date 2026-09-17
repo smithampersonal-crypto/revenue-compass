@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aiFinalizationIssues } from "@/lib/arc/persistence/revisions.handlers";
 
-const state = vi.hoisted(() => ({ reviewItems: [] as unknown }));
+const state = vi.hoisted(() => ({ review_items: [] as unknown }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
@@ -55,7 +55,7 @@ const validResolved = {
 };
 
 async function issuesFor(reviewItems: unknown): Promise<string[]> {
-  state.reviewItems = reviewItems;
+  state.review_items = reviewItems;
   const { readAiFinalizationState } = await import("../finalization-state.server");
   return aiFinalizationIssues(await readAiFinalizationState(REVISION));
 }
