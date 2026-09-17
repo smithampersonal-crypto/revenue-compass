@@ -133,10 +133,20 @@ export function useAiWorkspaceController(
   /** Monotonic read id, so an older poll can never overwrite a newer refresh. */
   const requestSeqRef = useRef(0);
   const adoptedSeqRef = useRef(0);
-  /** At most one outstanding workspace read. */
-  const readInFlightRef = useRef(false);
-  /** Single-flight guard for the deliberate action. */
-  const analyzeInFlightRef = useRef(false);
+  /**
+   * At most one outstanding workspace read — held as the token of the read
+   * that owns the gate, never as a shared boolean. A scope change abandons the
+   * old token, and the abandoned read's cleanup can no longer free the gate
+   * the new scope's read is holding.
+   */
+  const readInFlightRef = useRef<{ generation: number; seq: number } | null>(null);
+  /**
+   * Single-flight guard for the deliberate action, owned by the generation
+   * that started it: a new workspace may analyze while an older scope's
+   * request is still unresolved, and the older action cannot clear the guard
+   * the newer one holds.
+   */
+  const analyzeInFlightRef = useRef<number | null>(null);
   /** Runs whose terminal outcome has already been handled once. */
   const terminalHandledRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
