@@ -410,96 +410,93 @@ export function AnalysisProvider({
    * transport differs, and the guest credential stays in the HttpOnly cookie.
    */
   const performSaveCycle = useCallback(
-    async (target: LoadedAnalysis): Promise<SaveCycleResult> => {
-      inFlightRef.current = true;
-      try {
-        for (;;) {
-          if (blockedRef.current) return { ok: false };
-          const payload = draftRef.current;
-          const snapshot = serializeDraft(payload);
-          if (snapshot === savedSnapshotRef.current) {
-            // The draft was reverted to the server-accepted copy mid-flight.
-            setStatus((current) =>
-              current.kind === "saving" ? { kind: "saved", at: lastSavedAtRef.current } : current,
-            );
-            return { ok: true };
-          }
-
-          setStatus({ kind: "saving" });
-          const generation = reloadGenerationRef.current;
-          let outcome;
-          try {
-            outcome =
-              target.kind === "guest"
-                ? await saveGuest({
-                    data: { expectedLockVersion: lockVersionRef.current, draft: payload },
-                  })
-                : await saveRevision({
-                    data: {
-                      revisionId: target.revision.revisionId,
-                      expectedLockVersion: lockVersionRef.current,
-                      draft: payload,
-                    },
-                  });
-          } catch (error) {
-            // A failure belonging to a superseded copy must not be presented
-            // against the workspace that replaced it.
-            if (generation !== reloadGenerationRef.current) return { ok: false };
-            setStatus({
-              kind: "error",
-              message:
-                error instanceof Error && error.message
-                  ? error.message
-                  : "Your latest edits could not be saved.",
-            });
-            return { ok: false };
-          }
-
-          // An authoritative reload started while this save was in flight: the
-          // workspace it was saving no longer exists, so nothing it returns may
-          // become the current baseline, lock version or status.
-          if (generation !== reloadGenerationRef.current) return { ok: false };
-
-          if (!outcome.ok) {
-            blockedRef.current = true;
-            setStatus(
-              "reason" in outcome && outcome.reason === "expired"
-                ? { kind: "guest-expired" }
-                : { kind: "conflict" },
-            );
-            return { ok: false };
-          }
-
-          lockVersionRef.current = outcome.lockVersion;
-          setLockVersion(outcome.lockVersion);
-          lastSavedAtRef.current = outcome.savedAt;
-          savedSnapshotRef.current = snapshot;
-          setSavedSnapshot(snapshot);
-
-          // Keep React Query's cache coherent with what the server accepted so
-          // a later remount can never resurrect the pre-save draft or lock.
-          queryClient.setQueryData(
-            queryKey,
-            (previous: LoadedRevisionDto | GuestWorkspaceDto | undefined) =>
-              previous
-                ? { ...previous, draft: payload, lockVersion: outcome.lockVersion }
-                : previous,
+    async (target: LoadedAnalysis, generation: number): Promise<SaveCycleResult> => {
+      for (;;) {
+        // A cycle belongs to the generation that started it. Once an
+        // authoritative reload has superseded that copy, the cycle stops and
+        // never becomes part of the newly adopted workspace.
+        if (generation !== reloadGenerationRef.current) return { ok: false };
+        if (blockedRef.current) return { ok: false };
+        const payload = draftRef.current;
+        const snapshot = serializeDraft(payload);
+        if (snapshot === savedSnapshotRef.current) {
+          // The draft was reverted to the server-accepted copy mid-flight.
+          setStatus((current) =>
+            current.kind === "saving" ? { kind: "saved", at: lastSavedAtRef.current } : current,
           );
-          const state = queryClient.getQueryState(queryKey);
-          if (state) consumedAtRef.current = state.dataUpdatedAt;
-
-          if (serializeDraft(draftRef.current) === snapshot) {
-            setStatus({ kind: "saved", at: outcome.savedAt });
-            return { ok: true };
-          }
-          // A newer draft arrived mid-save: keep saving before reporting Saved.
+          return { ok: true };
         }
-      } finally {
-        inFlightRef.current = false;
+
+        setStatus({ kind: "saving" });
+        let outcome;
+        try {
+          outcome =
+            target.kind === "guest"
+              ? await saveGuest({
+                  data: { expectedLockVersion: lockVersionRef.current, draft: payload },
+                })
+              : await saveRevision({
+                  data: {
+                    revisionId: target.revision.revisionId,
+                    expectedLockVersion: lockVersionRef.current,
+                    draft: payload,
+                  },
+                });
+        } catch (error) {
+          // A failure belonging to a superseded copy must not be presented
+          // against the workspace that replaced it.
+          if (generation !== reloadGenerationRef.current) return { ok: false };
+          setStatus({
+            kind: "error",
+            message:
+              error instanceof Error && error.message
+                ? error.message
+                : "Your latest edits could not be saved.",
+          });
+          return { ok: false };
+        }
+
+        // An authoritative reload started while this save was in flight: the
+        // workspace it was saving no longer exists, so nothing it returns may
+        // become the current baseline, lock version or status.
+        if (generation !== reloadGenerationRef.current) return { ok: false };
+
+        if (!outcome.ok) {
+          blockedRef.current = true;
+          setStatus(
+            "reason" in outcome && outcome.reason === "expired"
+              ? { kind: "guest-expired" }
+              : { kind: "conflict" },
+          );
+          return { ok: false };
+        }
+
+        lockVersionRef.current = outcome.lockVersion;
+        setLockVersion(outcome.lockVersion);
+        lastSavedAtRef.current = outcome.savedAt;
+        savedSnapshotRef.current = snapshot;
+        setSavedSnapshot(snapshot);
+
+        // Keep React Query's cache coherent with what the server accepted so
+        // a later remount can never resurrect the pre-save draft or lock.
+        queryClient.setQueryData(
+          queryKey,
+          (previous: LoadedRevisionDto | GuestWorkspaceDto | undefined) =>
+            previous ? { ...previous, draft: payload, lockVersion: outcome.lockVersion } : previous,
+        );
+        const state = queryClient.getQueryState(queryKey);
+        if (state) consumedAtRef.current = state.dataUpdatedAt;
+
+        if (serializeDraft(draftRef.current) === snapshot) {
+          setStatus({ kind: "saved", at: outcome.savedAt });
+          return { ok: true };
+        }
+        // A newer draft arrived mid-save: keep saving before reporting Saved.
       }
     },
     [saveRevision, saveGuest, queryClient, queryKey],
   );
+
 
   /**
    * The single awaitable entry point to the autosave pipeline. A caller that
