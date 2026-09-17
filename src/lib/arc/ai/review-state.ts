@@ -19,6 +19,14 @@ import type { AiReviewState } from "./schema";
 
 export type AiReviewItemState = "yellow" | "red" | "resolved";
 
+/**
+ * The immutable base severity of a review item: what kind of review item was
+ * raised, independent of whether it has since been resolved. `state` may become
+ * "resolved"; `severity` always records what was resolved, so ARC never has to
+ * infer the original severity from a reason code.
+ */
+export type AiReviewSeverity = "yellow" | "red";
+
 export type AiAffirmationMethod = "individual" | "page_all" | "global_all" | "edited";
 
 /**
