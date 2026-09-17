@@ -164,8 +164,8 @@ describe("Phase 9G review actions — yellow affirmation", () => {
       guestWorkspaceId: GUEST,
       actorUserId: USER,
     });
-
   });
+
 
   it("refuses an unknown affirmation method", async () => {
     const recorded = empty();
