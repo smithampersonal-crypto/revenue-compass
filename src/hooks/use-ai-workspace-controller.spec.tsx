@@ -322,7 +322,7 @@ describe("the AI workspace controller", () => {
     // starting its own run, but it may never touch the workspace the user has
     // since moved to.
     it("keeps a deliberate action bound to the analysis that started it", async () => {
-      let releaseRequest: ((value: unknown) => void) | null = null;
+      const releases: ((value: unknown) => void)[] = [];
       const h = harness({
         getWorkspaceState: vi.fn(async (input: { revisionId: string | null }) =>
           state({ reviewIssueCount: input.revisionId === "rev-a" ? 7 : 2 }),
@@ -330,7 +330,7 @@ describe("the AI workspace controller", () => {
         requestAnalysis: vi.fn(
           () =>
             new Promise((resolve) => {
-              releaseRequest = resolve;
+              releases.push(resolve);
             }),
         ),
       });
@@ -356,7 +356,7 @@ describe("the AI workspace controller", () => {
       expect(h.spies.requestAnalysis.mock.calls[1]![0]).toEqual({ revisionId: "rev-b" });
 
       await act(async () => {
-        releaseRequest!({
+        releases[0]!({
           ...activeState(),
           executionDisposition: "start_execution" as const,
         });
