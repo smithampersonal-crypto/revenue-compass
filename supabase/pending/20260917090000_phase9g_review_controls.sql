@@ -37,6 +37,10 @@ drop function if exists public.arc_affirm_ai_review_scope(uuid, text, uuid, uuid
 
 create table public.ai_review_events (
   id uuid primary key default gen_random_uuid(),
+  -- Strictly increasing arrival order. `created_at` is the transaction
+  -- timestamp and cannot order two events written in one transaction, so
+  -- "the most recent matching event" is resolved by this column alone.
+  event_seq bigint generated always as identity,
   revision_id uuid references public.analysis_revisions(id) on delete cascade,
   guest_workspace_id uuid references public.guest_workspaces(id) on delete cascade,
   -- Immutable snapshot identifiers, deliberately NOT foreign keys: an audit
@@ -123,10 +127,10 @@ create index ai_review_events_by_guest_workspace
 -- plus the current resolved state, not from a lifetime uniqueness rule. This
 -- index only makes "the most recent matching event" a cheap lookup.
 create index ai_review_events_item_history on public.ai_review_events
-  (coalesce(revision_id, guest_workspace_id), review_item_id, event_type, created_at desc, id desc)
+  (coalesce(revision_id, guest_workspace_id), review_item_id, event_type, event_seq desc)
   where review_item_id is not null;
 create index ai_review_events_source_history on public.ai_review_events
-  (coalesce(revision_id, guest_workspace_id), source_set_fingerprint, created_at desc, id desc)
+  (coalesce(revision_id, guest_workspace_id), source_set_fingerprint, event_seq desc)
   where event_type = 'stale_sources_acknowledged';
 
 -- Append-only: history is never edited and never removed while the analysis it
@@ -404,7 +408,7 @@ begin
          and e.review_fingerprint = p_expected_review_fingerprint
          and coalesce(e.revision_id, e.guest_workspace_id)
              = coalesce(p_revision_id, p_guest_workspace_id)
-       order by e.created_at desc, e.id desc
+       order by e.event_seq desc
        limit 1;
       lock_version := v_lock;
       already_resolved := true;
@@ -540,7 +544,7 @@ begin
          and e.review_fingerprint = p_expected_review_fingerprint
          and coalesce(e.revision_id, e.guest_workspace_id)
              = coalesce(p_revision_id, p_guest_workspace_id)
-       order by e.created_at desc, e.id desc
+       order by e.event_seq desc
        limit 1;
       lock_version := v_lock;
       already_resolved := true;
@@ -655,7 +659,7 @@ begin
        and e.source_set_fingerprint = v_current
        and coalesce(e.revision_id, e.guest_workspace_id)
            = coalesce(p_revision_id, p_guest_workspace_id)
-     order by e.created_at desc, e.id desc
+     order by e.event_seq desc
      limit 1;
     lock_version := v_lock;
     source_set_fingerprint := v_current;
