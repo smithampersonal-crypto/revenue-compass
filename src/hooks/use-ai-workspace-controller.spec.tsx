@@ -317,6 +317,92 @@ describe("the AI workspace controller", () => {
       });
       expect(result.current.workspace?.reviewIssueCount).toBe(1);
     });
+
+    // A deliberate action belongs to the scope that started it. It may finish
+    // starting its own run, but it may never touch the workspace the user has
+    // since moved to.
+    it("keeps a deliberate action bound to the analysis that started it", async () => {
+      let releaseRequest: ((value: unknown) => void) | null = null;
+      const h = harness({
+        getWorkspaceState: vi.fn(async (input: { revisionId: string | null }) =>
+          state({ reviewIssueCount: input.revisionId === "rev-a" ? 7 : 2 }),
+        ),
+        requestAnalysis: vi.fn(
+          () =>
+            new Promise((resolve) => {
+              releaseRequest = resolve;
+            }),
+        ),
+      });
+      const view = mount(h, "contract:rev-a", "rev-a");
+      await waitFor(() => expect(view.result.current.workspace?.reviewIssueCount).toBe(7));
+
+      let analyzing: Promise<void> | null = null;
+      await act(async () => {
+        analyzing = view.result.current.analyze();
+        await Promise.resolve();
+      });
+
+      view.rerender({ scopeKey: "contract:rev-b", revisionId: "rev-b" });
+      await waitFor(() => expect(view.result.current.workspace?.reviewIssueCount).toBe(2));
+
+      // The new workspace can start its own deliberate action while the old
+      // scope's request is still unresolved.
+      await act(async () => {
+        void view.result.current.analyze();
+        await Promise.resolve();
+      });
+      expect(h.spies.requestAnalysis).toHaveBeenCalledTimes(2);
+      expect(h.spies.requestAnalysis.mock.calls[1]![0]).toEqual({ revisionId: "rev-b" });
+
+      await act(async () => {
+        releaseRequest!({
+          ...activeState(),
+          executionDisposition: "start_execution" as const,
+        });
+        await analyzing;
+      });
+
+      // The old run is executed against its own analysis, never the new one.
+      expect(h.spies.executeAnalysis).toHaveBeenCalledWith({ runId: RUN, revisionId: "rev-a" });
+      expect(h.spies.executeAnalysis.mock.calls.every((c) => c[0].revisionId !== "rev-b")).toBe(
+        true,
+      );
+      // And it never lands on the workspace the user is now looking at.
+      expect(view.result.current.workspace?.reviewIssueCount).toBe(2);
+      expect(view.result.current.actionState).not.toBe("executing");
+    });
+
+    // The read gate is owned by the read that set it: an abandoned read's
+    // cleanup must not free the new scope's gate.
+    it("does not let an abandoned read free the new analysis's read gate", async () => {
+      const pending: ((value: AiWorkspaceStateDto) => void)[] = [];
+      const h = harness({
+        getWorkspaceState: vi.fn(() => new Promise<AiWorkspaceStateDto>((r) => pending.push(r))),
+      });
+      const view = mount(h, "contract:rev-a", "rev-a");
+      view.rerender({ scopeKey: "contract:rev-b", revisionId: "rev-b" });
+      expect(h.spies.getWorkspaceState).toHaveBeenCalledTimes(2);
+
+      // The abandoned first read answers while the new scope's read is open.
+      await act(async () => {
+        pending[0]!(state({ reviewIssueCount: 9 }));
+      });
+      await act(async () => {
+        void view.result.current.refresh();
+      });
+      expect(h.spies.getWorkspaceState).toHaveBeenCalledTimes(2);
+      expect(view.result.current.workspace).toBeNull();
+
+      await act(async () => {
+        pending[1]!(state({ reviewIssueCount: 2 }));
+      });
+      expect(view.result.current.workspace?.reviewIssueCount).toBe(2);
+      await act(async () => {
+        void view.result.current.refresh();
+      });
+      expect(h.spies.getWorkspaceState).toHaveBeenCalledTimes(3);
+    });
   });
 
   describe("the deliberate analyze action", () => {
