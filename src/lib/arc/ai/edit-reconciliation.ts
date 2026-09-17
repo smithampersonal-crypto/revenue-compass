@@ -14,7 +14,7 @@ import { parseUsdToCents, type WorkflowDraft } from "@/lib/asc606-workflow";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { valueFingerprint } from "./identity";
-import { aiObjectFingerprint, type AiAnalysisState } from "./merge";
+import { type AiAnalysisState } from "./merge";
 import type { AiReviewItem, AiReviewSeverity } from "./review-state";
 
 /* ------------------------------------------------------- canonical reading */
@@ -525,8 +525,8 @@ export function reconcileAiEdits(input: ReconcileAiEditInput): ReconcileAiEditRe
 
   const tombstones = new Set(state.tombstones);
   for (const [semanticKey, provenance] of Object.entries(state.objectProvenance)) {
-    const before = aiObjectFingerprint(previous, provenance.canonicalId);
-    const after = aiObjectFingerprint(next, provenance.canonicalId);
+    const before = canonicalObjectEditFingerprint(previous, provenance.canonicalId);
+    const after = canonicalObjectEditFingerprint(next, provenance.canonicalId);
     if (before !== null && after === null) {
       tombstones.add(semanticKey);
       delete state.objectProvenance[semanticKey];
