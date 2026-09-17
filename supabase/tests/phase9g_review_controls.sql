@@ -98,6 +98,8 @@ declare
   v_new_lock integer;
   v_already boolean;
   v_event uuid;
+  v_event2 uuid;
+
   v_run uuid := gen_random_uuid();
   v_run_g uuid := gen_random_uuid();
   n integer;
