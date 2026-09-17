@@ -463,6 +463,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         draft.contract = { ...draft.contract, customerName: value };
       },
       section: "step_1",
+      citations: customer.citations,
       aiReviewState: customer.reviewState,
       label: "Customer name",
     });
@@ -1689,6 +1690,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reason:
           "The AI analysis still proposes a billing schedule you previously removed. It has not been recreated.",
         guidanceIds: [],
+        citations: term.citations,
         value: semanticKey,
         aiReviewState: "needs_review",
       });
@@ -1705,6 +1707,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "manual_structure_preserved",
         reason: `You have already entered billing events, so ARC did not create a second schedule for "${term.description.slice(0, 100)}". Compare the AI billing terms with your own events.`,
         guidanceIds: [],
+        citations: term.citations,
         value: {
           manualConsiderationEventIds: manualConsiderationEvents.map((row) => row.id).sort(),
           semanticKey,
@@ -1730,6 +1733,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         reasonCode: "billing_schedule_not_derivable",
         reason: `ARC could not construct a billing schedule for "${term.description.slice(0, 100)}" from structured contract terms alone (${schedule.reason.replace(/_/g, " ")}). Enter the billing events yourself.`,
         guidanceIds: [],
+        citations: term.citations,
         value: schedule.reason,
         aiReviewState: term.reviewState,
         blocking: true,
@@ -1783,6 +1787,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           reason:
             "ARC could not derive a contractual due date for this invoice from structured terms, so no projected collection was created.",
           guidanceIds: [],
+          citations: projection.citations,
           value: projected.reason,
           aiReviewState: projection.reviewState,
         });
