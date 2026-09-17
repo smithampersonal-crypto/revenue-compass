@@ -108,8 +108,6 @@ describe("finalization never loses an unreadable review row", () => {
   });
 
   it("still blocks on an ordinary unresolved item", async () => {
-    expect(
-      await issuesFor([{ ...validResolved, state: "red", resolution: null }]),
-    ).toHaveLength(1);
+    expect(await issuesFor([{ ...validResolved, state: "red", resolution: null }])).toHaveLength(1);
   });
 });

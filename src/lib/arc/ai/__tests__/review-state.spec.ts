@@ -404,8 +404,9 @@ describe("only an actually resolved prior item may carry a resolution", () => {
   };
 
   it("refuses an affirmation attached to a still-open yellow prior item", () => {
-    expect(carryForwardReviewResolutions([{ ...yellowOpen, resolution: null }], [yellowOpen])[0]!
-      .state).toBe("yellow");
+    expect(
+      carryForwardReviewResolutions([{ ...yellowOpen, resolution: null }], [yellowOpen])[0]!.state,
+    ).toBe("yellow");
   });
 
   it("refuses a manual-red resolution attached to a still-open red prior item", () => {
