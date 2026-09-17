@@ -518,6 +518,16 @@ begin
   end;
   insert into arc_test_results
   values ('48 an event cannot belong to two owner scopes at once', ok);
+
+  /* ------------------------------------------ lifecycle compatibility (52) */
+
+  -- Account deletion and temporary-workspace expiry must still work: history
+  -- is removed only together with the analysis it belongs to.
+  delete from public.guest_workspaces where id = v_guest;
+  insert into arc_test_results
+  select '52 review history is removed with its owner scope, never on its own',
+         not exists (select 1 from public.ai_review_events where guest_workspace_id = v_guest)
+     and exists (select 1 from public.ai_review_events where revision_id = v_rev);
 end $phase9g$;
 
 /* --------------------------------------------- 49 direct access is denied */
