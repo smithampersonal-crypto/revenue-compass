@@ -259,6 +259,97 @@ export function deriveBillingSchedule(input: BillingScheduleInput): BillingSched
   return { ok: true, events };
 }
 
+/**
+ * The full-term fixed consideration implied by the contract's own billing
+ * schedule.
+ *
+ * A stated periodic fee is not the transaction price: a $245,000 annual fee on
+ * a two-year term is $490,000 of fixed consideration. ARC derives that total
+ * itself rather than accepting a periodic amount as the contract total, and
+ * only from a schedule whose calendar is completely determined:
+ *
+ * - exactly one fixed (advance/arrears) billing term with a usable amount;
+ * - a supported recurring or one-time frequency;
+ * - an unambiguous canonical service period.
+ *
+ * Anything else — milestone or usage billing, two independently schedulable
+ * fixed terms, a missing period, a term that is not a whole number of billing
+ * periods — returns a refusal, never a guess.
+ */
+export type FixedBillingTotalResult =
+  | { ok: true; totalInput: string; amountInput: string; frequency: BillingFrequency; eventCount: number }
+  | {
+      ok: false;
+      reason:
+        | "no_service_period"
+        | "no_unambiguous_fixed_schedule"
+        | "multiple_fixed_schedules"
+        | "schedule_not_derivable";
+    };
+
+export interface FixedBillingTermInput {
+  billingTiming: "advance" | "arrears" | "milestone" | "on_usage" | "unknown";
+  frequency: BillingFrequency;
+  amountOrRateInput: string | null;
+}
+
+export function deriveUnambiguousFixedBillingTotal(args: {
+  billingTerms: readonly FixedBillingTermInput[];
+  servicePeriod: { start: IsoDate; end: IsoDate } | null;
+}): FixedBillingTotalResult {
+  const fixedTerms = args.billingTerms.filter(
+    (term) =>
+      (term.billingTiming === "advance" || term.billingTiming === "arrears") &&
+      usableAmount(term.amountOrRateInput) !== null,
+  );
+  if (fixedTerms.length === 0) return { ok: false, reason: "no_unambiguous_fixed_schedule" };
+  if (fixedTerms.length > 1) return { ok: false, reason: "multiple_fixed_schedules" };
+  if (args.servicePeriod === null) return { ok: false, reason: "no_service_period" };
+
+  const term = fixedTerms[0]!;
+  const schedule = deriveBillingSchedule({
+    billingTiming: term.billingTiming,
+    frequency: term.frequency,
+    amountOrRateInput: term.amountOrRateInput,
+    serviceStart: args.servicePeriod.start,
+    serviceEnd: args.servicePeriod.end,
+  });
+  if (!schedule.ok) return { ok: false, reason: "schedule_not_derivable" };
+
+  // Exact integer-cent arithmetic only; never floating point money.
+  let cents = 0n;
+  for (const event of schedule.events) {
+    const parsed = exactCents(event.amountInput);
+    if (parsed === null) return { ok: false, reason: "schedule_not_derivable" };
+    cents += parsed;
+  }
+  return {
+    ok: true,
+    totalInput: formatCents(cents),
+    amountInput: usableAmount(term.amountOrRateInput)!,
+    frequency: term.frequency,
+    eventCount: schedule.events.length,
+  };
+}
+
+/** Exact cents for a bare decimal string, or null when it is not exact cents. */
+export function exactCents(value: string): bigint | null {
+  if (!DECIMAL_INPUT_PATTERN.test(value.trim())) return null;
+  const [whole, fraction = ""] = value.trim().split(".") as [string, string?];
+  if (fraction.length > 2 && /[1-9]/.test(fraction.slice(2))) return null;
+  const negative = whole.startsWith("-");
+  const digits = negative ? whole.slice(1) : whole;
+  const cents = BigInt(digits) * 100n + BigInt((fraction + "00").slice(0, 2));
+  return negative ? -cents : cents;
+}
+
+function formatCents(cents: bigint): string {
+  const negative = cents < 0n;
+  const absolute = negative ? -cents : cents;
+  const text = `${absolute / 100n}.${String(absolute % 100n).padStart(2, "0")}`;
+  return negative ? `-${text}` : text;
+}
+
 /* --------------------------------------------------- projected collections */
 
 export type ProjectedCollectionResult =
