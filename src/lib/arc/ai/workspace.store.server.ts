@@ -172,5 +172,57 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       if (error) fail("latest run", error);
       return data ? toRecord(data as unknown as RawRun) : null;
     },
+
+    /**
+     * Phase 9G — Task 9C. Trusted facts about the run a restore would undo.
+     * Read-only: the snapshot itself is never returned, only its shape.
+     */
+    loadRestoreCandidate: async (caller, runId): Promise<AiRestoreCandidate | null> => {
+      const { data, error } = await supabaseAdmin
+        .from("ai_runs")
+        .select(
+          "id, stage, completed_at, restored_at, source_set_fingerprint, pre_run_ai_state, " +
+            "revision_id, guest_workspace_id, owner_user_id",
+        )
+        .eq("id", runId)
+        .maybeSingle();
+      if (error) fail("restorable run", error);
+      if (!data) return null;
+      const raw = data as unknown as Record<string, unknown>;
+
+      // Scope ownership is re-proved here, not inferred from the run id.
+      const belongsToScope =
+        caller.kind === "revision"
+          ? raw["revision_id"] === caller.revisionId && raw["owner_user_id"] === caller.userId
+          : raw["guest_workspace_id"] === caller.guestWorkspaceId;
+
+      return {
+        runId: raw["id"] as string,
+        stage: raw["stage"] as AiRunStage,
+        completedAt: (raw["completed_at"] as string | null) ?? null,
+        restoredAt: (raw["restored_at"] as string | null) ?? null,
+        sourceSetFingerprint: (raw["source_set_fingerprint"] as string | null) ?? "",
+        preRunSnapshot: classifyPreRunSnapshot(raw["pre_run_ai_state"] ?? null),
+        belongsToScope,
+      };
+    },
+
+    /** The trusted restore routine. It re-checks everything itself. */
+    restorePreAiRun: async (args) => {
+      const { data, error } = await supabaseAdmin.rpc("arc_restore_pre_ai_run", {
+        p_run_id: args.runId,
+        p_owner_user_id: args.ownerUserId,
+        p_guest_token_hash: args.guestTokenHash,
+        p_expected_lock_version: args.expectedLockVersion,
+      } as never);
+      if (error) fail("restore", error);
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { lock_version: number; idempotent: boolean }
+        | undefined;
+      return {
+        lockVersion: row?.lock_version ?? args.expectedLockVersion,
+        idempotent: row?.idempotent === true,
+      };
+    },
   };
 }
