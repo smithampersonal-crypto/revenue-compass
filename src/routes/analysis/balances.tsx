@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { AiReviewTargetProvider } from "@/components/arc/AiReviewTarget";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { ContractBalancesView } from "@/components/arc/ContractBalancesView";
 
@@ -25,14 +26,16 @@ export const Route = createFileRoute("/analysis/balances")({
   component: ContractBalancesArea,
 });
 
-function ContractBalancesArea() {
-  const { draft, setDraft, result, workpaper } = useAnalysis();
+export function ContractBalancesArea() {
+  const { draft, setDraft, result, workpaper, ai } = useAnalysis();
   return (
-    <ContractBalancesView
-      draft={draft}
-      result={result}
-      balances={workpaper.balances}
-      onChange={setDraft}
-    />
+    <AiReviewTargetProvider workspace={ai.workspace}>
+      <ContractBalancesView
+        draft={draft}
+        result={result}
+        balances={workpaper.balances}
+        onChange={setDraft}
+      />
+    </AiReviewTargetProvider>
   );
 }

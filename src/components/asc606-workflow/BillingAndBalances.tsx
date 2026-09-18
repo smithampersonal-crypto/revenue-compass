@@ -155,14 +155,16 @@ export function BillingAndBalances({
                   ) : null}
 
                   {(event.amountSource ?? "manual") === "manual" ? (
-                    <Field label="Amount (USD)">
-                      <input
-                        className={inputClass}
-                        value={event.amountInput}
-                        onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
-                        placeholder="60,000.00"
-                      />
-                    </Field>
+                    <AiReviewTarget targetKey={`billing:${event.id}.amountInput`}>
+                      <Field label="Amount (USD)">
+                        <input
+                          className={inputClass}
+                          value={event.amountInput}
+                          onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
+                          placeholder="60,000.00"
+                        />
+                      </Field>
+                    </AiReviewTarget>
                   ) : (
                     <>
                       <Field label="Variable-consideration component">
@@ -193,24 +195,28 @@ export function BillingAndBalances({
                       ) : null}
                     </>
                   )}
-                  <Field label="Unconditional right date">
-                    <input
-                      type="date"
-                      className={inputClass}
-                      value={event.unconditionalRightDate}
-                      onChange={(e) =>
-                        updateEvent(event.id, { unconditionalRightDate: e.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label="Invoice date">
-                    <input
-                      type="date"
-                      className={inputClass}
-                      value={event.invoiceDate}
-                      onChange={(e) => updateEvent(event.id, { invoiceDate: e.target.value })}
-                    />
-                  </Field>
+                  <AiReviewTarget targetKey={`billing:${event.id}.unconditionalRightDate`}>
+                    <Field label="Unconditional right date">
+                      <input
+                        type="date"
+                        className={inputClass}
+                        value={event.unconditionalRightDate}
+                        onChange={(e) =>
+                          updateEvent(event.id, { unconditionalRightDate: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </AiReviewTarget>
+                  <AiReviewTarget targetKey={`billing:${event.id}.invoiceDate`}>
+                    <Field label="Invoice date">
+                      <input
+                        type="date"
+                        className={inputClass}
+                        value={event.invoiceDate}
+                        onChange={(e) => updateEvent(event.id, { invoiceDate: e.target.value })}
+                      />
+                    </Field>
+                  </AiReviewTarget>
                 </div>
               </div>
             </AiReviewTarget>
@@ -298,24 +304,28 @@ export function BillingAndBalances({
                       ))}
                     </select>
                   </Field>
-                  <Field label="Amount (USD)">
-                    <input
-                      className={inputClass}
-                      value={collection.amountInput}
-                      onChange={(e) => updateCash(collection.id, { amountInput: e.target.value })}
-                      placeholder="60,000.00"
-                    />
-                  </Field>
-                  <Field label="Collection date">
-                    <input
-                      type="date"
-                      className={inputClass}
-                      value={collection.collectionDate}
-                      onChange={(e) =>
-                        updateCash(collection.id, { collectionDate: e.target.value })
-                      }
-                    />
-                  </Field>
+                  <AiReviewTarget targetKey={`cash:${collection.id}.amountInput`}>
+                    <Field label="Amount (USD)">
+                      <input
+                        className={inputClass}
+                        value={collection.amountInput}
+                        onChange={(e) => updateCash(collection.id, { amountInput: e.target.value })}
+                        placeholder="60,000.00"
+                      />
+                    </Field>
+                  </AiReviewTarget>
+                  <AiReviewTarget targetKey={`cash:${collection.id}.collectionDate`}>
+                    <Field label="Collection date">
+                      <input
+                        type="date"
+                        className={inputClass}
+                        value={collection.collectionDate}
+                        onChange={(e) =>
+                          updateCash(collection.id, { collectionDate: e.target.value })
+                        }
+                      />
+                    </Field>
+                  </AiReviewTarget>
                 </div>
               </div>
             </AiReviewTarget>

@@ -51,18 +51,20 @@ export function Step2Promises({
                     Remove
                   </button>
                 </div>
-                <Field label="Type of promise">
-                  <select
-                    className={inputClass}
-                    value={promise.kind}
-                    onChange={(e) => patch(promise.id, { kind: e.target.value as PromiseKind })}
-                  >
-                    <option value="good_or_service">Promised good or service</option>
-                    <option value="customer_option">
-                      Customer option (renewal, upgrade, additional goods)
-                    </option>
-                  </select>
-                </Field>
+                <AiReviewTarget targetKey={`promise:${promise.id}.kind`}>
+                  <Field label="Type of promise">
+                    <select
+                      className={inputClass}
+                      value={promise.kind}
+                      onChange={(e) => patch(promise.id, { kind: e.target.value as PromiseKind })}
+                    >
+                      <option value="good_or_service">Promised good or service</option>
+                      <option value="customer_option">
+                        Customer option (renewal, upgrade, additional goods)
+                      </option>
+                    </select>
+                  </Field>
+                </AiReviewTarget>
                 <AiReviewTarget targetKey={`promise:${promise.id}.description`}>
                   <Field label="Description of the promised good or service">
                     <input
@@ -74,22 +76,26 @@ export function Step2Promises({
                 </AiReviewTarget>
                 {promise.kind === "customer_option" ? (
                   <div className="space-y-3">
-                    <JudgmentControl
-                      name={`material-right-${promise.id}`}
-                      legend="Does the option convey a material right to the customer?"
-                      value={promise.conveysMaterialRight}
-                      onChange={(value) => patch(promise.id, { conveysMaterialRight: value })}
-                    />
-                    <Field label="Material-right rationale">
-                      <textarea
-                        className={inputClass}
-                        rows={2}
-                        value={promise.materialRightRationale}
-                        onChange={(e) =>
-                          patch(promise.id, { materialRightRationale: e.target.value })
-                        }
+                    <AiReviewTarget targetKey={`promise:${promise.id}.conveysMaterialRight`}>
+                      <JudgmentControl
+                        name={`material-right-${promise.id}`}
+                        legend="Does the option convey a material right to the customer?"
+                        value={promise.conveysMaterialRight}
+                        onChange={(value) => patch(promise.id, { conveysMaterialRight: value })}
                       />
-                    </Field>
+                    </AiReviewTarget>
+                    <AiReviewTarget targetKey={`promise:${promise.id}.materialRightRationale`}>
+                      <Field label="Material-right rationale">
+                        <textarea
+                          className={inputClass}
+                          rows={2}
+                          value={promise.materialRightRationale}
+                          onChange={(e) =>
+                            patch(promise.id, { materialRightRationale: e.target.value })
+                          }
+                        />
+                      </Field>
+                    </AiReviewTarget>
                     <Notice>
                       An option that conveys a material right is a separate performance obligation.
                       Create it in Step 2B as a material right and assign this promise to it.
@@ -97,31 +103,39 @@ export function Step2Promises({
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <JudgmentControl
-                      name={`capable-${promise.id}`}
-                      legend="Capable of being distinct?"
-                      value={promise.capableOfBeingDistinct}
-                      onChange={(value) => patch(promise.id, { capableOfBeingDistinct: value })}
-                    />
-                    <JudgmentControl
-                      name={`context-${promise.id}`}
-                      legend="Distinct within the context of the contract?"
-                      value={promise.distinctWithinContractContext}
-                      onChange={(value) =>
-                        patch(promise.id, { distinctWithinContractContext: value })
-                      }
-                    />
+                    <AiReviewTarget targetKey={`promise:${promise.id}.capableOfBeingDistinct`}>
+                      <JudgmentControl
+                        name={`capable-${promise.id}`}
+                        legend="Capable of being distinct?"
+                        value={promise.capableOfBeingDistinct}
+                        onChange={(value) => patch(promise.id, { capableOfBeingDistinct: value })}
+                      />
+                    </AiReviewTarget>
+                    <AiReviewTarget
+                      targetKey={`promise:${promise.id}.distinctWithinContractContext`}
+                    >
+                      <JudgmentControl
+                        name={`context-${promise.id}`}
+                        legend="Distinct within the context of the contract?"
+                        value={promise.distinctWithinContractContext}
+                        onChange={(value) =>
+                          patch(promise.id, { distinctWithinContractContext: value })
+                        }
+                      />
+                    </AiReviewTarget>
                   </div>
                 )}
                 {promise.kind === "customer_option" ? null : (
-                  <Field label="Distinctness rationale">
-                    <textarea
-                      className={inputClass}
-                      rows={2}
-                      value={promise.distinctRationale}
-                      onChange={(e) => patch(promise.id, { distinctRationale: e.target.value })}
-                    />
-                  </Field>
+                  <AiReviewTarget targetKey={`promise:${promise.id}.distinctRationale`}>
+                    <Field label="Distinctness rationale">
+                      <textarea
+                        className={inputClass}
+                        rows={2}
+                        value={promise.distinctRationale}
+                        onChange={(e) => patch(promise.id, { distinctRationale: e.target.value })}
+                      />
+                    </Field>
+                  </AiReviewTarget>
                 )}
                 {promise.kind === "customer_option" ? null : (
                   <p className="text-sm">

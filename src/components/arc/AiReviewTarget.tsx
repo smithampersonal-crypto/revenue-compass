@@ -38,34 +38,56 @@ export function AiReviewTargetProvider({
   return <TargetContext.Provider value={workspace}>{children}</TargetContext.Provider>;
 }
 
+/**
+ * A field target (`vc:<id>.treatment`) always reads field provenance for that
+ * exact key. An object boundary (`po:<id>`, no field segment) reads object
+ * provenance by canonical id. The two sources are never conflated, so a field
+ * badge can never display its parent object's provenance.
+ */
+function isFieldTarget(targetKey: string): boolean {
+  return targetKey.includes(".");
+}
+
 export function AiReviewTarget({
   targetKey,
+  additionalTargetKeys,
   canonicalObjectId,
   className,
   children,
 }: {
   targetKey: string;
+  /**
+   * Composite targets whose authoritative control is this same group (for
+   * example every meter field of one variable-consideration component). Each
+   * one gets its own real production anchor owned by this boundary.
+   */
+  additionalTargetKeys?: readonly string[];
   canonicalObjectId?: string;
   className?: string;
   children: ReactNode;
 }) {
   const workspace = useContext(TargetContext);
   const anchorId = reviewTargetAnchorId(targetKey);
+  const ownedKeys = [targetKey, ...(additionalTargetKeys ?? [])];
 
   const openItem =
     workspace?.reviewItems.find(
-      (item) => item.targetKey === targetKey && item.state !== "resolved",
+      (item) => ownedKeys.includes(item.targetKey) && item.state !== "resolved",
     ) ?? null;
   const marker = openItem === null ? null : reviewMarkerLabel(openItem.severity);
 
-  const provenanceState =
-    canonicalObjectId !== undefined
+  const provenanceState = isFieldTarget(targetKey)
+    ? (workspace?.fieldProvenance[targetKey]?.state ?? null)
+    : canonicalObjectId !== undefined
       ? (workspace?.objectProvenance[canonicalObjectId]?.state ?? null)
-      : (workspace?.fieldProvenance[targetKey]?.state ?? null);
+      : null;
   const badge = marker === null && provenanceState ? provenanceBadgeLabel(provenanceState) : null;
 
   return (
     <div id={anchorId} className={className} data-ai-review-target={targetKey}>
+      {(additionalTargetKeys ?? []).map((key) => (
+        <span key={key} id={reviewTargetAnchorId(key)} data-ai-review-target={key} />
+      ))}
       {marker || badge ? (
         <div className="mb-1 flex items-center gap-2">
           {marker ? (

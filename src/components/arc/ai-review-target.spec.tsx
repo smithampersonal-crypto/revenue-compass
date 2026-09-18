@@ -168,6 +168,37 @@ describe("AiReviewTarget", () => {
     expect(screen.getByText("AI drafted")).toBeInTheDocument();
   });
 
+  it("shows the field's own provenance, never the parent object's", () => {
+    harness(
+      {
+        fieldProvenance: { "vc:vc-1.treatment": { state: "ai_generated_user_edited" } },
+        objectProvenance: {
+          "vc-1": { canonicalId: "vc-1", state: "ai_generated_untouched", userModified: false },
+        },
+      },
+      <AiReviewTarget targetKey="vc:vc-1.treatment" canonicalObjectId="vc-1">
+        <div>Treatment</div>
+      </AiReviewTarget>,
+    );
+    expect(screen.getByText("AI drafted · edited")).toBeInTheDocument();
+    expect(screen.queryByText("AI drafted")).toBeNull();
+  });
+
+  it("gives every composite key it owns its own production anchor", () => {
+    const { container } = harness(
+      {},
+      <AiReviewTarget
+        targetKey="vc:vc-1.meter.rateAmountInput"
+        additionalTargetKeys={["vc:vc-1.meter.unit"]}
+      >
+        <div>Meters</div>
+      </AiReviewTarget>,
+    );
+    for (const key of ["vc:vc-1.meter.rateAmountInput", "vc:vc-1.meter.unit"]) {
+      expect(container.querySelector(`#${CSS.escape(reviewTargetAnchorId(key))}`)).not.toBeNull();
+    }
+  });
+
   it("renders plain children when no AI workspace is present", () => {
     render(
       <AiReviewTarget targetKey="contract.customerName">
