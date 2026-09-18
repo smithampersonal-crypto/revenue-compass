@@ -103,6 +103,9 @@ export function toAiReviewItemDto(item: AiReviewItem): AiReviewItemDto {
       evidenceMode: citation.evidenceMode,
       excerpt: citation.excerpt,
     })),
+    // Availability only. The trusted ids stay server-side, where the Guidance
+    // action resolves them from the item itself.
+    guidanceReferenceCount: item.guidanceIds.length,
     resolution: resolutionDto(item),
   };
 }
