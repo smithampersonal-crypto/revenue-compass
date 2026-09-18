@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
@@ -18,6 +19,7 @@ export function Step1Contract({
     <div className="space-y-6">
       <Section title="Contract Overview" description="Basic contract facts.">
         <div className="grid gap-4 sm:grid-cols-2">
+          <AiReviewTarget targetKey="contract.customerName">
           <Field label="Customer name">
             <input
               className={inputClass}
@@ -25,6 +27,8 @@ export function Step1Contract({
               onChange={(e) => set({ customerName: e.target.value })}
             />
           </Field>
+          </AiReviewTarget>
+          <AiReviewTarget targetKey="contract.contractNumber">
           <Field label="Contract number / reference">
             <input
               className={inputClass}
@@ -32,6 +36,8 @@ export function Step1Contract({
               onChange={(e) => set({ contractNumber: e.target.value })}
             />
           </Field>
+          </AiReviewTarget>
+          <AiReviewTarget targetKey="contract.executionDate">
           <Field label="Contract execution / effective date (optional)">
             <input
               type="date"
@@ -40,6 +46,7 @@ export function Step1Contract({
               onChange={(e) => set({ executionDate: e.target.value })}
             />
           </Field>
+          </AiReviewTarget>
           <Field label="Currency" hint="Phase 2 supports USD only.">
             <input className={inputClass} value="USD" readOnly disabled />
           </Field>
@@ -59,6 +66,7 @@ export function Step1Contract({
                 className="space-y-2 border-b border-border pb-4 last:border-0"
               >
                 <p className="text-sm text-muted-foreground">{criterion.description}</p>
+                <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.answer`}>
                 <JudgmentControl
                   name={`criterion-${criterion.id}`}
                   legend={criterion.label}
@@ -72,6 +80,8 @@ export function Step1Contract({
                     })
                   }
                 />
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.rationale`}>
                 <Field label="Rationale / comment">
                   <textarea
                     className={inputClass}
@@ -87,6 +97,7 @@ export function Step1Contract({
                     }
                   />
                 </Field>
+                </AiReviewTarget>
               </div>
             );
           })}

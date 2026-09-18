@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import {
   createPromiseDraft,
   derivePromiseDistinct,
@@ -34,7 +35,12 @@ export function Step2Promises({
         {draft.promises.map((promise) => {
           const distinct = derivePromiseDistinct(promise);
           return (
-            <div key={promise.id} className="space-y-3 rounded-md border border-border p-3">
+            <AiReviewTarget
+              key={promise.id}
+              targetKey={`promise:${promise.id}`}
+              canonicalObjectId={promise.id}
+            >
+            <div className="space-y-3 rounded-md border border-border p-3">
               <div className="flex items-start justify-between gap-2">
                 <span className="text-sm font-semibold">Promise {promise.seq}</span>
                 <button
@@ -57,6 +63,7 @@ export function Step2Promises({
                   </option>
                 </select>
               </Field>
+              <AiReviewTarget targetKey={`promise:${promise.id}.description`}>
               <Field label="Description of the promised good or service">
                 <input
                   className={inputClass}
@@ -64,6 +71,7 @@ export function Step2Promises({
                   onChange={(e) => patch(promise.id, { description: e.target.value })}
                 />
               </Field>
+              </AiReviewTarget>
               {promise.kind === "customer_option" ? (
                 <div className="space-y-3">
                   <JudgmentControl
@@ -122,6 +130,7 @@ export function Step2Promises({
                 </p>
               )}
             </div>
+            </AiReviewTarget>
           );
         })}
 
