@@ -107,6 +107,23 @@ export interface AiWorkspaceStateDto {
    */
   sourceSetFingerprint: string | null;
   reviewIssueCount: number;
+  /**
+   * Phase 9G — Task 7. The current normalized review items, projected to
+   * presentation facts only. Empty whenever the persisted payload could not be
+   * read completely: a partially readable sidecar is never presented as a
+   * shorter, reassuring review list.
+   */
+  reviewItems: AiReviewItemDto[];
+  /**
+   * True when any persisted review entry failed normalization. Review actions
+   * are unavailable and finalization stays fail-closed while it is true; the
+   * payload is never repaired from the browser.
+   */
+  reviewPayloadMalformed: boolean;
+  /** Validated presentation provenance, keyed by canonical field key. */
+  fieldProvenance: Record<string, AiFieldProvenanceDto>;
+  /** Validated presentation provenance, keyed by canonical object key. */
+  objectProvenance: Record<string, AiObjectProvenanceDto>;
   staleSourceAcknowledged: boolean;
   allowance: AiWorkspaceAllowanceDto;
   failure: AiFailurePresentation | null;
