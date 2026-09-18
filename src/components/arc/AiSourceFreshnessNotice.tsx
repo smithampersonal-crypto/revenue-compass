@@ -69,7 +69,9 @@ export function AiSourceFreshnessNotice({ ai }: { ai: AiWorkspaceController }) {
           {presentation.body ? <p className="text-muted-foreground">{presentation.body}</p> : null}
           {presentation.canAcknowledge ? (
             <>
-              <p className="text-xs text-muted-foreground">{ACKNOWLEDGE_HELP}</p>
+              <p id="ai-source-acknowledge-help" className="text-xs text-muted-foreground">
+                {ACKNOWLEDGE_HELP}
+              </p>
               <Button
                 type="button"
                 size="sm"
@@ -83,9 +85,6 @@ export function AiSourceFreshnessNotice({ ai }: { ai: AiWorkspaceController }) {
               >
                 Acknowledge source changes
               </Button>
-              <span id="ai-source-acknowledge-help" className="sr-only">
-                {ACKNOWLEDGE_HELP}
-              </span>
               {locked ? <p className="text-xs text-muted-foreground">{LOCKED_HELP}</p> : null}
             </>
           ) : null}
