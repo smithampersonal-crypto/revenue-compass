@@ -127,6 +127,12 @@ export interface AiWorkspaceStateDto {
   staleSourceAcknowledged: boolean;
   allowance: AiWorkspaceAllowanceDto;
   failure: AiFailurePresentation | null;
+  /**
+   * Phase 9G — Task 9C. The single AI run whose pre-run snapshot the server
+   * declares exactly restorable right now, or `null`. Eligibility is decided
+   * on the server from persisted facts; the browser only confirms it.
+   */
+  restorableRun: AiRestorableRunDto | null;
 }
 
 /**
