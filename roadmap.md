@@ -799,7 +799,7 @@ Phase 9E accepted by the director (2026-09-16).
 - [x] Fail closed when any unique trusted Guidance reference is unresolved.
 - [x] Replace monthly restore wording with scope-neutral consumed-usage copy.
 - [x] Run focused and full application/database/security verification.
-- [ ] Confirm both GitHub jobs (blocked: no GitHub status connection in this sandbox).
+- [x] Confirm both GitHub jobs — both jobs returned green (externally confirmed).
 - [x] Produce the refreshed source ZIP.
 
 ## Phase 9G Task 10 — Final End-to-End Acceptance & Release Gate
@@ -829,9 +829,9 @@ Phase 9E accepted by the director (2026-09-16).
       `search_path = pg_catalog, public` and execute granted to `service_role`
       only; the deployed restore routine carries the approved Task 9 semantics.
       No Cloud mutation, no new migration, no OpenAI call, no Genomix run.
-- [ ] Confirm both GitHub jobs (blocked: no GitHub status connection in this sandbox).
+- [x] Confirm both GitHub jobs — both jobs returned green (externally confirmed).
 
-## Phase 9G — COMPLETE (pending external GitHub job confirmation)
+## Phase 9G — COMPLETE
 
 Frozen architecture: AI runs only on a deliberate Analyze/Re-analyze click; the
 deterministic ASC 606 engines own every calculated figure; user edits are never
