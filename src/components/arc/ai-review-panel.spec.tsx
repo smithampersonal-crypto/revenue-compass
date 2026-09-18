@@ -132,7 +132,7 @@ describe("AiReviewPanel", () => {
     render(<AiReviewPanel ai={ai} />);
     await userEvent.click(screen.getByRole("button", { name: /^Resolve$/ }));
     await userEvent.click(
-      await screen.findByRole("radio", { name: /corrected the accounting myself/i }),
+      await screen.findByRole("radio", { name: /reviewed current treatment/i }),
     );
     await userEvent.type(screen.getByLabelText(/note/i), "Priced per the signed order form.");
     await userEvent.click(screen.getByRole("button", { name: /record resolution/i }));
@@ -141,7 +141,7 @@ describe("AiReviewPanel", () => {
       expect(ai.resolveReviewIssue).toHaveBeenCalledWith({
         reviewItemId: "item-red",
         expectedReviewFingerprint: "fp-red",
-        reason: "corrected_manually",
+        reason: "reviewed_current_treatment",
         note: "Priced per the signed order form.",
       }),
     );
