@@ -1347,7 +1347,23 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* ------------------------------------------------------- transaction price */
 
-  const fixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
+  // A stated periodic fee is not the contract's fixed consideration. When the
+  // contract's own billing schedule unambiguously determines the full-term
+  // total, ARC's deterministic total is authoritative over the model's amount.
+  const fixedDerivation = deriveUnambiguousFixedBillingTotal({
+    billingTerms: analysis.billingTerms,
+    servicePeriod: deriveContractServicePeriod(draft),
+  });
+  const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
+  const derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null;
+  const proposedCents = proposedFixed === null ? null : exactCents(proposedFixed);
+  const derivedOverride =
+    derivedTotal !== null &&
+    proposedCents !== null &&
+    exactCents(derivedTotal) !== proposedCents
+      ? derivedTotal
+      : null;
+  const fixed = derivedOverride ?? proposedFixed;
   if (fixed !== null) {
     mergeText({
       key: fieldKeys.transactionPrice("input"),
