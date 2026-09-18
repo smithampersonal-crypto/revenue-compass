@@ -22,6 +22,15 @@
 
 import { presentAiFailure, type AiFailurePresentation } from "./failure-presentation";
 import {
+  sanitizeFieldProvenance,
+  sanitizeObjectProvenance,
+  toAiReviewItemDtos,
+  type AiFieldProvenanceDto,
+  type AiObjectProvenanceDto,
+  type AiReviewItemDto,
+} from "./review-dto";
+import type { AiReviewItem } from "./review-state";
+import {
   acknowledgeStaleSourcesHandler,
   affirmReviewItemHandler,
   resolveReviewIssueHandler,
