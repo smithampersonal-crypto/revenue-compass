@@ -75,8 +75,6 @@ describe("Task 7 target presentation registry", () => {
     ["modification:mod-1.phase5cFacts", "additional_topics"],
     ["modification:mod-1.modificationDate", "additional_topics"],
     ["draft.hasContractModifications", "additional_topics"],
-    ["billing:ce-annual.invoiceDate", "additional_topics"],
-    ["cash:cc-annual.collectionDate", "additional_topics"],
   ];
 
   for (const [targetKey, section] of exact) {
@@ -113,6 +111,9 @@ describe("Task 7 target presentation registry", () => {
     ["modification:m1.futureField", "additional_topics"],
     ["billing:b1.futureField", "additional_topics"],
     ["cash:c1.futureField", "additional_topics"],
+    // Edited on the Contract Balances page, so never an analysis-page anchor.
+    ["billing:ce-annual.invoiceDate", "additional_topics"],
+    ["cash:cc-annual.collectionDate", "additional_topics"],
     ["contract.futureField", "step_1"],
     ["draft.futureField", "step_1"],
   ];
