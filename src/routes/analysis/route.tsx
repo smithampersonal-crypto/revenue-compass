@@ -4,6 +4,7 @@ import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
+import { AiRestoreAction } from "@/components/arc/AiRestoreAction";
 import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
