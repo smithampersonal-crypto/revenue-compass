@@ -29,7 +29,7 @@ export const Route = createFileRoute("/analysis/review")({
 });
 
 function ReviewFinalizeArea() {
-  const { result, workpaper, persistence } = useAnalysis();
+  const { result, workpaper, persistence, ai } = useAnalysis();
   const revision = persistence.revision;
 
   // Snapshot metadata for a finalized or superseded revision. The review
@@ -47,6 +47,9 @@ function ReviewFinalizeArea() {
   return (
     <div className="space-y-6">
       <RevisionLifecyclePanel />
+      {/* AI review comes before the deterministic workflow review, and stays
+          visibly distinct from it: these are AI-raised items, not engine issues. */}
+      <AiReviewPanel ai={ai} />
       {recorded ? (
         <FinalizedSnapshotView
           status={recorded.status}
