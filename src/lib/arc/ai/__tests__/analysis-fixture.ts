@@ -148,7 +148,7 @@ export function validAnalysisFixture(): AiContractAnalysis {
           estimationMethodProposal: "not_estimable",
           constraintAssessment: "Future volumes are not determinable from the contract.",
           allocationTreatmentProposal: "specific_series_period",
-          targetPerformanceObligationKey: "po:saas-platform",
+          targetPerformanceObligationKey: "po:hosted-platform",
           relatesSpecifically: "yes",
           consistentWithAllocationObjective: "yes",
           allocationRationale:
