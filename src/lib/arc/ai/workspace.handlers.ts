@@ -29,6 +29,11 @@ import {
   type AiObjectProvenanceDto,
   type AiReviewItemDto,
 } from "./review-dto";
+import {
+  restorableRunOf,
+  type AiRestorableRunDto,
+  type AiRestoreCandidate,
+} from "./restore-eligibility";
 import type { AiReviewItem } from "./review-state";
 import {
   acknowledgeStaleSourcesHandler,
