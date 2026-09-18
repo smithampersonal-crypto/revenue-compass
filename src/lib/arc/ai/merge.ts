@@ -41,6 +41,8 @@ import {
 import {
   deriveBillingSchedule,
   deriveProjectedCollectionDate,
+  deriveUnambiguousFixedBillingTotal,
+  exactCents,
   isUnclaimedString,
   mapEstimationMethod,
   mapOutcome,
@@ -1605,6 +1607,74 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: component.reviewState,
       label: "Variable-consideration description",
     });
+
+    /* --------------------------------------- allocation of this component */
+
+    // A semantic key is never written into a canonical field. A specific
+    // allocation requires a real canonical performance obligation; when the
+    // proposed target cannot be mapped ARC fails closed to the general
+    // treatment and raises the relationship for review.
+    const allocationProposal = component.allocationTreatmentProposal;
+    const targetKey = component.targetPerformanceObligationKey;
+    const needsTarget =
+      allocationProposal === "specific_po" || allocationProposal === "specific_series_period";
+    const mappedTargetPoId =
+      targetKey === null || targetKey.trim() === ""
+        ? null
+        : (poIdBySemanticKey.get(targetKey) ?? null);
+
+    if (needsTarget && mappedTargetPoId === null) {
+      raise({
+        targetKey: fieldKeys.vc(canonicalId, "allocation"),
+        section,
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The AI analysis allocates this variable consideration to a specific performance obligation ARC could not identify in your workpaper. It was left allocated across the contract — set the allocation yourself.",
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        value: { proposedTreatment: allocationProposal, targetKey },
+        material: { proposedTreatment: allocationProposal, targetKey, ...vcMaterial(component) },
+        aiReviewState: component.reviewState,
+        blocking: true,
+      });
+    } else if (allocationProposal !== "unknown") {
+      // An allocation the accountant has already reasoned about is theirs.
+      const allocationUnclaimed =
+        current().targetPoId === null && isUnclaimedString(current().allocationRationale);
+      mergeScalar<VcComponentDraft["allocationTreatment"]>({
+        key: fieldKeys.vc(canonicalId, "allocationTreatment"),
+        semanticKey: component.semanticKey,
+        current: current().allocationTreatment,
+        proposed: allocationProposal,
+        unclaimed: allocationUnclaimed,
+        apply: (value) =>
+          update({
+            allocationTreatment: value,
+            targetPoId: needsTarget ? mappedTargetPoId : null,
+            relatesSpecifically: mapOutcome(component.relatesSpecifically),
+            consistentWithAllocationObjective: mapOutcome(
+              component.consistentWithAllocationObjective,
+            ),
+          }),
+        section,
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        aiReviewState: component.reviewState,
+        label: "Variable-consideration allocation",
+      });
+      mergeText({
+        key: fieldKeys.vc(canonicalId, "allocationRationale"),
+        semanticKey: component.semanticKey,
+        current: current().allocationRationale,
+        proposed: component.allocationRationale,
+        apply: (value) => update({ allocationRationale: value }),
+        section,
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        aiReviewState: component.reviewState,
+        label: "Variable-consideration allocation rationale",
+      });
+    }
 
     if (isUsage) {
       const rate = usableAmount(component.contractualRateOrAmountInput);
