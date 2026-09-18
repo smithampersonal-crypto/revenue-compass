@@ -82,7 +82,6 @@ export function AiRestoreAction({ ai }: { ai: AiWorkspaceController }) {
               Undo AI analysis
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
