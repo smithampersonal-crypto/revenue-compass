@@ -26,6 +26,7 @@ const YELLOW: AiReviewItemDto = {
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the recognition pattern for the hosted platform.",
   reviewFingerprint: "fp-yellow",
+  guidanceReferenceCount: 0,
   citations: [{ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." }],
   resolution: null,
 };
@@ -39,6 +40,7 @@ const RED: AiReviewItemDto = {
   reasonCode: "source_conflict",
   reason: "The transaction price could not be supported by the contract.",
   reviewFingerprint: "fp-red",
+  guidanceReferenceCount: 0,
   citations: [],
   resolution: null,
 };

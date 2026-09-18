@@ -105,6 +105,7 @@ const CUSTOMER_ITEM: AiReviewItemDto = {
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the customer named in the contract.",
   reviewFingerprint: "fp-1",
+  guidanceReferenceCount: 0,
   citations: [],
   resolution: null,
 };

@@ -92,6 +92,7 @@ const YELLOW: AiReviewItemDto = {
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the recognition pattern.",
   reviewFingerprint: "fp-yellow",
+  guidanceReferenceCount: 0,
   citations: [],
   resolution: null,
 };
@@ -103,6 +104,7 @@ const RED: AiReviewItemDto = {
   severity: "red",
   reasonCode: "source_conflict",
   reviewFingerprint: "fp-red",
+  guidanceReferenceCount: 0,
 };
 
 const RESOLVED: AiReviewItemDto = {
