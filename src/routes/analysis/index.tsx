@@ -5,10 +5,7 @@ import { AccordionSection } from "@/components/arc/AccordionSection";
 import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
 import { useAnalysis } from "@/components/arc/analysis-context";
-import {
-  reviewSectionElementId,
-  reviewTargetAnchorId,
-} from "@/lib/arc/ai/review-presentation";
+import { describeReviewTarget, reviewTargetAnchorId } from "@/lib/arc/ai/review-presentation";
 import { IssueList } from "@/components/asc606-workflow/fields";
 import { Step1Contract } from "@/components/asc606-workflow/Step1Contract";
 import { Step2PerformanceObligations } from "@/components/asc606-workflow/Step2PerformanceObligations";
@@ -57,7 +54,7 @@ function Asc606AnalysisArea() {
     const counts: Record<string, number> = {};
     for (const item of ai.workspace?.reviewItems ?? []) {
       if (item.state === "resolved") continue;
-      const id = reviewSectionElementId(item.section);
+      const id = describeReviewTarget(item.targetKey, item.section).sectionElementId;
       counts[id] = (counts[id] ?? 0) + 1;
     }
     return counts;
@@ -92,10 +89,12 @@ function Asc606AnalysisArea() {
     if (consumedReviewRef.current === requestedReview) return;
     consumedReviewRef.current = requestedReview;
 
-    const sectionId = reviewSectionElementId(reviewItem.section);
+    const target = describeReviewTarget(reviewItem.targetKey, reviewItem.section);
+    const sectionId = target.sectionElementId;
     setOpen((prev) => ({ ...prev, [sectionId]: true }));
     if (typeof document !== "undefined") {
-      const anchor = document.getElementById(reviewTargetAnchorId(reviewItem.targetKey));
+      const anchor =
+        target.anchorId === null ? null : document.getElementById(target.anchorId);
       (anchor ?? document.getElementById(sectionId))?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -196,6 +195,7 @@ function Asc606AnalysisArea() {
         open={open}
         onToggle={toggle}
         onNavigate={reveal}
+        aiReviewStatus={aiReviewStatus}
       />
     </div>
   );
