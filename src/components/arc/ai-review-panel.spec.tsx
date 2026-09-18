@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Phase 9G — Task 7. The accountant-facing AI review queue.
  *
