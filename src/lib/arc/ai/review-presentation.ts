@@ -288,3 +288,29 @@ const PROVENANCE_LABELS: Partial<Record<AiProvenanceState, string>> = {
 export function provenanceBadgeLabel(state: AiProvenanceState): string | null {
   return PROVENANCE_LABELS[state] ?? null;
 }
+
+/* ---------------------------------------------------------- finalization */
+
+/**
+ * The accountant-facing reason AI review blocks finalization, or null when it
+ * does not. This is presentation of an already-known server fact — the server
+ * gate in `readAiFinalizationState` remains authoritative — and it deliberately
+ * never blocks an analysis that simply never used AI.
+ */
+export function aiReviewFinalizeBlock(
+  workspace: {
+    hasAnalysis: boolean;
+    reviewPayloadMalformed: boolean;
+    reviewItems: ReadonlyArray<{ state: string }>;
+  } | null,
+): string | null {
+  if (!workspace || !workspace.hasAnalysis) return null;
+  if (workspace.reviewPayloadMalformed) {
+    return "The saved AI review state could not be read, so this revision cannot be finalized. Run the analysis again to rebuild it.";
+  }
+  const outstanding = workspace.reviewItems.filter((item) => item.state !== "resolved").length;
+  if (outstanding === 0) return null;
+  return `${outstanding} AI review item${outstanding === 1 ? "" : "s"} still need${
+    outstanding === 1 ? "s" : ""
+  } your confirmation or resolution before this revision can be finalized.`;
+}
