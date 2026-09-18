@@ -66,6 +66,11 @@ export function AccordionSection({
               <span className="block text-sm text-muted-foreground">{subtitle}</span>
             ) : null}
           </span>
+          {aiReviewStatus ? (
+            <span className="shrink-0 rounded-md border border-primary/50 px-2 py-0.5 text-xs font-medium text-primary">
+              {aiReviewStatus}
+            </span>
+          ) : null}
           {status ? (
             <span className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground">
               {status}
