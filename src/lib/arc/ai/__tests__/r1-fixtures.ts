@@ -8,7 +8,7 @@
 
 import { AI_OUTPUT_SCHEMA_VERSION, type AiContractAnalysis } from "../schema";
 
-export const R1_RUN_ID = "run-00000000-0000-4000-8000-0000000000r1".replace("r1", "11");
+export const R1_RUN_ID = "run-00000000-0000-4000-8000-000000000011";
 
 const DOC = "doc-r1-fixture-1";
 
