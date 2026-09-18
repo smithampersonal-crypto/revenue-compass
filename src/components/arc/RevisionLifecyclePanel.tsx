@@ -166,6 +166,11 @@ export function RevisionLifecyclePanel() {
 
   const currentStatus = revision ? describeRevisionStatus(revision.status) : null;
 
+  // Phase 9G — Task 7. AI review is an additional gate layered on top of the
+  // deterministic one, never a replacement for it. It is silent for an
+  // analysis that never used AI, and the server gate stays authoritative.
+  const aiReviewBlock = aiReviewFinalizeBlock(ai.workspace);
+
   return (
     <Section
       title="Revision lifecycle"
