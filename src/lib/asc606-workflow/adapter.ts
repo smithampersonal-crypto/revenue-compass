@@ -27,7 +27,6 @@ export function buildPhase1Input(draft: WorkflowDraft): AdapterResult {
   if (!price.ok) errors.push(`Transaction price: ${price.error}`);
 
   if (draft.contract.customerName.trim() === "") errors.push("Customer name is required.");
-  if (draft.contract.contractNumber.trim() === "") errors.push("Contract number is required.");
   if (draft.performanceObligations.length === 0) {
     errors.push("At least one performance obligation is required.");
   }
@@ -152,7 +151,6 @@ export function buildMaterialRightContractInput(draft: WorkflowDraft): MaterialR
   const price = parseUsdToCents(draft.transactionPriceInput);
   if (!price.ok) errors.push(`Transaction price: ${price.error}`);
   if (draft.contract.customerName.trim() === "") errors.push("Customer name is required.");
-  if (draft.contract.contractNumber.trim() === "") errors.push("Contract number is required.");
 
   const standardPerformanceObligations: PerformanceObligationInput[] = [];
   const materialRights: MaterialRightInput[] = [];
