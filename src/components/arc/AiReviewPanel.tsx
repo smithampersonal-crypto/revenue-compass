@@ -134,7 +134,7 @@ function GuidanceDialog({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceCo
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Guidance consulted</DialogTitle>
+            <DialogTitle>ASC 606 Guidance</DialogTitle>
             <DialogDescription>
               Reference material only. You remain responsible for the accounting conclusion.
             </DialogDescription>
@@ -142,13 +142,22 @@ function GuidanceDialog({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceCo
           <div className="space-y-4">
             {(cards ?? []).map((card) => (
               <article key={card.primaryAscReference + card.topic} className="space-y-2 text-sm">
-                <h4 className="font-semibold">{card.topic}</h4>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Topic
+                  </p>
+                  <h4 className="font-semibold">{card.topic}</h4>
+                  {card.subtopic.trim() === "" ? null : (
+                    <p className="text-xs text-muted-foreground">{card.subtopic}</p>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {[card.primaryAscReference, card.relatedAscReferences]
                     .filter((reference) => reference.trim() !== "")
                     .join(" · ")}
                 </p>
                 <p>{card.ruleSummary}</p>
+                <GuidanceList label="When relevant" items={card.whenRelevant} />
                 <GuidanceList label="Decision criteria" items={card.decisionCriteria} />
                 <GuidanceList label="Facts required" items={card.factsRequired} />
                 <GuidanceList label="Nuances" items={card.importantNuances} />
@@ -438,6 +447,10 @@ export function AiReviewPanel({
                       ? ` — ${item.resolution.note}`
                       : ""}
                   </p>
+                  <Citations item={item} ai={ai} />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <GuidanceDialog item={item} ai={ai} />
+                  </div>
                 </li>
               ))}
             </ul>

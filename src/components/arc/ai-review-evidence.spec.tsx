@@ -165,6 +165,23 @@ describe("Task 9A citation evidence", () => {
     expect(screen.getByRole("button", { name: "Open source — page 4" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Open source — pages 7–9" })).toBeEnabled();
   });
+
+  it("retains evidence and guidance for a resolved review item without resolution actions", () => {
+    const resolved: AiReviewItemDto = {
+      ...ITEM,
+      state: "resolved",
+      guidanceReferenceCount: 1,
+      resolution: { kind: "affirmed", at: "2026-09-18T10:00:00.000Z", method: "individual" },
+    };
+    renderPanel(controller(workspace([resolved])));
+
+    expect(screen.getByText("Source evidence — page 4")).toBeInTheDocument();
+    expect(screen.getByText("Hosted over the term.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open source — page 4" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View guidance" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Resolve$/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("Task 9B review guidance", () => {
@@ -193,7 +210,10 @@ describe("Task 9B review guidance", () => {
       expectedReviewFingerprint: "fp-yellow",
     });
 
-    expect(await screen.findByText("Over-time recognition")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "ASC 606 Guidance" })).toBeInTheDocument();
+    expect(screen.getByText("Over-time recognition")).toBeInTheDocument();
+    expect(screen.getByText("Term subscriptions")).toBeInTheDocument();
+    expect(screen.getByText("SaaS subscriptions.")).toBeInTheDocument();
     expect(screen.getByText(/ASC 606-10-25-27 · ASC 606-10-55-5/)).toBeInTheDocument();
     expect(
       screen.getByText(/You remain responsible for the accounting conclusion/i),
@@ -213,7 +233,7 @@ describe("Task 9B review guidance", () => {
 
     await user.click(screen.getByRole("button", { name: "View guidance" }));
     await waitFor(() => expect(ai.getReviewGuidance).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText("Guidance consulted")).not.toBeInTheDocument();
+    expect(screen.queryByText("ASC 606 Guidance")).not.toBeInTheDocument();
   });
 
   it("blocks a second guidance request while one is in flight", () => {

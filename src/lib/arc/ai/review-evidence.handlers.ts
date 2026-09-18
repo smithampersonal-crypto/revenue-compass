@@ -161,7 +161,13 @@ export async function aiReviewGuidanceHandler(
 
   // Trusted ids only: they were recorded by the server when the run was
   // applied. The browser never names a card.
-  const cards = await deps.guidance.findApprovedCards(item.guidanceIds);
-  if (cards.length === 0) throw new Error(AI_GUIDANCE_UNAVAILABLE);
+  const requiredIds = [...new Set(item.guidanceIds)];
+  const cards = await deps.guidance.findApprovedCards(requiredIds);
+  // Guidance is presented only as a complete set. A partial registry result
+  // could otherwise imply that the visible cards are the entire basis for the
+  // review point. Duplicate persisted references count once.
+  if (requiredIds.length === 0 || cards.length !== requiredIds.length) {
+    throw new Error(AI_GUIDANCE_UNAVAILABLE);
+  }
   return { cards };
 }

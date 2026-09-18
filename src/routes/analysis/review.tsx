@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { AiReviewPanel } from "@/components/arc/AiReviewPanel";
+import { AiRestoreAction } from "@/components/arc/AiRestoreAction";
 import { FinalizedSnapshotView } from "@/components/arc/FinalizedSnapshotView";
 import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
 import { RevisionLifecyclePanel } from "@/components/arc/RevisionLifecyclePanel";
@@ -59,6 +60,8 @@ function ReviewFinalizeArea() {
           void navigate({ to: "/analysis", search: { ...search, review: reviewItemId } });
         }}
       />
+      {/* Task 9C. Whole-draft restore belongs beside review and finalization only. */}
+      <AiRestoreAction ai={ai} />
       {recorded ? (
         <FinalizedSnapshotView
           status={recorded.status}

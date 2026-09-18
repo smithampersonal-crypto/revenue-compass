@@ -63,8 +63,8 @@ export function AiRestoreAction({ ai }: { ai: AiWorkspaceController }) {
                   before this AI analysis ran. Every change you made after that run will be lost.
                 </p>
                 <p>
-                  Your selected source documents, your remaining monthly AI analyses and your
-                  analysis history are not affected.
+                  Your selected source documents and analysis history will not change. AI usage
+                  already consumed by the analysis will not be refunded.
                 </p>
               </div>
             </AlertDialogDescription>

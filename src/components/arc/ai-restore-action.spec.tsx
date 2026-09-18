@@ -74,24 +74,37 @@ describe("Task 9C restore action", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("states what is replaced and what is untouched before anything happens", async () => {
-    const user = userEvent.setup();
-    const ai = controller(baseWorkspace);
-    render(<AiRestoreAction ai={ai} />);
+  it.each(["authenticated", "guest"] as const)(
+    "states scope-neutral consequences for a %s workspace",
+    async (scope) => {
+      const user = userEvent.setup();
+      const ai = controller({
+        ...baseWorkspace,
+        allowance:
+          scope === "guest"
+            ? { scope, limit: 3, used: 1, remaining: 2, resetAt: null }
+            : baseWorkspace.allowance,
+      });
+      render(<AiRestoreAction ai={ai} />);
 
-    await user.click(screen.getByRole("button", UNDO));
-    expect(
-      screen.getByText(/entire current analysis will be replaced by the exact version/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Every change you made after that run will be lost/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/source documents, your remaining monthly AI analyses and your/i),
-    ).toBeInTheDocument();
-    // Opening the confirmation is not restoring.
-    expect(ai.restoreAnalysis).not.toHaveBeenCalled();
-  });
+      await user.click(screen.getByRole("button", UNDO));
+      expect(
+        screen.getByText(/entire current analysis will be replaced by the exact version/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Every change you made after that run will be lost/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/selected source documents and analysis history will not change/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/AI usage already consumed by the analysis will not be refunded/i),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/monthly/i)).not.toBeInTheDocument();
+      // Opening the confirmation is not restoring.
+      expect(ai.restoreAnalysis).not.toHaveBeenCalled();
+    },
+  );
 
   it("restores exactly the offered run, exactly once, only after confirmation", async () => {
     const user = userEvent.setup();
