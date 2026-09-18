@@ -121,8 +121,13 @@ describe("ARC app shell (Phase 5)", () => {
     await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/analysis/documents");
-      expect(router.state.location.search).toEqual({ upload: "1" });
     });
+    // `upload=1` is a one-shot intent: Source Documents opens the upload step
+    // once and then clears the parameter from the URL.
+    await waitFor(() => {
+      expect(router.state.location.search).toEqual({});
+    });
+
 
     await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
     await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
