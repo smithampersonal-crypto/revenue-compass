@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import type { PoClassification } from "@/lib/asc606";
 import {
   createMaterialRightPoDraft,
@@ -62,7 +63,8 @@ export function Step2PerformanceObligations({
         />
 
         {pos.map((po) => (
-          <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
+          <AiReviewTarget key={po.id} targetKey={`po:${po.id}`} canonicalObjectId={po.id}>
+          <div className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-start justify-between gap-2">
               <span className="text-sm font-semibold">Performance obligation {po.seq}</span>
               <button
@@ -105,6 +107,7 @@ export function Step2PerformanceObligations({
                   />
                 </Field>
               ) : (
+                <AiReviewTarget targetKey={`po:${po.id}.classification`}>
                 <Field label="Classification">
                   <select
                     className={inputClass}
