@@ -25,6 +25,11 @@ import {
   AI_REVIEW_NOTE_LIMIT,
   AI_REVIEW_NOTE_TOO_LONG,
 } from "./review-actions.handlers";
+import { AI_RESTORE_CONFLICT, AI_RESTORE_UNAVAILABLE } from "./restore.handlers";
+import {
+  AI_EVIDENCE_UNAVAILABLE,
+  AI_GUIDANCE_UNAVAILABLE,
+} from "./review-evidence.handlers";
 import { MANUAL_RED_REASONS as APPROVED_RED_REASONS } from "./review-state";
 import type { AiAffirmationMethod, ManualRedReason } from "./review-state";
 import { AI_RUN_NOT_AVAILABLE, AI_WORKSPACE_NOT_EDITABLE } from "./runs.handlers";
