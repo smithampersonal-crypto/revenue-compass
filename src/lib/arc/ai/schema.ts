@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 /** Single source of truth for the output-schema version (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v3";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v4";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -183,6 +183,12 @@ const contractAssessmentSchema = z
           .strict(),
       )
       .max(AI_SCHEMA_BOUNDS.parties),
+    /**
+     * The contract's own printed reference (order-form number, agreement
+     * number, quote number). It is an administrative label, never an ARC
+     * identity and never an accounting input, so it is optional everywhere.
+     */
+    contractReference: factSchema,
     contractEffectiveDate: factSchema,
     contractTerm: factSchema,
     approvalAndCommitment: judgmentSchema,
@@ -264,6 +270,23 @@ const variableComponentSchema = z
       "unknown",
     ]),
     constraintAssessment: longText,
+    /**
+     * Structural allocation proposal. ARC maps the semantic target to its own
+     * canonical performance obligation; an unmappable target fails closed.
+     */
+    allocationTreatmentProposal: z.enum([
+      "general",
+      "specific_po",
+      "specific_series_period",
+      "unknown",
+    ]),
+    targetPerformanceObligationKey: z
+      .string()
+      .max(AI_SCHEMA_BOUNDS.semanticKey)
+      .nullable(),
+    relatesSpecifically: outcomeSchema,
+    consistentWithAllocationObjective: outcomeSchema,
+    allocationRationale: longText,
     citations,
     guidanceIds,
     reviewState: reviewStateSchema,
