@@ -10,7 +10,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 import { Button } from "@/components/ui/button";
@@ -108,8 +108,11 @@ function GuestDocumentRow({
 
 export function GuestSourceDocumentsWorkspace({
   autoOpenUpload = false,
+  onAutoOpenUploadConsumed,
 }: {
   autoOpenUpload?: boolean;
+  /** Lets the route clear the one-shot `upload` intent once it has been used. */
+  onAutoOpenUploadConsumed?: (() => void) | undefined;
 }) {
   const { persistence, ai } = useAnalysis();
   const queryClient = useQueryClient();
@@ -130,8 +133,18 @@ export function GuestSourceDocumentsWorkspace({
 
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [uploadOpen, setUploadOpen] = useState(autoOpenUpload);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [deleting, setDeleting] = useState<SourceDocumentSummaryDto | null>(null);
+
+  // The upload intent may arrive after mount, because Analyze Contract lives in
+  // the analysis layout and is visible on this page too. It is used once and
+  // then handed back to the route to clear; clearing it never closes the dialog.
+  const consumeUploadIntent = onAutoOpenUploadConsumed;
+  useEffect(() => {
+    if (!autoOpenUpload) return;
+    setUploadOpen(true);
+    consumeUploadIntent?.();
+  }, [autoOpenUpload, consumeUploadIntent]);
 
   const refreshDocuments = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: GUEST_DOCUMENTS_QUERY_KEY });

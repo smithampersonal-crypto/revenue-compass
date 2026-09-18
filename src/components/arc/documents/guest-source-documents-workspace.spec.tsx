@@ -109,15 +109,31 @@ function workspace(documents: SourceDocumentSummaryDto[]) {
   };
 }
 
-function renderGuest(props: { autoOpenUpload?: boolean } = {}) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+function guestTree(props: {
+  autoOpenUpload?: boolean;
+  onAutoOpenUploadConsumed?: () => void;
+  client: QueryClient;
+}) {
+  const { client, ...rest } = props;
+  return (
     <QueryClientProvider client={client}>
       <AnalysisProvider sample={undefined} guest>
-        <GuestSourceDocumentsWorkspace {...props} />
+        <GuestSourceDocumentsWorkspace {...rest} />
       </AnalysisProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderGuest(
+  props: { autoOpenUpload?: boolean; onAutoOpenUploadConsumed?: () => void } = {},
+) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = render(guestTree({ ...props, client }));
+  return {
+    ...view,
+    rerenderGuest: (next: { autoOpenUpload?: boolean; onAutoOpenUploadConsumed?: () => void }) =>
+      view.rerender(guestTree({ ...next, client })),
+  };
 }
 
 beforeEach(() => {
@@ -280,5 +296,37 @@ describe("Temporary workspace source documents", () => {
         "This PDF was uploaded, but this analysis changed since the page was loaded, so it was not included. ARC has reloaded the current version — you can add it from Other uploaded PDFs.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Task 6 — guest upload intent is a one-shot route intent", () => {
+  it("opens the upload dialog when the intent arrives after mount, then reports it consumed", async () => {
+    const consumed = vi.fn();
+    const view = renderGuest({ autoOpenUpload: false, onAutoOpenUploadConsumed: consumed });
+    expect(await screen.findByText("Included in this analysis")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    view.rerenderGuest({ autoOpenUpload: true, onAutoOpenUploadConsumed: consumed });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(consumed).toHaveBeenCalledTimes(1));
+
+    // The consumed intent leaves the dialog open.
+    view.rerenderGuest({ autoOpenUpload: false, onAutoOpenUploadConsumed: consumed });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("re-opens the guest upload dialog after a cancel and a second Analyze click", async () => {
+    const user = userEvent.setup();
+    const consumed = vi.fn();
+    const view = renderGuest({ autoOpenUpload: true, onAutoOpenUploadConsumed: consumed });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    view.rerenderGuest({ autoOpenUpload: false, onAutoOpenUploadConsumed: consumed });
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    view.rerenderGuest({ autoOpenUpload: true, onAutoOpenUploadConsumed: consumed });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(initiate).not.toHaveBeenCalled();
   });
 });

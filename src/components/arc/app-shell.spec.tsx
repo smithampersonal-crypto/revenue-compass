@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { QueryClient } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -118,13 +118,6 @@ describe("ARC app shell (Phase 5)", () => {
     expect(router.state.location.search).toEqual({});
 
     await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
-    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/analysis/documents");
-      expect(router.state.location.search).toEqual({ upload: "1" });
-    });
-
-    await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
     await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/analysis");
@@ -149,5 +142,17 @@ describe("ARC app shell (Phase 5)", () => {
     await user.click(within(primaryNav).getByRole("link", { name: "Analyze" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
+  });
+
+  // Kept last: the upload step is a modal, so it owns the page once it opens.
+  it("opens the upload step once from the PDF-first entry and clears the intent", async () => {
+    const user = userEvent.setup();
+    const router = await renderAt("/");
+
+    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/analysis/documents"));
+    expect(await screen.findByRole("dialog", { name: /upload pdf/i })).toBeInTheDocument();
+    // `upload=1` is a one-shot intent: it is consumed and removed from the URL.
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
   });
 });

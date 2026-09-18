@@ -195,8 +195,16 @@ function DocumentRow({
   );
 }
 
-export function SourceDocumentsWorkspace({ autoOpenUpload = false }: { autoOpenUpload?: boolean }) {
+export function SourceDocumentsWorkspace({
+  autoOpenUpload = false,
+  onAutoOpenUploadConsumed,
+}: {
+  autoOpenUpload?: boolean;
+  /** Lets the route clear the one-shot `upload` intent once it has been used. */
+  onAutoOpenUploadConsumed?: (() => void) | undefined;
+}) {
   const { persistence, ai } = useAnalysis();
+
   const revision = persistence.revision;
   const queryClient = useQueryClient();
 
@@ -251,10 +259,20 @@ export function SourceDocumentsWorkspace({ autoOpenUpload = false }: { autoOpenU
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(autoOpenUpload);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<SourceDocumentSummaryDto | null>(null);
   const [deleting, setDeleting] = useState<SourceDocumentSummaryDto | null>(null);
+
+  // The upload intent may arrive after mount, because Analyze Contract lives in
+  // the analysis layout and is visible on this page too. It is used once and
+  // then handed back to the route to clear; clearing it never closes the dialog.
+  const consumeUploadIntent = onAutoOpenUploadConsumed;
+  useEffect(() => {
+    if (!autoOpenUpload) return;
+    setUploadOpen(true);
+    consumeUploadIntent?.();
+  }, [autoOpenUpload, consumeUploadIntent]);
 
   const refreshDocuments = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey });

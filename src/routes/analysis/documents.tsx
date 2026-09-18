@@ -1,4 +1,5 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate, useSearch } from "@tanstack/react-router";
+import { useCallback } from "react";
 
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 import { useAnalysis } from "@/components/arc/analysis-context";
@@ -33,18 +34,37 @@ export const Route = createFileRoute("/analysis/documents")({
 
 function SourceDocumentsArea() {
   const { persistence } = useAnalysis();
-  // Arriving from "Upload a Contract PDF" on the landing page opens the
-  // upload step straight away.
-  const wantsUpload =
-    (new URLSearchParams(globalThis.location?.search ?? "").get("upload") ?? "").replace(
-      /^"|"$/g,
-      "",
-    ) === "1";
+  const navigate = useNavigate();
+  // `upload=1` is an intent to open the existing upload step exactly once —
+  // whether it arrives from Home, or from Analyze Contract while the visitor is
+  // already on this page. It is never persistent dialog state.
+  const search = useSearch({ from: "/analysis" }) as { upload?: string };
+  const wantsUpload = (search.upload ?? "").replace(/^"|"$/g, "") === "1";
+
+  // Consuming the intent removes only `upload`: the contract, revision,
+  // customer/save hints and the temporary-workspace identity are untouched, and
+  // the replace keeps a useless history entry out of the Back button.
+  const consumeUploadIntent = useCallback(() => {
+    void navigate({
+      to: "/analysis/documents",
+      replace: true,
+      search: (previous: Record<string, unknown>) => {
+        const next = { ...previous };
+        delete next["upload"];
+        return next;
+      },
+    });
+  }, [navigate]);
 
   // A temporary workspace keeps its own uploaded PDFs, which move with the
   // analysis when it is saved to My Contracts.
   if (persistence.mode === "guest") {
-    return <GuestSourceDocumentsWorkspace autoOpenUpload={wantsUpload} />;
+    return (
+      <GuestSourceDocumentsWorkspace
+        autoOpenUpload={wantsUpload}
+        onAutoOpenUploadConsumed={consumeUploadIntent}
+      />
+    );
   }
 
   // Samples and in-memory analyses never own source documents.
@@ -56,5 +76,10 @@ function SourceDocumentsArea() {
     );
   }
 
-  return <SourceDocumentsWorkspace autoOpenUpload={wantsUpload} />;
+  return (
+    <SourceDocumentsWorkspace
+      autoOpenUpload={wantsUpload}
+      onAutoOpenUploadConsumed={consumeUploadIntent}
+    />
+  );
 }
