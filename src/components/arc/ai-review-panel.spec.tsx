@@ -194,4 +194,42 @@ describe("AiReviewPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /go to/i }));
     expect(onOpenTarget).toHaveBeenCalledWith(YELLOW.id);
   });
+  it("issues exactly one confirm request for two rapid clicks", async () => {
+    let release: (() => void) | null = null;
+    const ai = controller(workspace({ reviewItems: [YELLOW] }));
+    (ai as unknown as { affirmReviewItem: unknown }).affirmReviewItem = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = () => resolve();
+        }),
+    );
+    render(<AiReviewPanel ai={ai} />);
+    const confirm = screen.getByRole("button", { name: /^Confirm$/ });
+    await userEvent.click(confirm);
+    await userEvent.click(confirm);
+    expect(ai.affirmReviewItem).toHaveBeenCalledTimes(1);
+    expect(confirm).toBeDisabled();
+    // The item is never removed optimistically: the refreshed server state decides.
+    expect(screen.getByText(YELLOW.reason)).toBeInTheDocument();
+    release?.();
+  });
+
+  it("issues exactly one resolution request for two rapid submissions", async () => {
+    let release: (() => void) | null = null;
+    const ai = controller(workspace({ reviewItems: [RED] }));
+    (ai as unknown as { resolveReviewIssue: unknown }).resolveReviewIssue = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = () => resolve();
+        }),
+    );
+    render(<AiReviewPanel ai={ai} />);
+    await userEvent.click(screen.getByRole("button", { name: /^Resolve$/ }));
+    await userEvent.click(await screen.findByRole("radio", { name: /reviewed current treatment/i }));
+    const submit = screen.getByRole("button", { name: /record resolution/i });
+    await userEvent.click(submit);
+    await userEvent.click(submit);
+    expect(ai.resolveReviewIssue).toHaveBeenCalledTimes(1);
+    release?.();
+  });
 });
