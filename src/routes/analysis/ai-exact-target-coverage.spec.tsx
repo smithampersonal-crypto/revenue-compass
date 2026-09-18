@@ -90,6 +90,9 @@ const PO_POINT = "po-setup";
 const VC_ESTIMATED = "vc-bonus";
 const VC_USAGE = "vc-usage";
 const METER = "vc-usage-m1";
+/** A manually added meter row: never the deterministic AI meter identity. */
+const MANUAL_METER = "vc-usage-manual-2";
+let manualSecondMeter = false;
 const MOD = "mod-1";
 const BILLING = "ce-annual";
 const CASH = "cc-annual";
