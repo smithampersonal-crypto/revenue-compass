@@ -173,6 +173,9 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
         */}
         <AiSourceFreshnessNotice ai={ai} />
 
+        {/* Task 9C. The single server-declared undo offer, asked once. */}
+        <AiRestoreAction ai={ai} />
+
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a
           // fresh run of the current engine against the same inputs.
