@@ -91,9 +91,15 @@ describe("Task 9C restore action", () => {
       expect(
         screen.getByText(/entire current analysis will be replaced by the exact version/i),
       ).toBeInTheDocument();
-      expect(screen.getByText(/Every change you made after that run will be lost/i)).toBeInTheDocument();
-      expect(screen.getByText(/selected source documents and analysis history will not change/i)).toBeInTheDocument();
-      expect(screen.getByText(/AI usage already consumed by the analysis will not be refunded/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Every change you made after that run will be lost/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/selected source documents and analysis history will not change/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/AI usage already consumed by the analysis will not be refunded/i),
+      ).toBeInTheDocument();
       expect(screen.queryByText(/monthly/i)).not.toBeInTheDocument();
       // Opening the confirmation is not restoring.
       expect(ai.restoreAnalysis).not.toHaveBeenCalled();
