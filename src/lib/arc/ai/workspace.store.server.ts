@@ -134,8 +134,12 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       }
 
       // Persisted review JSON is data, never a typed value: it is re-validated
-      // before anything is counted, exactly as the finalization gate does.
-      const items = raw ? normalizePersistedReviewItems(raw["review_items"]) : [];
+      // before anything is counted, exactly as the finalization gate does. The
+      // payload form is used rather than the tolerant item form, so a row that
+      // could not be read is reported as unavailable instead of disappearing.
+      const review = raw
+        ? normalizePersistedReviewPayload(raw["review_items"])
+        : { items: [], malformed: false };
 
       return {
         lastSuccessfulRunId: (raw?.["last_successful_run_id"] as string | null) ?? null,
@@ -144,7 +148,14 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
         hasIncludedSources,
         acknowledgedSourceFingerprint:
           (raw?.["acknowledged_source_fingerprint"] as string | null) ?? null,
-        outstandingReviewIssueCount: items.filter((item) => item.state !== "resolved").length,
+        outstandingReviewIssueCount: review.items.filter((item) => item.state !== "resolved")
+          .length,
+        reviewItems: review.items,
+        reviewPayloadMalformed: review.malformed,
+        // Raw persisted JSON. The handler validates it before anything is
+        // presented; nothing here casts it into a typed provenance value.
+        fieldProvenance: raw?.["field_provenance"] ?? null,
+        objectProvenance: raw?.["object_provenance"] ?? null,
         guestWorkspaceExpiresAt,
       };
     },
