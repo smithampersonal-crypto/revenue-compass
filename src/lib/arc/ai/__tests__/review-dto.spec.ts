@@ -190,7 +190,7 @@ describe("Task 7 safe provenance DTO", () => {
       badFlag: { state: "ai_generated_untouched", canonicalId: "x", userModified: "yes" },
     });
     expect(safe).toEqual({
-      "po:po-saas": {
+      "po-saas": {
         canonicalId: "po-saas",
         state: "ai_generated_user_edited",
         userModified: true,
