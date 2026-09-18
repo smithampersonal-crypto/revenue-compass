@@ -19,11 +19,18 @@ vi.mock("@tanstack/react-start", async (importOriginal) => {
   return { ...actual, useServerFn: (fn: unknown) => fn };
 });
 
+const routerState = vi.hoisted(() => ({
+  search: {} as Record<string, unknown>,
+  navigate: undefined as unknown as ReturnType<typeof vi.fn>,
+}));
+routerState.navigate = vi.fn();
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => routerState.navigate,
+    useSearch: () => routerState.search,
     createFileRoute: () => (options: unknown) => options,
     Link: ({ children, to }: { children?: unknown; to?: string }) => (
       <a href={to ?? "#"}>{children as never}</a>
@@ -874,5 +881,70 @@ describe("Source Documents workspace", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
       expect(hardDelete).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("Task 6 — upload intent is a one-shot route intent", () => {
+  function tree(client: QueryClient) {
+    return (
+      <QueryClientProvider client={client}>
+        <AnalysisProvider
+          sample={undefined}
+          contractId={CONTRACT_ID}
+          revisionId={REVISION_ID}
+          guest={false}
+        >
+          <DocumentsArea />
+        </AnalysisProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  it("opens the upload dialog when Analyze adds upload=1 while already on this route", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID };
+    const view = render(tree(client));
+    expect(await screen.findByText("Contract Document Library")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Upload PDF to this contract" })).toBeNull();
+
+    // The Analyze action in the parent layout navigates to this same route.
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID, upload: "1" };
+    view.rerender(tree(client));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    // The intent is consumed from the URL without dropping analysis identity.
+    await waitFor(() => expect(routerState.navigate).toHaveBeenCalled());
+    const call = routerState.navigate.mock.calls.at(-1)?.[0] as {
+      replace?: boolean;
+      search: (previous: Record<string, unknown>) => Record<string, unknown>;
+    };
+    expect(call.replace).toBe(true);
+    expect(call.search({ contract: CONTRACT_ID, revision: REVISION_ID, upload: "1" })).toEqual({
+      contract: CONTRACT_ID,
+      revision: REVISION_ID,
+    });
+
+    // Consuming the parameter must not close the dialog it just opened.
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID };
+    view.rerender(tree(client));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("re-opens the upload dialog after the visitor cancels and clicks Analyze again", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID, upload: "1" };
+    const view = render(tree(client));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID };
+    view.rerender(tree(client));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    routerState.search = { contract: CONTRACT_ID, revision: REVISION_ID, upload: "1" };
+    view.rerender(tree(client));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(initiate).not.toHaveBeenCalled();
   });
 });
