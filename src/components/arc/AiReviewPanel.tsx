@@ -305,6 +305,7 @@ function ReviewItemRow({
             Go to {target.kind === "exact" ? "field" : "section"}
           </Button>
         ) : null}
+        <GuidanceDialog item={item} ai={ai} />
         {item.severity === "yellow" ? (
           <Button
             type="button"
