@@ -127,7 +127,7 @@ function fixtureDraft() {
       },
     ],
     variableConsiderationComponents: [
-      { ...createVcComponentDraft(1, VC_ESTIMATED, "estimated_at_inception") },
+      { ...createVcComponentDraft(1, VC_ESTIMATED, "estimated") },
       {
         ...createVcComponentDraft(2, VC_USAGE, "usage_as_incurred"),
         meters: [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" }],
