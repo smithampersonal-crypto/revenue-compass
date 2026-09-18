@@ -50,29 +50,20 @@ function isFieldTarget(targetKey: string): boolean {
 
 export function AiReviewTarget({
   targetKey,
-  additionalTargetKeys,
   canonicalObjectId,
   className,
   children,
 }: {
   targetKey: string;
-  /**
-   * Composite targets whose authoritative control is this same group (for
-   * example every meter field of one variable-consideration component). Each
-   * one gets its own real production anchor owned by this boundary.
-   */
-  additionalTargetKeys?: readonly string[];
   canonicalObjectId?: string;
   className?: string;
   children: ReactNode;
 }) {
   const workspace = useContext(TargetContext);
   const anchorId = reviewTargetAnchorId(targetKey);
-  const ownedKeys = [targetKey, ...(additionalTargetKeys ?? [])];
-
   const openItem =
     workspace?.reviewItems.find(
-      (item) => ownedKeys.includes(item.targetKey) && item.state !== "resolved",
+      (item) => item.targetKey === targetKey && item.state !== "resolved",
     ) ?? null;
   const marker = openItem === null ? null : reviewMarkerLabel(openItem.severity);
 
@@ -85,9 +76,6 @@ export function AiReviewTarget({
 
   return (
     <div id={anchorId} className={className} data-ai-review-target={targetKey}>
-      {(additionalTargetKeys ?? []).map((key) => (
-        <span key={key} id={reviewTargetAnchorId(key)} data-ai-review-target={key} />
-      ))}
       {marker || badge ? (
         <div className="mb-1 flex items-center gap-2">
           {marker ? (

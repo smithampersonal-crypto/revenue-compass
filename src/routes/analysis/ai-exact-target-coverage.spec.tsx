@@ -90,6 +90,9 @@ const PO_POINT = "po-setup";
 const VC_ESTIMATED = "vc-bonus";
 const VC_USAGE = "vc-usage";
 const METER = "vc-usage-m1";
+/** A manually added meter row: never the deterministic AI meter identity. */
+const MANUAL_METER = "vc-usage-manual-2";
+let manualSecondMeter = false;
 const MOD = "mod-1";
 const BILLING = "ce-annual";
 const CASH = "cc-annual";
@@ -128,7 +131,12 @@ function fixtureDraft() {
       { ...createVcComponentDraft(1, VC_ESTIMATED, "estimated") },
       {
         ...createVcComponentDraft(2, VC_USAGE, "usage_as_incurred"),
-        meters: [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" }],
+        meters: manualSecondMeter
+          ? [
+              { ...createVcMeterDraft(1, METER), rateAmountInput: "0.10", unit: "API call" },
+              { ...createVcMeterDraft(2, MANUAL_METER), rateAmountInput: "0.25", unit: "seat" },
+            ]
+          : [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10", unit: "API call" }],
       },
     ],
     contractModifications: [{ ...createModificationDraft(1), id: MOD }],
@@ -244,6 +252,7 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
   [`vc:${VC_ESTIMATED}.inception`, "step_3"],
   [`vc:${VC_USAGE}.meter.rateAmountInput`, "step_3"],
   [`vc:${VC_USAGE}.meter.name`, "step_3"],
+  [`vc:${VC_USAGE}.meter.rateQuantityInput`, "step_3"],
   [`vc:${VC_USAGE}.meter.unit`, "step_3"],
   [`vc:${VC_USAGE}.usagePeriods`, "step_5"],
 
@@ -262,6 +271,7 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
 
 beforeEach(() => {
   navigate.mockReset();
+  manualSecondMeter = false;
   aiState = workspace();
 });
 
@@ -434,4 +444,110 @@ it("keeps the workspace usable without any AI review state", async () => {
   aiState = workspace({ hasAnalysis: false });
   renderArea();
   await waitFor(() => expect(screen.getAllByText(/Step 1/).length).toBeGreaterThan(0));
+});
+
+/**
+ * Phase 9G — Task 7, VC meter target fidelity. The merge engine stores
+ * independent provenance and independent review severity for every field of
+ * the one deterministic AI meter (`${component.id}-m1`), so each field must be
+ * its own presentation boundary. A composite group badge would hide the
+ * difference between an untouched AI rate and an edited unit.
+ */
+describe("deterministic AI meter fields are presented individually", () => {
+  const RATE = `vc:${VC_USAGE}.meter.rateAmountInput`;
+  const UNIT = `vc:${VC_USAGE}.meter.unit`;
+
+  function anchorOf(container: HTMLElement, key: string) {
+    return container.querySelector(`#${CSS.escape(reviewTargetAnchorId(key))}`);
+  }
+
+  it("badges mixed meter provenance field by field", async () => {
+    aiState = workspace({
+      fieldProvenance: {
+        [RATE]: { state: "ai_generated_untouched" },
+        [UNIT]: { state: "ai_generated_user_edited" },
+      } as never,
+    });
+    const { container } = renderArea();
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited");
+    });
+    expect(anchorOf(container, RATE)!.textContent).not.toContain("edited");
+  });
+
+  it("badges a preserved user override on the unit alone", async () => {
+    aiState = workspace({
+      fieldProvenance: {
+        [RATE]: { state: "ai_generated_untouched" },
+        [UNIT]: { state: "ai_difference_preserved_user_override" },
+      } as never,
+    });
+    const { container } = renderArea();
+    await waitFor(() => {
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Your value preserved");
+      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
+    });
+  });
+
+  it("keeps two simultaneous meter review severities on their own controls", async () => {
+    aiState = workspace({
+      reviewItems: [reviewItem(UNIT, "step_3", "red"), reviewItem(RATE, "step_3", "yellow")],
+      reviewIssueCount: 2,
+    });
+    const { container } = renderArea();
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("Review");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Resolve");
+    });
+    expect(anchorOf(container, RATE)!.textContent).not.toContain("Resolve");
+  });
+
+  it("does not depend on review item ordering", async () => {
+    aiState = workspace({
+      reviewItems: [reviewItem(RATE, "step_3", "yellow"), reviewItem(UNIT, "step_3", "red")],
+      reviewIssueCount: 2,
+    });
+    const { container } = renderArea();
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("Review");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Resolve");
+    });
+  });
+
+  it("owns the real Unit control at the unit anchor", async () => {
+    const { container } = renderArea();
+    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
+    const anchor = anchorOf(container, UNIT) as HTMLElement;
+    const inputs = anchor.querySelectorAll("input");
+    expect(inputs.length).toBe(1);
+    expect((inputs[0] as HTMLInputElement).value).toBe("API call");
+    expect(anchor.textContent).toContain("Unit");
+  });
+
+  it("never lets a manually added meter steal the AI meter's anchors or provenance", async () => {
+    manualSecondMeter = true;
+    aiState = workspace({
+      fieldProvenance: { [UNIT]: { state: "ai_generated_user_edited" } } as never,
+    });
+    const { container } = renderArea();
+    await waitFor(() =>
+      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited"),
+    );
+
+    for (const key of [
+      `vc:${VC_USAGE}.meter.name`,
+      RATE,
+      `vc:${VC_USAGE}.meter.rateQuantityInput`,
+      UNIT,
+    ]) {
+      expect(container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`).length).toBe(
+        1,
+      );
+    }
+    const anchor = anchorOf(container, UNIT) as HTMLElement;
+    expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
+    expect(container.querySelectorAll("[data-ai-review-target]").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("AI drafted · edited").length).toBe(1);
+  });
 });

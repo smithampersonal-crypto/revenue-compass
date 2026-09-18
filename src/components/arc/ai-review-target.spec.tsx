@@ -184,19 +184,41 @@ describe("AiReviewTarget", () => {
     expect(screen.queryByText("AI drafted")).toBeNull();
   });
 
-  it("gives every composite key it owns its own production anchor", () => {
+  it("owns exactly one canonical target key", () => {
     const { container } = harness(
       {},
-      <AiReviewTarget
-        targetKey="vc:vc-1.meter.rateAmountInput"
-        additionalTargetKeys={["vc:vc-1.meter.unit"]}
-      >
-        <div>Meters</div>
+      <AiReviewTarget targetKey="vc:vc-1.meter.unit">
+        <input aria-label="Unit" />
       </AiReviewTarget>,
     );
-    for (const key of ["vc:vc-1.meter.rateAmountInput", "vc:vc-1.meter.unit"]) {
-      expect(container.querySelector(`#${CSS.escape(reviewTargetAnchorId(key))}`)).not.toBeNull();
-    }
+    expect(
+      container.querySelector(`#${CSS.escape(reviewTargetAnchorId("vc:vc-1.meter.unit"))}`),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        `#${CSS.escape(reviewTargetAnchorId("vc:vc-1.meter.rateAmountInput"))}`,
+      ),
+    ).toBeNull();
+  });
+
+  it("never marks a sibling field's review item", () => {
+    harness(
+      {
+        reviewItems: [
+          {
+            ...YELLOW,
+            id: "r",
+            targetKey: "vc:vc-1.meter.rateAmountInput",
+            severity: "red",
+            state: "red",
+          },
+        ],
+      },
+      <AiReviewTarget targetKey="vc:vc-1.meter.unit">
+        <input aria-label="Unit" />
+      </AiReviewTarget>,
+    );
+    expect(screen.queryByText("Resolve")).toBeNull();
   });
 
   it("renders plain children when no AI workspace is present", () => {
