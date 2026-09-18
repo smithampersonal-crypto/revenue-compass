@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
@@ -24,6 +26,21 @@ import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
 
 const buttonClass =
   "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";
+
+/**
+ * One canonical meter field target ↔ one presentation boundary. Only the
+ * deterministic AI meter (`${componentId}-m1`) carries AI targets; manually
+ * added meter rows render as ordinary controls.
+ */
+type MeterFieldProps = { componentId: string; field: string; children: ReactNode };
+
+function AiMeterField({ componentId, field, children }: MeterFieldProps) {
+  return <AiReviewTarget targetKey={`vc:${componentId}.meter.${field}`}>{children}</AiReviewTarget>;
+}
+
+function PlainMeterField({ children }: MeterFieldProps) {
+  return <>{children}</>;
+}
 
 export function Step3TransactionPrice({
   draft,
@@ -492,23 +509,10 @@ export function Step3TransactionPrice({
                     // field is its own presentation boundary so review severity
                     // and provenance are never collapsed into a group badge.
                     const aiMeter = meter.id === `${component.id}-m1`;
-                    const MeterField = ({
-                      field,
-                      children,
-                    }: {
-                      field: string;
-                      children: ReactNode;
-                    }) =>
-                      aiMeter ? (
-                        <AiReviewTarget targetKey={`vc:${component.id}.meter.${field}`}>
-                          {children}
-                        </AiReviewTarget>
-                      ) : (
-                        <>{children}</>
-                      );
+                    const MeterField = aiMeter ? AiMeterField : PlainMeterField;
                     return (
                     <div key={meter.id} className="grid gap-2 sm:grid-cols-5">
-                      <MeterField field="name">
+                      <MeterField componentId={component.id} field="name">
                       <Field label="Meter name">
                         <input
                           className={inputClass}
@@ -523,7 +527,7 @@ export function Step3TransactionPrice({
                         />
                       </Field>
                       </MeterField>
-                      <MeterField field="rateAmountInput">
+                      <MeterField componentId={component.id} field="rateAmountInput">
                       <Field label="Rate amount (USD)">
                         <input
                           className={inputClass}
@@ -539,7 +543,7 @@ export function Step3TransactionPrice({
                         />
                       </Field>
                       </MeterField>
-                      <MeterField field="rateQuantityInput">
+                      <MeterField componentId={component.id} field="rateQuantityInput">
                       <Field label="Per quantity">
                         <input
                           className={inputClass}
@@ -555,7 +559,7 @@ export function Step3TransactionPrice({
                         />
                       </Field>
                       </MeterField>
-                      <MeterField field="unit">
+                      <MeterField componentId={component.id} field="unit">
                       <Field label="Unit">
                         <input
                           className={inputClass}
