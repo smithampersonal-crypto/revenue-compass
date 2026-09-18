@@ -45,24 +45,38 @@ describe("Task 7 target presentation registry", () => {
     ["contract.customerName", "step_1"],
     ["contract.criteria.collectibility_probable.answer", "step_1"],
     ["contract.criteria.collectibility_probable.rationale", "step_1"],
+    ["promise:pr-saas.kind", "step_2"],
     ["promise:pr-saas.description", "step_2"],
+    ["promise:pr-saas.capableOfBeingDistinct", "step_2"],
+    ["promise:pr-saas.distinctWithinContractContext", "step_2"],
+    ["promise:pr-saas.distinctRationale", "step_2"],
+    ["promise:pr-saas.conveysMaterialRight", "step_2"],
+    ["promise:pr-saas.performanceObligationId", "step_2"],
     ["po:po-saas", "step_2"],
+    ["po:po-saas.name", "step_2"],
     ["po:po-saas.classification", "step_2"],
+    ["po:po-saas.classificationRationale", "step_2"],
     ["po:po-saas.recognitionMethod", "step_5"],
+    ["po:po-saas.recognitionRationale", "step_5"],
+    ["po:po-saas.serviceStart", "step_5"],
+    ["po:po-saas.serviceEnd", "step_5"],
     ["po:po-saas.servicePeriod", "step_5"],
     ["po:po-saas.recognitionDate", "step_5"],
     ["po:po-saas.sspInput", "step_4"],
+    ["po:po-saas.sspBasis", "step_4"],
     ["transactionPrice.input", "step_3"],
     ["transactionPrice.notes", "step_3"],
+    ["vc:vc-usage.description", "step_3"],
     ["vc:vc-usage.treatment", "step_3"],
+    ["vc:vc-usage.estimationMethod", "step_3"],
     ["vc:vc-usage.inception", "step_3"],
     ["vc:vc-usage.usagePeriods", "step_3"],
     ["vc:vc-usage.meter.rateAmountInput", "step_3"],
     ["modification:mod-1.phase5cFacts", "additional_topics"],
+    ["modification:mod-1.modificationDate", "additional_topics"],
     ["draft.hasContractModifications", "additional_topics"],
     ["billing:ce-annual.invoiceDate", "additional_topics"],
     ["cash:cc-annual.collectionDate", "additional_topics"],
-    ["object:po-saas", "step_2"],
   ];
 
   for (const [targetKey, section] of exact) {
@@ -87,6 +101,20 @@ describe("Task 7 target presentation registry", () => {
     ["recognition:po:saas", "step_5"],
     ["ssp:po:saas", "step_4"],
     ["totally.unknown.shape", "step_1"],
+    // `object:<id>` names an omitted AI-owned object whose canonical kind is
+    // not knowable from the key. It must never claim a field, and never claim
+    // to be a performance obligation.
+    ["object:po-saas", "step_2"],
+    // Unknown/future fields must not inherit exactness from a broad regex.
+    ["promise:p1.futureField", "step_2"],
+    ["po:po-1.futureField", "step_2"],
+    ["vc:vc-1.futureField", "step_3"],
+    ["vc:vc-1.meter.futureField", "step_3"],
+    ["modification:m1.futureField", "additional_topics"],
+    ["billing:b1.futureField", "additional_topics"],
+    ["cash:c1.futureField", "additional_topics"],
+    ["contract.futureField", "step_1"],
+    ["draft.futureField", "step_1"],
   ];
 
   for (const [targetKey, section] of fallback) {
