@@ -243,18 +243,31 @@ begin
 
   /* ------------------------------------------- changed source set (12-13) */
 
-  update public.ai_runs set pre_run_ai_state = jsonb_build_object(
+  -- A completed run is immutable, so each case below gets its own run row.
+  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
+  v_lock := public.arc_attach_source_document(v_user, v_rev, v_doc2, v_lock);
+
+  v_prior := jsonb_build_object(
     'last_successful_run_id', null, 'source_set_fingerprint', null,
     'source_state', 'none', 'field_provenance', '{}'::jsonb,
     'object_provenance', '{}'::jsonb, 'tombstones', '[]'::jsonb, 'review_items', '[]'::jsonb,
     'acknowledged_source_fingerprint', null, 'source_acknowledged_at', null,
-    'source_acknowledged_by', null)
-   where id = v_run2;
+    'source_acknowledged_by', null);
+
+  v_run2 := gen_random_uuid();
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, pre_run_ai_state, model, reasoning_effort,
+                              prompt_version, output_schema_version, guidance_registry_hash,
+                              owner_user_id, openai_started_at, completed_at)
+  values (v_run2, v_rev, 'authenticated', 'succeeded', v_fp, '{"origin":"moved"}'::jsonb,
+          v_prior, 'm', 'high', 'p9g', 's1', 'h9g', v_user, now(), now());
+  update public.ai_analysis_state set last_successful_run_id = v_run2 where revision_id = v_rev;
+  if not found then
+    insert into public.ai_analysis_state (revision_id, last_successful_run_id, source_state)
+    values (v_rev, v_run2, 'current');
+  end if;
 
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
-  v_lock := public.arc_attach_source_document(v_user, v_rev, v_doc2, v_lock);
-  select lock_version into v_lock from public.analysis_revisions where id = v_rev;
-
   begin
     perform public.arc_restore_pre_ai_run(v_run2, v_user, null, v_lock);
     ok := false;
@@ -273,8 +286,15 @@ begin
 
   /* ------------------------------------------------- scope and locks (14-17) */
 
-  update public.ai_runs set source_set_fingerprint = public.arc_ai_source_set_fingerprint(v_rev, null)
-   where id = v_run2;
+  v_run2 := gen_random_uuid();
+  insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
+                              pre_run_canonical_inputs, pre_run_ai_state, model, reasoning_effort,
+                              prompt_version, output_schema_version, guidance_registry_hash,
+                              owner_user_id, openai_started_at, completed_at)
+  values (v_run2, v_rev, 'authenticated', 'succeeded',
+          public.arc_ai_source_set_fingerprint(v_rev, null), '{"origin":"eligible"}'::jsonb,
+          v_prior, 'm', 'high', 'p9g', 's1', 'h9g', v_user, now(), now());
+  update public.ai_analysis_state set last_successful_run_id = v_run2 where revision_id = v_rev;
 
   begin
     perform public.arc_restore_pre_ai_run(v_run2, v_other, null, v_lock);
@@ -312,6 +332,7 @@ begin
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   select lock_version, idempotent into v_lock_after, v_idem
   from public.arc_restore_pre_ai_run(v_run2, v_user, null, v_lock);
+
 
   insert into arc_test_results
   select '17 the eligible restore succeeds and leaves history and sources alone',
