@@ -280,19 +280,7 @@ export function describeReviewTarget(
       : fallback();
   }
 
-  const billing = /^billing:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (billing) {
-    return BILLING_FIELDS.has(billing[1]!)
-      ? exact(`Billing event — ${humanize(billing[1]!)}`)
-      : fallback();
-  }
-
-  const cash = /^cash:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (cash) {
-    return CASH_FIELDS.has(cash[1]!)
-      ? exact(`Cash collection — ${humanize(cash[1]!)}`)
-      : fallback();
-  }
+  if (/^billing:/.test(targetKey) || /^cash:/.test(targetKey)) return fallback();
 
   return fallback();
 }
