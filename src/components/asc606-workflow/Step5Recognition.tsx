@@ -52,22 +52,26 @@ export function Step5Recognition({
       {po.recognitionMethod === "over_time_ratable" ? (
         <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Service start date (inclusive)">
-              <input
-                type="date"
-                className={inputClass}
-                value={po.serviceStart}
-                onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
-              />
-            </Field>
-            <Field label="Service end date (inclusive)">
-              <input
-                type="date"
-                className={inputClass}
-                value={po.serviceEnd}
-                onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
-              />
-            </Field>
+            <AiReviewTarget targetKey={`po:${po.id}.serviceStart`}>
+              <Field label="Service start date (inclusive)">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={po.serviceStart}
+                  onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
+                />
+              </Field>
+            </AiReviewTarget>
+            <AiReviewTarget targetKey={`po:${po.id}.serviceEnd`}>
+              <Field label="Service end date (inclusive)">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={po.serviceEnd}
+                  onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
+                />
+              </Field>
+            </AiReviewTarget>
           </div>
         </AiReviewTarget>
       ) : null}
@@ -85,14 +89,16 @@ export function Step5Recognition({
         </AiReviewTarget>
       ) : null}
 
-      <Field label="Recognition rationale">
-        <textarea
-          className={inputClass}
-          rows={2}
-          value={po.recognitionRationale}
-          onChange={(e) => patch(po.id, { recognitionRationale: e.target.value })}
-        />
-      </Field>
+      <AiReviewTarget targetKey={`po:${po.id}.recognitionRationale`}>
+        <Field label="Recognition rationale">
+          <textarea
+            className={inputClass}
+            rows={2}
+            value={po.recognitionRationale}
+            onChange={(e) => patch(po.id, { recognitionRationale: e.target.value })}
+          />
+        </Field>
+      </AiReviewTarget>
     </>
   );
 
