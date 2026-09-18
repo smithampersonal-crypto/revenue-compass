@@ -69,6 +69,7 @@ export function Step5Recognition({
             />
           </Field>
         </div>
+        </AiReviewTarget>
       ) : null}
 
       {po.recognitionMethod === "point_in_time" ? (
