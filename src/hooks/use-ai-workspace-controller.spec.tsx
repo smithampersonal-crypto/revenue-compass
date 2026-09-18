@@ -30,10 +30,6 @@ function run(runId: string, phase: AiWorkspacePhase) {
     sourceCount: 1,
     pageCount: 4,
     reviewIssueCount: 0,
-    reviewItems: [],
-    reviewPayloadMalformed: false,
-    fieldProvenance: {},
-    objectProvenance: {},
     completedAt: null,
   };
 }
@@ -48,6 +44,10 @@ function state(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceStateDt
     hasIncludedSources: true,
     sourceSetFingerprint: "fp-current",
     reviewIssueCount: 0,
+    reviewItems: [],
+    reviewPayloadMalformed: false,
+    fieldProvenance: {},
+    objectProvenance: {},
     staleSourceAcknowledged: false,
     allowance: { scope: "authenticated", limit: 10, used: 0, remaining: 10, resetAt: null },
     failure: null,
