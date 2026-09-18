@@ -34,6 +34,11 @@ import {
   resolveAiReviewIssue,
 } from "@/lib/arc/ai/workspace.functions";
 import {
+  getAiReviewGuidance,
+  openAiReviewEvidence,
+  restoreAiAnalysis,
+} from "@/lib/arc/ai/review-evidence.functions";
+import {
   useAiWorkspaceController,
   type AiWorkspaceController,
   type AiWorkspacePorts,
