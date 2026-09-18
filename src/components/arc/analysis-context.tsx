@@ -290,6 +290,7 @@ export function AnalysisProvider({
   const [lockVersion, setLockVersion] = useState<number | null>(null);
   /** Time of the last accepted save, reused when a reverted draft returns to Saved. */
   const lastSavedAtRef = useRef<string | null>(null);
+  const aiRefreshRef = useRef<(() => Promise<void>) | null>(null);
   const savedSnapshotRef = useRef<string | null>(null);
   /**
    * The last server-accepted snapshot, held as state so it is committed in the
@@ -485,6 +486,12 @@ export function AnalysisProvider({
         );
         const state = queryClient.getQueryState(queryKey);
         if (state) consumedAtRef.current = state.dataUpdatedAt;
+
+        // Phase 9G — Task 7. The accepted Task 4 reconciliation runs inside the
+        // save the server just accepted, so review and provenance state may
+        // have changed. Re-read it through the existing safe path. This reads
+        // only: it never starts AI and never authors a review event.
+        void aiRefreshRef.current?.();
 
         if (serializeDraft(draftRef.current) === snapshot) {
           setStatus({ kind: "saved", at: outcome.savedAt });
@@ -700,6 +707,11 @@ export function AnalysisProvider({
     revisionId: loaded?.kind === "contract" ? loaded.revision.revisionId : null,
     ports: aiPorts,
   });
+  // The save callback is defined before the controller exists, so the refresh
+  // is reached through a ref rather than by reordering the provider.
+  useEffect(() => {
+    aiRefreshRef.current = ai.refresh;
+  }, [ai.refresh]);
 
   /** True from confirmation until the finalization request resolves. */
   const [finalizing, setFinalizing] = useState(false);

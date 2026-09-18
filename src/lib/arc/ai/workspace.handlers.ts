@@ -22,6 +22,15 @@
 
 import { presentAiFailure, type AiFailurePresentation } from "./failure-presentation";
 import {
+  sanitizeFieldProvenance,
+  sanitizeObjectProvenance,
+  toAiReviewItemDtos,
+  type AiFieldProvenanceDto,
+  type AiObjectProvenanceDto,
+  type AiReviewItemDto,
+} from "./review-dto";
+import type { AiReviewItem } from "./review-state";
+import {
   acknowledgeStaleSourcesHandler,
   affirmReviewItemHandler,
   resolveReviewIssueHandler,
@@ -98,6 +107,23 @@ export interface AiWorkspaceStateDto {
    */
   sourceSetFingerprint: string | null;
   reviewIssueCount: number;
+  /**
+   * Phase 9G — Task 7. The current normalized review items, projected to
+   * presentation facts only. Empty whenever the persisted payload could not be
+   * read completely: a partially readable sidecar is never presented as a
+   * shorter, reassuring review list.
+   */
+  reviewItems: AiReviewItemDto[];
+  /**
+   * True when any persisted review entry failed normalization. Review actions
+   * are unavailable and finalization stays fail-closed while it is true; the
+   * payload is never repaired from the browser.
+   */
+  reviewPayloadMalformed: boolean;
+  /** Validated presentation provenance, keyed by canonical field key. */
+  fieldProvenance: Record<string, AiFieldProvenanceDto>;
+  /** Validated presentation provenance, keyed by canonical object key. */
+  objectProvenance: Record<string, AiObjectProvenanceDto>;
   staleSourceAcknowledged: boolean;
   allowance: AiWorkspaceAllowanceDto;
   failure: AiFailurePresentation | null;
@@ -135,6 +161,17 @@ export interface AiWorkspaceSnapshot {
   hasIncludedSources: boolean;
   acknowledgedSourceFingerprint: string | null;
   outstandingReviewIssueCount: number;
+  /**
+   * Phase 9G — Task 7. The normalized review items, already read through the
+   * Task 1 normalizer by the store. Optional so a store that predates Task 7
+   * simply reports no review model rather than an unreadable one.
+   */
+  reviewItems?: AiReviewItem[];
+  /** True when any persisted review entry failed normalization. */
+  reviewPayloadMalformed?: boolean;
+  /** Raw persisted provenance JSON. Validated here, never trusted as typed. */
+  fieldProvenance?: unknown;
+  objectProvenance?: unknown;
   /** Temporary workspaces only; null for a saved analysis. */
   guestWorkspaceExpiresAt: string | null;
 }
@@ -272,6 +309,16 @@ export async function aiWorkspaceStateHandler(
     hasIncludedSources: snapshot.hasIncludedSources,
     sourceSetFingerprint: snapshot.currentSourceSetFingerprint,
     reviewIssueCount: snapshot.outstandingReviewIssueCount,
+    // Fail closed: a payload that could not be read completely presents no
+    // review items at all, so no review action can be offered against a
+    // partially understood sidecar.
+    reviewItems:
+      snapshot.reviewPayloadMalformed === true
+        ? []
+        : toAiReviewItemDtos(snapshot.reviewItems ?? []),
+    reviewPayloadMalformed: snapshot.reviewPayloadMalformed === true,
+    fieldProvenance: sanitizeFieldProvenance(snapshot.fieldProvenance),
+    objectProvenance: sanitizeObjectProvenance(snapshot.objectProvenance),
     staleSourceAcknowledged:
       snapshot.acknowledgedSourceFingerprint !== null &&
       snapshot.acknowledgedSourceFingerprint === snapshot.currentSourceSetFingerprint,

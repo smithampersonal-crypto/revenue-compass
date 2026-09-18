@@ -28,6 +28,7 @@ export const Route = createFileRoute("/analysis")({
     save?: string;
     upload?: string;
     customer?: string;
+    review?: string;
   } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
@@ -40,6 +41,10 @@ export const Route = createFileRoute("/analysis")({
     // A preselection hint for the save panel only. It is never authorization:
     // the save transaction re-checks that the caller owns the customer.
     ...(typeof search["customer"] === "string" ? { customer: search["customer"] } : {}),
+    // Phase 9G — Task 7. A one-shot intent to open one AI review target. It
+    // names a review item only; it can never change accounting identity, and
+    // it is consumed as soon as the target has been opened.
+    ...(typeof search["review"] === "string" ? { review: search["review"] } : {}),
   }),
   beforeLoad: ({ search, location }) => {
     if (search.sample && (search.contract || search.revision)) {
