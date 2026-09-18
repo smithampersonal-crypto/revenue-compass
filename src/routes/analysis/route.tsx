@@ -165,6 +165,13 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
 
         <AiAnalysisAction ai={ai} onAddSources={openSourceUpload} />
 
+        {/*
+          Phase 9G — Task 8. One workspace-level source-freshness notice for
+          every analysis area. Re-analysis stays the Task 6 CTA above; this
+          only records and explains a source change.
+        */}
+        <AiSourceFreshnessNotice ai={ai} />
+
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a
           // fresh run of the current engine against the same inputs.
