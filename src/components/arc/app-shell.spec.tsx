@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { QueryClient } from "@tanstack/react-query";
 import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/react-router";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
