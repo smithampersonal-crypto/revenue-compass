@@ -174,16 +174,12 @@ function GuidanceDialog({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceCo
   );
 }
 
-function GuidanceList({ label, items }: { label: string; items: readonly string[] }) {
-  if (items.length === 0) return null;
+function GuidanceList({ label, items }: { label: string; items: string }) {
+  if (items.trim() === "") return null;
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <ul className="list-disc pl-4 text-xs">
-        {items.map((entry) => (
-          <li key={entry}>{entry}</li>
-        ))}
-      </ul>
+      <p className="whitespace-pre-line text-xs">{items}</p>
     </div>
   );
 }
