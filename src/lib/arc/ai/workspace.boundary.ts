@@ -149,6 +149,25 @@ export function parseReviewNote(input: { note?: unknown }): string | null {
   return trimmed;
 }
 
+/**
+ * Task 9A. The ordinal of the citation the accountant clicked. It addresses a
+ * position in the item the server itself re-reads; it is never a document id.
+ */
+export function parseCitationIndex(input: { citationIndex?: unknown }): number {
+  const value = input?.citationIndex;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 50) {
+    refuse(AI_EVIDENCE_UNAVAILABLE);
+  }
+  return value;
+}
+
+/** Task 9C. The run the accountant confirmed the restore against. */
+export function parseRestoreRunId(input: { expectedRunId?: unknown }): string {
+  const value = input?.expectedRunId;
+  if (typeof value !== "string" || !UUID.test(value)) refuse(AI_RESTORE_UNAVAILABLE);
+  return value;
+}
+
 /* --------------------------------------------------- error sanitising */
 
 /** Settled copy only. An unrecognised message is replaced, never rewritten. */
