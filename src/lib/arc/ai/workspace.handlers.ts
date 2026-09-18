@@ -188,6 +188,18 @@ export interface AiWorkspaceStore extends AiReviewActionStore {
     revisionId: string | null;
     guestWorkspaceId: string | null;
   }): Promise<AiWorkspaceRunRecord | null>;
+  /**
+   * Phase 9G — Task 9C. Trusted facts about the run a restore would undo.
+   * Optional so a store that predates Task 9 simply offers no restore rather
+   * than an unverified one.
+   */
+  loadRestoreCandidate?(caller: AiCallerScope, runId: string): Promise<AiRestoreCandidate | null>;
+  restorePreAiRun?(args: {
+    runId: string;
+    ownerUserId: string | null;
+    guestTokenHash: string | null;
+    expectedLockVersion: number;
+  }): Promise<{ lockVersion: number; idempotent: boolean }>;
 }
 
 export interface AiWorkspaceDeps extends Omit<AiRunDeps, "store"> {
