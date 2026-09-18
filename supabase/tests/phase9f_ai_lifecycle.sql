@@ -84,6 +84,7 @@ declare
   v_value text;
   v_month date := date_trunc('month', now() at time zone 'utc')::date;
   v_sources jsonb;
+  v_fp text;
   v_guidance jsonb;
   ok boolean;
 begin
@@ -125,6 +126,10 @@ begin
   values (v_contract, 'arc-source-documents', 'c/2.pdf', '2.pdf', 'Amendment', repeat('2', 64), 120, 2)
     returning id into v_doc2;
 
+  -- Restore is only exact while the selected source set is still the one the
+  -- run analyzed, so every run below carries the real fingerprint.
+  v_fp := public.arc_ai_source_set_fingerprint(v_rev, null);
+
   v_sources := jsonb_build_array(jsonb_build_object(
     'source_document_id', v_doc, 'position', 0, 'sha256', repeat('1', 64),
     'byte_size', 100, 'page_count', 4));
@@ -139,7 +144,7 @@ begin
   select lock_version into v_lock from public.analysis_revisions where id = v_rev;
   v_run := gen_random_uuid();
   perform public.arc_create_ai_run(v_run, v_user, null, v_rev, null, v_lock, 'authenticated',
-                                   'fp-9f', '{"origin":"accountant"}'::jsonb, null,
+                                   v_fp, '{"origin":"accountant"}'::jsonb, null,
                                    'gpt-5.6-terra', 'high', 'p9f', 's1', 'h9f');
 
   v_claimed := public.arc_advance_ai_run_stage(v_run, 'created', 'extracting');
@@ -168,7 +173,7 @@ begin
 
   /* ------------------------------------------------ preflight (09-11) */
 
-  v_recorded := public.arc_record_ai_preflight(v_run, 'fp-9f', v_sources, v_guidance, 1, 4, 4321);
+  v_recorded := public.arc_record_ai_preflight(v_run, v_fp, v_sources, v_guidance, 1, 4, 4321);
   insert into arc_test_results
   select '09 preflight records source and Guidance provenance atomically',
          v_recorded
@@ -177,7 +182,7 @@ begin
      and (select count(*) from public.ai_run_sources where run_id = v_run) = 1
      and (select count(*) from public.ai_run_guidance where run_id = v_run) = 2;
 
-  v_recorded := public.arc_record_ai_preflight(v_run, 'fp-9f', v_sources, v_guidance, 1, 4, 4321);
+  v_recorded := public.arc_record_ai_preflight(v_run, v_fp, v_sources, v_guidance, 1, 4, 4321);
   insert into arc_test_results
   select '10 an identical preflight retry duplicates nothing',
          v_recorded is false
@@ -185,7 +190,7 @@ begin
      and (select count(*) from public.ai_run_guidance where run_id = v_run) = 2;
 
   begin
-    perform public.arc_record_ai_preflight(v_run, 'fp-9f', v_sources, v_guidance, 1, 4, 9999);
+    perform public.arc_record_ai_preflight(v_run, v_fp, v_sources, v_guidance, 1, 4, 9999);
     ok := false;
   exception when others then ok := true;
   end;
@@ -225,7 +230,7 @@ begin
                                                   'objectProvenance', '{}'::jsonb,
                                                   'tombstones', '[]'::jsonb,
                                                   'reviewItems', '[]'::jsonb),
-                               'fp-9f', '{"analysis":true}'::jsonb, '{"tokens":1}'::jsonb, 2);
+                               v_fp, '{"analysis":true}'::jsonb, '{"tokens":1}'::jsonb, 2);
 
   insert into arc_test_results
   select '14 an apply with sourceState current writes TEXT source state',
@@ -248,7 +253,7 @@ begin
   from public.arc_apply_ai_run(v_run, v_user, null, v_lock,
                                '{"origin":"ai-again"}'::jsonb, 'arc.workflow.v1',
                                jsonb_build_object('sourceState', 'current'),
-                               'fp-9f', '{"analysis":true}'::jsonb, '{"tokens":1}'::jsonb, 2);
+                               v_fp, '{"analysis":true}'::jsonb, '{"tokens":1}'::jsonb, 2);
   insert into arc_test_results
   select '17 a response-loss apply retry reports the committed outcome without reapplying',
          v_idem
@@ -260,12 +265,12 @@ begin
   insert into public.ai_runs (id, revision_id, quota_scope, stage, source_set_fingerprint,
                               pre_run_canonical_inputs, model, reasoning_effort, prompt_version,
                               output_schema_version, guidance_registry_hash, owner_user_id)
-  values (v_run2, v_rev, 'authenticated', 'applying', 'fp-9f', '{"origin":"ai"}'::jsonb,
+  values (v_run2, v_rev, 'authenticated', 'applying', v_fp, '{"origin":"ai"}'::jsonb,
           'm', 'high', 'p9f', 's1', 'h9f', v_user);
   begin
     perform public.arc_apply_ai_run(v_run2, v_user, null, 0, '{"origin":"stale"}'::jsonb,
                                     'arc.workflow.v1', jsonb_build_object('sourceState', 'current'),
-                                    'fp-9f', '{}'::jsonb, '{}'::jsonb, 0);
+                                    v_fp, '{}'::jsonb, '{}'::jsonb, 0);
     ok := false;
   exception when others then ok := (sqlstate = '40001');
   end;
@@ -279,7 +284,7 @@ begin
                                     (select lock_version from public.analysis_revisions where id = v_rev),
                                     '{"origin":"thief"}'::jsonb, 'arc.workflow.v1',
                                     jsonb_build_object('sourceState', 'current'),
-                                    'fp-9f', '{}'::jsonb, '{}'::jsonb, 0);
+                                    v_fp, '{}'::jsonb, '{}'::jsonb, 0);
     ok := false;
   exception when others then ok := true;
   end;
@@ -330,10 +335,13 @@ begin
                                 pre_run_canonical_inputs, pre_run_ai_state, model, reasoning_effort,
                                 prompt_version, output_schema_version, guidance_registry_hash,
                                 owner_user_id, openai_started_at, completed_at)
-    values (v_run2, v_rev, 'authenticated', 'succeeded', 'fp-9f', '{"origin":"accountant"}'::jsonb,
-            jsonb_build_object('sourceState', v_value, 'sourceSetFingerprint', 'fp-prior',
-                               'fieldProvenance', '{}'::jsonb, 'objectProvenance', '{}'::jsonb,
-                               'tombstones', '[]'::jsonb, 'reviewItems', '[]'::jsonb),
+    values (v_run2, v_rev, 'authenticated', 'succeeded', v_fp, '{"origin":"accountant"}'::jsonb,
+            jsonb_build_object('source_state', v_value, 'source_set_fingerprint', 'fp-prior',
+                               'field_provenance', '{}'::jsonb, 'object_provenance', '{}'::jsonb,
+                               'tombstones', '[]'::jsonb, 'review_items', '[]'::jsonb,
+                               'acknowledged_source_fingerprint', null,
+                               'source_acknowledged_at', null,
+                               'source_acknowledged_by', null),
             'm', 'high', 'p9f', 's1', 'h9f', v_user, now(), now());
 
     update public.ai_analysis_state

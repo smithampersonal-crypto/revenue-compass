@@ -130,6 +130,22 @@ begin
       using errcode = '42501';
   end if;
 
+  -- The canonical draft goes back to the exact pre-run snapshot (unchanged
+  -- from the original routine), under the same optimistic lock.
+  if v_run.revision_id is not null then
+    update public.analysis_revisions r
+       set canonical_inputs = v_run.pre_run_canonical_inputs,
+           lock_version = r.lock_version + 1
+     where r.id = v_run.revision_id
+       and r.lock_version = p_expected_lock_version;
+  else
+    update public.guest_workspaces g
+       set draft_json = v_run.pre_run_canonical_inputs,
+           lock_version = g.lock_version + 1
+     where g.id = v_run.guest_workspace_id
+       and g.lock_version = p_expected_lock_version;
+  end if;
+
   v_prior := v_run.pre_run_ai_state;
 
   -- A legacy snapshot cannot be restored exactly, so it is not restored at all.

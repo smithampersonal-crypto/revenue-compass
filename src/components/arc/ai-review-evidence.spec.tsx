@@ -29,7 +29,7 @@ const ITEM: AiReviewItemDto = {
   guidanceReferenceCount: 0,
   citations: [
     { pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." },
-    { pageStart: 7, pageEnd: 9, evidenceMode: "ocr", excerpt: null },
+    { pageStart: 7, pageEnd: 9, evidenceMode: "visual", excerpt: null },
   ],
   resolution: null,
 };

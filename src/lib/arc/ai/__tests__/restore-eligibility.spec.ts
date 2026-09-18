@@ -61,7 +61,7 @@ describe("restorableRunOf", () => {
       ["no successful run at all", { lastSuccessfulRunId: null, candidate: null }],
       ["a run that cannot be loaded", { candidate: null }],
       ["a run belonging to another scope", { candidate: candidate({ belongsToScope: false }) }],
-      ["a run that did not succeed", { candidate: candidate({ stage: "failed" }) }],
+      ["a run that did not succeed", { candidate: candidate({ stage: "api_failed" }) }],
       ["a run already undone", { candidate: candidate({ restoredAt: "2026-09-18T11:00:00.000Z" }) }],
       ["an older run than the current one", { lastSuccessfulRunId: "run-2" }],
       ["an unknown current source set", { currentSourceSetFingerprint: null }],
