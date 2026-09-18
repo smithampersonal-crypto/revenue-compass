@@ -42,7 +42,8 @@ export async function createAiReviewActionStore(): Promise<AiReviewActionStore> 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // The Phase 9G routines are newer than the generated database types, so the
   // call surface is narrowed locally instead of being typed against them.
-  const rpc = supabaseAdmin.rpc as unknown as (
+  // Keep the method bound to the client; a detached `rpc` loses `this`.
+  const rpc = supabaseAdmin.rpc.bind(supabaseAdmin) as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: CodedError | null }>;

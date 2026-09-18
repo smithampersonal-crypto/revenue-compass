@@ -55,7 +55,10 @@ export async function createAutosaveReconciliationStore(
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // The Phase 9G routines are newer than the generated database types, so the
   // call surface is narrowed locally instead of being typed against them.
-  const rpc = supabaseAdmin.rpc as unknown as (
+  // The method MUST stay bound to the client: a detached `supabaseAdmin.rpc`
+  // loses `this` and throws "Cannot read properties of undefined (reading
+  // 'rest')" on the first call.
+  const rpc = supabaseAdmin.rpc.bind(supabaseAdmin) as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: CodedError | null }>;
