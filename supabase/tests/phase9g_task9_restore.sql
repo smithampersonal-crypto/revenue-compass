@@ -132,19 +132,19 @@ begin
 
   insert into arc_test_results
   select '04 restore puts back every recorded sidecar field, not a default',
-         v_state.source_state = 'stale'
-     and v_state.source_set_fingerprint = 'fp-prior'
+         v_state.source_state is not distinct from 'stale'
+     and v_state.source_set_fingerprint is not distinct from 'fp-prior'
      and v_state.last_successful_run_id is null
-     and v_state.field_provenance = jsonb_build_object('a', 'ai')
-     and v_state.object_provenance = jsonb_build_object('po-1', 'ai')
-     and v_state.tombstones = jsonb_build_array('po-9')
-     and v_state.review_items = jsonb_build_array(jsonb_build_object('id', 'r1'));
+     and v_state.field_provenance is not distinct from jsonb_build_object('a', 'ai')
+     and v_state.object_provenance is not distinct from jsonb_build_object('po-1', 'ai')
+     and v_state.tombstones is not distinct from jsonb_build_array('po-9')
+     and v_state.review_items is not distinct from jsonb_build_array(jsonb_build_object('id', 'r1'));
 
   insert into arc_test_results
   select '05 restore puts back the three stale-source acknowledgment fields',
-         v_state.acknowledged_source_fingerprint = 'fp-acked'
-     and v_state.source_acknowledged_at = v_ack_at
-     and v_state.source_acknowledged_by = v_user;
+         v_state.acknowledged_source_fingerprint is not distinct from 'fp-acked'
+     and v_state.source_acknowledged_at is not distinct from v_ack_at
+     and v_state.source_acknowledged_by is not distinct from v_user;
 
   insert into arc_test_results
   select '06 restore stamps the run as restored and leaves run history alone',
@@ -186,7 +186,7 @@ begin
          v_state.acknowledged_source_fingerprint is null
      and v_state.source_acknowledged_at is null
      and v_state.source_acknowledged_by is null
-     and v_state.source_state = 'none';
+     and v_state.source_state is not distinct from 'none';
 
   /* ------------------------------------------ first-run: no sidecar at all (09) */
 
