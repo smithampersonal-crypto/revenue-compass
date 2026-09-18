@@ -161,8 +161,10 @@ describe("Task 7 safe review read model", () => {
     expect(state.fieldProvenance).toEqual({
       "contract.customerName": { state: "ai_generated_untouched" },
     });
+    // The browser-safe map is keyed by canonical id; the persisted semantic
+    // key must never cross the trust boundary, not even as a property name.
     expect(state.objectProvenance).toEqual({
-      "po:po-saas": {
+      "po-saas": {
         canonicalId: "po-saas",
         state: "ai_generated_user_edited",
         userModified: true,
