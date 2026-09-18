@@ -16,6 +16,7 @@ export function AccordionSection({
   title,
   subtitle,
   status,
+  aiReviewStatus,
   open,
   onToggle,
   children,
@@ -25,6 +26,11 @@ export function AccordionSection({
   subtitle?: string;
   /** Restrained textual status, e.g. "2 issues". */
   status?: string | null;
+  /**
+   * Phase 9G — Task 7. AI review items in this section, kept in its own badge
+   * so it is never added to or confused with the deterministic issue count.
+   */
+  aiReviewStatus?: string | null;
   open: boolean;
   onToggle: (open: boolean) => void;
   children: ReactNode;
