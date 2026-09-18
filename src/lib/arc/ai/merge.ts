@@ -1359,10 +1359,17 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
   const derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null;
   const proposedCents = proposedFixed === null ? null : exactCents(proposedFixed);
-  const derivedOverride =
-    derivedTotal !== null &&
+  // ARC only corrects the one unambiguous defect: the model reported a single
+  // PERIOD's fee as the contract total. Any other disagreement between the
+  // model's amount and a derived schedule is left to the accountant, because a
+  // schedule may legitimately cover only part of the consideration.
+  const reportedOnePeriod =
+    fixedDerivation.ok &&
+    fixedDerivation.eventCount > 1 &&
     proposedCents !== null &&
-    exactCents(derivedTotal) !== proposedCents
+    exactCents(fixedDerivation.amountInput) === proposedCents;
+  const derivedOverride =
+    reportedOnePeriod && derivedTotal !== null && exactCents(derivedTotal) !== proposedCents
       ? derivedTotal
       : null;
   const fixed = derivedOverride ?? proposedFixed;
