@@ -15,6 +15,7 @@ import {
   describeReviewTarget,
   provenanceBadgeLabel,
   resolutionSummary,
+  aiReviewFinalizeBlock,
   reviewSectionLabel,
   reviewStateLabel,
   reviewTargetAnchorId,
@@ -196,5 +197,30 @@ describe("Task 7 provenance badges", () => {
   it("never badges ordinary manual or historical accounting input", () => {
     expect(provenanceBadgeLabel("manual_from_start")).toBeNull();
     expect(provenanceBadgeLabel("prior_finalized")).toBeNull();
+  });
+});
+
+describe("aiReviewFinalizeBlock", () => {
+  const base = { hasAnalysis: true, reviewPayloadMalformed: false, reviewItems: [] as { state: string }[] };
+
+  it("never blocks when AI was never run", () => {
+    expect(aiReviewFinalizeBlock({ ...base, hasAnalysis: false })).toBeNull();
+    expect(aiReviewFinalizeBlock(null)).toBeNull();
+  });
+
+  it("does not block when every AI review item is resolved", () => {
+    expect(aiReviewFinalizeBlock({ ...base, reviewItems: [{ state: "resolved" }] })).toBeNull();
+  });
+
+  it("blocks on outstanding review items", () => {
+    expect(
+      aiReviewFinalizeBlock({ ...base, reviewItems: [{ state: "red" }, { state: "resolved" }] }),
+    ).toMatch(/1 AI review item/);
+  });
+
+  it("blocks when the persisted review state could not be read", () => {
+    expect(aiReviewFinalizeBlock({ ...base, reviewPayloadMalformed: true })).toMatch(
+      /could not be read/i,
+    );
   });
 });
