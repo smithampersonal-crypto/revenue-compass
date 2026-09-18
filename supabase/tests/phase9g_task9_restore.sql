@@ -323,7 +323,7 @@ begin
   end;
   insert into arc_test_results values (
     '16 a restore is refused while another AI analysis is running', ok);
-  update public.ai_runs set stage = 'failed', failure_stage = 'analyzing',
+  update public.ai_runs set stage = 'api_failed', failure_stage = 'analyzing',
          failure_category = 'test', failure_code = 'test', safe_message = 'test'
    where id = v_run;
 
