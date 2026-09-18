@@ -225,7 +225,9 @@ describe("AiReviewPanel", () => {
     );
     render(<AiReviewPanel ai={ai} />);
     await userEvent.click(screen.getByRole("button", { name: /^Resolve$/ }));
-    await userEvent.click(await screen.findByRole("radio", { name: /reviewed current treatment/i }));
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /reviewed current treatment/i }),
+    );
     const submit = screen.getByRole("button", { name: /record resolution/i });
     await userEvent.click(submit);
     await userEvent.click(submit);

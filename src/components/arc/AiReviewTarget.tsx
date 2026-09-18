@@ -1,6 +1,10 @@
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { AiFieldProvenanceDto, AiObjectProvenanceDto, AiReviewItemDto } from "@/lib/arc/ai/review-dto";
+import type {
+  AiFieldProvenanceDto,
+  AiObjectProvenanceDto,
+  AiReviewItemDto,
+} from "@/lib/arc/ai/review-dto";
 import {
   provenanceBadgeLabel,
   reviewMarkerLabel,
@@ -49,8 +53,9 @@ export function AiReviewTarget({
   const anchorId = reviewTargetAnchorId(targetKey);
 
   const openItem =
-    workspace?.reviewItems.find((item) => item.targetKey === targetKey && item.state !== "resolved") ??
-    null;
+    workspace?.reviewItems.find(
+      (item) => item.targetKey === targetKey && item.state !== "resolved",
+    ) ?? null;
   const marker = openItem === null ? null : reviewMarkerLabel(openItem.severity);
 
   const provenanceState =

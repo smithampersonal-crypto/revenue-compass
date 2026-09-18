@@ -170,4 +170,3 @@ export function sanitizeObjectProvenance(raw: unknown): Record<string, AiObjectP
   }
   return safe;
 }
-

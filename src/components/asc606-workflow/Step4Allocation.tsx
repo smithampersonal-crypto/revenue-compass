@@ -87,14 +87,14 @@ export function Step4Allocation({
               className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
             >
               <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
-              <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
-                <input
-                  className={inputClass}
-                  inputMode="decimal"
-                  value={po.sspInput}
-                  onChange={(e) => patch(po.id, { sspInput: e.target.value })}
-                />
-              </Field>
+                <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
+                  <input
+                    className={inputClass}
+                    inputMode="decimal"
+                    value={po.sspInput}
+                    onChange={(e) => patch(po.id, { sspInput: e.target.value })}
+                  />
+                </Field>
               </AiReviewTarget>
               <Field label="SSP basis / documentation">
                 <textarea

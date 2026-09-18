@@ -187,12 +187,7 @@ function ReviewItemRow({
             Confirm
           </Button>
         ) : resolving ? null : (
-          <Button
-            type="button"
-            size="sm"
-            disabled={actionBusy}
-            onClick={() => setResolving(true)}
-          >
+          <Button type="button" size="sm" disabled={actionBusy} onClick={() => setResolving(true)}>
             Resolve
           </Button>
         )}

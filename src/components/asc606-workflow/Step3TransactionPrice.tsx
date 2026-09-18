@@ -233,24 +233,24 @@ export function Step3TransactionPrice({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <AiReviewTarget targetKey="transactionPrice.input">
-        <Field label="Fixed consideration (USD)" hint="Example: 120,000.00">
-          <input
-            className={inputClass}
-            inputMode="decimal"
-            value={draft.transactionPriceInput}
-            onChange={(e) => onChange({ ...draft, transactionPriceInput: e.target.value })}
-          />
-        </Field>
+          <Field label="Fixed consideration (USD)" hint="Example: 120,000.00">
+            <input
+              className={inputClass}
+              inputMode="decimal"
+              value={draft.transactionPriceInput}
+              onChange={(e) => onChange({ ...draft, transactionPriceInput: e.target.value })}
+            />
+          </Field>
         </AiReviewTarget>
         <AiReviewTarget targetKey="transactionPrice.notes">
-        <Field label="Transaction price notes (optional)">
-          <textarea
-            className={inputClass}
-            rows={2}
-            value={draft.transactionPriceNotes}
-            onChange={(e) => onChange({ ...draft, transactionPriceNotes: e.target.value })}
-          />
-        </Field>
+          <Field label="Transaction price notes (optional)">
+            <textarea
+              className={inputClass}
+              rows={2}
+              value={draft.transactionPriceNotes}
+              onChange={(e) => onChange({ ...draft, transactionPriceNotes: e.target.value })}
+            />
+          </Field>
         </AiReviewTarget>
       </div>
 

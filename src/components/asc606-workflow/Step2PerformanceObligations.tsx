@@ -64,87 +64,89 @@ export function Step2PerformanceObligations({
 
         {pos.map((po) => (
           <AiReviewTarget key={po.id} targetKey={`po:${po.id}`} canonicalObjectId={po.id}>
-          <div className="space-y-3 rounded-md border border-border p-3">
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-semibold">Performance obligation {po.seq}</span>
-              <button
-                type="button"
-                className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
-                onClick={() => removePo(po.id)}
-              >
-                Remove
-              </button>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Obligation type">
-                <select
-                  className={inputClass}
-                  value={po.kind}
-                  onChange={(e) =>
-                    patch(po.id, { kind: e.target.value as PerformanceObligationKind })
-                  }
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold">Performance obligation {po.seq}</span>
+                <button
+                  type="button"
+                  className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                  onClick={() => removePo(po.id)}
                 >
-                  <option value="standard">Standard performance obligation</option>
-                  <option value="material_right">Material right (customer option)</option>
-                </select>
-              </Field>
-              <Field label="Name">
-                <input
-                  className={inputClass}
-                  value={po.name}
-                  onChange={(e) => patch(po.id, { name: e.target.value })}
-                />
-              </Field>
-              {po.kind === "material_right" ? (
-                <Field
-                  label="Underlying good or service obtained on exercise"
-                  hint="Named here so the lifecycle schedule can label the exercise segment."
-                >
-                  <input
-                    className={inputClass}
-                    value={po.underlyingGoodOrServiceName}
-                    onChange={(e) => patch(po.id, { underlyingGoodOrServiceName: e.target.value })}
-                  />
-                </Field>
-              ) : (
-                <AiReviewTarget targetKey={`po:${po.id}.classification`}>
-                <Field label="Classification">
+                  Remove
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Obligation type">
                   <select
                     className={inputClass}
-                    value={po.classification ?? ""}
+                    value={po.kind}
                     onChange={(e) =>
-                      patch(po.id, {
-                        classification: (e.target.value || null) as PoClassification | null,
-                      })
+                      patch(po.id, { kind: e.target.value as PerformanceObligationKind })
                     }
                   >
-                    <option value="">Select a classification…</option>
-                    {CLASSIFICATIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {PO_CLASSIFICATION_LABELS[c]}
-                      </option>
-                    ))}
+                    <option value="standard">Standard performance obligation</option>
+                    <option value="material_right">Material right (customer option)</option>
                   </select>
                 </Field>
-                </AiReviewTarget>
+                <Field label="Name">
+                  <input
+                    className={inputClass}
+                    value={po.name}
+                    onChange={(e) => patch(po.id, { name: e.target.value })}
+                  />
+                </Field>
+                {po.kind === "material_right" ? (
+                  <Field
+                    label="Underlying good or service obtained on exercise"
+                    hint="Named here so the lifecycle schedule can label the exercise segment."
+                  >
+                    <input
+                      className={inputClass}
+                      value={po.underlyingGoodOrServiceName}
+                      onChange={(e) =>
+                        patch(po.id, { underlyingGoodOrServiceName: e.target.value })
+                      }
+                    />
+                  </Field>
+                ) : (
+                  <AiReviewTarget targetKey={`po:${po.id}.classification`}>
+                    <Field label="Classification">
+                      <select
+                        className={inputClass}
+                        value={po.classification ?? ""}
+                        onChange={(e) =>
+                          patch(po.id, {
+                            classification: (e.target.value || null) as PoClassification | null,
+                          })
+                        }
+                      >
+                        <option value="">Select a classification…</option>
+                        {CLASSIFICATIONS.map((c) => (
+                          <option key={c} value={c}>
+                            {PO_CLASSIFICATION_LABELS[c]}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </AiReviewTarget>
+                )}
+              </div>
+              {po.kind === "material_right" ? (
+                <Notice>
+                  A material right is measured from your economic-benefit and exercise-probability
+                  judgments in Step 4; it is not classified as a distinct promise or a bundle.
+                </Notice>
+              ) : (
+                <Field label="Classification rationale">
+                  <textarea
+                    className={inputClass}
+                    rows={2}
+                    value={po.classificationRationale}
+                    onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
+                  />
+                </Field>
               )}
             </div>
-            {po.kind === "material_right" ? (
-              <Notice>
-                A material right is measured from your economic-benefit and exercise-probability
-                judgments in Step 4; it is not classified as a distinct promise or a bundle.
-              </Notice>
-            ) : (
-              <Field label="Classification rationale">
-                <textarea
-                  className={inputClass}
-                  rows={2}
-                  value={po.classificationRationale}
-                  onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
-                />
-              </Field>
-            )}
-          </div>
           </AiReviewTarget>
         ))}
 

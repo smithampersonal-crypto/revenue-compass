@@ -225,4 +225,3 @@ describe("object provenance never leaks the persisted semantic key", () => {
     expect(safe).toEqual({});
   });
 });
-

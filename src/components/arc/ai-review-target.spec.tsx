@@ -32,7 +32,10 @@ function harness(
   state: {
     reviewItems?: AiReviewItemDto[];
     fieldProvenance?: Record<string, { state: string }>;
-    objectProvenance?: Record<string, { canonicalId: string; state: string; userModified: boolean }>;
+    objectProvenance?: Record<
+      string,
+      { canonicalId: string; state: string; userModified: boolean }
+    >;
   },
   children: React.ReactNode,
 ) {

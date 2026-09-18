@@ -32,56 +32,56 @@ export function Step5Recognition({
   const recognitionFields = (po: PoDraft, label: string) => (
     <>
       <AiReviewTarget targetKey={`po:${po.id}.recognitionMethod`}>
-      <Field label={label}>
-        <select
-          className={inputClass}
-          value={po.recognitionMethod ?? ""}
-          onChange={(e) =>
-            patch(po.id, {
-              recognitionMethod: (e.target.value || null) as RecognitionMethod | null,
-            })
-          }
-        >
-          <option value="">Select a method…</option>
-          <option value="over_time_ratable">Over time — daily ratable</option>
-          <option value="point_in_time">Point in time</option>
-        </select>
-      </Field>
+        <Field label={label}>
+          <select
+            className={inputClass}
+            value={po.recognitionMethod ?? ""}
+            onChange={(e) =>
+              patch(po.id, {
+                recognitionMethod: (e.target.value || null) as RecognitionMethod | null,
+              })
+            }
+          >
+            <option value="">Select a method…</option>
+            <option value="over_time_ratable">Over time — daily ratable</option>
+            <option value="point_in_time">Point in time</option>
+          </select>
+        </Field>
       </AiReviewTarget>
 
       {po.recognitionMethod === "over_time_ratable" ? (
         <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Service start date (inclusive)">
-            <input
-              type="date"
-              className={inputClass}
-              value={po.serviceStart}
-              onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
-            />
-          </Field>
-          <Field label="Service end date (inclusive)">
-            <input
-              type="date"
-              className={inputClass}
-              value={po.serviceEnd}
-              onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
-            />
-          </Field>
-        </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Service start date (inclusive)">
+              <input
+                type="date"
+                className={inputClass}
+                value={po.serviceStart}
+                onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
+              />
+            </Field>
+            <Field label="Service end date (inclusive)">
+              <input
+                type="date"
+                className={inputClass}
+                value={po.serviceEnd}
+                onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
+              />
+            </Field>
+          </div>
         </AiReviewTarget>
       ) : null}
 
       {po.recognitionMethod === "point_in_time" ? (
         <AiReviewTarget targetKey={`po:${po.id}.recognitionDate`}>
-        <Field label="Recognition date">
-          <input
-            type="date"
-            className={inputClass}
-            value={po.recognitionDate}
-            onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
-          />
-        </Field>
+          <Field label="Recognition date">
+            <input
+              type="date"
+              className={inputClass}
+              value={po.recognitionDate}
+              onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
+            />
+          </Field>
         </AiReviewTarget>
       ) : null}
 

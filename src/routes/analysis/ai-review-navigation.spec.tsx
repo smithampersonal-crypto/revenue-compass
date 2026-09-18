@@ -148,7 +148,10 @@ describe("exact review navigation", () => {
     await waitFor(() => expect(scrolled).toContain(anchor));
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith(
-        expect.objectContaining({ replace: true, search: expect.not.objectContaining({ review: expect.anything() }) }),
+        expect.objectContaining({
+          replace: true,
+          search: expect.not.objectContaining({ review: expect.anything() }),
+        }),
       ),
     );
   });

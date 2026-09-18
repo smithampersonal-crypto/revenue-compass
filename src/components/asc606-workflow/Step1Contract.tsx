@@ -20,32 +20,32 @@ export function Step1Contract({
       <Section title="Contract Overview" description="Basic contract facts.">
         <div className="grid gap-4 sm:grid-cols-2">
           <AiReviewTarget targetKey="contract.customerName">
-          <Field label="Customer name">
-            <input
-              className={inputClass}
-              value={contract.customerName}
-              onChange={(e) => set({ customerName: e.target.value })}
-            />
-          </Field>
+            <Field label="Customer name">
+              <input
+                className={inputClass}
+                value={contract.customerName}
+                onChange={(e) => set({ customerName: e.target.value })}
+              />
+            </Field>
           </AiReviewTarget>
           <AiReviewTarget targetKey="contract.contractNumber">
-          <Field label="Contract number / reference">
-            <input
-              className={inputClass}
-              value={contract.contractNumber}
-              onChange={(e) => set({ contractNumber: e.target.value })}
-            />
-          </Field>
+            <Field label="Contract number / reference">
+              <input
+                className={inputClass}
+                value={contract.contractNumber}
+                onChange={(e) => set({ contractNumber: e.target.value })}
+              />
+            </Field>
           </AiReviewTarget>
           <AiReviewTarget targetKey="contract.executionDate">
-          <Field label="Contract execution / effective date (optional)">
-            <input
-              type="date"
-              className={inputClass}
-              value={contract.executionDate}
-              onChange={(e) => set({ executionDate: e.target.value })}
-            />
-          </Field>
+            <Field label="Contract execution / effective date (optional)">
+              <input
+                type="date"
+                className={inputClass}
+                value={contract.executionDate}
+                onChange={(e) => set({ executionDate: e.target.value })}
+              />
+            </Field>
           </AiReviewTarget>
           <Field label="Currency" hint="Phase 2 supports USD only.">
             <input className={inputClass} value="USD" readOnly disabled />
@@ -67,36 +67,36 @@ export function Step1Contract({
               >
                 <p className="text-sm text-muted-foreground">{criterion.description}</p>
                 <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.answer`}>
-                <JudgmentControl
-                  name={`criterion-${criterion.id}`}
-                  legend={criterion.label}
-                  value={answer.answer}
-                  onChange={(value) =>
-                    set({
-                      criteria: {
-                        ...contract.criteria,
-                        [criterion.id]: { ...answer, answer: value },
-                      },
-                    })
-                  }
-                />
-                </AiReviewTarget>
-                <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.rationale`}>
-                <Field label="Rationale / comment">
-                  <textarea
-                    className={inputClass}
-                    rows={2}
-                    value={answer.rationale}
-                    onChange={(e) =>
+                  <JudgmentControl
+                    name={`criterion-${criterion.id}`}
+                    legend={criterion.label}
+                    value={answer.answer}
+                    onChange={(value) =>
                       set({
                         criteria: {
                           ...contract.criteria,
-                          [criterion.id]: { ...answer, rationale: e.target.value },
+                          [criterion.id]: { ...answer, answer: value },
                         },
                       })
                     }
                   />
-                </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.rationale`}>
+                  <Field label="Rationale / comment">
+                    <textarea
+                      className={inputClass}
+                      rows={2}
+                      value={answer.rationale}
+                      onChange={(e) =>
+                        set({
+                          criteria: {
+                            ...contract.criteria,
+                            [criterion.id]: { ...answer, rationale: e.target.value },
+                          },
+                        })
+                      }
+                    />
+                  </Field>
                 </AiReviewTarget>
               </div>
             );
