@@ -126,6 +126,7 @@ export function Step2PerformanceObligations({
                     ))}
                   </select>
                 </Field>
+                </AiReviewTarget>
               )}
             </div>
             {po.kind === "material_right" ? (
