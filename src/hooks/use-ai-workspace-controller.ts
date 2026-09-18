@@ -118,6 +118,26 @@ export interface AiWorkspaceController {
     note?: string | null;
   }) => Promise<void>;
   acknowledgeStaleSources: () => Promise<void>;
+  /**
+   * Task 9A. Resolves to the ephemeral link, or `null` when the request was
+   * refused, superseded or already in flight for this exact citation. Nothing
+   * is stored: the caller opens it immediately and drops it.
+   */
+  openReviewEvidence: (input: {
+    reviewItemId: string;
+    expectedReviewFingerprint: string;
+    citationIndex: number;
+  }) => Promise<AiEvidenceLinkDto | null>;
+  /** Task 9B. Resolves to the approved cards, or `null` when unavailable. */
+  getReviewGuidance: (input: {
+    reviewItemId: string;
+    expectedReviewFingerprint: string;
+  }) => Promise<AiReviewGuidanceDto | null>;
+  /** Task 9C. Confirmed whole-run restore against the offered run. */
+  restoreAnalysis: (input: { expectedRunId: string }) => Promise<void>;
+  /** Keys currently in flight for evidence / guidance reads. */
+  pendingEvidence: ReadonlySet<string>;
+  restoring: boolean;
   refresh: () => Promise<void>;
 }
 
