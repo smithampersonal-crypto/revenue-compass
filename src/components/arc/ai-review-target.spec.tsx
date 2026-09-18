@@ -205,7 +205,13 @@ describe("AiReviewTarget", () => {
     harness(
       {
         reviewItems: [
-          { ...YELLOW, id: "r", targetKey: "vc:vc-1.meter.rateAmountInput", severity: "red", state: "red" },
+          {
+            ...YELLOW,
+            id: "r",
+            targetKey: "vc:vc-1.meter.rateAmountInput",
+            severity: "red",
+            state: "red",
+          },
         ],
       },
       <AiReviewTarget targetKey="vc:vc-1.meter.unit">

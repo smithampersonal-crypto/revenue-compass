@@ -511,83 +511,87 @@ export function Step3TransactionPrice({
                     const aiMeter = meter.id === `${component.id}-m1`;
                     const MeterField = aiMeter ? AiMeterField : PlainMeterField;
                     return (
-                    <div key={meter.id} className="grid gap-2 sm:grid-cols-5">
-                      <MeterField componentId={component.id} field="name">
-                      <Field label="Meter name">
-                        <input
-                          className={inputClass}
-                          value={meter.name}
-                          onChange={(e) =>
-                            patchComponent(component.id, {
-                              meters: component.meters.map((m) =>
-                                m.id === meter.id ? { ...m, name: e.target.value } : m,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      </MeterField>
-                      <MeterField componentId={component.id} field="rateAmountInput">
-                      <Field label="Rate amount (USD)">
-                        <input
-                          className={inputClass}
-                          inputMode="decimal"
-                          value={meter.rateAmountInput}
-                          onChange={(e) =>
-                            patchComponent(component.id, {
-                              meters: component.meters.map((m) =>
-                                m.id === meter.id ? { ...m, rateAmountInput: e.target.value } : m,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      </MeterField>
-                      <MeterField componentId={component.id} field="rateQuantityInput">
-                      <Field label="Per quantity">
-                        <input
-                          className={inputClass}
-                          inputMode="numeric"
-                          value={meter.rateQuantityInput}
-                          onChange={(e) =>
-                            patchComponent(component.id, {
-                              meters: component.meters.map((m) =>
-                                m.id === meter.id ? { ...m, rateQuantityInput: e.target.value } : m,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      </MeterField>
-                      <MeterField componentId={component.id} field="unit">
-                      <Field label="Unit">
-                        <input
-                          className={inputClass}
-                          value={meter.unit}
-                          onChange={(e) =>
-                            patchComponent(component.id, {
-                              meters: component.meters.map((m) =>
-                                m.id === meter.id ? { ...m, unit: e.target.value } : m,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      </MeterField>
-                      <div className="flex items-end">
-                        <button
-                          type="button"
-                          className={buttonClass}
-                          onClick={() =>
-                            patchComponent(component.id, {
-                              meters: component.meters.filter((m) => m.id !== meter.id),
-                            })
-                          }
-                        >
-                          Remove meter
-                        </button>
+                      <div key={meter.id} className="grid gap-2 sm:grid-cols-5">
+                        <MeterField componentId={component.id} field="name">
+                          <Field label="Meter name">
+                            <input
+                              className={inputClass}
+                              value={meter.name}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id ? { ...m, name: e.target.value } : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
+                        <MeterField componentId={component.id} field="rateAmountInput">
+                          <Field label="Rate amount (USD)">
+                            <input
+                              className={inputClass}
+                              inputMode="decimal"
+                              value={meter.rateAmountInput}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id
+                                      ? { ...m, rateAmountInput: e.target.value }
+                                      : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
+                        <MeterField componentId={component.id} field="rateQuantityInput">
+                          <Field label="Per quantity">
+                            <input
+                              className={inputClass}
+                              inputMode="numeric"
+                              value={meter.rateQuantityInput}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id
+                                      ? { ...m, rateQuantityInput: e.target.value }
+                                      : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
+                        <MeterField componentId={component.id} field="unit">
+                          <Field label="Unit">
+                            <input
+                              className={inputClass}
+                              value={meter.unit}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id ? { ...m, unit: e.target.value } : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            className={buttonClass}
+                            onClick={() =>
+                              patchComponent(component.id, {
+                                meters: component.meters.filter((m) => m.id !== meter.id),
+                              })
+                            }
+                          >
+                            Remove meter
+                          </button>
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                   <button

@@ -492,10 +492,7 @@ describe("deterministic AI meter fields are presented individually", () => {
 
   it("keeps two simultaneous meter review severities on their own controls", async () => {
     aiState = workspace({
-      reviewItems: [
-        reviewItem(UNIT, "step_3", "red"),
-        reviewItem(RATE, "step_3", "yellow"),
-      ],
+      reviewItems: [reviewItem(UNIT, "step_3", "red"), reviewItem(RATE, "step_3", "yellow")],
       reviewIssueCount: 2,
     });
     const { container } = renderArea();
@@ -508,10 +505,7 @@ describe("deterministic AI meter fields are presented individually", () => {
 
   it("does not depend on review item ordering", async () => {
     aiState = workspace({
-      reviewItems: [
-        reviewItem(RATE, "step_3", "yellow"),
-        reviewItem(UNIT, "step_3", "red"),
-      ],
+      reviewItems: [reviewItem(RATE, "step_3", "yellow"), reviewItem(UNIT, "step_3", "red")],
       reviewIssueCount: 2,
     });
     const { container } = renderArea();
@@ -547,9 +541,9 @@ describe("deterministic AI meter fields are presented individually", () => {
       `vc:${VC_USAGE}.meter.rateQuantityInput`,
       UNIT,
     ]) {
-      expect(
-        container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`).length,
-      ).toBe(1);
+      expect(container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`).length).toBe(
+        1,
+      );
     }
     const anchor = anchorOf(container, UNIT) as HTMLElement;
     expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
