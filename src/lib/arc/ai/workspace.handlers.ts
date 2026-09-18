@@ -323,6 +323,20 @@ export async function aiWorkspaceStateHandler(
       ? null
       : presented;
 
+  // Task 9C. The restore offer, decided entirely from persisted facts. A store
+  // without the Task 9 candidate read offers nothing at all.
+  const candidate =
+    deps.store.loadRestoreCandidate && snapshot.lastSuccessfulRunId !== null
+      ? await deps.store.loadRestoreCandidate(caller, snapshot.lastSuccessfulRunId)
+      : null;
+  const restorableRun = restorableRunOf({
+    editable: true,
+    activeRun: active !== null,
+    lastSuccessfulRunId: snapshot.lastSuccessfulRunId,
+    currentSourceSetFingerprint: snapshot.currentSourceSetFingerprint,
+    candidate,
+  });
+
   return {
     hasAnalysis,
     activeRun: active ? runDto(active) : null,
