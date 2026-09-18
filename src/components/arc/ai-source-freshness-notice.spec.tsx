@@ -63,7 +63,9 @@ describe("Task 8 source freshness notice", () => {
   });
 
   it("shows only a restrained status when the analysis matches the sources", () => {
-    render(<AiSourceFreshnessNotice ai={controller({ ...baseWorkspace, sourceState: "current" })} />);
+    render(
+      <AiSourceFreshnessNotice ai={controller({ ...baseWorkspace, sourceState: "current" })} />,
+    );
     expect(
       screen.getByText("AI analysis matches the currently selected source documents."),
     ).toBeInTheDocument();

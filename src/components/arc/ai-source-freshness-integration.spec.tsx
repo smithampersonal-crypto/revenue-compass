@@ -324,9 +324,7 @@ describe("Task 8 — saved analysis source freshness", () => {
     await screen.findByText(STALE_HEADLINE);
     await user.click(screen.getByRole("button", { name: "Re-analyze Contract" }));
 
-    expect(
-      await screen.findByText("The AI analysis could not be completed."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("The AI analysis could not be completed.")).toBeInTheDocument();
     expect(screen.getByText(STALE_HEADLINE)).toBeInTheDocument();
     expect(screen.getByRole("button", ACK_BUTTON)).toBeInTheDocument();
     expect(server.acknowledgements).toBe(0);
@@ -338,9 +336,7 @@ describe("Task 8 — saved analysis source freshness", () => {
 
     expect(await screen.findByText(STALE_HEADLINE)).toBeInTheDocument();
     // Task 6 still owns the primary CTA, which routes to the upload step.
-    expect(
-      screen.getByText(/No contract PDF is included yet/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No contract PDF is included yet/i)).toBeInTheDocument();
     expect(server.requests).toBe(0);
   });
 
