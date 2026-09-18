@@ -49,6 +49,29 @@ vi.mock("@/lib/arc/ai/workspace.functions", () => ({
   acknowledgeAiStaleSources: async () => aiState,
 }));
 
+vi.mock("@/lib/arc/persistence/guest.functions", () => ({
+  resumeGuestWorkspace: async () => ({
+    kind: "guest",
+    draft: createEmptyDraft(),
+    lockVersion: 1,
+    expiresAt: new Date(Date.now() + 9 * 3_600_000).toISOString(),
+    schemaVersion: "arc.workflow.v1",
+    resumed: false,
+  }),
+  saveGuestDraft: vi.fn(),
+  migrateGuestWorkspace: vi.fn(),
+}));
+
+vi.mock("@/lib/arc/persistence/revisions.functions", () => ({
+  loadContractAnalysis: vi.fn(),
+  saveDraftRevision: vi.fn(),
+}));
+
+vi.mock("@/components/arc/use-supabase-session", () => ({
+  useSupabaseSession: () => ({ status: "signed-out", email: null, userId: null }),
+}));
+
+const { createEmptyDraft } = await import("@/lib/asc606-workflow");
 const { AnalysisProvider } = await import("@/components/arc/analysis-context");
 const { Asc606AnalysisArea } = await import("./index");
 
@@ -90,7 +113,7 @@ function renderArea() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider sample={undefined}>
+      <AnalysisProvider sample={undefined} guest>
         <Asc606AnalysisArea />
       </AnalysisProvider>
     </QueryClientProvider>,
