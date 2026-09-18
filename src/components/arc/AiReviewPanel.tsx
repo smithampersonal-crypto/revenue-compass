@@ -11,7 +11,7 @@
  * persisted payload that could not be read completely offers no action at all.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle, CircleHelp, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -121,16 +121,25 @@ function ResolveForm({
 function ReviewItemRow({
   item,
   busy,
+  pendingItemId,
+  claim,
   ai,
   onOpenTarget,
 }: {
   item: AiReviewItemDto;
   busy: boolean;
+  /** Presentation-only single-flight ownership, owned by the panel. */
+  pendingItemId: string | null;
+  claim: (itemId: string, run: () => Promise<unknown>) => void;
   ai: AiWorkspaceController;
   onOpenTarget?: ((reviewItemId: string) => void) | undefined;
 }) {
   const [resolving, setResolving] = useState(false);
   const target = describeReviewTarget(item.targetKey, item.section);
+  // A review action already in flight must not be issued twice: the second
+  // request would carry a fingerprint the first one has already superseded.
+  const pendingHere = pendingItemId === item.id;
+  const actionBusy = busy || pendingItemId !== null;
 
   return (
     <li className="rounded-md border border-border p-3">
@@ -163,19 +172,27 @@ function ReviewItemRow({
           <Button
             type="button"
             size="sm"
-            disabled={busy}
+            disabled={actionBusy}
+            aria-busy={pendingHere}
             onClick={() => {
-              void ai.affirmReviewItem({
-                reviewItemId: item.id,
-                expectedReviewFingerprint: item.reviewFingerprint,
-                method: "individual",
+              claim(item.id, async () => {
+                await ai.affirmReviewItem({
+                  reviewItemId: item.id,
+                  expectedReviewFingerprint: item.reviewFingerprint,
+                  method: "individual",
+                });
               });
             }}
           >
             Confirm
           </Button>
         ) : resolving ? null : (
-          <Button type="button" size="sm" disabled={busy} onClick={() => setResolving(true)}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={actionBusy}
+            onClick={() => setResolving(true)}
+          >
             Resolve
           </Button>
         )}
@@ -184,16 +201,17 @@ function ReviewItemRow({
       {resolving ? (
         <ResolveForm
           item={item}
-          busy={busy}
+          busy={actionBusy}
           onCancel={() => setResolving(false)}
           onSubmit={({ reason, note }) => {
-            void ai.resolveReviewIssue({
-              reviewItemId: item.id,
-              expectedReviewFingerprint: item.reviewFingerprint,
-              reason,
-              note,
+            claim(item.id, async () => {
+              await ai.resolveReviewIssue({
+                reviewItemId: item.id,
+                expectedReviewFingerprint: item.reviewFingerprint,
+                reason,
+                note,
+              });
             });
-            setResolving(false);
           }}
         />
       ) : null}
@@ -212,6 +230,22 @@ export function AiReviewPanel({
    */
   onOpenTarget?: ((reviewItemId: string) => void) | undefined;
 }) {
+  // Presentation-only action ownership. It never marks an item resolved,
+  // never removes it optimistically and never authors a timestamp or a
+  // fingerprint: the refreshed authoritative workspace still decides.
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const pendingRef = useRef<string | null>(null);
+  const claim = (itemId: string, run: () => Promise<unknown>) => {
+    if (pendingRef.current !== null) return;
+    pendingRef.current = itemId;
+    setPendingItemId(itemId);
+    void Promise.resolve(run()).finally(() => {
+      if (pendingRef.current !== itemId) return;
+      pendingRef.current = null;
+      setPendingItemId(null);
+    });
+  };
+
   const workspace = ai.workspace;
   // Never run means nothing to review. The panel stays silent rather than
   // implying the accountant has an outstanding AI obligation.
@@ -244,6 +278,8 @@ export function AiReviewPanel({
                 key={item.id}
                 item={item}
                 busy={busy}
+                pendingItemId={pendingItemId}
+                claim={claim}
                 ai={ai}
                 onOpenTarget={onOpenTarget}
               />
