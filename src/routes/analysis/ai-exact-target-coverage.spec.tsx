@@ -270,6 +270,7 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
 
 beforeEach(() => {
   navigate.mockReset();
+  manualSecondMeter = false;
   aiState = workspace();
 });
 
