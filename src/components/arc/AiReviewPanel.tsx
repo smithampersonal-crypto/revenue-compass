@@ -18,9 +18,18 @@ import { Button } from "@/components/ui/button";
 import type { AiWorkspaceController } from "@/hooks/use-ai-workspace-controller";
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { AiGuidanceCardDto } from "@/lib/arc/ai/guidance-dto";
+import {
   MANUAL_RED_REASON_OPTIONS,
   REVIEW_NOTE_MAX_LENGTH,
   citationLabel,
+  citationOpenLabel,
   describeReviewTarget,
   resolutionSummary,
   reviewSectionLabel,
