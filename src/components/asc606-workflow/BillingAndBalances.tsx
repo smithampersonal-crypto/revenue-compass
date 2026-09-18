@@ -213,6 +213,7 @@ export function BillingAndBalances({
                 </Field>
               </div>
             </div>
+            </AiReviewTarget>
           ))}
           <button
             type="button"
@@ -315,6 +316,7 @@ export function BillingAndBalances({
                 </Field>
               </div>
             </div>
+            </AiReviewTarget>
           ))}
           <button
             type="button"
