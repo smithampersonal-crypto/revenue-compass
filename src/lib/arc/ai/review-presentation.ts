@@ -310,6 +310,13 @@ export function citationLabel(citation: AiReviewCitationDto): string {
     : `Source evidence — ${pages}`;
 }
 
+/** Task 9A. The deliberate "open the source" action label for one citation. */
+export function citationOpenLabel(citation: AiReviewCitationDto): string {
+  return citation.pageEnd > citation.pageStart
+    ? `Open source — pages ${citation.pageStart}–${citation.pageEnd}`
+    : `Open source — page ${citation.pageStart}`;
+}
+
 /* ------------------------------------------------------------ resolutions */
 
 export const MANUAL_RED_REASON_OPTIONS: ReadonlyArray<{

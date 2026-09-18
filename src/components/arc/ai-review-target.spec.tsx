@@ -24,6 +24,7 @@ const YELLOW: AiReviewItemDto = {
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the customer.",
   reviewFingerprint: "fp-yellow",
+  guidanceReferenceCount: 0,
   citations: [],
   resolution: null,
 };

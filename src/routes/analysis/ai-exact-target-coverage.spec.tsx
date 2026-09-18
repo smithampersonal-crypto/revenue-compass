@@ -182,6 +182,7 @@ function reviewItem(
     reasonCode: "accountant_affirmation_required",
     reason: "Confirm this conclusion.",
     reviewFingerprint: "fp-1",
+    guidanceReferenceCount: 0,
     citations: [],
     resolution: null,
   } as AiReviewItemDto;

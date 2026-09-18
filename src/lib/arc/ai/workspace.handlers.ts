@@ -29,6 +29,11 @@ import {
   type AiObjectProvenanceDto,
   type AiReviewItemDto,
 } from "./review-dto";
+import {
+  restorableRunOf,
+  type AiRestorableRunDto,
+  type AiRestoreCandidate,
+} from "./restore-eligibility";
 import type { AiReviewItem } from "./review-state";
 import {
   acknowledgeStaleSourcesHandler,
@@ -127,6 +132,12 @@ export interface AiWorkspaceStateDto {
   staleSourceAcknowledged: boolean;
   allowance: AiWorkspaceAllowanceDto;
   failure: AiFailurePresentation | null;
+  /**
+   * Phase 9G — Task 9C. The single AI run whose pre-run snapshot the server
+   * declares exactly restorable right now, or `null`. Eligibility is decided
+   * on the server from persisted facts; the browser only confirms it.
+   */
+  restorableRun: AiRestorableRunDto | null;
 }
 
 /**
@@ -182,6 +193,18 @@ export interface AiWorkspaceStore extends AiReviewActionStore {
     revisionId: string | null;
     guestWorkspaceId: string | null;
   }): Promise<AiWorkspaceRunRecord | null>;
+  /**
+   * Phase 9G — Task 9C. Trusted facts about the run a restore would undo.
+   * Optional so a store that predates Task 9 simply offers no restore rather
+   * than an unverified one.
+   */
+  loadRestoreCandidate?(caller: AiCallerScope, runId: string): Promise<AiRestoreCandidate | null>;
+  restorePreAiRun?(args: {
+    runId: string;
+    ownerUserId: string | null;
+    guestTokenHash: string | null;
+    expectedLockVersion: number;
+  }): Promise<{ lockVersion: number; idempotent: boolean }>;
 }
 
 export interface AiWorkspaceDeps extends Omit<AiRunDeps, "store"> {
@@ -300,6 +323,20 @@ export async function aiWorkspaceStateHandler(
       ? null
       : presented;
 
+  // Task 9C. The restore offer, decided entirely from persisted facts. A store
+  // without the Task 9 candidate read offers nothing at all.
+  const candidate =
+    deps.store.loadRestoreCandidate && snapshot.lastSuccessfulRunId !== null
+      ? await deps.store.loadRestoreCandidate(caller, snapshot.lastSuccessfulRunId)
+      : null;
+  const restorableRun = restorableRunOf({
+    editable: true,
+    activeRun: active !== null,
+    lastSuccessfulRunId: snapshot.lastSuccessfulRunId,
+    currentSourceSetFingerprint: snapshot.currentSourceSetFingerprint,
+    candidate,
+  });
+
   return {
     hasAnalysis,
     activeRun: active ? runDto(active) : null,
@@ -333,6 +370,7 @@ export async function aiWorkspaceStateHandler(
           : snapshot.guestWorkspaceExpiresAt,
     },
     failure,
+    restorableRun,
   };
 }
 

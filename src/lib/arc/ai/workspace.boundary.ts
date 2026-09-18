@@ -25,6 +25,11 @@ import {
   AI_REVIEW_NOTE_LIMIT,
   AI_REVIEW_NOTE_TOO_LONG,
 } from "./review-actions.handlers";
+import { AI_RESTORE_CONFLICT, AI_RESTORE_UNAVAILABLE } from "./restore.handlers";
+import {
+  AI_EVIDENCE_UNAVAILABLE,
+  AI_GUIDANCE_UNAVAILABLE,
+} from "./review-evidence.handlers";
 import { MANUAL_RED_REASONS as APPROVED_RED_REASONS } from "./review-state";
 import type { AiAffirmationMethod, ManualRedReason } from "./review-state";
 import { AI_RUN_NOT_AVAILABLE, AI_WORKSPACE_NOT_EDITABLE } from "./runs.handlers";
@@ -59,6 +64,12 @@ const SAFE_MESSAGES: ReadonlySet<string> = new Set<string>([
   AI_REVIEW_NOTE_TOO_LONG,
   AI_WORKSPACE_REQUEST_INVALID,
   AI_WORKSPACE_ACTION_FAILED,
+  // Task 9. Each is one settled message covering every way that action can be
+  // unavailable, so a refusal never becomes a probe.
+  AI_EVIDENCE_UNAVAILABLE,
+  AI_GUIDANCE_UNAVAILABLE,
+  AI_RESTORE_UNAVAILABLE,
+  AI_RESTORE_CONFLICT,
 ]);
 
 /**
@@ -136,6 +147,25 @@ export function parseReviewNote(input: { note?: unknown }): string | null {
   if (trimmed.length === 0) return null;
   if (trimmed.length > AI_REVIEW_NOTE_LIMIT) refuse(AI_REVIEW_NOTE_TOO_LONG);
   return trimmed;
+}
+
+/**
+ * Task 9A. The ordinal of the citation the accountant clicked. It addresses a
+ * position in the item the server itself re-reads; it is never a document id.
+ */
+export function parseCitationIndex(input: { citationIndex?: unknown }): number {
+  const value = input?.citationIndex;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 50) {
+    refuse(AI_EVIDENCE_UNAVAILABLE);
+  }
+  return value;
+}
+
+/** Task 9C. The run the accountant confirmed the restore against. */
+export function parseRestoreRunId(input: { expectedRunId?: unknown }): string {
+  const value = input?.expectedRunId;
+  if (typeof value !== "string" || !UUID.test(value)) refuse(AI_RESTORE_UNAVAILABLE);
+  return value;
 }
 
 /* --------------------------------------------------- error sanitising */

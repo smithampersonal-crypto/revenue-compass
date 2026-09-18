@@ -26,6 +26,7 @@ const baseWorkspace: AiWorkspaceStateDto = {
   staleSourceAcknowledged: false,
   allowance: { scope: "authenticated", limit: 10, used: 1, remaining: 9, resetAt: null },
   failure: null,
+  restorableRun: null,
 };
 
 function controller(
@@ -45,6 +46,11 @@ function controller(
     affirmReviewItem: vi.fn(async () => undefined),
     resolveReviewIssue: vi.fn(async () => undefined),
     acknowledgeStaleSources: vi.fn(async () => undefined),
+    openReviewEvidence: vi.fn(async () => null),
+    getReviewGuidance: vi.fn(async () => null),
+    restoreAnalysis: vi.fn(async () => undefined),
+    pendingEvidence: new Set<string>(),
+    restoring: false,
     refresh: vi.fn(async () => undefined),
     ...overrides,
   };

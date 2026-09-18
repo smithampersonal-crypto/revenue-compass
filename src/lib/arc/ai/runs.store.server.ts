@@ -28,9 +28,13 @@ import type {
   AiQuotaScope,
 } from "./runs.handlers";
 
+// Phase 9G — Task 9C. Every column the sidecar has, so the pre-run snapshot
+// captured here is exactly restorable: the three Task 2 acknowledgment fields
+// are part of the AI state a restore must put back, not incidental metadata.
 const AI_STATE_COLUMNS =
   "last_successful_run_id, source_set_fingerprint, source_state, field_provenance, " +
-  "object_provenance, tombstones, review_items, lock_version";
+  "object_provenance, tombstones, review_items, lock_version, " +
+  "acknowledged_source_fingerprint, source_acknowledged_at, source_acknowledged_by";
 
 const RUN_COLUMNS =
   "id, stage, revision_id, guest_workspace_id, owner_user_id, guest_token_hash, quota_scope, " +

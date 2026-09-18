@@ -26,6 +26,7 @@ const YELLOW: AiReviewItemDto = {
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the recognition pattern for the hosted platform.",
   reviewFingerprint: "fp-yellow",
+  guidanceReferenceCount: 0,
   citations: [{ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." }],
   resolution: null,
 };
@@ -39,6 +40,7 @@ const RED: AiReviewItemDto = {
   reasonCode: "source_conflict",
   reason: "The transaction price could not be supported by the contract.",
   reviewFingerprint: "fp-red",
+  guidanceReferenceCount: 0,
   citations: [],
   resolution: null,
 };
@@ -67,6 +69,7 @@ function workspace(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceSta
     staleSourceAcknowledged: false,
     allowance: { scope: "authenticated", limit: 10, used: 1, remaining: 9, resetAt: null },
     failure: null,
+    restorableRun: null,
     ...overrides,
   };
 }
@@ -85,6 +88,11 @@ function controller(state: AiWorkspaceStateDto | null): AiWorkspaceController {
     affirmReviewItem: vi.fn(async () => {}),
     resolveReviewIssue: vi.fn(async () => {}),
     acknowledgeStaleSources: vi.fn(async () => {}),
+    openReviewEvidence: vi.fn(async () => null),
+    getReviewGuidance: vi.fn(async () => null),
+    restoreAnalysis: vi.fn(async () => {}),
+    pendingEvidence: new Set<string>(),
+    restoring: false,
     refresh: vi.fn(async () => {}),
   } as unknown as AiWorkspaceController;
 }

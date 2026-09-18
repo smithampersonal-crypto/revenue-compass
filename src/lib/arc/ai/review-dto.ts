@@ -51,6 +51,12 @@ export interface AiReviewItemDto {
   reason: string;
   reviewFingerprint: string;
   citations: AiReviewCitationDto[];
+  /**
+   * Phase 9G — Task 9B. How many approved Guidance cards the server can show
+   * for this review point. A count only: no Guidance id, no registry hash, no
+   * retrieval tag and no inclusion reason crosses the boundary.
+   */
+  guidanceReferenceCount: number;
   resolution: AiReviewResolutionDto | null;
 }
 
@@ -97,6 +103,9 @@ export function toAiReviewItemDto(item: AiReviewItem): AiReviewItemDto {
       evidenceMode: citation.evidenceMode,
       excerpt: citation.excerpt,
     })),
+    // Availability only. The trusted ids stay server-side, where the Guidance
+    // action resolves them from the item itself.
+    guidanceReferenceCount: item.guidanceIds.length,
     resolution: resolutionDto(item),
   };
 }

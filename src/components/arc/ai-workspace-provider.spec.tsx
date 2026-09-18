@@ -38,6 +38,7 @@ const idle: AiWorkspaceStateDto = {
     resetAt: null,
   },
   failure: null,
+  restorableRun: null,
 };
 
 const active: AiWorkspaceStateDto = {

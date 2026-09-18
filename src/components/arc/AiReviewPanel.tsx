@@ -18,9 +18,18 @@ import { Button } from "@/components/ui/button";
 import type { AiWorkspaceController } from "@/hooks/use-ai-workspace-controller";
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { AiGuidanceCardDto } from "@/lib/arc/ai/guidance-dto";
+import {
   MANUAL_RED_REASON_OPTIONS,
   REVIEW_NOTE_MAX_LENGTH,
   citationLabel,
+  citationOpenLabel,
   describeReviewTarget,
   resolutionSummary,
   reviewSectionLabel,
@@ -30,24 +39,150 @@ import type { ManualRedReason } from "@/lib/arc/ai/review-state";
 
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
-function Citations({ item }: { item: AiReviewItemDto }) {
+/**
+ * Task 9A. Each citation offers a deliberate "open the source" action. The
+ * link itself is minted by the server for this request only: it is used
+ * immediately, opened in a disposable tab and never stored anywhere.
+ */
+function Citations({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceController }) {
   if (item.citations.length === 0) return null;
   return (
     <ul className="mt-2 space-y-1">
-      {item.citations.map((citation, index) => (
-        <li key={index} className="text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1 font-medium">
-            <FileText className="size-3" aria-hidden="true" />
-            {citationLabel(citation)}
-          </span>
-          {citation.excerpt ? (
-            <blockquote className="mt-1 border-l-2 border-border pl-2 italic">
-              {citation.excerpt}
-            </blockquote>
-          ) : null}
-        </li>
-      ))}
+      {item.citations.map((citation, index) => {
+        const pending = ai.pendingEvidence.has(`evidence:${item.id}:${index}`);
+        return (
+          <li key={index} className="text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 font-medium">
+              <FileText className="size-3" aria-hidden="true" />
+              {citationLabel(citation)}
+            </span>
+            {citation.excerpt ? (
+              <blockquote className="mt-1 border-l-2 border-border pl-2 italic">
+                {citation.excerpt}
+              </blockquote>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="link"
+              className="h-auto p-0 text-xs"
+              disabled={pending}
+              aria-busy={pending}
+              onClick={() => {
+                void ai
+                  .openReviewEvidence({
+                    reviewItemId: item.id,
+                    expectedReviewFingerprint: item.reviewFingerprint,
+                    citationIndex: index,
+                  })
+                  .then((link) => {
+                    if (!link) return;
+                    // The page fragment is the authoritative physical page the
+                    // server returned, never a locally computed offset.
+                    window.open(
+                      `${link.url}#page=${link.pageStart}`,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
+                  });
+              }}
+            >
+              {citationOpenLabel(citation)}
+            </Button>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+/**
+ * Task 9B. The approved guidance the analysis consulted for one item, shown
+ * only on request. Guidance is explanatory: it is never approval, and it never
+ * exposes how the analysis selected it.
+ */
+function GuidanceDialog({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceController }) {
+  const [open, setOpen] = useState(false);
+  const [cards, setCards] = useState<AiGuidanceCardDto[] | null>(null);
+  const pending = ai.pendingEvidence.has(`guidance:${item.id}`);
+
+  if (item.guidanceReferenceCount === 0) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        aria-busy={pending}
+        onClick={() => {
+          void ai
+            .getReviewGuidance({
+              reviewItemId: item.id,
+              expectedReviewFingerprint: item.reviewFingerprint,
+            })
+            .then((result) => {
+              if (!result) return;
+              setCards(result.cards);
+              setOpen(true);
+            });
+        }}
+      >
+        View guidance
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Guidance consulted</DialogTitle>
+            <DialogDescription>
+              Reference material only. You remain responsible for the accounting conclusion.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {(cards ?? []).map((card) => (
+              <article key={card.primaryAscReference + card.topic} className="space-y-2 text-sm">
+                <h4 className="font-semibold">{card.topic}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {[card.primaryAscReference, card.relatedAscReferences]
+                    .filter((reference) => reference.trim() !== "")
+                    .join(" · ")}
+                </p>
+                <p>{card.ruleSummary}</p>
+                <GuidanceList label="Decision criteria" items={card.decisionCriteria} />
+                <GuidanceList label="Facts required" items={card.factsRequired} />
+                <GuidanceList label="Nuances" items={card.importantNuances} />
+                <GuidanceList label="You must approve" items={card.accountantMustApprove} />
+                <p className="text-xs text-muted-foreground">
+                  {card.interpretiveSource} · last reviewed {card.lastReviewed}
+                </p>
+                {card.sourceUrls.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-xs underline"
+                  >
+                    {url}
+                  </a>
+                ))}
+              </article>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function GuidanceList({ label, items }: { label: string; items: string }) {
+  if (items.trim() === "") return null;
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="whitespace-pre-line text-xs">{items}</p>
+    </div>
   );
 }
 
@@ -160,7 +295,7 @@ function ReviewItemRow({
         </span>
       </div>
 
-      <Citations item={item} />
+      <Citations item={item} ai={ai} />
 
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpenTarget ? (
@@ -168,6 +303,7 @@ function ReviewItemRow({
             Go to {target.kind === "exact" ? "field" : "section"}
           </Button>
         ) : null}
+        <GuidanceDialog item={item} ai={ai} />
         {item.severity === "yellow" ? (
           <Button
             type="button"
