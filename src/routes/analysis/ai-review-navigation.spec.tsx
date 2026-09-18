@@ -8,7 +8,7 @@
  * authoritative workspace no longer has is consumed safely instead of hanging.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
@@ -172,5 +172,23 @@ describe("exact review navigation", () => {
         replace: true,
       }),
     );
+  });
+
+  it("gives a generic additional-topics item a real fallback target and its own count", async () => {
+    aiState = workspace({
+      reviewItems: [
+        {
+          ...CUSTOMER_ITEM,
+          id: "item-topic",
+          targetKey: "draft.additionalTopics",
+          section: "additional_topics",
+        },
+      ],
+      reviewIssueCount: 1,
+    });
+    const { container } = renderArea();
+    await waitFor(() => expect(container.querySelector("#additional-topics")).not.toBeNull());
+    // The AI count is presented separately from the deterministic issue status.
+    await waitFor(() => expect(screen.getByText("1 AI review")).toBeInTheDocument());
   });
 });
