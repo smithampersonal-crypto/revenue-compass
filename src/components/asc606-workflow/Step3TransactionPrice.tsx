@@ -484,18 +484,31 @@ export function Step3TransactionPrice({
                   </button>
                 </>
               ) : (
-                <AiReviewTarget
-                  targetKey={`vc:${component.id}.meter.rateAmountInput`}
-                  additionalTargetKeys={[
-                    `vc:${component.id}.meter.name`,
-                    `vc:${component.id}.meter.rateQuantityInput`,
-                    `vc:${component.id}.meter.unit`,
-                  ]}
-                  className="space-y-3"
-                >
+                <div className="space-y-3">
                   <p className="text-sm font-medium">Usage meters (fixed rate per quantity)</p>
-                  {component.meters.map((meter) => (
+                  {component.meters.map((meter) => {
+                    // The merge engine owns exactly one deterministic AI meter
+                    // per component. Only its fields carry AI targets, and each
+                    // field is its own presentation boundary so review severity
+                    // and provenance are never collapsed into a group badge.
+                    const aiMeter = meter.id === `${component.id}-m1`;
+                    const MeterField = ({
+                      field,
+                      children,
+                    }: {
+                      field: string;
+                      children: ReactNode;
+                    }) =>
+                      aiMeter ? (
+                        <AiReviewTarget targetKey={`vc:${component.id}.meter.${field}`}>
+                          {children}
+                        </AiReviewTarget>
+                      ) : (
+                        <>{children}</>
+                      );
+                    return (
                     <div key={meter.id} className="grid gap-2 sm:grid-cols-5">
+                      <MeterField field="name">
                       <Field label="Meter name">
                         <input
                           className={inputClass}
@@ -509,6 +522,8 @@ export function Step3TransactionPrice({
                           }
                         />
                       </Field>
+                      </MeterField>
+                      <MeterField field="rateAmountInput">
                       <Field label="Rate amount (USD)">
                         <input
                           className={inputClass}
@@ -523,6 +538,8 @@ export function Step3TransactionPrice({
                           }
                         />
                       </Field>
+                      </MeterField>
+                      <MeterField field="rateQuantityInput">
                       <Field label="Per quantity">
                         <input
                           className={inputClass}
@@ -537,6 +554,8 @@ export function Step3TransactionPrice({
                           }
                         />
                       </Field>
+                      </MeterField>
+                      <MeterField field="unit">
                       <Field label="Unit">
                         <input
                           className={inputClass}
@@ -550,6 +569,7 @@ export function Step3TransactionPrice({
                           }
                         />
                       </Field>
+                      </MeterField>
                       <div className="flex items-end">
                         <button
                           type="button"
@@ -564,7 +584,8 @@ export function Step3TransactionPrice({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                   <button
                     type="button"
                     className={buttonClass}
@@ -586,7 +607,7 @@ export function Step3TransactionPrice({
                     Actual usage quantities are entered in Step 5, in the accounting month the usage
                     occurs.
                   </Notice>
-                </AiReviewTarget>
+                </div>
               )}
             </AiReviewTarget>
           ))}
