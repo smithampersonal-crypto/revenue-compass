@@ -1390,7 +1390,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         key: fieldKeys.transactionPrice("notes"),
         semanticKey: "transaction-price:fixed",
         current: draft.transactionPriceNotes,
-        proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
+        // When ARC replaced the amount, the note must describe ARC's own
+        // derivation. Keeping the model's wording beside a different number
+        // would make the audit trail self-contradictory.
+        proposed:
+          derivedOverride !== null && fixedDerivation.ok
+            ? `ARC derived the full-term fixed consideration of ${derivedOverride} from the contract's ${fixedDerivation.frequency.replace(/_/g, " ")} billing schedule of ${fixedDerivation.amountInput} across ${fixedDerivation.eventCount} billing periods in the contract service period.`
+            : `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
         apply: (value) => {
           draft.transactionPriceNotes = value;
         },
