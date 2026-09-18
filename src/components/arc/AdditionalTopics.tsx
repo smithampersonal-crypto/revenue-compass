@@ -22,6 +22,7 @@ export function AdditionalTopics({
   open,
   onToggle,
   onNavigate,
+  aiReviewStatus,
 }: {
   draft: WorkflowDraft;
   onChange: (draft: WorkflowDraft) => void;
@@ -29,6 +30,9 @@ export function AdditionalTopics({
   open: Record<string, boolean>;
   onToggle: (id: string, open: boolean) => void;
   onNavigate: (sectionId: string) => void;
+  /** Phase 9G — Task 7. AI review count for a topic accordion, kept separate
+   *  from the deterministic issue status. */
+  aiReviewStatus?: ((sectionId: string) => string | null) | undefined;
 }) {
   const vcRelevant = draft.hasVariableConsideration;
   const materialRightPromises = draft.promises.filter((p) => p.kind === "customer_option");
@@ -46,6 +50,7 @@ export function AdditionalTopics({
 
       <AccordionSection
         id="topic-modifications"
+        aiReviewStatus={aiReviewStatus?.("topic-modifications") ?? null}
         title="Contract Modifications"
         subtitle="ASC 606-10-25-10 through 25-13. This is the only place modification facts are edited."
         status={issueStatus(modIssues)}
@@ -63,6 +68,8 @@ export function AdditionalTopics({
       {vcRelevant ? (
         <AccordionSection
           id="topic-variable-consideration"
+          aiReviewStatus={aiReviewStatus?.("topic-variable-consideration") ?? null}
+        aiReviewStatus={aiReviewStatus?.("topic-variable-consideration") ?? null}
           title="Variable Consideration"
           subtitle="Read-only summary. Edited in Step 3 (components and estimates) and Step 5 (measurement)."
           open={open["topic-variable-consideration"] ?? false}
@@ -105,6 +112,8 @@ export function AdditionalTopics({
       {materialRightsRelevant ? (
         <AccordionSection
           id="topic-material-rights"
+          aiReviewStatus={aiReviewStatus?.("topic-material-rights") ?? null}
+        aiReviewStatus={aiReviewStatus?.("topic-material-rights") ?? null}
           title="Material Rights / Customer Options"
           subtitle="Read-only summary. Edited in Step 2 (option and material-right judgments) and Step 4 (standalone selling price)."
           open={open["topic-material-rights"] ?? false}
