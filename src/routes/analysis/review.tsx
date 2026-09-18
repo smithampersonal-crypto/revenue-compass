@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { useAnalysis } from "@/components/arc/analysis-context";
+import { AiReviewPanel } from "@/components/arc/AiReviewPanel";
 import { FinalizedSnapshotView } from "@/components/arc/FinalizedSnapshotView";
 import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
 import { RevisionLifecyclePanel } from "@/components/arc/RevisionLifecyclePanel";
