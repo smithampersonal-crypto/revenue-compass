@@ -309,6 +309,16 @@ export async function aiWorkspaceStateHandler(
     hasIncludedSources: snapshot.hasIncludedSources,
     sourceSetFingerprint: snapshot.currentSourceSetFingerprint,
     reviewIssueCount: snapshot.outstandingReviewIssueCount,
+    // Fail closed: a payload that could not be read completely presents no
+    // review items at all, so no review action can be offered against a
+    // partially understood sidecar.
+    reviewItems:
+      snapshot.reviewPayloadMalformed === true
+        ? []
+        : toAiReviewItemDtos(snapshot.reviewItems ?? []),
+    reviewPayloadMalformed: snapshot.reviewPayloadMalformed === true,
+    fieldProvenance: sanitizeFieldProvenance(snapshot.fieldProvenance),
+    objectProvenance: sanitizeObjectProvenance(snapshot.objectProvenance),
     staleSourceAcknowledged:
       snapshot.acknowledgedSourceFingerprint !== null &&
       snapshot.acknowledgedSourceFingerprint === snapshot.currentSourceSetFingerprint,

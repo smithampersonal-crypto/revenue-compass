@@ -11,7 +11,7 @@
  * This module decides nothing — it hands trusted facts to the handler.
  */
 
-import { normalizePersistedReviewItems } from "./review-normalization";
+import { normalizePersistedReviewPayload } from "./review-normalization";
 import { createAiReviewActionStore } from "./review-actions.store.server";
 import type { AiCallerScope, AiRunStage } from "./runs.handlers";
 import type {
@@ -87,7 +87,8 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       const { data, error } = await supabaseAdmin
         .from("ai_analysis_state")
         .select(
-          "last_successful_run_id, source_state, acknowledged_source_fingerprint, review_items",
+          "last_successful_run_id, source_state, acknowledged_source_fingerprint, review_items, " +
+            "field_provenance, object_provenance",
         )
         .eq(column, value)
         .maybeSingle();
