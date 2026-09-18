@@ -15,10 +15,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
 import type { AiWorkspaceStateDto } from "@/lib/arc/ai/workspace.handlers";
-import {
-  describeReviewTarget,
-  reviewTargetAnchorId,
-} from "@/lib/arc/ai/review-presentation";
+import { describeReviewTarget, reviewTargetAnchorId } from "@/lib/arc/ai/review-presentation";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 const navigate = vi.fn();
@@ -163,7 +160,11 @@ function workspace(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceSta
   } as AiWorkspaceStateDto;
 }
 
-function reviewItem(targetKey: string, section: string, severity: "yellow" | "red"): AiReviewItemDto {
+function reviewItem(
+  targetKey: string,
+  section: string,
+  severity: "yellow" | "red",
+): AiReviewItemDto {
   return {
     id: `item-${targetKey}`,
     targetKey,
@@ -257,7 +258,6 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
   // Billing and cash live on the Contract Balances workpaper, a different
   // page: the registry presents them as their section, so they are asserted
   // as fallback rather than as analysis-page anchors.
-
 ];
 
 beforeEach(() => {

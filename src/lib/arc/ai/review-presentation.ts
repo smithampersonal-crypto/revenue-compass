@@ -257,9 +257,7 @@ export function describeReviewTarget(
         ? exact(`Variable consideration meter — ${humanize(meter[1]!)}`)
         : fallback();
     }
-    return VC_FIELDS.has(field)
-      ? exact(`Variable consideration — ${humanize(field)}`)
-      : fallback();
+    return VC_FIELDS.has(field) ? exact(`Variable consideration — ${humanize(field)}`) : fallback();
   }
 
   const modification = /^modification:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
