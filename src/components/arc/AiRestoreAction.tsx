@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { AiWorkspaceController } from "@/hooks/use-ai-workspace-controller";
 
-function completedLabel(completedAt: string): string {
+function completedLabel(completedAt: string | null): string {
+  if (completedAt === null) return "the last AI analysis";
   const parsed = new Date(completedAt);
   return Number.isNaN(parsed.getTime()) ? completedAt : parsed.toLocaleString();
 }
