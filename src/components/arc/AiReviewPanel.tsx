@@ -297,7 +297,7 @@ function ReviewItemRow({
         </span>
       </div>
 
-      <Citations item={item} />
+      <Citations item={item} ai={ai} />
 
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpenTarget ? (
