@@ -189,6 +189,18 @@ function renderArea() {
   );
 }
 
+/** The real Contract Balances workpaper, where billing and cash are edited. */
+function renderBalances() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <AnalysisProvider sample={undefined} guest>
+        <ContractBalancesArea />
+      </AnalysisProvider>
+    </QueryClientProvider>,
+  );
+}
+
 /** Representative canonical targets and the section each is persisted under. */
 const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
   ["contract.customerName", "step_1"],
@@ -349,19 +361,45 @@ describe("inline markers and provenance on real accounting controls", () => {
     });
   });
 
-  it("badges billing invoice-date provenance", async () => {
+  it("badges billing invoice-date provenance on the real balances workpaper", async () => {
     aiState = workspace({
       fieldProvenance: {
         [`billing:${BILLING}.invoiceDate`]: { state: "ai_generated_untouched" },
       } as never,
     });
-    const { container } = renderArea();
+    const { container } = renderBalances();
     await waitFor(() => {
       const anchor = container.querySelector(
         `#${CSS.escape(reviewTargetAnchorId(`billing:${BILLING}.invoiceDate`))}`,
       );
       expect(anchor?.textContent).toContain("AI drafted");
     });
+  });
+
+  it("marks a cash collection date on the real balances workpaper", async () => {
+    aiState = workspace({
+      reviewItems: [reviewItem(`cash:${CASH}.collectionDate`, "additional_topics", "red")],
+      reviewIssueCount: 1,
+    });
+    const { container } = renderBalances();
+    await waitFor(() => {
+      const anchor = container.querySelector(
+        `#${CSS.escape(reviewTargetAnchorId(`cash:${CASH}.collectionDate`))}`,
+      );
+      expect(anchor?.textContent).toContain("Resolve");
+    });
+  });
+
+  it("presents billing and cash targets as their section, never as a false anchor", () => {
+    for (const key of [
+      `billing:${BILLING}.invoiceDate`,
+      `billing:${BILLING}.amountInput`,
+      `cash:${CASH}.collectionDate`,
+    ]) {
+      const presented = describeReviewTarget(key, "additional_topics");
+      expect(presented.kind).toBe("section");
+      expect(presented.anchorId).toBeNull();
+    }
   });
 
   it("shows the field's own provenance, never the parent object's", async () => {
