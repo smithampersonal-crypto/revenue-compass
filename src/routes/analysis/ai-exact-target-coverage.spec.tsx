@@ -128,7 +128,12 @@ function fixtureDraft() {
       { ...createVcComponentDraft(1, VC_ESTIMATED, "estimated") },
       {
         ...createVcComponentDraft(2, VC_USAGE, "usage_as_incurred"),
-        meters: [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" }],
+        meters: manualSecondMeter
+          ? [
+              { ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" },
+              { ...createVcMeterDraft(2, MANUAL_METER), rateAmountInput: "0.25" },
+            ]
+          : [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" }],
       },
     ],
     contractModifications: [{ ...createModificationDraft(1), id: MOD }],
