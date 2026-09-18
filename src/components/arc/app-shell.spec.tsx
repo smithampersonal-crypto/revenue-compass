@@ -123,9 +123,7 @@ describe("ARC app shell (Phase 5)", () => {
       expect(router.state.location.pathname).toBe("/analysis");
       expect(router.state.location.search).toEqual({ sample: "redwood" });
     });
-
   });
-
 
   it("shows only enabled global navigation and exposes no unfinished controls", async () => {
     const user = userEvent.setup();
@@ -158,4 +156,3 @@ describe("ARC app shell (Phase 5)", () => {
     await waitFor(() => expect(router.state.location.search).toEqual({}));
   });
 });
-
