@@ -96,14 +96,16 @@ export function Step4Allocation({
                   />
                 </Field>
               </AiReviewTarget>
-              <Field label="SSP basis / documentation">
-                <textarea
-                  className={inputClass}
-                  rows={2}
-                  value={po.sspBasis}
-                  onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
-                />
-              </Field>
+              <AiReviewTarget targetKey={`po:${po.id}.sspBasis`}>
+                <Field label="SSP basis / documentation">
+                  <textarea
+                    className={inputClass}
+                    rows={2}
+                    value={po.sspBasis}
+                    onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
+                  />
+                </Field>
+              </AiReviewTarget>
             </div>
           ),
         )}

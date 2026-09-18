@@ -76,25 +76,29 @@ export function Step2PerformanceObligations({
                 </button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Obligation type">
-                  <select
-                    className={inputClass}
-                    value={po.kind}
-                    onChange={(e) =>
-                      patch(po.id, { kind: e.target.value as PerformanceObligationKind })
-                    }
-                  >
-                    <option value="standard">Standard performance obligation</option>
-                    <option value="material_right">Material right (customer option)</option>
-                  </select>
-                </Field>
-                <Field label="Name">
-                  <input
-                    className={inputClass}
-                    value={po.name}
-                    onChange={(e) => patch(po.id, { name: e.target.value })}
-                  />
-                </Field>
+                <AiReviewTarget targetKey={`po:${po.id}.kind`}>
+                  <Field label="Obligation type">
+                    <select
+                      className={inputClass}
+                      value={po.kind}
+                      onChange={(e) =>
+                        patch(po.id, { kind: e.target.value as PerformanceObligationKind })
+                      }
+                    >
+                      <option value="standard">Standard performance obligation</option>
+                      <option value="material_right">Material right (customer option)</option>
+                    </select>
+                  </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`po:${po.id}.name`}>
+                  <Field label="Name">
+                    <input
+                      className={inputClass}
+                      value={po.name}
+                      onChange={(e) => patch(po.id, { name: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
                 {po.kind === "material_right" ? (
                   <Field
                     label="Underlying good or service obtained on exercise"
@@ -137,14 +141,16 @@ export function Step2PerformanceObligations({
                   judgments in Step 4; it is not classified as a distinct promise or a bundle.
                 </Notice>
               ) : (
-                <Field label="Classification rationale">
-                  <textarea
-                    className={inputClass}
-                    rows={2}
-                    value={po.classificationRationale}
-                    onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
-                  />
-                </Field>
+                <AiReviewTarget targetKey={`po:${po.id}.classificationRationale`}>
+                  <Field label="Classification rationale">
+                    <textarea
+                      className={inputClass}
+                      rows={2}
+                      value={po.classificationRationale}
+                      onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
               )}
             </div>
           </AiReviewTarget>
