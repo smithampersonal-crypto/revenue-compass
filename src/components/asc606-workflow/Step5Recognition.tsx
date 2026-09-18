@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents, type RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import {
@@ -30,6 +31,7 @@ export function Step5Recognition({
 
   const recognitionFields = (po: PoDraft, label: string) => (
     <>
+      <AiReviewTarget targetKey={`po:${po.id}.recognitionMethod`}>
       <Field label={label}>
         <select
           className={inputClass}
@@ -45,8 +47,10 @@ export function Step5Recognition({
           <option value="point_in_time">Point in time</option>
         </select>
       </Field>
+      </AiReviewTarget>
 
       {po.recognitionMethod === "over_time_ratable" ? (
+        <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Service start date (inclusive)">
             <input
@@ -68,6 +72,7 @@ export function Step5Recognition({
       ) : null}
 
       {po.recognitionMethod === "point_in_time" ? (
+        <AiReviewTarget targetKey={`po:${po.id}.recognitionDate`}>
         <Field label="Recognition date">
           <input
             type="date"
@@ -76,6 +81,7 @@ export function Step5Recognition({
             onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
           />
         </Field>
+        </AiReviewTarget>
       ) : null}
 
       <Field label="Recognition rationale">

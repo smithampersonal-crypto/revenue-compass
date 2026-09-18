@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
   createVcAssessmentDraft,
@@ -231,6 +232,7 @@ export function Step3TransactionPrice({
       description="Enter fixed consideration, then add any variable-consideration components. Every estimate, constraint conclusion and allocation judgment is yours; the engine only calculates."
     >
       <div className="grid gap-4 sm:grid-cols-2">
+        <AiReviewTarget targetKey="transactionPrice.input">
         <Field label="Fixed consideration (USD)" hint="Example: 120,000.00">
           <input
             className={inputClass}
@@ -239,6 +241,8 @@ export function Step3TransactionPrice({
             onChange={(e) => onChange({ ...draft, transactionPriceInput: e.target.value })}
           />
         </Field>
+        </AiReviewTarget>
+        <AiReviewTarget targetKey="transactionPrice.notes">
         <Field label="Transaction price notes (optional)">
           <textarea
             className={inputClass}
@@ -247,6 +251,7 @@ export function Step3TransactionPrice({
             onChange={(e) => onChange({ ...draft, transactionPriceNotes: e.target.value })}
           />
         </Field>
+        </AiReviewTarget>
       </div>
 
       {draft.transactionPriceInput.trim() === "" ? null : parsed.ok ? (

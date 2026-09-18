@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 /**
  * Phase 5C contract-modification inputs.
  *
@@ -102,6 +103,7 @@ export function ContractModifications({
       title="Contract modification"
       description="Record a change to the contract's scope, price, or both. The engine derives the ASC 606 modification treatment from your judgments and preserves revenue already recognized before the effective date."
     >
+      <AiReviewTarget targetKey="draft.hasContractModifications">
       <label className="flex items-center gap-2 text-sm font-medium text-foreground">
         <input
           type="checkbox"
@@ -121,6 +123,7 @@ export function ContractModifications({
         />
         This contract has been modified
       </label>
+      </AiReviewTarget>
 
       {!draft.hasContractModifications ? (
         <Notice>

@@ -145,6 +145,7 @@ export function Step2PerformanceObligations({
               </Field>
             )}
           </div>
+          </AiReviewTarget>
         ))}
 
         <button

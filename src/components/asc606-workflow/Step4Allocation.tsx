@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import { formatBasisPoints, materialRightSspCents } from "@/lib/asc606-material-rights";
 import {
@@ -85,6 +86,7 @@ export function Step4Allocation({
               key={po.id}
               className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
             >
+              <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
               <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
                 <input
                   className={inputClass}
@@ -93,6 +95,7 @@ export function Step4Allocation({
                   onChange={(e) => patch(po.id, { sspInput: e.target.value })}
                 />
               </Field>
+              </AiReviewTarget>
               <Field label="SSP basis / documentation">
                 <textarea
                   className={inputClass}
