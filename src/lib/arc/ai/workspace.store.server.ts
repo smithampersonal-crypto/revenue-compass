@@ -13,6 +13,7 @@
 
 import { normalizePersistedReviewPayload } from "./review-normalization";
 import { createAiReviewActionStore } from "./review-actions.store.server";
+import { classifyPreRunSnapshot, type AiRestoreCandidate } from "./restore-eligibility";
 import type { AiCallerScope, AiRunStage } from "./runs.handlers";
 import type {
   AiWorkspaceRunRecord,
