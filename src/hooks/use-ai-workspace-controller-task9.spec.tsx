@@ -12,6 +12,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AiWorkspaceStateDto } from "@/lib/arc/ai/workspace.handlers";
 import { AI_ANALYSIS_NOT_STARTED_UNSAVED } from "@/lib/arc/ai/workspace-client";
+import { AI_RESTORE_CONFLICT } from "@/lib/arc/ai/restore.handlers";
+import { AI_EVIDENCE_UNAVAILABLE } from "@/lib/arc/ai/review-evidence.handlers";
 
 import { useAiWorkspaceController, type AiWorkspacePorts } from "./use-ai-workspace-controller";
 
@@ -158,7 +160,7 @@ describe("Task 9A/9B ephemeral reads", () => {
   it("reports a settled message and resolves null when the server refuses", async () => {
     const h = harness({
       openReviewEvidence: vi.fn(async () => {
-        throw new Error("That source page could not be opened. Reload the analysis and try again.");
+        throw new Error(AI_EVIDENCE_UNAVAILABLE);
       }),
     });
     const { result } = await ready(h);
@@ -168,7 +170,7 @@ describe("Task 9A/9B ephemeral reads", () => {
       link = await result.current.openReviewEvidence(EVIDENCE);
     });
     expect(link).toBeNull();
-    expect(result.current.message).toContain("could not be opened");
+    expect(result.current.message).toBe(AI_EVIDENCE_UNAVAILABLE);
     expect(result.current.pendingEvidence.size).toBe(0);
   });
 
@@ -288,7 +290,7 @@ describe("Task 9C restore sequencing", () => {
   it("surfaces a settled message and re-reads when the server refuses the restore", async () => {
     const h = harness({
       restoreAnalysis: vi.fn(async () => {
-        throw new Error("The analysis changed before it could be restored.");
+        throw new Error(AI_RESTORE_CONFLICT);
       }),
     });
     const { result } = await ready(h);
@@ -298,7 +300,7 @@ describe("Task 9C restore sequencing", () => {
     });
 
     expect(h.spies.reloadCanonicalAnalysis).not.toHaveBeenCalled();
-    expect(result.current.message).toContain("changed before it could be restored");
+    expect(result.current.message).toBe(AI_RESTORE_CONFLICT);
     expect(h.spies.getWorkspaceState.mock.calls.length).toBeGreaterThan(1);
     expect(result.current.restoring).toBe(false);
   });
