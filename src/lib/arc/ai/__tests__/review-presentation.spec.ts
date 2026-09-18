@@ -99,11 +99,12 @@ describe("Task 7 target presentation registry", () => {
   }
 
   it("routes additional-topic subtopics to their own accordion", () => {
-    expect(describeReviewTarget("modification:mod-1.phase5cFacts", "additional_topics")
-      .sectionElementId).toBe("topic-modifications");
-    expect(describeReviewTarget("vc:vc-usage.treatment", "additional_topics").sectionElementId).toBe(
-      "topic-variable-consideration",
-    );
+    expect(
+      describeReviewTarget("modification:mod-1.phase5cFacts", "additional_topics").sectionElementId,
+    ).toBe("topic-modifications");
+    expect(
+      describeReviewTarget("vc:vc-usage.treatment", "additional_topics").sectionElementId,
+    ).toBe("topic-variable-consideration");
     expect(
       describeReviewTarget("additionalTopic:principal_agent", "additional_topics").sectionElementId,
     ).toBe("additional-topics");
@@ -138,17 +139,17 @@ describe("Task 7 evidence labels", () => {
   });
 
   it("names visual evidence distinctly", () => {
-    expect(
-      citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "visual", excerpt: null }),
-    ).toBe("Visual source evidence — page 4");
+    expect(citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "visual", excerpt: null })).toBe(
+      "Visual source evidence — page 4",
+    );
   });
 });
 
 describe("Task 7 resolution copy", () => {
   it("describes an edit-driven resolution as an accounting edit", () => {
-    expect(resolutionSummary({ kind: "affirmed", at: "2026-01-01T00:00:00Z", method: "edited" })).toBe(
-      "Resolved by editing the accounting conclusion",
-    );
+    expect(
+      resolutionSummary({ kind: "affirmed", at: "2026-01-01T00:00:00Z", method: "edited" }),
+    ).toBe("Resolved by editing the accounting conclusion");
   });
 
   it("describes an individual affirmation as a confirmation", () => {
@@ -201,7 +202,11 @@ describe("Task 7 provenance badges", () => {
 });
 
 describe("aiReviewFinalizeBlock", () => {
-  const base = { hasAnalysis: true, reviewPayloadMalformed: false, reviewItems: [] as { state: string }[] };
+  const base = {
+    hasAnalysis: true,
+    reviewPayloadMalformed: false,
+    reviewItems: [] as { state: string }[],
+  };
 
   it("never blocks when AI was never run", () => {
     expect(aiReviewFinalizeBlock({ ...base, hasAnalysis: false })).toBeNull();

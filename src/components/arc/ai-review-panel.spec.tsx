@@ -91,7 +91,9 @@ function controller(state: AiWorkspaceStateDto | null): AiWorkspaceController {
 
 describe("AiReviewPanel", () => {
   it("renders nothing when AI was never run", () => {
-    const { container } = render(<AiReviewPanel ai={controller(workspace({ hasAnalysis: false }))} />);
+    const { container } = render(
+      <AiReviewPanel ai={controller(workspace({ hasAnalysis: false }))} />,
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -123,7 +125,9 @@ describe("AiReviewPanel", () => {
   });
 
   it("offers no confirm action for a red item", () => {
-    render(<AiReviewPanel ai={controller(workspace({ reviewItems: [RED], reviewIssueCount: 1 }))} />);
+    render(
+      <AiReviewPanel ai={controller(workspace({ reviewItems: [RED], reviewIssueCount: 1 }))} />,
+    );
     expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /dismiss|confirm all|resolve all/i })).toBeNull();
   });
@@ -163,7 +167,9 @@ describe("AiReviewPanel", () => {
 
   it("fails closed and offers no action when the persisted review payload is malformed", () => {
     render(
-      <AiReviewPanel ai={controller(workspace({ reviewPayloadMalformed: true, reviewItems: [] }))} />,
+      <AiReviewPanel
+        ai={controller(workspace({ reviewPayloadMalformed: true, reviewItems: [] }))}
+      />,
     );
     expect(screen.getByText(/review state could not be read/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();

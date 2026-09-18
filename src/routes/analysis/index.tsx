@@ -93,8 +93,7 @@ function Asc606AnalysisArea() {
     const sectionId = target.sectionElementId;
     setOpen((prev) => ({ ...prev, [sectionId]: true }));
     if (typeof document !== "undefined") {
-      const anchor =
-        target.anchorId === null ? null : document.getElementById(target.anchorId);
+      const anchor = target.anchorId === null ? null : document.getElementById(target.anchorId);
       (anchor ?? document.getElementById(sectionId))?.scrollIntoView({
         behavior: "smooth",
         block: "start",

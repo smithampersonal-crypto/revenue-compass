@@ -155,12 +155,7 @@ function ReviewItemRow({
 
       <div className="mt-3 flex flex-wrap gap-2">
         {onOpenTarget ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onOpenTarget(item.id)}
-          >
+          <Button type="button" size="sm" variant="outline" onClick={() => onOpenTarget(item.id)}>
             Go to {target.kind === "exact" ? "field" : "section"}
           </Button>
         ) : null}
@@ -270,7 +265,9 @@ export function AiReviewPanel({
                   <p className="mt-1">{item.reason}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {resolutionSummary(item.resolution) ?? "Resolved"}
-                    {item.resolution && item.resolution.kind === "manual_red" && item.resolution.note
+                    {item.resolution &&
+                    item.resolution.kind === "manual_red" &&
+                    item.resolution.note
                       ? ` — ${item.resolution.note}`
                       : ""}
                   </p>
