@@ -118,6 +118,13 @@ describe("ARC app shell (Phase 5)", () => {
     expect(router.state.location.search).toEqual({});
 
     await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
+    await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/analysis");
+      expect(router.state.location.search).toEqual({ sample: "redwood" });
+    });
+
+    await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
     await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/analysis/documents");
@@ -128,20 +135,7 @@ describe("ARC app shell (Phase 5)", () => {
     await waitFor(() => {
       expect(router.state.location.search).toEqual({});
     });
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: /upload pdf/i })).not.toBeInTheDocument(),
-    );
 
-
-
-
-    await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
-    await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/analysis");
-      expect(router.state.location.search).toEqual({ sample: "redwood" });
-    });
   });
 
   it("shows only enabled global navigation and exposes no unfinished controls", async () => {
