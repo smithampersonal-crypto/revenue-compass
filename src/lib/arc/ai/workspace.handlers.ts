@@ -161,6 +161,17 @@ export interface AiWorkspaceSnapshot {
   hasIncludedSources: boolean;
   acknowledgedSourceFingerprint: string | null;
   outstandingReviewIssueCount: number;
+  /**
+   * Phase 9G — Task 7. The normalized review items, already read through the
+   * Task 1 normalizer by the store. Optional so a store that predates Task 7
+   * simply reports no review model rather than an unreadable one.
+   */
+  reviewItems?: AiReviewItem[];
+  /** True when any persisted review entry failed normalization. */
+  reviewPayloadMalformed?: boolean;
+  /** Raw persisted provenance JSON. Validated here, never trusted as typed. */
+  fieldProvenance?: unknown;
+  objectProvenance?: unknown;
   /** Temporary workspaces only; null for a saved analysis. */
   guestWorkspaceExpiresAt: string | null;
 }
