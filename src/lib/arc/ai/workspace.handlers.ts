@@ -370,6 +370,7 @@ export async function aiWorkspaceStateHandler(
           : snapshot.guestWorkspaceExpiresAt,
     },
     failure,
+    restorableRun,
   };
 }
 
