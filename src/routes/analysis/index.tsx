@@ -5,7 +5,7 @@ import { AccordionSection } from "@/components/arc/AccordionSection";
 import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
 import { useAnalysis } from "@/components/arc/analysis-context";
-import { describeReviewTarget, reviewTargetAnchorId } from "@/lib/arc/ai/review-presentation";
+import { describeReviewTarget } from "@/lib/arc/ai/review-presentation";
 import { IssueList } from "@/components/asc606-workflow/fields";
 import { Step1Contract } from "@/components/asc606-workflow/Step1Contract";
 import { Step2PerformanceObligations } from "@/components/asc606-workflow/Step2PerformanceObligations";

@@ -69,7 +69,6 @@ export function AdditionalTopics({
         <AccordionSection
           id="topic-variable-consideration"
           aiReviewStatus={aiReviewStatus?.("topic-variable-consideration") ?? null}
-        aiReviewStatus={aiReviewStatus?.("topic-variable-consideration") ?? null}
           title="Variable Consideration"
           subtitle="Read-only summary. Edited in Step 3 (components and estimates) and Step 5 (measurement)."
           open={open["topic-variable-consideration"] ?? false}
@@ -113,7 +112,6 @@ export function AdditionalTopics({
         <AccordionSection
           id="topic-material-rights"
           aiReviewStatus={aiReviewStatus?.("topic-material-rights") ?? null}
-        aiReviewStatus={aiReviewStatus?.("topic-material-rights") ?? null}
           title="Material Rights / Customer Options"
           subtitle="Read-only summary. Edited in Step 2 (option and material-right judgments) and Step 4 (standalone selling price)."
           open={open["topic-material-rights"] ?? false}
