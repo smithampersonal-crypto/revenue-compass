@@ -134,7 +134,7 @@ function fixtureDraft() {
         meters: [{ ...createVcMeterDraft(1, METER), rateAmountInput: "0.10" }],
       },
     ],
-    contractModifications: [createModificationDraft(1, MOD)],
+    contractModifications: [{ ...createModificationDraft(1), id: MOD }],
     contractBalances: {
       considerationEvents: [createConsiderationEventDraft(1, BILLING)],
       cashCollections: [createCashCollectionDraft(1, CASH)],
