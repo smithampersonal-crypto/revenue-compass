@@ -173,9 +173,13 @@ const MODIFICATION_FIELDS = new Set([
 
 const STRUCTURAL_FIELDS = new Set(["hasContractModifications", "hasVariableConsideration"]);
 
-const BILLING_FIELDS = new Set(["amountInput", "unconditionalRightDate", "invoiceDate"]);
-
-const CASH_FIELDS = new Set(["amountInput", "collectionDate"]);
+/**
+ * Billing events and cash collections are edited on the Contract Balances
+ * workpaper, a different page from the five-step analysis the review intent
+ * opens. Their controls DO carry inline markers and provenance badges there,
+ * but "Go to field" from Review & Finalize cannot reach them, so they are
+ * presented honestly as their owning section instead of promising an anchor.
+ */
 
 /**
  * Classifies one canonical target into presentation. The persisted review
