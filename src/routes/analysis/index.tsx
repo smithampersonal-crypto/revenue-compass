@@ -75,7 +75,7 @@ export function Asc606AnalysisArea() {
   // One-shot review intent. It opens and focuses the persisted target, then
   // removes only itself from the URL so the same click can be repeated later.
   const consumedReviewRef = useRef<string | null>(null);
-  const requestedReview = search.review ?? null;
+  const requestedReview = search["review"] ?? null;
   const reviewItem =
     requestedReview === null
       ? null

@@ -195,7 +195,7 @@ describe("AiReviewPanel", () => {
     expect(onOpenTarget).toHaveBeenCalledWith(YELLOW.id);
   });
   it("issues exactly one confirm request for two rapid clicks", async () => {
-    let release: (() => void) | null = null;
+    let release: null | (() => void) = null;
     const ai = controller(workspace({ reviewItems: [YELLOW] }));
     (ai as unknown as { affirmReviewItem: unknown }).affirmReviewItem = vi.fn(
       () =>
@@ -211,11 +211,11 @@ describe("AiReviewPanel", () => {
     expect(confirm).toBeDisabled();
     // The item is never removed optimistically: the refreshed server state decides.
     expect(screen.getByText(YELLOW.reason)).toBeInTheDocument();
-    release?.();
+    (release as (() => void) | null)?.();
   });
 
   it("issues exactly one resolution request for two rapid submissions", async () => {
-    let release: (() => void) | null = null;
+    let release: null | (() => void) = null;
     const ai = controller(workspace({ reviewItems: [RED] }));
     (ai as unknown as { resolveReviewIssue: unknown }).resolveReviewIssue = vi.fn(
       () =>
@@ -230,6 +230,6 @@ describe("AiReviewPanel", () => {
     await userEvent.click(submit);
     await userEvent.click(submit);
     expect(ai.resolveReviewIssue).toHaveBeenCalledTimes(1);
-    release?.();
+    (release as (() => void) | null)?.();
   });
 });
