@@ -52,12 +52,7 @@ export function Step5VariableConsideration({
         const changes = analysis?.changeEvents.filter((e) => e.componentId === component.id) ?? [];
 
         return (
-          <AiReviewTarget
-            key={component.id}
-            targetKey={`vc:${component.id}.treatment`}
-            canonicalObjectId={component.id}
-          >
-            <div className="space-y-3 rounded-md border border-border p-3">
+          <div key={component.id} className="space-y-3 rounded-md border border-border p-3">
               <p className="text-sm font-semibold">
                 {component.description || `Variable component ${component.seq}`}
               </p>
@@ -179,7 +174,7 @@ export function Step5VariableConsideration({
                   ) : null}
                 </>
               ) : (
-                <>
+                <AiReviewTarget targetKey={`vc:${component.id}.usagePeriods`}>
                   <p className="text-sm text-muted-foreground">
                     Enter the actual measured usage for each accounting month. A blank quantity is
                     treated as missing, never as zero; enter 0 when usage was genuinely zero.
@@ -291,10 +286,9 @@ export function Step5VariableConsideration({
                       </tbody>
                     </table>
                   ) : null}
-                </>
+                </AiReviewTarget>
               )}
             </div>
-          </AiReviewTarget>
         );
       })}
     </div>
