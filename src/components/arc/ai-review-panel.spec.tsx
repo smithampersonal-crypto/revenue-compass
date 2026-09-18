@@ -69,6 +69,7 @@ function workspace(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceSta
     staleSourceAcknowledged: false,
     allowance: { scope: "authenticated", limit: 10, used: 1, remaining: 9, resetAt: null },
     failure: null,
+    restorableRun: null,
     ...overrides,
   };
 }
