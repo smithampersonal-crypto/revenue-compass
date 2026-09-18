@@ -141,7 +141,13 @@ export function ContractModifications({
           ) : null}
 
           {modifications.map((mod) => (
-            <div key={mod.id} className="space-y-6 rounded-md border border-border p-4">
+            <AiReviewTarget
+              key={mod.id}
+              targetKey={`modification:${mod.id}`}
+              canonicalObjectId={mod.id}
+            >
+              <AiReviewTarget targetKey={`modification:${mod.id}.phase5cFacts`}>
+                <div className="space-y-6 rounded-md border border-border p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold text-foreground">Modification {mod.seq}</h3>
                 <button
@@ -154,50 +160,56 @@ export function ContractModifications({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Modification effective date">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={mod.modificationDate}
-                    onChange={(e) => setMod(mod.id, { modificationDate: e.target.value })}
-                  />
-                </Field>
-                <Field
-                  label="Change in consideration (USD)"
-                  hint="Enter the amount as a positive number and choose the direction."
-                >
-                  <div className="flex gap-2">
+                <AiReviewTarget targetKey={`modification:${mod.id}.modificationDate`}>
+                  <Field label="Modification effective date">
                     <input
+                      type="date"
                       className={inputClass}
-                      value={mod.considerationMagnitudeInput}
-                      onChange={(e) =>
-                        setMod(mod.id, { considerationMagnitudeInput: e.target.value })
-                      }
-                      placeholder="0.00"
+                      value={mod.modificationDate}
+                      onChange={(e) => setMod(mod.id, { modificationDate: e.target.value })}
                     />
-                    <select
-                      className={inputClass}
-                      value={mod.considerationEffect}
-                      onChange={(e) =>
-                        setMod(mod.id, {
-                          considerationEffect: e.target.value as ConsiderationEffect,
-                        })
-                      }
-                    >
-                      <option value="increase">Increase</option>
-                      <option value="decrease">Decrease</option>
-                      <option value="none">No change in price</option>
-                    </select>
-                  </div>
-                </Field>
+                  </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`modification:${mod.id}.considerationMagnitudeInput`}>
+                  <Field
+                    label="Change in consideration (USD)"
+                    hint="Enter the amount as a positive number and choose the direction."
+                  >
+                    <div className="flex gap-2">
+                      <input
+                        className={inputClass}
+                        value={mod.considerationMagnitudeInput}
+                        onChange={(e) =>
+                          setMod(mod.id, { considerationMagnitudeInput: e.target.value })
+                        }
+                        placeholder="0.00"
+                      />
+                      <select
+                        className={inputClass}
+                        value={mod.considerationEffect}
+                        onChange={(e) =>
+                          setMod(mod.id, {
+                            considerationEffect: e.target.value as ConsiderationEffect,
+                          })
+                        }
+                      >
+                        <option value="increase">Increase</option>
+                        <option value="decrease">Decrease</option>
+                        <option value="none">No change in price</option>
+                      </select>
+                    </div>
+                  </Field>
+                </AiReviewTarget>
               </div>
 
-              <JudgmentControl
-                name={`mod-approved-${mod.id}`}
-                legend="Has the modification been approved and does it create enforceable rights and obligations? (ASC 606-10-25-10)"
-                value={mod.approvedAndEnforceable}
-                onChange={(v: Judgment) => setMod(mod.id, { approvedAndEnforceable: v })}
-              />
+              <AiReviewTarget targetKey={`modification:${mod.id}.approvedAndEnforceable`}>
+                <JudgmentControl
+                  name={`mod-approved-${mod.id}`}
+                  legend="Has the modification been approved and does it create enforceable rights and obligations? (ASC 606-10-25-10)"
+                  value={mod.approvedAndEnforceable}
+                  onChange={(v: Judgment) => setMod(mod.id, { approvedAndEnforceable: v })}
+                />
+              </AiReviewTarget>
               <Field label="Approval and enforceability rationale">
                 <textarea
                   className={inputClass}
@@ -207,21 +219,25 @@ export function ContractModifications({
                 />
               </Field>
 
-              <Field label="Description of the change in scope, price, or both">
-                <textarea
-                  className={inputClass}
-                  rows={2}
-                  value={mod.scopeChangeDescription}
-                  onChange={(e) => setMod(mod.id, { scopeChangeDescription: e.target.value })}
-                />
-              </Field>
+              <AiReviewTarget targetKey={`modification:${mod.id}.scopeChangeDescription`}>
+                <Field label="Description of the change in scope, price, or both">
+                  <textarea
+                    className={inputClass}
+                    rows={2}
+                    value={mod.scopeChangeDescription}
+                    onChange={(e) => setMod(mod.id, { scopeChangeDescription: e.target.value })}
+                  />
+                </Field>
+              </AiReviewTarget>
 
-              <JudgmentControl
-                name={`mod-criterion-b-${mod.id}`}
-                legend="Does the change in price reflect the standalone selling prices of the added goods or services? (ASC 606-10-25-12(b))"
-                value={mod.priceReflectsAddedGoodsSsp}
-                onChange={(v: Judgment) => setMod(mod.id, { priceReflectsAddedGoodsSsp: v })}
-              />
+              <AiReviewTarget targetKey={`modification:${mod.id}.priceReflectsAddedGoodsSsp`}>
+                <JudgmentControl
+                  name={`mod-criterion-b-${mod.id}`}
+                  legend="Does the change in price reflect the standalone selling prices of the added goods or services? (ASC 606-10-25-12(b))"
+                  value={mod.priceReflectsAddedGoodsSsp}
+                  onChange={(v: Judgment) => setMod(mod.id, { priceReflectsAddedGoodsSsp: v })}
+                />
+              </AiReviewTarget>
               <Field label="Rationale for the standalone-selling-price conclusion">
                 <textarea
                   className={inputClass}
@@ -541,7 +557,9 @@ export function ContractModifications({
                   </button>
                 </div>
               </div>
-            </div>
+                </div>
+              </AiReviewTarget>
+            </AiReviewTarget>
           ))}
 
           <button
