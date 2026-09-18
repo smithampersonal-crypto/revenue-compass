@@ -144,7 +144,9 @@ function GuidanceDialog({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceCo
               <article key={card.primaryAscReference + card.topic} className="space-y-2 text-sm">
                 <h4 className="font-semibold">{card.topic}</h4>
                 <p className="text-xs text-muted-foreground">
-                  {[card.primaryAscReference, ...card.relatedAscReferences].join(" · ")}
+                  {[card.primaryAscReference, card.relatedAscReferences]
+                    .filter((reference) => reference.trim() !== "")
+                    .join(" · ")}
                 </p>
                 <p>{card.ruleSummary}</p>
                 <GuidanceList label="Decision criteria" items={card.decisionCriteria} />
