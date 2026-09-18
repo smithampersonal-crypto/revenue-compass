@@ -171,6 +171,8 @@ export function RevisionLifecyclePanel() {
   // deterministic one, never a replacement for it. It is silent for an
   // analysis that never used AI, and the server gate stays authoritative.
   const aiReviewBlock = aiReviewFinalizeBlock(ai.workspace);
+  const aiReviewCanFinalize = aiReviewBlock === null;
+  const finalizationDisabled = !gate.canFinalize || !aiReviewCanFinalize || ai.locks.finalize;
 
   return (
     <Section
@@ -198,7 +200,7 @@ export function RevisionLifecyclePanel() {
             <button
               type="button"
               className={BUTTON_CLASS}
-              disabled={!gate.canFinalize || finalizeMutation.isPending || ai.locks.finalize}
+              disabled={finalizationDisabled || finalizeMutation.isPending}
               onClick={() => finalizeMutation.mutate()}
             >
               {finalizeMutation.isPending ? "Finalizing…" : "Finalize analysis"}
@@ -219,7 +221,7 @@ export function RevisionLifecyclePanel() {
             <button
               type="button"
               className={BUTTON_CLASS}
-              disabled={!gate.canFinalize || ai.locks.finalize}
+              disabled={finalizationDisabled}
               onClick={() => setConfirming(true)}
             >
               Finalize analysis
@@ -256,6 +258,10 @@ export function RevisionLifecyclePanel() {
       ) : null}
 
       {!gate.canFinalize && revision?.status === "draft" ? <Notice>{gate.reason}</Notice> : null}
+
+      {aiReviewBlock && revision?.status === "draft" ? (
+        <Notice tone="warning">{aiReviewBlock}</Notice>
+      ) : null}
 
       {message ? <Notice>{message}</Notice> : null}
 

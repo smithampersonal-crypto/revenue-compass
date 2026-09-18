@@ -145,13 +145,25 @@ export function sanitizeFieldProvenance(raw: unknown): Record<string, AiFieldPro
 
 /** Object provenance is bound by canonical id only — never by array position. */
 export function sanitizeObjectProvenance(raw: unknown): Record<string, AiObjectProvenanceDto> {
+  // The persisted map is keyed by a semantic key that must never cross the
+  // trust boundary — not even as a JSON property name. The browser-safe map is
+  // therefore re-keyed by the validated canonical id.
   const safe: Record<string, AiObjectProvenanceDto> = {};
-  for (const [key, entry] of entriesOf(raw)) {
+  const collided = new Set<string>();
+  for (const [, entry] of entriesOf(raw)) {
     if (!isAiProvenanceState(entry["state"])) continue;
     if (typeof entry["canonicalId"] !== "string" || entry["canonicalId"].length === 0) continue;
     if (typeof entry["userModified"] !== "boolean") continue;
-    safe[key] = {
-      canonicalId: entry["canonicalId"],
+    const canonicalId = entry["canonicalId"];
+    if (collided.has(canonicalId)) continue;
+    if (canonicalId in safe) {
+      // Fail closed: one record must never masquerade as another.
+      delete safe[canonicalId];
+      collided.add(canonicalId);
+      continue;
+    }
+    safe[canonicalId] = {
+      canonicalId,
       state: entry["state"],
       userModified: entry["userModified"],
     };

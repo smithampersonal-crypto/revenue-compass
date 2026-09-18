@@ -190,11 +190,38 @@ describe("Task 7 safe provenance DTO", () => {
       badFlag: { state: "ai_generated_untouched", canonicalId: "x", userModified: "yes" },
     });
     expect(safe).toEqual({
-      "po:po-saas": {
+      "po-saas": {
         canonicalId: "po-saas",
         state: "ai_generated_user_edited",
         userModified: true,
       },
     });
+  });
+});
+
+describe("object provenance never leaks the persisted semantic key", () => {
+  it("re-keys the browser-safe map by the validated canonical id", () => {
+    const safe = sanitizeObjectProvenance({
+      "promise:semantic-ai-key": {
+        canonicalId: "promise-17",
+        state: "ai_generated_untouched",
+        userModified: false,
+        semanticKey: "promise:semantic-ai-key",
+        valueFingerprint: "fp",
+        lastAiRunId: "run-1",
+      },
+    });
+    expect(Object.keys(safe)).toEqual(["promise-17"]);
+    expect(JSON.stringify(safe)).not.toContain("promise:semantic-ai-key");
+    expect(JSON.stringify(safe)).not.toContain("run-1");
+  });
+
+  it("fails closed when two persisted records claim the same canonical id", () => {
+    const safe = sanitizeObjectProvenance({
+      "a:one": { canonicalId: "po-1", state: "ai_generated_untouched", userModified: false },
+      "b:two": { canonicalId: "po-1", state: "manual_from_start", userModified: true },
+    });
+    // Neither record may masquerade as the other.
+    expect(safe).toEqual({});
   });
 });

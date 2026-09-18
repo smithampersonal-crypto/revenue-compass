@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import {
   CASH_COLLECTION_BASIS_LABELS,
   createCashCollectionDraft,
@@ -98,115 +99,121 @@ export function BillingAndBalances({
             <Notice>No billing events have been entered yet.</Notice>
           ) : null}
           {considerationEvents.map((event) => (
-            <div key={event.id} className="space-y-3 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">
-                  Event {event.seq} · {event.id}
-                </p>
-                <button
-                  type="button"
-                  className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
-                  onClick={() => setEvents(considerationEvents.filter((e) => e.id !== event.id))}
-                >
-                  Remove billing event
-                </button>
-              </div>
-              <div className="grid gap-3 md:grid-cols-3">
-                {needsContractLink ? (
-                  <Field label="Contract">
-                    <select
-                      className={inputClass}
-                      value={event.contractGroupId ?? ""}
-                      onChange={(e) => updateEvent(event.id, { contractGroupId: e.target.value })}
-                    >
-                      <option value="">Select a contract…</option>
-                      {contractGroups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                ) : null}
-                {vcComponents.length > 0 ? (
-                  <Field label="Amount source">
-                    <select
-                      className={inputClass}
-                      value={event.amountSource ?? "manual"}
-                      onChange={(e) =>
-                        updateEvent(event.id, {
-                          amountSource: e.target.value as ConsiderationAmountSource,
-                        })
-                      }
-                    >
-                      <option value="manual">Entered amount</option>
-                      <option value="estimated_component">
-                        Variable-consideration component (engine amount)
-                      </option>
-                      <option value="usage_period">Usage month (engine amount)</option>
-                    </select>
-                  </Field>
-                ) : null}
-
-                {(event.amountSource ?? "manual") === "manual" ? (
-                  <Field label="Amount (USD)">
-                    <input
-                      className={inputClass}
-                      value={event.amountInput}
-                      onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
-                      placeholder="60,000.00"
-                    />
-                  </Field>
-                ) : (
-                  <>
-                    <Field label="Variable-consideration component">
+            <AiReviewTarget
+              key={event.id}
+              targetKey={`billing:${event.id}`}
+              canonicalObjectId={event.id}
+            >
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">
+                    Event {event.seq} · {event.id}
+                  </p>
+                  <button
+                    type="button"
+                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                    onClick={() => setEvents(considerationEvents.filter((e) => e.id !== event.id))}
+                  >
+                    Remove billing event
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {needsContractLink ? (
+                    <Field label="Contract">
                       <select
                         className={inputClass}
-                        value={event.sourceComponentId ?? ""}
-                        onChange={(e) =>
-                          updateEvent(event.id, { sourceComponentId: e.target.value || null })
-                        }
+                        value={event.contractGroupId ?? ""}
+                        onChange={(e) => updateEvent(event.id, { contractGroupId: e.target.value })}
                       >
-                        <option value="">Select a component…</option>
-                        {vcComponents.map((component) => (
-                          <option key={component.id} value={component.id}>
-                            {component.description || component.id}
+                        <option value="">Select a contract…</option>
+                        {contractGroups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.label}
                           </option>
                         ))}
                       </select>
                     </Field>
-                    {event.amountSource === "usage_period" ? (
-                      <Field label="Usage month">
-                        <input
-                          type="month"
+                  ) : null}
+                  {vcComponents.length > 0 ? (
+                    <Field label="Amount source">
+                      <select
+                        className={inputClass}
+                        value={event.amountSource ?? "manual"}
+                        onChange={(e) =>
+                          updateEvent(event.id, {
+                            amountSource: e.target.value as ConsiderationAmountSource,
+                          })
+                        }
+                      >
+                        <option value="manual">Entered amount</option>
+                        <option value="estimated_component">
+                          Variable-consideration component (engine amount)
+                        </option>
+                        <option value="usage_period">Usage month (engine amount)</option>
+                      </select>
+                    </Field>
+                  ) : null}
+
+                  {(event.amountSource ?? "manual") === "manual" ? (
+                    <Field label="Amount (USD)">
+                      <input
+                        className={inputClass}
+                        value={event.amountInput}
+                        onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
+                        placeholder="60,000.00"
+                      />
+                    </Field>
+                  ) : (
+                    <>
+                      <Field label="Variable-consideration component">
+                        <select
                           className={inputClass}
-                          value={event.sourceMonth ?? ""}
-                          onChange={(e) => updateEvent(event.id, { sourceMonth: e.target.value })}
-                        />
+                          value={event.sourceComponentId ?? ""}
+                          onChange={(e) =>
+                            updateEvent(event.id, { sourceComponentId: e.target.value || null })
+                          }
+                        >
+                          <option value="">Select a component…</option>
+                          {vcComponents.map((component) => (
+                            <option key={component.id} value={component.id}>
+                              {component.description || component.id}
+                            </option>
+                          ))}
+                        </select>
                       </Field>
-                    ) : null}
-                  </>
-                )}
-                <Field label="Unconditional right date">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={event.unconditionalRightDate}
-                    onChange={(e) =>
-                      updateEvent(event.id, { unconditionalRightDate: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Invoice date">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={event.invoiceDate}
-                    onChange={(e) => updateEvent(event.id, { invoiceDate: e.target.value })}
-                  />
-                </Field>
+                      {event.amountSource === "usage_period" ? (
+                        <Field label="Usage month">
+                          <input
+                            type="month"
+                            className={inputClass}
+                            value={event.sourceMonth ?? ""}
+                            onChange={(e) => updateEvent(event.id, { sourceMonth: e.target.value })}
+                          />
+                        </Field>
+                      ) : null}
+                    </>
+                  )}
+                  <Field label="Unconditional right date">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={event.unconditionalRightDate}
+                      onChange={(e) =>
+                        updateEvent(event.id, { unconditionalRightDate: e.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Invoice date">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={event.invoiceDate}
+                      onChange={(e) => updateEvent(event.id, { invoiceDate: e.target.value })}
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
+            </AiReviewTarget>
           ))}
           <button
             type="button"
@@ -235,75 +242,83 @@ export function BillingAndBalances({
             <Notice>No cash collections have been entered yet.</Notice>
           ) : null}
           {cashCollections.map((collection) => (
-            <div key={collection.id} className="space-y-3 rounded-md border border-border p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">
-                  Collection {collection.seq} · {collection.id}
-                </p>
-                <button
-                  type="button"
-                  className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
-                  onClick={() => setCash(cashCollections.filter((c) => c.id !== collection.id))}
-                >
-                  Remove collection
-                </button>
-              </div>
-              <div>
-                <span
-                  data-testid={`cash-basis-${collection.id}`}
-                  className={
-                    isProjectedCollection(collection)
-                      ? "inline-block rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400"
-                      : "inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
-                  }
-                >
-                  {CASH_COLLECTION_BASIS_LABELS[collection.basis ?? "actual"]}
-                </span>
-                {isProjectedCollection(collection) ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Projected from contractual billing/payment terms. This is not evidence that cash
-                    was received.
+            <AiReviewTarget
+              key={collection.id}
+              targetKey={`cash:${collection.id}`}
+              canonicalObjectId={collection.id}
+            >
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-foreground">
+                    Collection {collection.seq} · {collection.id}
                   </p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <Field label="Related billing event">
-                  <select
-                    className={inputClass}
-                    value={collection.considerationEventId ?? ""}
-                    onChange={(e) =>
-                      updateCash(collection.id, {
-                        considerationEventId: e.target.value === "" ? null : e.target.value,
-                      })
+                  <button
+                    type="button"
+                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                    onClick={() => setCash(cashCollections.filter((c) => c.id !== collection.id))}
+                  >
+                    Remove collection
+                  </button>
+                </div>
+                <div>
+                  <span
+                    data-testid={`cash-basis-${collection.id}`}
+                    className={
+                      isProjectedCollection(collection)
+                        ? "inline-block rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400"
+                        : "inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
                     }
                   >
-                    <option value="">Select a billing event</option>
-                    {considerationEvents.map((event) => (
-                      <option key={event.id} value={event.id}>
-                        Event {event.seq} · {event.id}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Amount (USD)">
-                  <input
-                    className={inputClass}
-                    value={collection.amountInput}
-                    onChange={(e) => updateCash(collection.id, { amountInput: e.target.value })}
-                    placeholder="60,000.00"
-                  />
-                </Field>
-                <Field label="Collection date">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={collection.collectionDate}
-                    onChange={(e) => updateCash(collection.id, { collectionDate: e.target.value })}
-                  />
-                </Field>
+                    {CASH_COLLECTION_BASIS_LABELS[collection.basis ?? "actual"]}
+                  </span>
+                  {isProjectedCollection(collection) ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Projected from contractual billing/payment terms. This is not evidence that
+                      cash was received.
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Field label="Related billing event">
+                    <select
+                      className={inputClass}
+                      value={collection.considerationEventId ?? ""}
+                      onChange={(e) =>
+                        updateCash(collection.id, {
+                          considerationEventId: e.target.value === "" ? null : e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select a billing event</option>
+                      {considerationEvents.map((event) => (
+                        <option key={event.id} value={event.id}>
+                          Event {event.seq} · {event.id}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Amount (USD)">
+                    <input
+                      className={inputClass}
+                      value={collection.amountInput}
+                      onChange={(e) => updateCash(collection.id, { amountInput: e.target.value })}
+                      placeholder="60,000.00"
+                    />
+                  </Field>
+                  <Field label="Collection date">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={collection.collectionDate}
+                      onChange={(e) =>
+                        updateCash(collection.id, { collectionDate: e.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
+            </AiReviewTarget>
           ))}
           <button
             type="button"
