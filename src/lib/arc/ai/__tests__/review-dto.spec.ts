@@ -56,6 +56,8 @@ describe("Task 7 safe review item DTO", () => {
       reasonCode: "accountant_affirmation_required",
       reason: "Confirm the recognition pattern for the platform subscription.",
       reviewFingerprint: "review-fingerprint",
+      // Task 9B: only how many guidance references exist, never which.
+      guidanceReferenceCount: 2,
       citations: [
         {
           pageStart: 4,
