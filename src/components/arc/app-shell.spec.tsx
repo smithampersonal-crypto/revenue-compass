@@ -145,4 +145,17 @@ describe("ARC app shell (Phase 5)", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
   });
+
+  // Kept last: the upload step is a modal, so it owns the page once it opens.
+  it("opens the upload step once from the PDF-first entry and clears the intent", async () => {
+    const user = userEvent.setup();
+    const router = await renderAt("/");
+
+    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/analysis/documents"));
+    expect(await screen.findByRole("dialog", { name: /upload pdf/i })).toBeInTheDocument();
+    // `upload=1` is a one-shot intent: it is consumed and removed from the URL.
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+  });
 });
+
