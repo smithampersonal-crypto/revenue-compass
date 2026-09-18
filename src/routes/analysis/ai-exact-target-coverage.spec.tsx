@@ -256,8 +256,13 @@ beforeEach(() => {
 describe("every exact registry target has a real production anchor", () => {
   it("renders the anchor the review navigation promises, for each exact target", async () => {
     const { container } = renderArea();
+    // Wait for the resumed canonical fixture, not just the empty shell.
     await waitFor(() =>
-      expect(container.querySelector("#step-1")).not.toBeNull(),
+      expect(
+        container.querySelector(
+          `#${CSS.escape(reviewTargetAnchorId(`promise:${PROMISE_GS}.description`))}`,
+        ),
+      ).not.toBeNull(),
     );
 
     const missing: string[] = [];
