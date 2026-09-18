@@ -166,6 +166,10 @@ export function useAiWorkspaceController(
   const [loadState, setLoadState] = useState<AiLoadState>("idle");
   const [actionState, setActionState] = useState<AiActionState>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingEvidence, setPendingEvidence] = useState<ReadonlySet<string>>(new Set<string>());
+  const [restoring, setRestoring] = useState(false);
+  const pendingEvidenceRef = useRef<ReadonlySet<string>>(pendingEvidence);
+  const restoringRef = useRef(false);
 
   const portsRef = useRef(ports);
   portsRef.current = ports;
