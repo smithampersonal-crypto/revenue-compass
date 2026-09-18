@@ -30,6 +30,10 @@ function run(runId: string, phase: AiWorkspacePhase) {
     sourceCount: 1,
     pageCount: 4,
     reviewIssueCount: 0,
+    reviewItems: [],
+    reviewPayloadMalformed: false,
+    fieldProvenance: {},
+    objectProvenance: {},
     completedAt: null,
   };
 }

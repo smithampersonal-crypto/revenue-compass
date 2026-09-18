@@ -29,6 +29,10 @@ if (typeof document !== "undefined") {
       hasIncludedSources: true,
       sourceSetFingerprint: null,
       reviewIssueCount: 0,
+      reviewItems: [],
+      reviewPayloadMalformed: false,
+      fieldProvenance: {},
+      objectProvenance: {},
       staleSourceAcknowledged: false,
       allowance: {
         scope: "authenticated" as const,
