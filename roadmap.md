@@ -801,3 +801,44 @@ Phase 9E accepted by the director (2026-09-16).
 - [x] Run focused and full application/database/security verification.
 - [ ] Confirm both GitHub jobs (blocked: no GitHub status connection in this sandbox).
 - [x] Produce the refreshed source ZIP.
+
+## Phase 9G Task 10 — Final End-to-End Acceptance & Release Gate
+
+- [x] Add the acceptance matrix (`src/lib/arc/ai/__tests__/phase9g-acceptance.spec.ts`):
+      saved and guest happy paths, manual-only, zero-source Analyze, yellow and
+      red lifecycles, malformed-payload fail-closed, evidence authorization and
+      isolation, Guidance authority and completeness, source freshness and
+      acknowledgment, quota (account and guest), the zero-cost auxiliary-action
+      matrix, restore eligibility/first-run/acknowledged-state/single-flight,
+      and account plus guest isolation — all against the real handlers, with no
+      OpenAI call of any kind.
+- [x] Add the release gate (`src/lib/arc/ai/__tests__/phase9g-release-gate.spec.ts`):
+      frozen Task 9 migration SHA, no pending migrations, fixed `search_path` on
+      every currently defined SECURITY DEFINER routine, service-role-only execute
+      on the trusted AI routines, no browser storage of AI lifecycle state, no
+      logging and no server-only imports from browser-safe AI modules, no focused
+      or skipped specs.
+- [x] Remove the redundant `supabase/pending/` copy of the promoted Task 9 migration.
+- [x] Verification: 149 test files / 1,856 tests green, typecheck clean, lint clean
+      (11 pre-existing shadcn fast-refresh warnings), production build OK,
+      `audit:bundle` clean, `guidance:check` 116 approved cards, hash
+      `352bcf79e7cff1753f353451d9b12bf7f7cb7840eae6fe7699fdcbace6425d56`.
+- [x] Database: Docker unavailable locally, so the throwaway PostgreSQL harness
+      replayed the entire migration history and ran all 21 SQL suites — all passed.
+- [x] Cloud drift: the ten Phase 9 trusted routines are SECURITY DEFINER with
+      `search_path = pg_catalog, public` and execute granted to `service_role`
+      only; the deployed restore routine carries the approved Task 9 semantics.
+      No Cloud mutation, no new migration, no OpenAI call, no Genomix run.
+- [ ] Confirm both GitHub jobs (blocked: no GitHub status connection in this sandbox).
+
+## Phase 9G — COMPLETE (pending external GitHub job confirmation)
+
+Frozen architecture: AI runs only on a deliberate Analyze/Re-analyze click; the
+deterministic ASC 606 engines own every calculated figure; user edits are never
+overwritten by an AI result; review state, provenance, evidence and Guidance are
+server-owned and reach the browser only as safe projections; source freshness and
+stale acknowledgment are authoritative and never block finalization; whole-run
+restore is explicit, exact and offered only on Review & Finalize; allowance is 10
+runs per account per UTC month and 3 per nine-hour guest workspace; auxiliary
+review, evidence, Guidance, acknowledgment and restore actions never consume
+allowance or start a run.
