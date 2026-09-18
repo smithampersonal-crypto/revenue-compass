@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { createEmptyDraft, createVcComponentDraft } from "@/lib/asc606-workflow";
 
-import { manualAccountingFacts } from "../current-context";
+import { manualAccountingFacts } from "../manual-facts";
 
 describe("manual accounting facts", () => {
   it("omits untouched structural false defaults", () => {

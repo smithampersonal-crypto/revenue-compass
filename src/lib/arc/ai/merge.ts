@@ -590,19 +590,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     });
   }
 
-  // `contractNumber` is deliberately never populated: the semantic schema has
-  // no structured field for it and ARC does not scrape identifiers from prose.
-  // It is required to finalize, so its absence is surfaced as required input.
-  if (isUnclaimedString(draft.contract.contractNumber)) {
-    raise({
-      targetKey: fieldKeys.contract("contractNumber"),
+  // The contract reference is an administrative label, not an accounting
+  // input: it comes only from the structured `contractReference` fact, never
+  // from prose, and its absence never blocks deterministic accounting.
+  const contractReference = (assessment.contractReference.value ?? "").trim();
+  if (contractReference !== "") {
+    mergeText({
+      key: fieldKeys.contract("contractNumber"),
+      semanticKey: "contract:reference",
+      current: draft.contract.contractNumber,
+      proposed: contractReference,
+      apply: (value) => {
+        draft.contract = { ...draft.contract, contractNumber: value };
+      },
       section: "step_1",
-      reasonCode: "missing_required_input",
-      reason:
-        "Enter the contract number or reference. ARC never takes an identifier from the AI analysis.",
-      value: null,
-      aiReviewState: "needs_user_input",
-      blocking: true,
+      guidanceIds: assessment.contractReference.guidanceIds,
+      citations: assessment.contractReference.citations,
+      aiReviewState: assessment.contractReference.reviewState,
+      label: "Contract number or reference",
     });
   }
 
