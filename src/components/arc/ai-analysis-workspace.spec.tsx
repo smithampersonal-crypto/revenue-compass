@@ -24,6 +24,7 @@ const baseWorkspace: AiWorkspaceStateDto = {
   staleSourceAcknowledged: false,
   allowance: { scope: "authenticated", limit: 10, used: 7, remaining: 3, resetAt: null },
   failure: null,
+  restorableRun: null,
 };
 
 function controller(overrides: Partial<AiWorkspaceController> = {}): AiWorkspaceController {

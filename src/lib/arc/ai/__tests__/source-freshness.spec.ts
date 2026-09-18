@@ -26,6 +26,7 @@ const base: AiWorkspaceStateDto = {
   staleSourceAcknowledged: false,
   allowance: { scope: "authenticated", limit: 10, used: 1, remaining: 9, resetAt: null },
   failure: null,
+  restorableRun: null,
 };
 
 describe("Phase 9G Task 8 — source freshness presentation", () => {
