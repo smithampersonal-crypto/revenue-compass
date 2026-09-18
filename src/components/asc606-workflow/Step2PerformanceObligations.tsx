@@ -202,28 +202,30 @@ export function Step2PerformanceObligations({
                             : "Not distinct"}
                     </span>
                   </div>
-                  <select
-                    aria-label={`Performance obligation for ${promise.description || promise.id}`}
-                    className={inputClass}
-                    value={promise.performanceObligationId ?? ""}
-                    onChange={(e) =>
-                      onChange({
-                        ...draft,
-                        promises: draft.promises.map((p) =>
-                          p.id === promise.id
-                            ? { ...p, performanceObligationId: e.target.value || null }
-                            : p,
-                        ),
-                      })
-                    }
-                  >
-                    <option value="">Unassigned</option>
-                    {pos.map((po) => (
-                      <option key={po.id} value={po.id}>
-                        {po.name || `Performance obligation ${po.seq}`}
-                      </option>
-                    ))}
-                  </select>
+                  <AiReviewTarget targetKey={`promise:${promise.id}.performanceObligationId`}>
+                    <select
+                      aria-label={`Performance obligation for ${promise.description || promise.id}`}
+                      className={inputClass}
+                      value={promise.performanceObligationId ?? ""}
+                      onChange={(e) =>
+                        onChange({
+                          ...draft,
+                          promises: draft.promises.map((p) =>
+                            p.id === promise.id
+                              ? { ...p, performanceObligationId: e.target.value || null }
+                              : p,
+                          ),
+                        })
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {pos.map((po) => (
+                        <option key={po.id} value={po.id}>
+                          {po.name || `Performance obligation ${po.seq}`}
+                        </option>
+                      ))}
+                    </select>
+                  </AiReviewTarget>
                 </div>
               );
             })
