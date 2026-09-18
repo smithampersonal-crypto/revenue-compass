@@ -670,6 +670,9 @@ export function AnalysisProvider({
   const affirmAi = useServerFn(affirmAiReviewItem);
   const resolveAi = useServerFn(resolveAiReviewIssue);
   const acknowledgeAi = useServerFn(acknowledgeAiStaleSources);
+  const openEvidenceAi = useServerFn(openAiReviewEvidence);
+  const guidanceAi = useServerFn(getAiReviewGuidance);
+  const restoreAi = useServerFn(restoreAiAnalysis);
 
   const aiPorts = useMemo<AiWorkspacePorts>(
     () => ({
@@ -679,6 +682,9 @@ export function AnalysisProvider({
       affirmReviewItem: (data) => affirmAi({ data }),
       resolveReviewIssue: (data) => resolveAi({ data }),
       acknowledgeStaleSources: (data) => acknowledgeAi({ data }),
+      openReviewEvidence: (data) => openEvidenceAi({ data }),
+      getReviewGuidance: (data) => guidanceAi({ data }),
+      restoreAnalysis: (data) => restoreAi({ data }),
       flushAutosave: flushPendingSave,
       reloadCanonicalAnalysis: reloadAfterAiApply,
     }),
@@ -689,6 +695,9 @@ export function AnalysisProvider({
       affirmAi,
       resolveAi,
       acknowledgeAi,
+      openEvidenceAi,
+      guidanceAi,
+      restoreAi,
       flushPendingSave,
       reloadAfterAiApply,
     ],
