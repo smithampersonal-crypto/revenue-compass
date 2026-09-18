@@ -51,7 +51,7 @@ export function AiReviewTarget({
   const openItem =
     workspace?.reviewItems.find((item) => item.targetKey === targetKey && item.state !== "resolved") ??
     null;
-  const marker = openItem === null ? null : reviewMarkerLabel(openItem.state);
+  const marker = openItem === null ? null : reviewMarkerLabel(openItem.severity);
 
   const provenanceState =
     canonicalObjectId !== undefined
@@ -66,7 +66,7 @@ export function AiReviewTarget({
           {marker ? (
             <span
               className={
-                openItem?.state === "red"
+                openItem?.severity === "red"
                   ? "rounded-full border border-destructive px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive"
                   : "rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
               }
