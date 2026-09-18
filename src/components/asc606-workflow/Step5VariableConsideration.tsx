@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
   variableConsiderationPreview,
@@ -51,7 +52,12 @@ export function Step5VariableConsideration({
         const changes = analysis?.changeEvents.filter((e) => e.componentId === component.id) ?? [];
 
         return (
-          <div key={component.id} className="space-y-3 rounded-md border border-border p-3">
+          <AiReviewTarget
+            key={component.id}
+            targetKey={`vc:${component.id}.treatment`}
+            canonicalObjectId={component.id}
+          >
+          <div className="space-y-3 rounded-md border border-border p-3">
             <p className="text-sm font-semibold">
               {component.description || `Variable component ${component.seq}`}
             </p>
