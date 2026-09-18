@@ -420,6 +420,95 @@ export function useAiWorkspaceController(
     );
   }, [runReviewAction]);
 
+  /* ----------------------------------------- evidence, guidance, restore */
+
+  /**
+   * Task 9A/9B reads are per-target single-flight. They never adopt workspace
+   * state, so an in-flight evidence read can neither overwrite a newer poll
+   * nor be overwritten by one; a scope change simply drops the result.
+   */
+  const runEphemeralRead = useCallback(
+    async <T>(key: string, operation: () => Promise<T>): Promise<T | null> => {
+      if (!enabled) return null;
+      if (pendingEvidenceRef.current.has(key)) return null;
+      const generation = generationRef.current;
+      pendingEvidenceRef.current = new Set(pendingEvidenceRef.current).add(key);
+      setPendingEvidence(pendingEvidenceRef.current);
+      setMessage(null);
+      try {
+        const result = await operation();
+        return generation === generationRef.current ? result : null;
+      } catch (error) {
+        if (mountedRef.current && generation === generationRef.current) {
+          setMessage(safeControllerMessage(error));
+        }
+        return null;
+      } finally {
+        const next = new Set(pendingEvidenceRef.current);
+        next.delete(key);
+        pendingEvidenceRef.current = next;
+        if (mountedRef.current) setPendingEvidence(next);
+      }
+    },
+    [enabled],
+  );
+
+  const openReviewEvidence = useCallback<AiWorkspaceController["openReviewEvidence"]>(
+    (input) =>
+      runEphemeralRead(`evidence:${input.reviewItemId}:${input.citationIndex}`, () =>
+        portsRef.current.openReviewEvidence({ ...input, revisionId: revisionIdRef.current }),
+      ),
+    [runEphemeralRead],
+  );
+
+  const getReviewGuidance = useCallback<AiWorkspaceController["getReviewGuidance"]>(
+    (input) =>
+      runEphemeralRead(`guidance:${input.reviewItemId}`, () =>
+        portsRef.current.getReviewGuidance({ ...input, revisionId: revisionIdRef.current }),
+      ),
+    [runEphemeralRead],
+  );
+
+  const restoreAnalysis = useCallback<AiWorkspaceController["restoreAnalysis"]>(
+    async ({ expectedRunId }) => {
+      if (!enabled || restoringRef.current) return;
+      // Restore replaces the whole draft, so anything the accountant has
+      // already typed must reach the server first — otherwise an accepted
+      // autosave could land after the snapshot and silently un-restore it.
+      if (isRunActive(workspaceRef.current)) return;
+      const generation = generationRef.current;
+      restoringRef.current = true;
+      setRestoring(true);
+      setMessage(null);
+      try {
+        const flushed = await portsRef.current.flushAutosave();
+        if (!flushed.ok) {
+          if (mountedRef.current && generation === generationRef.current) {
+            setMessage(AI_ANALYSIS_NOT_STARTED_UNSAVED);
+          }
+          return;
+        }
+        const result = await portsRef.current.restoreAnalysis({
+          revisionId: revisionIdRef.current,
+          expectedRunId,
+        });
+        if (generation !== generationRef.current) return;
+        // Authoritative: the canonical draft is re-read from the server, never
+        // reconstructed here, and the AI workspace is adopted from the result.
+        portsRef.current.reloadCanonicalAnalysis();
+        adopt(result.workspace, generation, ++requestSeqRef.current);
+      } catch (error) {
+        if (!mountedRef.current || generation !== generationRef.current) return;
+        setMessage(safeControllerMessage(error));
+        await read();
+      } finally {
+        restoringRef.current = false;
+        if (mountedRef.current) setRestoring(false);
+      }
+    },
+    [adopt, enabled, read],
+  );
+
   const locks = useMemo(() => locksOf(workspace, actionState !== "idle"), [workspace, actionState]);
 
   return {
@@ -435,6 +524,11 @@ export function useAiWorkspaceController(
     affirmReviewItem,
     resolveReviewIssue,
     acknowledgeStaleSources,
+    openReviewEvidence,
+    getReviewGuidance,
+    restoreAnalysis,
+    pendingEvidence,
+    restoring,
     refresh: read,
   };
 }
