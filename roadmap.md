@@ -790,3 +790,13 @@ Phase 9E accepted by the director (2026-09-16).
 - [x] Apply existing AI locks minimally to Finalize and source-document mutations.
 - [x] Add component/provider RED→GREEN coverage and preserve Task 5 regressions.
 - [x] Complete full verification, browser review, security audit, and repository ZIP.
+
+## Phase 9G Task 9 — Final Presentation & Guidance Integrity Patch
+
+- [ ] Prove and move whole-run restore to Review & Finalize only.
+- [ ] Preserve evidence and Guidance on resolved review items.
+- [ ] Present approved Guidance subtopic and when-relevant content.
+- [ ] Fail closed when any unique trusted Guidance reference is unresolved.
+- [ ] Replace monthly restore wording with scope-neutral consumed-usage copy.
+- [ ] Run focused and full application/database/security verification.
+- [ ] Confirm both GitHub jobs and produce the refreshed source ZIP.
