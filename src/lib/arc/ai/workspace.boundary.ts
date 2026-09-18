@@ -64,6 +64,12 @@ const SAFE_MESSAGES: ReadonlySet<string> = new Set<string>([
   AI_REVIEW_NOTE_TOO_LONG,
   AI_WORKSPACE_REQUEST_INVALID,
   AI_WORKSPACE_ACTION_FAILED,
+  // Task 9. Each is one settled message covering every way that action can be
+  // unavailable, so a refusal never becomes a probe.
+  AI_EVIDENCE_UNAVAILABLE,
+  AI_GUIDANCE_UNAVAILABLE,
+  AI_RESTORE_UNAVAILABLE,
+  AI_RESTORE_CONFLICT,
 ]);
 
 /**
