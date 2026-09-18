@@ -36,7 +36,7 @@ const RED: AiReviewItemDto = {
   section: "step_3",
   state: "red",
   severity: "red",
-  reasonCode: "unsupported_by_evidence",
+  reasonCode: "source_conflict",
   reason: "The transaction price could not be supported by the contract.",
   reviewFingerprint: "fp-red",
   citations: [],
