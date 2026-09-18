@@ -290,6 +290,7 @@ export function Step5VariableConsideration({
               </>
             )}
           </div>
+          </AiReviewTarget>
         );
       })}
     </div>

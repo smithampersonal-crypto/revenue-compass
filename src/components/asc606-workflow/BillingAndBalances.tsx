@@ -1,3 +1,4 @@
+import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import {
   CASH_COLLECTION_BASIS_LABELS,
   createCashCollectionDraft,
@@ -98,7 +99,12 @@ export function BillingAndBalances({
             <Notice>No billing events have been entered yet.</Notice>
           ) : null}
           {considerationEvents.map((event) => (
-            <div key={event.id} className="space-y-3 rounded-md border border-border p-3">
+            <AiReviewTarget
+              key={event.id}
+              targetKey={`billing:${event.id}`}
+              canonicalObjectId={event.id}
+            >
+            <div className="space-y-3 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">
                   Event {event.seq} · {event.id}
@@ -235,7 +241,12 @@ export function BillingAndBalances({
             <Notice>No cash collections have been entered yet.</Notice>
           ) : null}
           {cashCollections.map((collection) => (
-            <div key={collection.id} className="space-y-3 rounded-md border border-border p-3">
+            <AiReviewTarget
+              key={collection.id}
+              targetKey={`cash:${collection.id}`}
+              canonicalObjectId={collection.id}
+            >
+            <div className="space-y-3 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">
                   Collection {collection.seq} · {collection.id}
