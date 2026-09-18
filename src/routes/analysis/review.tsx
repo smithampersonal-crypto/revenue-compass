@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { AiReviewPanel } from "@/components/arc/AiReviewPanel";
@@ -30,6 +30,10 @@ export const Route = createFileRoute("/analysis/review")({
 
 function ReviewFinalizeArea() {
   const { result, workpaper, persistence, ai } = useAnalysis();
+  const navigate = useNavigate();
+  // Every identity and continuity hint in the current URL is preserved; only
+  // the one-shot review intent is added.
+  const search = useSearch({ from: "/analysis" });
   const revision = persistence.revision;
 
   // Snapshot metadata for a finalized or superseded revision. The review
@@ -49,7 +53,12 @@ function ReviewFinalizeArea() {
       <RevisionLifecyclePanel />
       {/* AI review comes before the deterministic workflow review, and stays
           visibly distinct from it: these are AI-raised items, not engine issues. */}
-      <AiReviewPanel ai={ai} />
+      <AiReviewPanel
+        ai={ai}
+        onOpenTarget={(reviewItemId) => {
+          void navigate({ to: "/analysis", search: { ...search, review: reviewItemId } });
+        }}
+      />
       {recorded ? (
         <FinalizedSnapshotView
           status={recorded.status}
