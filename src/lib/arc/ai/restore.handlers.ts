@@ -13,7 +13,11 @@
  * Browser-safe: no Supabase client. The trusted routine is injected.
  */
 
-import { restorableRunOf, type AiRestorableRunDto, type AiRestoreCandidate } from "./restore-eligibility";
+import {
+  restorableRunOf,
+  type AiRestorableRunDto,
+  type AiRestoreCandidate,
+} from "./restore-eligibility";
 import { AI_WORKSPACE_NOT_EDITABLE, type AiCallerScope } from "./runs.handlers";
 import {
   aiWorkspaceStateHandler,

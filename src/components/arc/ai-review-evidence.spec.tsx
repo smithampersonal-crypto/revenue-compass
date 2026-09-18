@@ -195,7 +195,9 @@ describe("Task 9B review guidance", () => {
 
     expect(await screen.findByText("Over-time recognition")).toBeInTheDocument();
     expect(screen.getByText(/ASC 606-10-25-27 · ASC 606-10-55-5/)).toBeInTheDocument();
-    expect(screen.getByText(/You remain responsible for the accounting conclusion/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/You remain responsible for the accounting conclusion/i),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "https://asc.fasb.org/606" })).toHaveAttribute(
       "rel",
       "noopener noreferrer",

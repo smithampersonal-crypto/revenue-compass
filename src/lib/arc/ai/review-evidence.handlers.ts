@@ -23,10 +23,7 @@
 
 import type { AiGuidanceCardDto } from "./guidance-dto";
 import type { AiReviewItem } from "./review-state";
-import {
-  AI_WORKSPACE_NOT_EDITABLE,
-  type AiCallerScope,
-} from "./runs.handlers";
+import { AI_WORKSPACE_NOT_EDITABLE, type AiCallerScope } from "./runs.handlers";
 import type { AiWorkspaceStore } from "./workspace.handlers";
 
 /** One settled message for every way evidence can be unavailable. */

@@ -83,7 +83,9 @@ describe("Task 9C restore action", () => {
     expect(
       screen.getByText(/entire current analysis will be replaced by the exact version/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Every change you made after that run will be lost/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Every change you made after that run will be lost/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(/source documents, your remaining monthly AI analyses and your/i),
     ).toBeInTheDocument();

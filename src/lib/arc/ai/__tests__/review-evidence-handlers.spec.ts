@@ -179,10 +179,9 @@ describe("aiReviewEvidenceLinkHandler", () => {
       ["unknown item", fixture(), { ...VALID, reviewItemId: "rev-other" }],
       ["malformed payload", fixture({ malformed: true }), VALID],
     ] as const) {
-      await expect(
-        aiReviewEvidenceLinkHandler(f.evidence, caller, input),
-        reason,
-      ).rejects.toThrow(AI_EVIDENCE_UNAVAILABLE);
+      await expect(aiReviewEvidenceLinkHandler(f.evidence, caller, input), reason).rejects.toThrow(
+        AI_EVIDENCE_UNAVAILABLE,
+      );
       expect(f.requestedDocumentIds, reason).toEqual([]);
     }
   });
