@@ -19,7 +19,7 @@ import type { AiDocumentEvidence } from "../types";
 
 const pack = buildGuidancePack({ normalizedEvidenceText: "saas subscription hosted platform" });
 
-function instructions(promptVersion = "arc.ai.prompt.v4"): string {
+function instructions(promptVersion = "arc.ai.prompt.v5"): string {
   return buildAiInstructions({
     guidance: pack,
     sources: [

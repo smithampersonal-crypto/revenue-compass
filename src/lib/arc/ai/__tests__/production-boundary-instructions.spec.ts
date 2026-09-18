@@ -79,7 +79,7 @@ describe("production execution boundary instructions", () => {
       expect(instructions).toContain(heading);
     }
     expect(instructions).toContain(`promptVersion: ${AI_LIMITS.promptVersion}`);
-    expect(instructions).toContain("promptVersion: arc.ai.prompt.v4");
+    expect(instructions).toContain("promptVersion: arc.ai.prompt.v5");
     expect(instructions).toContain(`outputSchemaVersion: ${AI_LIMITS.outputSchemaVersion}`);
     expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v3");
 
