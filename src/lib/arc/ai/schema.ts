@@ -280,10 +280,7 @@ const variableComponentSchema = z
       "specific_series_period",
       "unknown",
     ]),
-    targetPerformanceObligationKey: z
-      .string()
-      .max(AI_SCHEMA_BOUNDS.semanticKey)
-      .nullable(),
+    targetPerformanceObligationKey: z.string().max(AI_SCHEMA_BOUNDS.semanticKey).nullable(),
     relatesSpecifically: outcomeSchema,
     consistentWithAllocationObjective: outcomeSchema,
     allocationRationale: longText,

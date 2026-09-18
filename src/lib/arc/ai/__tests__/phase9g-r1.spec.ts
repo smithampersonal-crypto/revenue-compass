@@ -20,12 +20,7 @@ import { deriveCanonicalId } from "../identity";
 import { createEmptyAiAnalysisState, mergeAiAnalysis } from "../merge";
 import { AI_OUTPUT_SCHEMA_VERSION, aiContractAnalysisSchema } from "../schema";
 import { guidancePackFixture } from "./merge-fixtures";
-import {
-  genomixR1Analysis,
-  R1_CONTRACT_REFERENCE,
-  R1_RUN_ID,
-  R1_SAAS_PO_KEY,
-} from "./r1-fixtures";
+import { genomixR1Analysis, R1_CONTRACT_REFERENCE, R1_RUN_ID, R1_SAAS_PO_KEY } from "./r1-fixtures";
 
 const SAAS_PO_ID = deriveCanonicalId("performance_obligation", R1_SAAS_PO_KEY);
 const SLA_VC_ID = deriveCanonicalId("variable_component", "vc:sla-service-credit");
@@ -46,7 +41,8 @@ const PERIOD = { start: "2026-11-01", end: "2028-10-31" } as const;
 function term(
   overrides: Partial<{
     billingTiming: "advance" | "arrears" | "milestone" | "on_usage" | "unknown";
-    frequency: "one_time" | "monthly" | "quarterly" | "semiannual" | "annual" | "on_event" | "unknown";
+    frequency:
+      "one_time" | "monthly" | "quarterly" | "semiannual" | "annual" | "on_event" | "unknown";
     amountOrRateInput: string | null;
     semanticKey: string;
   }> = {},
@@ -73,7 +69,9 @@ describe("R1 — schema and prompt versions", () => {
     const analysis = genomixR1Analysis() as unknown as {
       transactionPrice: { variableConsiderationComponents: Array<Record<string, unknown>> };
     };
-    delete analysis.transactionPrice.variableConsiderationComponents[0]!["allocationTreatmentProposal"];
+    delete analysis.transactionPrice.variableConsiderationComponents[0]![
+      "allocationTreatmentProposal"
+    ];
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
@@ -133,7 +131,11 @@ describe("R1 — deterministic fixed billing derivation", () => {
     const result = deriveUnambiguousFixedBillingTotal({
       billingTerms: [
         term(),
-        term({ semanticKey: "billing:usage", billingTiming: "on_usage", amountOrRateInput: "1.35" }),
+        term({
+          semanticKey: "billing:usage",
+          billingTiming: "on_usage",
+          amountOrRateInput: "1.35",
+        }),
       ],
       servicePeriod: { start: "2027-01-01", end: "2027-12-31" },
     });
@@ -299,8 +301,6 @@ describe("R1 — Genomix acceptance fixture", () => {
     expect(draft.transactionPriceInput).toBe("490000.00");
     expect(draft.hasVariableConsideration).toBe(true);
     expect(draft.variableConsiderationComponents).toHaveLength(2);
-    expect(
-      issues.some((item) => /manually entered/i.test(item.reason)),
-    ).toBe(false);
+    expect(issues.some((item) => /manually entered/i.test(item.reason))).toBe(false);
   });
 });

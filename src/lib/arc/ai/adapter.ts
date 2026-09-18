@@ -277,7 +277,13 @@ export function deriveBillingSchedule(input: BillingScheduleInput): BillingSched
  * periods — returns a refusal, never a guess.
  */
 export type FixedBillingTotalResult =
-  | { ok: true; totalInput: string; amountInput: string; frequency: BillingFrequency; eventCount: number }
+  | {
+      ok: true;
+      totalInput: string;
+      amountInput: string;
+      frequency: BillingFrequency;
+      eventCount: number;
+    }
   | {
       ok: false;
       reason:

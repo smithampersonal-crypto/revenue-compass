@@ -69,8 +69,7 @@ function usageAnalysis(rate: string): AiContractAnalysis {
       targetPerformanceObligationKey: null,
       relatesSpecifically: "unknown",
       consistentWithAllocationObjective: "unknown",
-      allocationRationale:
-        "The contract does not narrow this component to one obligation.",
+      allocationRationale: "The contract does not narrow this component to one obligation.",
       citations: analysis.billingTerms[0]!.citations,
       guidanceIds: [30],
       reviewState: "needs_user_input",
