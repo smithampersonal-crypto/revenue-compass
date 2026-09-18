@@ -1,0 +1,200 @@
+/**
+ * Phase 9G — Task 7. The pure review presentation registry.
+ *
+ * Presentation only: no accounting math, no fingerprints, no severity
+ * decisions, no finalization. It answers three questions — what does an
+ * accountant call this, which workflow section owns it, and is there a real
+ * anchor to scroll to — and it answers the last one honestly.
+ */
+import { describe, expect, it } from "vitest";
+
+import {
+  MANUAL_RED_REASON_OPTIONS,
+  REVIEW_NOTE_MAX_LENGTH,
+  citationLabel,
+  describeReviewTarget,
+  provenanceBadgeLabel,
+  resolutionSummary,
+  reviewSectionLabel,
+  reviewStateLabel,
+  reviewTargetAnchorId,
+} from "../review-presentation";
+
+describe("Task 7 section labels", () => {
+  it("maps every accepted review section to settled product copy", () => {
+    expect(reviewSectionLabel("step_1")).toBe("Step 1 — Identify the Contract");
+    expect(reviewSectionLabel("step_2")).toBe("Step 2 — Identify Performance Obligations");
+    expect(reviewSectionLabel("step_3")).toBe("Step 3 — Determine the Transaction Price");
+    expect(reviewSectionLabel("step_4")).toBe("Step 4 — Allocate the Transaction Price");
+    expect(reviewSectionLabel("step_5")).toBe("Step 5 — Recognize Revenue");
+    expect(reviewSectionLabel("additional_topics")).toBe("Additional Topics Applied");
+  });
+});
+
+describe("Task 7 review state labels", () => {
+  it("names severity in words, never by colour alone", () => {
+    expect(reviewStateLabel({ state: "yellow", severity: "yellow" })).toBe("Needs confirmation");
+    expect(reviewStateLabel({ state: "red", severity: "red" })).toBe("Needs resolution");
+    expect(reviewStateLabel({ state: "resolved", severity: "red" })).toBe("Resolved");
+  });
+});
+
+describe("Task 7 target presentation registry", () => {
+  const exact: ReadonlyArray<readonly [string, string]> = [
+    ["contract.customerName", "step_1"],
+    ["contract.criteria.collectibility_probable.answer", "step_1"],
+    ["contract.criteria.collectibility_probable.rationale", "step_1"],
+    ["promise:pr-saas.description", "step_2"],
+    ["po:po-saas", "step_2"],
+    ["po:po-saas.classification", "step_2"],
+    ["po:po-saas.recognitionMethod", "step_5"],
+    ["po:po-saas.servicePeriod", "step_5"],
+    ["po:po-saas.recognitionDate", "step_5"],
+    ["po:po-saas.sspInput", "step_4"],
+    ["transactionPrice.input", "step_3"],
+    ["transactionPrice.notes", "step_3"],
+    ["vc:vc-usage.treatment", "step_3"],
+    ["vc:vc-usage.inception", "step_3"],
+    ["vc:vc-usage.usagePeriods", "step_3"],
+    ["vc:vc-usage.meter.rateAmountInput", "step_3"],
+    ["modification:mod-1.phase5cFacts", "additional_topics"],
+    ["draft.hasContractModifications", "additional_topics"],
+    ["billing:ce-annual.invoiceDate", "additional_topics"],
+    ["cash:cc-annual.collectionDate", "additional_topics"],
+    ["object:po-saas", "step_2"],
+  ];
+
+  for (const [targetKey, section] of exact) {
+    it(`gives ${targetKey} an exact anchor and a human label`, () => {
+      const presented = describeReviewTarget(targetKey, section as never);
+      expect(presented.kind).toBe("exact");
+      expect(presented.anchorId).toBe(reviewTargetAnchorId(targetKey));
+      expect(presented.label).not.toContain(targetKey);
+      expect(presented.label.length).toBeGreaterThan(0);
+      expect(presented.sectionElementId.length).toBeGreaterThan(0);
+    });
+  }
+
+  const fallback: ReadonlyArray<readonly [string, string]> = [
+    ["transactionPrice.financing", "step_3"],
+    ["transactionPrice.noncash", "step_3"],
+    ["transactionPrice.payableToCustomer", "step_3"],
+    ["transactionPrice.futureAdvisoryThing", "step_3"],
+    ["additionalTopic:principal_agent", "additional_topics"],
+    ["issue:some-issue", "step_1"],
+    ["tombstone:promise:gone", "step_2"],
+    ["recognition:po:saas", "step_5"],
+    ["ssp:po:saas", "step_4"],
+    ["totally.unknown.shape", "step_1"],
+  ];
+
+  for (const [targetKey, section] of fallback) {
+    it(`falls back to the owning section for ${targetKey}`, () => {
+      const presented = describeReviewTarget(targetKey, section as never);
+      expect(presented.kind).toBe("section");
+      expect(presented.anchorId).toBeNull();
+      expect(presented.label).toBe(reviewSectionLabel(section as never));
+    });
+  }
+
+  it("routes additional-topic subtopics to their own accordion", () => {
+    expect(describeReviewTarget("modification:mod-1.phase5cFacts", "additional_topics")
+      .sectionElementId).toBe("topic-modifications");
+    expect(describeReviewTarget("vc:vc-usage.treatment", "additional_topics").sectionElementId).toBe(
+      "topic-variable-consideration",
+    );
+    expect(
+      describeReviewTarget("additionalTopic:principal_agent", "additional_topics").sectionElementId,
+    ).toBe("additional-topics");
+  });
+
+  it("uses the persisted section, never the target-key prefix, for the owning step", () => {
+    // The same canonical target reviewed under a different persisted section
+    // must follow the persisted section.
+    expect(describeReviewTarget("po:po-saas.sspInput", "step_4").sectionElementId).toBe("step-4");
+    expect(describeReviewTarget("po:po-saas.sspInput", "step_2").sectionElementId).toBe("step-2");
+  });
+
+  it("derives a stable DOM anchor that is safe as an id", () => {
+    const anchor = reviewTargetAnchorId("po:po-saas.recognitionMethod");
+    expect(anchor).toBe(reviewTargetAnchorId("po:po-saas.recognitionMethod"));
+    expect(anchor).toMatch(/^ai-review-target-[a-z0-9-]+$/);
+    expect(anchor).not.toBe(reviewTargetAnchorId("po:po-other.recognitionMethod"));
+  });
+});
+
+describe("Task 7 evidence labels", () => {
+  it("names a single text page", () => {
+    expect(citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "x" })).toBe(
+      "Source evidence — page 4",
+    );
+  });
+
+  it("names a page range", () => {
+    expect(citationLabel({ pageStart: 4, pageEnd: 5, evidenceMode: "text", excerpt: "x" })).toBe(
+      "Source evidence — pages 4–5",
+    );
+  });
+
+  it("names visual evidence distinctly", () => {
+    expect(
+      citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "visual", excerpt: null }),
+    ).toBe("Visual source evidence — page 4");
+  });
+});
+
+describe("Task 7 resolution copy", () => {
+  it("describes an edit-driven resolution as an accounting edit", () => {
+    expect(resolutionSummary({ kind: "affirmed", at: "2026-01-01T00:00:00Z", method: "edited" })).toBe(
+      "Resolved by editing the accounting conclusion",
+    );
+  });
+
+  it("describes an individual affirmation as a confirmation", () => {
+    expect(
+      resolutionSummary({ kind: "affirmed", at: "2026-01-01T00:00:00Z", method: "individual" }),
+    ).toBe("Confirmed");
+  });
+
+  it("describes a manual red resolution by its accepted reason", () => {
+    expect(
+      resolutionSummary({
+        kind: "manual_red",
+        at: "2026-01-01T00:00:00Z",
+        reason: "not_applicable",
+        note: null,
+      }),
+    ).toBe("Not applicable");
+  });
+
+  it("offers exactly the three accepted manual red reasons", () => {
+    expect(MANUAL_RED_REASON_OPTIONS.map((option) => option.value)).toEqual([
+      "reviewed_current_treatment",
+      "outside_source_information",
+      "not_applicable",
+    ]);
+    for (const option of MANUAL_RED_REASON_OPTIONS) {
+      expect(option.label.length).toBeGreaterThan(0);
+      expect(option.helper.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("matches the accepted server note bound", () => {
+    expect(REVIEW_NOTE_MAX_LENGTH).toBe(2000);
+  });
+});
+
+describe("Task 7 provenance badges", () => {
+  it("describes AI-owned presentation states only", () => {
+    expect(provenanceBadgeLabel("ai_generated_untouched")).toBe("AI drafted");
+    expect(provenanceBadgeLabel("ai_generated_user_edited")).toBe("AI drafted · edited");
+    expect(provenanceBadgeLabel("ai_difference_preserved_user_override")).toBe(
+      "Your value preserved",
+    );
+  });
+
+  it("never badges ordinary manual or historical accounting input", () => {
+    expect(provenanceBadgeLabel("manual_from_start")).toBeNull();
+    expect(provenanceBadgeLabel("prior_finalized")).toBeNull();
+  });
+});
