@@ -4,7 +4,6 @@ import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
-import { AiRestoreAction } from "@/components/arc/AiRestoreAction";
 import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
@@ -173,9 +172,6 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
           only records and explains a source change.
         */}
         <AiSourceFreshnessNotice ai={ai} />
-
-        {/* Task 9C. The single server-declared undo offer, asked once. */}
-        <AiRestoreAction ai={ai} />
 
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a
