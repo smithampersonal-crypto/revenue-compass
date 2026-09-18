@@ -1,9 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AccordionSection } from "@/components/arc/AccordionSection";
 import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
+import { AiReviewTargetProvider } from "@/components/arc/AiReviewTarget";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { describeReviewTarget } from "@/lib/arc/ai/review-presentation";
 import { IssueList } from "@/components/asc606-workflow/fields";
@@ -36,10 +37,10 @@ export const Route = createFileRoute("/analysis/")({
   component: Asc606AnalysisArea,
 });
 
-function Asc606AnalysisArea() {
+export function Asc606AnalysisArea() {
   const { draft, setDraft, result, ai } = useAnalysis();
   const navigate = useNavigate();
-  const search = Route.useSearch();
+  const search = useSearch({ from: "/analysis" }) as Record<string, string | undefined>;
   // Presentation-only: which sections are expanded. Multiple may be open at
   // once. No accounting state lives here.
   const [open, setOpen] = useState<Record<string, boolean>>({ "step-1": true });
@@ -84,9 +85,19 @@ function Asc606AnalysisArea() {
       consumedReviewRef.current = null;
       return;
     }
-    // Wait until the authoritative review state that names the target arrives.
-    if (reviewItem === null) return;
     if (consumedReviewRef.current === requestedReview) return;
+    // Wait until the authoritative review state that names the target arrives.
+    if (ai.loadState !== "ready") return;
+
+    const { review: _pending, ...withoutReview } = search;
+    if (reviewItem === null) {
+      // The item is gone — another tab resolved it, an edit cured it, or the
+      // link is stale. Drop only this parameter and keep every other identity
+      // hint; never fabricate a target or open an arbitrary section.
+      consumedReviewRef.current = requestedReview;
+      void navigate({ to: "/analysis", search: withoutReview, replace: true });
+      return;
+    }
     consumedReviewRef.current = requestedReview;
 
     const target = describeReviewTarget(reviewItem.targetKey, reviewItem.section);
@@ -100,11 +111,11 @@ function Asc606AnalysisArea() {
       });
     }
 
-    const { review: _consumed, ...rest } = search;
-    void navigate({ to: "/analysis", search: rest, replace: true });
-  }, [requestedReview, reviewItem, navigate, search]);
+    void navigate({ to: "/analysis", search: withoutReview, replace: true });
+  }, [requestedReview, reviewItem, navigate, search, ai.loadState]);
 
   return (
+    <AiReviewTargetProvider workspace={ai.workspace}>
     <div className="space-y-8">
       <div className="space-y-4">
         <h1 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -197,5 +208,6 @@ function Asc606AnalysisArea() {
         aiReviewStatus={aiReviewStatus}
       />
     </div>
+    </AiReviewTargetProvider>
   );
 }

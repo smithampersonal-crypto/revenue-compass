@@ -42,11 +42,23 @@ export function AdditionalTopics({
   const materialRightsRelevant = materialRightPromises.length > 0 || materialRightPos.length > 0;
   const modIssues = result.workflowValidation.blockingByStep.mod.length;
 
+  // Phase 9G — Task 7. A generic additional-topics review item has no
+  // subtopic accordion of its own, so this area owns the stable fallback
+  // boundary and shows that count next to its heading.
+  const genericAiReview = aiReviewStatus?.("additional-topics") ?? null;
+
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Additional Topics Applied
-      </h2>
+    <div id="additional-topics" className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Additional Topics Applied
+        </h2>
+        {genericAiReview ? (
+          <span className="rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+            {genericAiReview}
+          </span>
+        ) : null}
+      </div>
 
       <AccordionSection
         id="topic-modifications"
