@@ -81,7 +81,8 @@ describe("workflow validation", () => {
     draft.contract.contractNumber = "";
     const ids = validateWorkflow(draft).blocking.map((i) => i.id);
     expect(ids).toContain("contract.customer_name.present");
-    expect(ids).toContain("contract.number.present");
+    // A contract reference is administrative and never blocks the engines.
+    expect(ids).not.toContain("contract.number.present");
   });
 
   it("requires a rationale for each answered Step 1 criterion", () => {

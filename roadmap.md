@@ -842,3 +842,41 @@ restore is explicit, exact and offered only on Review & Finalize; allowance is 1
 runs per account per UTC month and 3 per nine-hour guest workspace; auxiliary
 review, evidence, Guidance, acknowledgment and restore actions never consume
 allowance or start a run.
+
+## Phase 9G-R — post-release refinement
+
+### Task R1 — Accounting Correctness & Internal Consistency (awaiting acceptance)
+
+Scope was limited to the four approved accounting-correctness gaps. No Cloud
+change, no migration (frozen Task 9 SHA
+`3013e5370b7a12e8d266ddf4332034968bc5cc3cefb66dcb307ac04db261c251` untouched),
+no OpenAI call, no Genomix run, no R2/R3/R4 work.
+
+- [x] Output schema `arc.ai.schema.v3` → `arc.ai.schema.v4`; prompt
+      `arc.ai.prompt.v4` → `arc.ai.prompt.v5`.
+- [x] Full-term fixed consideration: `deriveUnambiguousFixedBillingTotal()`
+      derives the contract total from a single unambiguous fixed billing
+      schedule and the canonical service period, in exact integer cents. When
+      the model reports one PERIOD's fee as the total, ARC's derived total is
+      authoritative and the note is ARC-authored; every other disagreement is
+      left to the accountant. Milestone/usage-only, two independently
+      schedulable fixed terms and a missing service period all refuse.
+- [x] Contract reference: new optional `contractAssessment.contractReference`
+      fact. It fills only a blank contract number, never overrides the
+      accountant, and no longer blocks validation or the engine adapters — a
+      reference is an administrative label, not an accounting input.
+- [x] Manual facts: `manualAccountingFacts()` (extracted to
+      `src/lib/arc/ai/manual-facts.ts`) omits untouched `false` structural
+      defaults, so the analysis is never told the accountant concluded there is
+      no variable consideration or modification when they simply have not said.
+- [x] Variable-consideration allocation: structural proposal fields on the
+      schema, mapped through the canonical performance-obligation map. A
+      semantic key is never written into a canonical field; an unmappable
+      specific target fails closed to the general treatment and raises an
+      `unsafe_semantic_relationship` review item; an accountant's own
+      allocation is preserved.
+- [x] Tests: new `phase9g-r1.spec.ts` (26) and `manual-facts.spec.ts` (4) plus
+      the synthetic Genomix benchmark fixture `r1-fixtures.ts`. Full
+      `bun run verify` green: 151 files / 1,886 tests, clean typecheck and
+      build, `audit:bundle` clean, 11 pre-existing shadcn lint warnings only.
+- [x] Database: R1 changed no SQL, no schema, no RLS, no grants and no routine.

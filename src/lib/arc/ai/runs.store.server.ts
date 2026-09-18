@@ -19,6 +19,7 @@ import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fin
 import { AiApplyConflictError } from "./orchestrator";
 import { createPriorRevisionReader, loadPriorAccountingContext } from "./prior-context.server";
 import type { AiApplyArgs, AiExecutionContext, AiRunExecutionStore } from "./orchestrator";
+import { manualAccountingFacts } from "./manual-facts";
 import type {
   AiCallerScope,
   AiRunCreationSnapshot,
@@ -85,27 +86,6 @@ function toRow(raw: RawRun): AiRunRow {
     completedAt: raw.completed_at,
     safeMessage: raw.safe_message,
   };
-}
-
-/** Deterministic, bounded snapshot of the accountant's own entries. */
-function manualFacts(draft: unknown): Record<string, string | number | boolean | null> {
-  const facts: Record<string, string | number | boolean | null> = {};
-  const visit = (value: unknown, prefix: string, depth: number): void => {
-    if (depth > 2 || value === null || typeof value !== "object") return;
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      if (Object.keys(facts).length >= 60) return;
-      const path = prefix ? `${prefix}.${key}` : key;
-      if (entry === null) continue;
-      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
-        if (typeof entry === "string" && entry.trim() === "") continue;
-        facts[path] = entry;
-      } else if (!Array.isArray(entry)) {
-        visit(entry, path, depth + 1);
-      }
-    }
-  };
-  visit(draft, "", 0);
-  return facts;
 }
 
 export async function createAiRunStore(): Promise<AiRunExecutionStore> {
@@ -334,7 +314,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           ),
           schemaVersion: data.schema_version,
           lockVersion: data.lock_version,
-          manuallyEnteredFacts: manualFacts(draft),
+          manuallyEnteredFacts: manualAccountingFacts(draft),
           arcFactSignals: [],
         };
       }
@@ -355,7 +335,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         priorContext: null,
         schemaVersion: data.schema_version,
         lockVersion: data.lock_version,
-        manuallyEnteredFacts: manualFacts(draft),
+        manuallyEnteredFacts: manualAccountingFacts(draft),
         arcFactSignals: [],
       };
     },

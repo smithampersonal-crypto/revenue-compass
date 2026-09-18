@@ -180,13 +180,9 @@ describe("Fixture C — re-analysis preserves user work", () => {
     };
 
     const unchanged = run(fixtureAAnalysis(), first.draft, affirmedState, RUN_2);
-    // Every affirmable (yellow) item carries its resolution forward. A
-    // blocking item never does, however it was affirmed in the past.
+    // Every affirmable (yellow) item carries its resolution forward.
     expect(unchanged.issues.some((item) => item.state === "resolved")).toBe(true);
     expect(unchanged.issues.every((item) => item.state !== "yellow")).toBe(true);
-    expect(
-      unchanged.issues.find((item) => item.targetKey === "contract.contractNumber")?.state,
-    ).toBe("red");
 
     const changed = run(secondRun(), first.draft, affirmedState, RUN_2);
     const refreshed = itemFor(changed.issues, "transactionPrice.input");
@@ -278,6 +274,11 @@ describe("Fixture E — usage-based billing", () => {
         trigger: "Samples processed above the included tier.",
         estimationMethodProposal: "not_estimable",
         constraintAssessment: "Future volume is not determinable from the contract.",
+        allocationTreatmentProposal: "unknown",
+        targetPerformanceObligationKey: null,
+        relatesSpecifically: "unknown",
+        consistentWithAllocationObjective: "unknown",
+        allocationRationale: "The contract does not narrow this component to one obligation.",
         citations: withUsage.billingTerms[0]!.citations,
         guidanceIds: [30],
         reviewState: "needs_user_input",
@@ -452,6 +453,11 @@ describe("review fingerprints follow the material conclusion, not the display te
         trigger: "Go-live before 30 June.",
         estimationMethodProposal: "most_likely_amount",
         constraintAssessment: "Constrained until go-live is achieved.",
+        allocationTreatmentProposal: "unknown",
+        targetPerformanceObligationKey: null,
+        relatesSpecifically: "unknown",
+        consistentWithAllocationObjective: "unknown",
+        allocationRationale: "The contract does not narrow this component to one obligation.",
         citations: analysis.billingTerms[0]!.citations,
         guidanceIds: [30],
         reviewState: "needs_review",

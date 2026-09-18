@@ -101,9 +101,8 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   if (isBlank(draft.contract.customerName)) {
     add("contract.customer_name.present", "1", "Customer name is required.");
   }
-  if (isBlank(draft.contract.contractNumber)) {
-    add("contract.number.present", "1", "Contract number or reference is required.");
-  }
+  // A contract reference is an administrative label, not an accounting input.
+  // Its absence never blocks deterministic accounting or finalization.
   const unanswered = STEP1_CRITERIA.filter((c) => draft.contract.criteria[c.id]?.answer === null);
   if (unanswered.length > 0) {
     add(

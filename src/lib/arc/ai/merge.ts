@@ -41,6 +41,8 @@ import {
 import {
   deriveBillingSchedule,
   deriveProjectedCollectionDate,
+  deriveUnambiguousFixedBillingTotal,
+  exactCents,
   isUnclaimedString,
   mapEstimationMethod,
   mapOutcome,
@@ -590,19 +592,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     });
   }
 
-  // `contractNumber` is deliberately never populated: the semantic schema has
-  // no structured field for it and ARC does not scrape identifiers from prose.
-  // It is required to finalize, so its absence is surfaced as required input.
-  if (isUnclaimedString(draft.contract.contractNumber)) {
-    raise({
-      targetKey: fieldKeys.contract("contractNumber"),
+  // The contract reference is an administrative label, not an accounting
+  // input: it comes only from the structured `contractReference` fact, never
+  // from prose, and its absence never blocks deterministic accounting.
+  const contractReference = (assessment.contractReference.value ?? "").trim();
+  if (contractReference !== "") {
+    mergeText({
+      key: fieldKeys.contract("contractNumber"),
+      semanticKey: "contract:reference",
+      current: draft.contract.contractNumber,
+      proposed: contractReference,
+      apply: (value) => {
+        draft.contract = { ...draft.contract, contractNumber: value };
+      },
       section: "step_1",
-      reasonCode: "missing_required_input",
-      reason:
-        "Enter the contract number or reference. ARC never takes an identifier from the AI analysis.",
-      value: null,
-      aiReviewState: "needs_user_input",
-      blocking: true,
+      guidanceIds: assessment.contractReference.guidanceIds,
+      citations: assessment.contractReference.citations,
+      aiReviewState: assessment.contractReference.reviewState,
+      label: "Contract number or reference",
     });
   }
 
@@ -1342,7 +1349,30 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* ------------------------------------------------------- transaction price */
 
-  const fixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
+  // A stated periodic fee is not the contract's fixed consideration. When the
+  // contract's own billing schedule unambiguously determines the full-term
+  // total, ARC's deterministic total is authoritative over the model's amount.
+  const fixedDerivation = deriveUnambiguousFixedBillingTotal({
+    billingTerms: analysis.billingTerms,
+    servicePeriod: deriveContractServicePeriod(draft),
+  });
+  const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
+  const derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null;
+  const proposedCents = proposedFixed === null ? null : exactCents(proposedFixed);
+  // ARC only corrects the one unambiguous defect: the model reported a single
+  // PERIOD's fee as the contract total. Any other disagreement between the
+  // model's amount and a derived schedule is left to the accountant, because a
+  // schedule may legitimately cover only part of the consideration.
+  const reportedOnePeriod =
+    fixedDerivation.ok &&
+    fixedDerivation.eventCount > 1 &&
+    proposedCents !== null &&
+    exactCents(fixedDerivation.amountInput) === proposedCents;
+  const derivedOverride =
+    reportedOnePeriod && derivedTotal !== null && exactCents(derivedTotal) !== proposedCents
+      ? derivedTotal
+      : null;
+  const fixed = derivedOverride ?? proposedFixed;
   if (fixed !== null) {
     mergeText({
       key: fieldKeys.transactionPrice("input"),
@@ -1369,7 +1399,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         key: fieldKeys.transactionPrice("notes"),
         semanticKey: "transaction-price:fixed",
         current: draft.transactionPriceNotes,
-        proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
+        // When ARC replaced the amount, the note must describe ARC's own
+        // derivation. Keeping the model's wording beside a different number
+        // would make the audit trail self-contradictory.
+        proposed:
+          derivedOverride !== null && fixedDerivation.ok
+            ? `ARC derived the full-term fixed consideration of ${derivedOverride} from the contract's ${fixedDerivation.frequency.replace(/_/g, " ")} billing schedule of ${fixedDerivation.amountInput} across ${fixedDerivation.eventCount} billing periods in the contract service period.`
+            : `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
         apply: (value) => {
           draft.transactionPriceNotes = value;
         },
@@ -1578,6 +1614,74 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: component.reviewState,
       label: "Variable-consideration description",
     });
+
+    /* --------------------------------------- allocation of this component */
+
+    // A semantic key is never written into a canonical field. A specific
+    // allocation requires a real canonical performance obligation; when the
+    // proposed target cannot be mapped ARC fails closed to the general
+    // treatment and raises the relationship for review.
+    const allocationProposal = component.allocationTreatmentProposal;
+    const targetKey = component.targetPerformanceObligationKey;
+    const needsTarget =
+      allocationProposal === "specific_po" || allocationProposal === "specific_series_period";
+    const mappedTargetPoId =
+      targetKey === null || targetKey.trim() === ""
+        ? null
+        : (poIdBySemanticKey.get(targetKey) ?? null);
+
+    if (needsTarget && mappedTargetPoId === null) {
+      raise({
+        targetKey: fieldKeys.vc(canonicalId, "allocation"),
+        section,
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The AI analysis allocates this variable consideration to a specific performance obligation ARC could not identify in your workpaper. It was left allocated across the contract — set the allocation yourself.",
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        value: { proposedTreatment: allocationProposal, targetKey },
+        material: { proposedTreatment: allocationProposal, targetKey, ...vcMaterial(component) },
+        aiReviewState: component.reviewState,
+        blocking: true,
+      });
+    } else if (allocationProposal !== "unknown") {
+      // An allocation the accountant has already reasoned about is theirs.
+      const allocationUnclaimed =
+        current().targetPoId === null && isUnclaimedString(current().allocationRationale);
+      mergeScalar<VcComponentDraft["allocationTreatment"]>({
+        key: fieldKeys.vc(canonicalId, "allocationTreatment"),
+        semanticKey: component.semanticKey,
+        current: current().allocationTreatment,
+        proposed: allocationProposal,
+        unclaimed: allocationUnclaimed,
+        apply: (value) =>
+          update({
+            allocationTreatment: value,
+            targetPoId: needsTarget ? mappedTargetPoId : null,
+            relatesSpecifically: mapOutcome(component.relatesSpecifically),
+            consistentWithAllocationObjective: mapOutcome(
+              component.consistentWithAllocationObjective,
+            ),
+          }),
+        section,
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        aiReviewState: component.reviewState,
+        label: "Variable-consideration allocation",
+      });
+      mergeText({
+        key: fieldKeys.vc(canonicalId, "allocationRationale"),
+        semanticKey: component.semanticKey,
+        current: current().allocationRationale,
+        proposed: component.allocationRationale,
+        apply: (value) => update({ allocationRationale: value }),
+        section,
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        aiReviewState: component.reviewState,
+        label: "Variable-consideration allocation rationale",
+      });
+    }
 
     if (isUsage) {
       const rate = usableAmount(component.contractualRateOrAmountInput);

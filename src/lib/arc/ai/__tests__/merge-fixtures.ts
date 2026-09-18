@@ -81,6 +81,7 @@ export function fixtureAAnalysis(): AiContractAnalysis {
           reviewState: "supported",
         },
       ],
+      contractReference: fact(null, "The order form states no reference number."),
       contractEffectiveDate: fact("2027-01-01", "Stated effective date."),
       contractTerm: fact("12 months", "Stated term."),
       approvalAndCommitment: judgment("yes", "Both parties executed the order form."),
