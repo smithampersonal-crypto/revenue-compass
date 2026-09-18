@@ -31,6 +31,11 @@ const SECTION_LABELS: Record<GuidanceReviewSection, string> = {
   additional_topics: "Additional Topics Applied",
 };
 
+/** The workflow accordion element id that owns a review section. */
+export function reviewSectionElementId(section: GuidanceReviewSection): string {
+  return SECTION_ELEMENT_IDS[section];
+}
+
 export function reviewSectionLabel(section: GuidanceReviewSection): string {
   return SECTION_LABELS[section];
 }
