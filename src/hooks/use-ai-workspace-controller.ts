@@ -58,6 +58,24 @@ export interface AiWorkspacePorts {
     revisionId: string | null;
     expectedSourceSetFingerprint: string;
   }): Promise<AiWorkspaceStateDto>;
+  /** Task 9A. Returns an ephemeral signed view link; never persisted. */
+  openReviewEvidence(input: {
+    revisionId: string | null;
+    reviewItemId: string;
+    expectedReviewFingerprint: string;
+    citationIndex: number;
+  }): Promise<AiEvidenceLinkDto>;
+  /** Task 9B. Returns the approved accountant-facing Guidance cards only. */
+  getReviewGuidance(input: {
+    revisionId: string | null;
+    reviewItemId: string;
+    expectedReviewFingerprint: string;
+  }): Promise<AiReviewGuidanceDto>;
+  /** Task 9C. Deliberate whole-run restore to the exact pre-run snapshot. */
+  restoreAnalysis(input: {
+    revisionId: string | null;
+    expectedRunId: string;
+  }): Promise<{ restoredRunId: string; workspace: AiWorkspaceStateDto }>;
   /**
    * Waits for the accepted Task 4 autosave pipeline to settle. The controller
    * never implements a second save mechanism; it only refuses to analyze
