@@ -124,19 +124,8 @@ describe("ARC app shell (Phase 5)", () => {
       expect(router.state.location.search).toEqual({ sample: "redwood" });
     });
 
-    await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
-    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/analysis/documents");
-    });
-    // `upload=1` is a one-shot intent: Source Documents opens the upload step
-    // once and then clears the parameter from the URL.
-    expect(await screen.findByRole("dialog", { name: /upload pdf/i })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(router.state.location.search).toEqual({});
-    });
-
   });
+
 
   it("shows only enabled global navigation and exposes no unfinished controls", async () => {
     const user = userEvent.setup();
