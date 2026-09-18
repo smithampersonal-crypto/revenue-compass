@@ -218,8 +218,7 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
       } as never);
       if (error) fail("restore", error);
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { lock_version: number; idempotent: boolean }
-        | undefined;
+        { lock_version: number; idempotent: boolean } | undefined;
       return {
         lockVersion: row?.lock_version ?? args.expectedLockVersion,
         idempotent: row?.idempotent === true,

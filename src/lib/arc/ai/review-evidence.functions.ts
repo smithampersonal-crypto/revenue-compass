@@ -38,11 +38,13 @@ import type { AiCallerScope } from "./runs.handlers";
 async function workspaceDeps(): Promise<AiWorkspaceDeps> {
   // The compiled Guidance registry is loaded here, inside the handler path,
   // so no part of it can reach the browser bundle through this module.
-  const [{ createAiWorkspaceStore }, { AI_LIMITS }, { GUIDANCE_REGISTRY_HASH }] = await Promise.all([
-    import("./workspace.store.server"),
-    import("./config.server"),
-    import("@/lib/arc/guidance/registry"),
-  ]);
+  const [{ createAiWorkspaceStore }, { AI_LIMITS }, { GUIDANCE_REGISTRY_HASH }] = await Promise.all(
+    [
+      import("./workspace.store.server"),
+      import("./config.server"),
+      import("@/lib/arc/guidance/registry"),
+    ],
+  );
   return {
     store: await createAiWorkspaceStore(),
     limits: { ...AI_LIMITS, guidanceRegistryHash: GUIDANCE_REGISTRY_HASH },

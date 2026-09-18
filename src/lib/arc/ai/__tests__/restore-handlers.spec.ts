@@ -94,9 +94,7 @@ function fixture(options: Options = {}): {
       reviewPayloadMalformed: false,
     }),
     loadRestoreCandidate: async (_caller: AiCallerScope, runId: string) =>
-      options.candidate === undefined
-        ? candidate({ runId })
-        : options.candidate,
+      options.candidate === undefined ? candidate({ runId }) : options.candidate,
     monthlyUsage: async () => 1,
     guestConsumed: async () => 0,
     restorePreAiRun: restore,
@@ -186,9 +184,9 @@ describe("restoreAiAnalysisHandler", () => {
 
   it("refuses a scope that is no longer editable, and never calls the routine", async () => {
     const f = fixture({ editable: false });
-    await expect(
-      restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN }),
-    ).rejects.toThrow(AI_WORKSPACE_NOT_EDITABLE);
+    await expect(restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN })).rejects.toThrow(
+      AI_WORKSPACE_NOT_EDITABLE,
+    );
     expect(f.restore).not.toHaveBeenCalled();
   });
 
@@ -202,17 +200,17 @@ describe("restoreAiAnalysisHandler", () => {
 
   it("refuses when nothing is restorable any more", async () => {
     const f = fixture({ candidate: candidate({ restoredAt: "2026-09-18T11:00:00.000Z" }) });
-    await expect(
-      restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN }),
-    ).rejects.toThrow(AI_RESTORE_UNAVAILABLE);
+    await expect(restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN })).rejects.toThrow(
+      AI_RESTORE_UNAVAILABLE,
+    );
     expect(f.restore).not.toHaveBeenCalled();
   });
 
   it("reports the trusted routine's refusal as a conflict, and never retries", async () => {
     const f = fixture({ restoreThrows: new Error("lock_version mismatch") });
-    await expect(
-      restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN }),
-    ).rejects.toThrow(AI_RESTORE_CONFLICT);
+    await expect(restoreAiAnalysisHandler(f.deps, caller, { expectedRunId: RUN })).rejects.toThrow(
+      AI_RESTORE_CONFLICT,
+    );
     expect(f.restore).toHaveBeenCalledTimes(1);
   });
 });

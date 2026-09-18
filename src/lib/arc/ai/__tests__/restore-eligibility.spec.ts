@@ -51,7 +51,9 @@ describe("restorableRunOf", () => {
   });
 
   it("offers an absent pre-run sidecar, which restores by deletion", () => {
-    expect(restorableRunOf(input({ candidate: candidate({ preRunSnapshot: "absent" }) }))).not.toBeNull();
+    expect(
+      restorableRunOf(input({ candidate: candidate({ preRunSnapshot: "absent" }) })),
+    ).not.toBeNull();
   });
 
   it("never offers a restore the server cannot make exact", () => {
@@ -62,7 +64,10 @@ describe("restorableRunOf", () => {
       ["a run that cannot be loaded", { candidate: null }],
       ["a run belonging to another scope", { candidate: candidate({ belongsToScope: false }) }],
       ["a run that did not succeed", { candidate: candidate({ stage: "api_failed" }) }],
-      ["a run already undone", { candidate: candidate({ restoredAt: "2026-09-18T11:00:00.000Z" }) }],
+      [
+        "a run already undone",
+        { candidate: candidate({ restoredAt: "2026-09-18T11:00:00.000Z" }) },
+      ],
       ["an older run than the current one", { lastSuccessfulRunId: "run-2" }],
       ["an unknown current source set", { currentSourceSetFingerprint: null }],
       ["a source set that has since moved", { currentSourceSetFingerprint: "b".repeat(64) }],

@@ -32,10 +32,7 @@ import {
   type AiWorkspaceLocks,
   type AiWorkspaceProgress,
 } from "@/lib/arc/ai/workspace-client";
-import type {
-  AiEvidenceLinkDto,
-  AiReviewGuidanceDto,
-} from "@/lib/arc/ai/review-evidence.handlers";
+import type { AiEvidenceLinkDto, AiReviewGuidanceDto } from "@/lib/arc/ai/review-evidence.handlers";
 import type { AiAnalysisRequestDto, AiWorkspaceStateDto } from "@/lib/arc/ai/workspace.handlers";
 
 /* ---------------------------------------------------------------- ports */

@@ -19,9 +19,8 @@ import { toAiGuidanceCardDto } from "./guidance-dto";
 import type { AiEvidenceDocumentAccess, AiGuidanceAccess } from "./review-evidence.handlers";
 
 export async function createAiEvidenceDocumentAccess(): Promise<AiEvidenceDocumentAccess> {
-  const { documentStore, documentStorage } = await import(
-    "@/lib/arc/documents/documents.store.server"
-  );
+  const { documentStore, documentStorage } =
+    await import("@/lib/arc/documents/documents.store.server");
   const store = await documentStore();
 
   return {
