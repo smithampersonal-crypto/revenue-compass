@@ -14,8 +14,6 @@
 
 import { createServerFn } from "@tanstack/react-start";
 
-import { GUIDANCE_REGISTRY_HASH } from "@/lib/arc/guidance/registry";
-
 import {
   restoreAiAnalysisHandler,
   type AiRestoreDeps,
@@ -38,9 +36,12 @@ import type { AiWorkspaceDeps } from "./workspace.handlers";
 import type { AiCallerScope } from "./runs.handlers";
 
 async function workspaceDeps(): Promise<AiWorkspaceDeps> {
-  const [{ createAiWorkspaceStore }, { AI_LIMITS }] = await Promise.all([
+  // The compiled Guidance registry is loaded here, inside the handler path,
+  // so no part of it can reach the browser bundle through this module.
+  const [{ createAiWorkspaceStore }, { AI_LIMITS }, { GUIDANCE_REGISTRY_HASH }] = await Promise.all([
     import("./workspace.store.server"),
     import("./config.server"),
+    import("@/lib/arc/guidance/registry"),
   ]);
   return {
     store: await createAiWorkspaceStore(),
