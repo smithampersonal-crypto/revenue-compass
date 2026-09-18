@@ -469,10 +469,11 @@ describe("deterministic AI meter fields are presented individually", () => {
       } as never,
     });
     const { container } = renderArea();
-    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
-    expect(anchorOf(container, RATE)!.textContent).toContain("AI drafted");
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited");
+    });
     expect(anchorOf(container, RATE)!.textContent).not.toContain("edited");
-    expect(anchorOf(container, UNIT)!.textContent).toContain("AI drafted · edited");
   });
 
   it("badges a preserved user override on the unit alone", async () => {
@@ -483,9 +484,10 @@ describe("deterministic AI meter fields are presented individually", () => {
       } as never,
     });
     const { container } = renderArea();
-    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
-    expect(anchorOf(container, UNIT)!.textContent).toContain("Your value preserved");
-    expect(anchorOf(container, RATE)!.textContent).toContain("AI drafted");
+    await waitFor(() => {
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Your value preserved");
+      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
+    });
   });
 
   it("keeps two simultaneous meter review severities on their own controls", async () => {
@@ -497,10 +499,11 @@ describe("deterministic AI meter fields are presented individually", () => {
       reviewIssueCount: 2,
     });
     const { container } = renderArea();
-    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
-    expect(anchorOf(container, RATE)!.textContent).toContain("Review");
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("Review");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Resolve");
+    });
     expect(anchorOf(container, RATE)!.textContent).not.toContain("Resolve");
-    expect(anchorOf(container, UNIT)!.textContent).toContain("Resolve");
   });
 
   it("does not depend on review item ordering", async () => {
@@ -512,9 +515,10 @@ describe("deterministic AI meter fields are presented individually", () => {
       reviewIssueCount: 2,
     });
     const { container } = renderArea();
-    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
-    expect(anchorOf(container, RATE)!.textContent).toContain("Review");
-    expect(anchorOf(container, UNIT)!.textContent).toContain("Resolve");
+    await waitFor(() => {
+      expect(anchorOf(container, RATE)?.textContent).toContain("Review");
+      expect(anchorOf(container, UNIT)?.textContent).toContain("Resolve");
+    });
   });
 
   it("owns the real Unit control at the unit anchor", async () => {
@@ -533,7 +537,9 @@ describe("deterministic AI meter fields are presented individually", () => {
       fieldProvenance: { [UNIT]: { state: "ai_generated_user_edited" } } as never,
     });
     const { container } = renderArea();
-    await waitFor(() => expect(anchorOf(container, UNIT)).not.toBeNull());
+    await waitFor(() =>
+      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited"),
+    );
 
     for (const key of [
       `vc:${VC_USAGE}.meter.name`,
