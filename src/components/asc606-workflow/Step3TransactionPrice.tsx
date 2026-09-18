@@ -263,14 +263,16 @@ export function Step3TransactionPrice({
         <Notice tone="danger">{parsed.error}</Notice>
       )}
 
-      <label className="flex items-center gap-2 text-sm font-medium">
-        <input
-          type="checkbox"
-          checked={draft.hasVariableConsideration}
-          onChange={(e) => onChange({ ...draft, hasVariableConsideration: e.target.checked })}
-        />
-        This contract contains variable consideration
-      </label>
+      <AiReviewTarget targetKey="draft.hasVariableConsideration">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={draft.hasVariableConsideration}
+            onChange={(e) => onChange({ ...draft, hasVariableConsideration: e.target.checked })}
+          />
+          This contract contains variable consideration
+        </label>
+      </AiReviewTarget>
 
       {draft.hasVariableConsideration ? (
         <div className="space-y-4">
@@ -292,13 +294,20 @@ export function Step3TransactionPrice({
           ) : null}
 
           {components.map((component) => (
-            <div key={component.id} className="space-y-3 rounded-md border border-border p-3">
+            <AiReviewTarget
+              key={component.id}
+              targetKey={`vc:${component.id}`}
+              canonicalObjectId={component.id}
+              className="space-y-3 rounded-md border border-border p-3"
+            >
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">
-                  {component.treatment === "estimated"
-                    ? "Estimated variable consideration"
-                    : "Usage as incurred"}
-                </p>
+                <AiReviewTarget targetKey={`vc:${component.id}.treatment`}>
+                  <p className="text-sm font-semibold">
+                    {component.treatment === "estimated"
+                      ? "Estimated variable consideration"
+                      : "Usage as incurred"}
+                  </p>
+                </AiReviewTarget>
                 <button
                   type="button"
                   className={buttonClass}
@@ -308,13 +317,15 @@ export function Step3TransactionPrice({
                 </button>
               </div>
 
-              <Field label="Description">
-                <input
-                  className={inputClass}
-                  value={component.description}
-                  onChange={(e) => patchComponent(component.id, { description: e.target.value })}
-                />
-              </Field>
+              <AiReviewTarget targetKey={`vc:${component.id}.description`}>
+                <Field label="Description">
+                  <input
+                    className={inputClass}
+                    value={component.description}
+                    onChange={(e) => patchComponent(component.id, { description: e.target.value })}
+                  />
+                </Field>
+              </AiReviewTarget>
 
               {component.treatment === "estimated" ? (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -333,24 +344,26 @@ export function Step3TransactionPrice({
                       ))}
                     </select>
                   </Field>
-                  <Field label="Estimation method (ASC 606-10-32-8)">
-                    <select
-                      className={inputClass}
-                      value={component.estimationMethod ?? ""}
-                      onChange={(e) =>
-                        patchComponent(component.id, {
-                          estimationMethod: (e.target.value || null) as EstimationMethod | null,
-                        })
-                      }
-                    >
-                      <option value="">Select a method…</option>
-                      {(["most_likely_amount", "expected_value"] as const).map((method) => (
-                        <option key={method} value={method}>
-                          {VC_ESTIMATION_METHOD_LABELS[method]}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                  <AiReviewTarget targetKey={`vc:${component.id}.estimationMethod`}>
+                    <Field label="Estimation method (ASC 606-10-32-8)">
+                      <select
+                        className={inputClass}
+                        value={component.estimationMethod ?? ""}
+                        onChange={(e) =>
+                          patchComponent(component.id, {
+                            estimationMethod: (e.target.value || null) as EstimationMethod | null,
+                          })
+                        }
+                      >
+                        <option value="">Select a method…</option>
+                        {(["most_likely_amount", "expected_value"] as const).map((method) => (
+                          <option key={method} value={method}>
+                            {VC_ESTIMATION_METHOD_LABELS[method]}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </AiReviewTarget>
                 </div>
               ) : null}
 
@@ -437,7 +450,9 @@ export function Step3TransactionPrice({
 
               {component.treatment === "estimated" ? (
                 <>
-                  {assessmentEditor(component, component.inception, "Inception estimate")}
+                  <AiReviewTarget targetKey={`vc:${component.id}.inception`}>
+                    {assessmentEditor(component, component.inception, "Inception estimate")}
+                  </AiReviewTarget>
                   {component.treatment === "estimated" ? (
                     <MeasurementReadout component={component} />
                   ) : null}
@@ -469,7 +484,15 @@ export function Step3TransactionPrice({
                   </button>
                 </>
               ) : (
-                <div className="space-y-3">
+                <AiReviewTarget
+                  targetKey={`vc:${component.id}.meter.rateAmountInput`}
+                  additionalTargetKeys={[
+                    `vc:${component.id}.meter.name`,
+                    `vc:${component.id}.meter.rateQuantityInput`,
+                    `vc:${component.id}.meter.unit`,
+                  ]}
+                  className="space-y-3"
+                >
                   <p className="text-sm font-medium">Usage meters (fixed rate per quantity)</p>
                   {component.meters.map((meter) => (
                     <div key={meter.id} className="grid gap-2 sm:grid-cols-5">
@@ -563,9 +586,9 @@ export function Step3TransactionPrice({
                     Actual usage quantities are entered in Step 5, in the accounting month the usage
                     occurs.
                   </Notice>
-                </div>
+                </AiReviewTarget>
               )}
-            </div>
+            </AiReviewTarget>
           ))}
         </div>
       ) : null}
