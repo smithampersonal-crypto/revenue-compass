@@ -108,15 +108,42 @@ function humanize(field: string): string {
   return words.length === 0 ? "" : words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-const PO_FIELDS = new Set([
-  "classification",
-  "recognitionMethod",
-  "recognitionDate",
-  "servicePeriod",
-  "sspInput",
-  "name",
+/**
+ * EXACTNESS IS A PROMISE ABOUT THE DOM.
+ *
+ * A target may only be described as `exact` when the production accounting UI
+ * really renders `reviewTargetAnchorId(targetKey)` for it. Every set below is
+ * therefore an explicit, deliberately registered vocabulary — never a wildcard
+ * over "any field of this object". An unknown or future field falls back to
+ * its persisted section until a real control is registered here and wired.
+ */
+
+const CONTRACT_FIELDS = new Set(["customerName", "contractNumber", "executionDate"]);
+
+const PROMISE_FIELDS = new Set([
   "kind",
-  "materialRightStatus",
+  "description",
+  "capableOfBeingDistinct",
+  "distinctWithinContractContext",
+  "distinctRationale",
+  "conveysMaterialRight",
+  "materialRightRationale",
+  "performanceObligationId",
+]);
+
+const PO_FIELDS = new Set([
+  "kind",
+  "name",
+  "classification",
+  "classificationRationale",
+  "recognitionMethod",
+  "recognitionRationale",
+  "serviceStart",
+  "serviceEnd",
+  "servicePeriod",
+  "recognitionDate",
+  "sspInput",
+  "sspBasis",
 ]);
 
 const TRANSACTION_PRICE_FIELDS: Record<string, string> = {
@@ -124,7 +151,31 @@ const TRANSACTION_PRICE_FIELDS: Record<string, string> = {
   notes: "Transaction price notes",
 };
 
-const VC_FIELDS = new Set(["treatment", "inception", "usagePeriods"]);
+const VC_FIELDS = new Set([
+  "description",
+  "treatment",
+  "estimationMethod",
+  "inception",
+  "usagePeriods",
+]);
+
+/** Meter targets are composite: the component's meter group owns the anchor. */
+const VC_METER_FIELDS = new Set(["name", "rateAmountInput", "rateQuantityInput", "unit"]);
+
+const MODIFICATION_FIELDS = new Set([
+  "modificationDate",
+  "considerationMagnitudeInput",
+  "approvedAndEnforceable",
+  "scopeChangeDescription",
+  "priceReflectsAddedGoodsSsp",
+  "phase5cFacts",
+]);
+
+const STRUCTURAL_FIELDS = new Set(["hasContractModifications", "hasVariableConsideration"]);
+
+const BILLING_FIELDS = new Set(["amountInput", "unconditionalRightDate", "invoiceDate"]);
+
+const CASH_FIELDS = new Set(["amountInput", "collectionDate"]);
 
 /**
  * Classifies one canonical target into presentation. The persisted review
@@ -159,18 +210,29 @@ export function describeReviewTarget(
   }
 
   const contract = /^contract\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (contract) return exact(`Contract detail — ${humanize(contract[1]!)}`);
-
-  const promise = /^promise:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (promise) return exact(`Promise — ${humanize(promise[1]!)}`);
-
-  if (/^po:[^.]+$/.test(targetKey) || /^object:[^.]+$/.test(targetKey)) {
-    return exact("Performance obligation");
+  if (contract) {
+    return CONTRACT_FIELDS.has(contract[1]!)
+      ? exact(`Contract detail — ${humanize(contract[1]!)}`)
+      : fallback();
   }
 
+  const promise = /^promise:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
+  if (promise) {
+    return PROMISE_FIELDS.has(promise[1]!)
+      ? exact(`Promise — ${humanize(promise[1]!)}`)
+      : fallback();
+  }
+
+  // `object:<id>` is raised when a previously AI-owned object is omitted by a
+  // later analysis. Its canonical kind is not knowable from the key, so it is
+  // never presented as a performance obligation and never claims a field.
+  if (/^po:[^.]+$/.test(targetKey)) return exact("Performance obligation");
+
   const po = /^po:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (po && PO_FIELDS.has(po[1]!)) {
-    return exact(`Performance obligation — ${humanize(po[1]!)}`);
+  if (po) {
+    return PO_FIELDS.has(po[1]!)
+      ? exact(`Performance obligation — ${humanize(po[1]!)}`)
+      : fallback();
   }
 
   const price = /^transactionPrice\.([A-Za-z0-9_]+)$/.exec(targetKey);
@@ -183,21 +245,50 @@ export function describeReviewTarget(
   }
 
   const vc = /^vc:[^.]+\.(.+)$/.exec(targetKey);
-  if (vc && (VC_FIELDS.has(vc[1]!) || vc[1]!.startsWith("meter."))) {
-    return exact(`Variable consideration — ${humanize(vc[1]!)}`);
+  if (vc) {
+    const field = vc[1]!;
+    const meter = /^meter\.([A-Za-z0-9_]+)$/.exec(field);
+    if (meter) {
+      return VC_METER_FIELDS.has(meter[1]!)
+        ? exact(`Variable consideration meter — ${humanize(meter[1]!)}`)
+        : fallback();
+    }
+    return VC_FIELDS.has(field)
+      ? exact(`Variable consideration — ${humanize(field)}`)
+      : fallback();
   }
 
   const modification = /^modification:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (modification) return exact(`Contract modification — ${humanize(modification[1]!)}`);
+  if (modification) {
+    return MODIFICATION_FIELDS.has(modification[1]!)
+      ? exact(
+          modification[1] === "phase5cFacts"
+            ? "Contract modification workpaper"
+            : `Contract modification — ${humanize(modification[1]!)}`,
+        )
+      : fallback();
+  }
 
   const structural = /^draft\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (structural) return exact(`Analysis setting — ${humanize(structural[1]!)}`);
+  if (structural) {
+    return STRUCTURAL_FIELDS.has(structural[1]!)
+      ? exact(`Analysis setting — ${humanize(structural[1]!)}`)
+      : fallback();
+  }
 
   const billing = /^billing:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (billing) return exact(`Billing event — ${humanize(billing[1]!)}`);
+  if (billing) {
+    return BILLING_FIELDS.has(billing[1]!)
+      ? exact(`Billing event — ${humanize(billing[1]!)}`)
+      : fallback();
+  }
 
   const cash = /^cash:[^.]+\.([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (cash) return exact(`Cash collection — ${humanize(cash[1]!)}`);
+  if (cash) {
+    return CASH_FIELDS.has(cash[1]!)
+      ? exact(`Cash collection — ${humanize(cash[1]!)}`)
+      : fallback();
+  }
 
   return fallback();
 }
