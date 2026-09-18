@@ -84,6 +84,7 @@ const {
 } = await import("@/lib/asc606-workflow");
 const { AnalysisProvider } = await import("@/components/arc/analysis-context");
 const { Asc606AnalysisArea } = await import("./index");
+const { ContractBalancesArea } = await import("./balances");
 
 const PROMISE_GS = "pr-saas";
 const PROMISE_OPT = "pr-renewal";
@@ -241,11 +242,10 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
   [`modification:${MOD}.scopeChangeDescription`, "additional_topics"],
   [`modification:${MOD}.priceReflectsAddedGoodsSsp`, "additional_topics"],
 
-  [`billing:${BILLING}.amountInput`, "additional_topics"],
-  [`billing:${BILLING}.unconditionalRightDate`, "additional_topics"],
-  [`billing:${BILLING}.invoiceDate`, "additional_topics"],
-  [`cash:${CASH}.amountInput`, "additional_topics"],
-  [`cash:${CASH}.collectionDate`, "additional_topics"],
+  // Billing and cash live on the Contract Balances workpaper, a different
+  // page: the registry presents them as their section, so they are asserted
+  // as fallback rather than as analysis-page anchors.
+
 ];
 
 beforeEach(() => {
