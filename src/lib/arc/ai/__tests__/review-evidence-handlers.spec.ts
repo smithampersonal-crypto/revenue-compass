@@ -213,17 +213,41 @@ describe("aiReviewEvidenceLinkHandler", () => {
 
 describe("aiReviewGuidanceHandler", () => {
   it("resolves the server-trusted guidance ids of the validated item", async () => {
-    const f = fixture();
+    const f = fixture({ cards: [card("Over-time recognition"), card("Variable consideration")] });
     const result = await aiReviewGuidanceHandler(f.guidance, caller, {
       reviewItemId: "rev-1",
       expectedReviewFingerprint: "review-fingerprint",
     });
     expect(f.requestedGuidanceIds).toEqual([[12, 30]]);
-    expect(result.cards).toHaveLength(1);
+    expect(result.cards).toHaveLength(2);
     const serialized = JSON.stringify(result);
     for (const forbidden of ["contentHash", "retrievalTags", "guidanceIds", "registryHash", "12"]) {
       expect(serialized, forbidden).not.toContain(forbidden);
     }
+  });
+
+  it("fails neutrally when only part of the trusted guidance set resolves", async () => {
+    const f = fixture({ cards: [card("Over-time recognition")] });
+    await expect(
+      aiReviewGuidanceHandler(f.guidance, caller, {
+        reviewItemId: "rev-1",
+        expectedReviewFingerprint: "review-fingerprint",
+      }),
+    ).rejects.toThrow(AI_GUIDANCE_UNAVAILABLE);
+    expect(f.requestedGuidanceIds).toEqual([[12, 30]]);
+  });
+
+  it("counts duplicate trusted guidance ids only once", async () => {
+    const f = fixture({
+      items: [item({ guidanceIds: [12, 12, 30] })],
+      cards: [card("Over-time recognition"), card("Variable consideration")],
+    });
+    const result = await aiReviewGuidanceHandler(f.guidance, caller, {
+      reviewItemId: "rev-1",
+      expectedReviewFingerprint: "review-fingerprint",
+    });
+    expect(f.requestedGuidanceIds).toEqual([[12, 30]]);
+    expect(result.cards).toHaveLength(2);
   });
 
   it("fails neutrally for a stale fingerprint and never asks for cards", async () => {
