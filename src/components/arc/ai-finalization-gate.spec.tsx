@@ -200,3 +200,43 @@ describe("AI review blocks the production Finalize buttons", () => {
     expect(await finalizeButton()).toBeEnabled();
   });
 });
+
+/**
+ * Phase 9G — Task 8. A stale source set is a recommendation to re-analyze, not
+ * a finalization gate. These cases drive the production Finalize buttons so the
+ * distinction can never quietly regress into a block.
+ */
+describe("Task 8 — stale sources never block finalization", () => {
+  it("keeps Finalize enabled while sources are stale and unacknowledged", async () => {
+    aiState = workspace({
+      sourceState: "stale",
+      staleSourceAcknowledged: false,
+      reviewIssueCount: 0,
+      reviewItems: [],
+      reviewPayloadMalformed: false,
+    });
+    renderPanel();
+    await waitFor(async () => expect(await finalizeButton()).toBeEnabled());
+    expect(screen.queryByText(/AI review item/i)).toBeNull();
+  });
+
+  it("keeps Finalize enabled once the source change has been acknowledged", async () => {
+    aiState = workspace({ sourceState: "stale", staleSourceAcknowledged: true });
+    renderPanel();
+    await waitFor(async () => expect(await finalizeButton()).toBeEnabled());
+  });
+
+  it("blocks a stale workspace only for the unresolved AI review item", async () => {
+    aiState = workspace({
+      sourceState: "stale",
+      staleSourceAcknowledged: false,
+      reviewItems: [YELLOW],
+      reviewIssueCount: 1,
+    });
+    renderPanel();
+    await waitFor(async () => expect(await finalizeButton()).toBeDisabled());
+    // The stated reason is the review item, never the source set.
+    expect(await screen.findByText(/1 AI review item still needs/i)).toBeInTheDocument();
+    expect(screen.queryByText(/source documents changed/i)).toBeNull();
+  });
+});

@@ -4,6 +4,7 @@ import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
+import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
@@ -164,6 +165,13 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
         <AnalysisContextBar />
 
         <AiAnalysisAction ai={ai} onAddSources={openSourceUpload} />
+
+        {/*
+          Phase 9G — Task 8. One workspace-level source-freshness notice for
+          every analysis area. Re-analysis stays the Task 6 CTA above; this
+          only records and explains a source change.
+        */}
+        <AiSourceFreshnessNotice ai={ai} />
 
         {historical.error ? (
           // Fail closed: a missing or unusable recording is never replaced by a
