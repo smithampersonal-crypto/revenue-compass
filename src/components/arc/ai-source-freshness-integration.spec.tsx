@@ -67,7 +67,7 @@ vi.mock("@/lib/arc/ai/runs.functions", () => ({
         ...server.current,
         activeRun: null,
         failure: {
-          code: "provider_unavailable",
+          category: "ai_service" as const,
           headline: "The AI analysis could not be completed.",
           whatHappened: "ARC could not finish reading the contract.",
           impact: "Your accounting work is unchanged.",

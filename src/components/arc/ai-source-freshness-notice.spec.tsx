@@ -92,11 +92,11 @@ describe("Task 8 source freshness notice", () => {
   });
 
   it("calls only the controller action, never optimistically acknowledging", async () => {
-    let release: (() => void) | null = null;
+    const released: Array<() => void> = [];
     const acknowledgeStaleSources = vi.fn(
       () =>
         new Promise<void>((resolve) => {
-          release = () => resolve();
+          released.push(resolve);
         }),
     );
     const ai = controller(baseWorkspace, { acknowledgeStaleSources });
@@ -114,7 +114,7 @@ describe("Task 8 source freshness notice", () => {
     expect(screen.queryByText("Source changes acknowledged.")).not.toBeInTheDocument();
     expect(ai.analyze).not.toHaveBeenCalled();
 
-    release?.();
+    released.forEach((resolve) => resolve());
     await waitFor(() => expect(screen.getByRole("button", ACK)).toBeEnabled());
   });
 
