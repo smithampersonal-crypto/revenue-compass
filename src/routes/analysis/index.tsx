@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AccordionSection } from "@/components/arc/AccordionSection";
 import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
 import { useAnalysis } from "@/components/arc/analysis-context";
+import {
+  reviewSectionElementId,
+  reviewTargetAnchorId,
+} from "@/lib/arc/ai/review-presentation";
 import { IssueList } from "@/components/asc606-workflow/fields";
 import { Step1Contract } from "@/components/asc606-workflow/Step1Contract";
 import { Step2PerformanceObligations } from "@/components/asc606-workflow/Step2PerformanceObligations";
@@ -36,7 +40,9 @@ export const Route = createFileRoute("/analysis/")({
 });
 
 function Asc606AnalysisArea() {
-  const { draft, setDraft, result } = useAnalysis();
+  const { draft, setDraft, result, ai } = useAnalysis();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
   // Presentation-only: which sections are expanded. Multiple may be open at
   // once. No accounting state lives here.
   const [open, setOpen] = useState<Record<string, boolean>>({ "step-1": true });
@@ -45,12 +51,60 @@ function Asc606AnalysisArea() {
   const blocking = result.workflowValidation.blockingByStep;
   const step2Issues = [...blocking["2a"], ...blocking["2b"]];
 
+  // AI review items per accordion, counted from the server-owned review state
+  // only. Deterministic issues keep their own separate count.
+  const aiReviewCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of ai.workspace?.reviewItems ?? []) {
+      if (item.state === "resolved") continue;
+      const id = reviewSectionElementId(item.section);
+      counts[id] = (counts[id] ?? 0) + 1;
+    }
+    return counts;
+  }, [ai.workspace]);
+  const aiReviewStatus = (id: string) => {
+    const count = aiReviewCounts[id] ?? 0;
+    return count === 0 ? null : `${count} AI review`;
+  };
+
   const reveal = (id: string) => {
     setOpen((prev) => ({ ...prev, [id]: true }));
     if (typeof document !== "undefined") {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+
+  // One-shot review intent. It opens and focuses the persisted target, then
+  // removes only itself from the URL so the same click can be repeated later.
+  const consumedReviewRef = useRef<string | null>(null);
+  const requestedReview = search.review ?? null;
+  const reviewItem =
+    requestedReview === null
+      ? null
+      : (ai.workspace?.reviewItems.find((item) => item.id === requestedReview) ?? null);
+  useEffect(() => {
+    if (requestedReview === null) {
+      consumedReviewRef.current = null;
+      return;
+    }
+    // Wait until the authoritative review state that names the target arrives.
+    if (reviewItem === null) return;
+    if (consumedReviewRef.current === requestedReview) return;
+    consumedReviewRef.current = requestedReview;
+
+    const sectionId = reviewSectionElementId(reviewItem.section);
+    setOpen((prev) => ({ ...prev, [sectionId]: true }));
+    if (typeof document !== "undefined") {
+      const anchor = document.getElementById(reviewTargetAnchorId(reviewItem.targetKey));
+      (anchor ?? document.getElementById(sectionId))?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+
+    const { review: _consumed, ...rest } = search;
+    void navigate({ to: "/analysis", search: rest, replace: true });
+  }, [requestedReview, reviewItem, navigate, search]);
 
   return (
     <div className="space-y-8">
@@ -61,6 +115,7 @@ function Asc606AnalysisArea() {
 
         <AccordionSection
           id="step-1"
+          aiReviewStatus={aiReviewStatus("step-1")}
           title="Step 1 — Identify the Contract"
           status={issueStatus(blocking["1"].length)}
           open={open["step-1"] ?? false}
@@ -74,6 +129,7 @@ function Asc606AnalysisArea() {
 
         <AccordionSection
           id="step-2"
+          aiReviewStatus={aiReviewStatus("step-2")}
           title="Step 2 — Identify Performance Obligations"
           status={issueStatus(step2Issues.length)}
           open={open["step-2"] ?? false}
@@ -92,6 +148,7 @@ function Asc606AnalysisArea() {
 
         <AccordionSection
           id="step-3"
+          aiReviewStatus={aiReviewStatus("step-3")}
           title="Step 3 — Determine the Transaction Price"
           status={issueStatus(blocking["3"].length)}
           open={open["step-3"] ?? false}
@@ -105,6 +162,7 @@ function Asc606AnalysisArea() {
 
         <AccordionSection
           id="step-4"
+          aiReviewStatus={aiReviewStatus("step-4")}
           title="Step 4 — Allocate the Transaction Price"
           status={issueStatus(blocking["4"].length)}
           open={open["step-4"] ?? false}
@@ -118,6 +176,7 @@ function Asc606AnalysisArea() {
 
         <AccordionSection
           id="step-5"
+          aiReviewStatus={aiReviewStatus("step-5")}
           title="Step 5 — Recognize Revenue"
           status={issueStatus(blocking["5"].length)}
           open={open["step-5"] ?? false}
