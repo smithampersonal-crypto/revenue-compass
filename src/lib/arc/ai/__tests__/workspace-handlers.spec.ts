@@ -172,7 +172,7 @@ function fixture(
         model: "gpt-5.6-terra",
         reasoningEffort: "high",
         promptVersion: "arc.ai.prompt.v5",
-        outputSchemaVersion: "arc.ai.schema.v3",
+        outputSchemaVersion: "arc.ai.schema.v4",
         guidanceRegistryHash: "hash",
       },
       now: () => new Date("2026-09-17T05:00:00.000Z"),
