@@ -88,6 +88,11 @@ function controller(state: AiWorkspaceStateDto | null): AiWorkspaceController {
     affirmReviewItem: vi.fn(async () => {}),
     resolveReviewIssue: vi.fn(async () => {}),
     acknowledgeStaleSources: vi.fn(async () => {}),
+    openReviewEvidence: vi.fn(async () => null),
+    getReviewGuidance: vi.fn(async () => null),
+    restoreAnalysis: vi.fn(async () => {}),
+    pendingEvidence: new Set<string>(),
+    restoring: false,
     refresh: vi.fn(async () => {}),
   } as unknown as AiWorkspaceController;
 }
