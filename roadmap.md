@@ -1304,3 +1304,51 @@ Application gate: 163/163 files, 2,011/2,011 tests (the gate spec gained two cas
 typecheck, lint, production build and bundle audit green. Task 9 SHA unchanged
 (`3013e537…`), schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`, no Cloud mutation,
 R3/R4 not started.
+
+## Phase 9G-R3 — Progressive / Provisional Accounting Engine (IN PROGRESS)
+
+R1, R2, the Post-R2 live regression patch and the Post-R2 database hardening remain
+ACCEPTED AND FROZEN. R4 NOT STARTED. No Cloud database mutation. AI contract unchanged:
+schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`.
+
+### R3 Part 1 — deterministic progressive result model (complete, gate green)
+
+New pure module `src/lib/asc606-progressive/`:
+
+- `types.ts` — `CalculationState` (`complete` / `provisional` / `pending` / `blocked`),
+  `PendingReason` (`provisional_ssp_confirmation`, `awaiting_transfer_date`,
+  `awaiting_progress_actuals`, `awaiting_usage_actuals`,
+  `awaiting_variable_consideration_event`), `PendingComponent`, `BlockedComponent`,
+  `ProvisionalNote`, `ProgressiveResult<T>`, `mergeCalculationState`.
+- `allocation.ts` — `allocateProgressively`: a provisional SSP is a review state, not a
+  missing fact. Allocation blocks only when an SSP required for the denominator is
+  absent, nonnumeric, zero or negative. No duplicate hard "missing SSP" intervention is
+  raised for a usable provisional SSP. Allocation arithmetic is still the approved
+  Phase 1 engine — never re-implemented.
+- `recognition.ts` — `generateProgressiveRevenueSchedule` plus `recognizeInputMeasure`.
+  Adds over-time INPUT MEASURE recognition (cumulative units / total expected units,
+  exact integer scaling, cumulative-difference period revenue) and pending point-in-time
+  recognition with an unknown transfer date. Per obligation,
+  `allocated = scheduled + pending + blocked` is asserted; one obligation's pending
+  future fact never removes another obligation's rows.
+- `reconciliation.ts` — `reconcileProgressive`: price ties to allocation, each PO ties to
+  recognized + pending + blocked, scheduled revenue ties to the schedule total, no amount
+  is counted in both the recognition and the external pending layer, and a partial result
+  can never present itself as complete.
+
+Tests: `src/lib/asc606-progressive/__tests__/progressive.spec.ts`, 21 cases covering
+matrix items A1–A5, D19–D26, E27–E31, F32/33/36/39, G40–G43/G45, on the Genomix synthetic
+benchmark ($490,000 -> $446,000 / $29,600 / $14,400).
+
+Gate after Part 1: 164/164 test files, 2,032/2,032 tests, typecheck, lint, production
+build and bundle audit green. Frozen Task 9 SHA unchanged.
+
+### R3 Part 2 — NOT YET IMPLEMENTED
+
+Outstanding R3 scope: workflow draft fields and adapters for input-measure and
+pending-transfer facts; usage/overage contract-rule vs actual-activity separation;
+`specific_series_period` realized-event targeting; progressive billing schedule,
+contract balances and journal entries; review/provenance/fingerprint integration for the
+new material facts; narrow significant-financing normalization; the minimum Step 4 /
+Step 5 / Balances / Journals UI states; the integrated Genomix R3 workflow fixture; and
+browser acceptance.
