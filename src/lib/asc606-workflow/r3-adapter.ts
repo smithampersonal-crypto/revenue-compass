@@ -272,7 +272,7 @@ function toProgressiveVcComponent(
     const amount = cents(event.amountInput);
     const entered = event.date !== "" || event.amountInput.trim() !== "";
     if (!entered) continue;
-    if (event.date === "" || amount === null) {
+    if (!isUsableDate(event.date) || amount === null) {
       blocked.push({
         ownerKind: "realized_event",
         ownerId: event.id,
@@ -303,22 +303,15 @@ function toProgressiveVcComponent(
     });
   }
 
-  // The ACCEPTED Step 3 measurement engine remains the source of truth for the
-  // unconstrained estimate and the constraint conclusion. The progressive layer
-  // consumes that result; it never re-derives it and never collapses the
-  // unconstrained estimate into the included amount.
-  const measurement = previewVcMeasurement(component);
-  const unconstrained = measurement.unconstrainedCents;
-  // A later remeasurement replaces the included amount; the original estimate
-  // stays visible as provenance.
-  const includedNow = current;
-
   let estimateNow: Cents;
+  let includedNow: Cents | null;
   if (component.treatment === "estimated") {
-    // FAIL CLOSED. For an estimated component the measurement engine OWNS the
-    // unconstrained estimate. If it reports issues, or cannot produce an
-    // estimate at all, the component is unusable: the constrained included
-    // amount is NEVER promoted into the estimate merely because it parses.
+    // FAIL CLOSED. For an estimated component the accepted measurement path
+    // OWNS both the unconstrained estimate and the amount included after the
+    // constraint, at inception AND at every dated remeasurement. If it reports
+    // issues, or cannot produce an estimate, the component is unusable: a
+    // constrained included amount is NEVER promoted into the estimate, and a
+    // malformed later assessment never falls back to the earlier one.
     if (measurement.issues.length > 0) {
       blocked.push({
         ownerKind: "variable_component",
@@ -331,9 +324,26 @@ function toProgressiveVcComponent(
       });
       unusable = true;
     }
-    if (unconstrained === null) unusable = true;
-    estimateNow = unconstrained ?? UNUSABLE;
+    if (measurement.unconstrainedCents === null) unusable = true;
+    estimateNow = measurement.unconstrainedCents ?? UNUSABLE;
+    includedNow = measurement.includedCents;
   } else {
+    // A known (non-estimated) amount carries no assessment to measure; its
+    // included magnitude is the accountant's own entry. Its sign is carried by
+    // the component's effect, so a negative entry is rejected, never
+    // reinterpreted.
+    const raw = cents(component.inception.includedInput);
+    includedNow = raw !== null && raw < 0 ? null : raw;
+    if (includedNow === null) {
+      blocked.push({
+        ownerKind: "variable_component",
+        ownerId: component.id,
+        ownerName: name,
+        code: "vc.included.unusable",
+        message: `"${name}" needs a usable included amount after the constraint.`,
+      });
+      unusable = true;
+    }
     estimateNow = includedNow ?? UNUSABLE;
   }
 
