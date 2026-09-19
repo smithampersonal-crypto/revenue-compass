@@ -14,6 +14,7 @@
  */
 
 import {
+  isValidCents,
   isValidIsoDate,
   monthKeyOf,
   proportionOfCents,
