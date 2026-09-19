@@ -78,8 +78,8 @@ declare
   v_code text;
 begin
   v_dsn := format('dbname=%s port=%s host=%s user=%s',
-                  current_database(), inet_server_port(),
-                  coalesce(current_setting('unix_socket_directories', true), '/tmp'),
+                  current_database(), current_setting('port'),
+                  split_part(current_setting('unix_socket_directories'), ',', 1),
                   current_user);
   perform dblink_connect(v_conn, v_dsn);
 
