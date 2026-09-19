@@ -38,11 +38,25 @@ export interface ProgressiveBridge {
   unresolvedSignedCents: Cents;
   /** True when a future fact means the contract is not yet complete. */
   partial: boolean;
+  /**
+   * True when an ENTERED fixed billing event carries no invoice date of its
+   * own. Billed-versus-unbilled receivable timing depends on that accountant-
+   * owned fact, so it is never manufactured from the unconditional-right date.
+   */
+  unusable: boolean;
 }
 
 export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): ProgressiveBridge {
   const unresolvedSignedCents = sumSignedPendingCents(facts.pending);
   const transactionPriceCents = sumCents([facts.schedule.totalCents, unresolvedSignedCents]);
+
+  // A fixed billing event's invoice date is an accountant-owned fact. A
+  // variable amount billed on realization is a different, genuinely
+  // deterministic rule: the accepted billOnRealization fact establishes
+  // same-day invoicing, so that derivation remains supported.
+  const unusable = facts.billing.some(
+    (event) => event.kind === "fixed" && event.invoiceDate === undefined,
+  );
 
   const considerationEvents = [...facts.billing]
     .sort((a, b) => a.seq - b.seq)
@@ -51,7 +65,6 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
       seq: event.seq,
       amountCents: event.amountCents,
       unconditionalRightDate: event.date,
-      // No invoice fact means the invoice accompanies the unconditional right.
       invoiceDate: event.invoiceDate ?? event.date,
     }));
 
