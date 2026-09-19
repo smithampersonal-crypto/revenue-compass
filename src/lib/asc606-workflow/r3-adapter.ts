@@ -71,6 +71,13 @@ function quantity(raw: string | undefined): number | null {
   return parsed.ok ? parsed.value : null;
 }
 
+/** A calendar date the accountant actually entered, in ISO form. */
+function isUsableDate(raw: string | undefined): boolean {
+  if (raw === undefined || raw.trim() === "") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  return !Number.isNaN(Date.parse(`${raw}T00:00:00Z`));
+}
+
 /** The R3 recognition method implied by the accepted workflow facts. */
 export function progressiveRecognitionMethod(
   po: PoDraft,
@@ -228,7 +235,11 @@ function toProgressiveVcComponent(
     };
   }
 
-  const included = cents(component.inception.includedInput);
+  const includedRaw = cents(component.inception.includedInput);
+  // The accepted VC path expresses an included amount as a MAGNITUDE; its sign
+  // is carried by the component's effect. A negative entry is rejected rather
+  // than quietly reinterpreted here.
+  const included = includedRaw !== null && includedRaw < 0 ? null : includedRaw;
   if (included === null) {
     blocked.push({
       ownerKind: "variable_component",
@@ -237,9 +248,11 @@ function toProgressiveVcComponent(
       code: "vc.included.unusable",
       message: `"${name}" needs a usable included amount after the constraint.`,
     });
+    unusable = true;
   }
   const latest = [...component.remeasurements].sort((a, b) => b.seq - a.seq)[0];
-  const latestIncluded = latest ? cents(latest.includedInput) : null;
+  const latestRaw = latest ? cents(latest.includedInput) : null;
+  const latestIncluded = latestRaw !== null && latestRaw < 0 ? null : latestRaw;
   if (latest && latestIncluded === null && latest.includedInput.trim() !== "") {
     blocked.push({
       ownerKind: "variable_component",
@@ -248,6 +261,7 @@ function toProgressiveVcComponent(
       code: "vc.remeasurement.unusable",
       message: `The latest remeasurement of "${name}" has an unusable included amount.`,
     });
+    unusable = true;
   }
   const current = latestIncluded ?? included;
 
@@ -303,10 +317,30 @@ function toProgressiveVcComponent(
   // A later remeasurement replaces the included amount; the original estimate
   // stays visible as provenance.
   const includedNow = current;
-  // The unconstrained estimate is never replaced by the constrained amount:
-  // only when the measurement engine produces no estimate at all does the
-  // included amount stand in for it.
-  const estimateNow = unconstrained ?? includedNow ?? UNUSABLE;
+
+  let estimateNow: Cents;
+  if (component.treatment === "estimated") {
+    // FAIL CLOSED. For an estimated component the measurement engine OWNS the
+    // unconstrained estimate. If it reports issues, or cannot produce an
+    // estimate at all, the component is unusable: the constrained included
+    // amount is NEVER promoted into the estimate merely because it parses.
+    if (measurement.issues.length > 0) {
+      blocked.push({
+        ownerKind: "variable_component",
+        ownerId: component.id,
+        ownerName: name,
+        code: "vc.measurement.unusable",
+        message:
+          measurement.issues[0] ??
+          `The estimate for "${name}" cannot be measured from the facts entered.`,
+      });
+      unusable = true;
+    }
+    if (unconstrained === null) unusable = true;
+    estimateNow = unconstrained ?? UNUSABLE;
+  } else {
+    estimateNow = includedNow ?? UNUSABLE;
+  }
 
   // The accepted resolution model is the SAME realization fact the progressive
   // layer needs; it is mapped here rather than modelled a second time.
@@ -549,7 +583,7 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
     const amount = cents(event.amountInput);
     const entered = event.amountInput.trim() !== "" || event.unconditionalRightDate !== "";
     if (!entered) continue;
-    if (amount === null || event.unconditionalRightDate === "") {
+    if (amount === null || !isUsableDate(event.unconditionalRightDate)) {
       blocked.push({
         ownerKind: "billing_event",
         ownerId: event.id,
@@ -565,17 +599,34 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
         seq: event.seq,
         amountCents: amount ?? UNUSABLE,
         unconditionalRightDate: event.unconditionalRightDate,
-        ...(event.invoiceDate ? { invoiceDate: event.invoiceDate } : {}),
+        ...(isUsableDate(event.invoiceDate) ? { invoiceDate: event.invoiceDate! } : {}),
         description: "Contractual billing",
       });
       continue;
+    }
+    // The invoice date of an ENTERED fixed billing event is an accountant-owned
+    // fact. It is never manufactured from the unconditional-right date: billed
+    // versus unbilled receivable timing depends on it. A missing or unreadable
+    // invoice date blocks the billing, balance and journal output that depends
+    // on that timing, while allocation and determinable revenue stay available.
+    // (A variable amount billed on realization is a separate, genuinely
+    // deterministic same-day rule and is unaffected.)
+    if (!isUsableDate(event.invoiceDate)) {
+      blocked.push({
+        ownerKind: "billing_event",
+        ownerId: event.id,
+        ownerName: "Contractual billing",
+        code: "billing.invoice_date",
+        message:
+          "A contractual billing event needs the date the invoice was issued before billed and unbilled receivables can be presented.",
+      });
     }
     fixedBilling.push({
       id: event.id,
       seq: event.seq,
       amountCents: amount,
       unconditionalRightDate: event.unconditionalRightDate,
-      ...(event.invoiceDate ? { invoiceDate: event.invoiceDate } : {}),
+      ...(isUsableDate(event.invoiceDate) ? { invoiceDate: event.invoiceDate! } : {}),
       description: "Contractual billing",
     });
   }
@@ -612,7 +663,11 @@ function cashCollections(
     const entered = collection.amountInput.trim() !== "" || collection.collectionDate !== "";
     if (!entered) continue;
     const amount = cents(collection.amountInput);
-    if (amount === null || collection.collectionDate === "" || !collection.considerationEventId) {
+    if (
+      amount === null ||
+      !isUsableDate(collection.collectionDate) ||
+      !collection.considerationEventId
+    ) {
       blocked.push({
         ownerKind: "billing_event",
         ownerId: collection.id,

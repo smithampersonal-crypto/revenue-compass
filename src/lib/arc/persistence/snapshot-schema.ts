@@ -724,6 +724,23 @@ const reconciliationV1 = z
       })
       .passthrough()
       .nullable(),
+    // Phase 9G-R3. Absent from recordings made before the progressive engine
+    // existed, so optional: a historical snapshot is never reinterpreted.
+    progressive: z
+      .object({
+        state: text,
+        transactionPriceCents: cents,
+        allocatedCents: cents,
+        scheduledRevenueCents: cents,
+        pendingCents: cents,
+        blockedCents: cents,
+        unresolvedCents: cents,
+        reconciled: z.boolean(),
+        failures: z.array(text),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
     groupedBalancesReconciled: nullableBool,
     journalsReconciled: nullableBool,
     groupedJournalsReconciled: nullableBool,

@@ -26,6 +26,7 @@ import {
 import { ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
+import type { BlockedFact } from "./r3-adapter";
 import type { WorkflowDraft } from "./types";
 
 export interface ContractBalanceIssue {
@@ -202,13 +203,20 @@ export interface ContractBalanceDeps {
 function progressiveBalanceWorkflow(
   progressive: NonNullable<ReturnType<typeof analyzeWorkflow>["progressive"]>,
   draftValidation: ContractBalanceValidationOutcome,
+  blockedFacts: readonly BlockedFact[] = [],
 ): ContractBalanceWorkflowResult {
   const balances = progressive.balances;
-  if (!balances) {
+  // A billing or cash fact that could not structurally enter the Phase 3 input
+  // must not vanish behind a workpaper that presents itself as complete. The
+  // dependency block is carried into the balance presentation instead; Step 4
+  // and determinable revenue are untouched by it.
+  const billingBlocked = blockedFacts.filter((fact) => fact.ownerKind === "billing_event");
+  if (!balances || billingBlocked.length > 0) {
     return {
       validation: draftValidation,
       finalized: false,
       blockedReason:
+        billingBlocked[0]?.message ??
         "The facts this contract depends on cannot be used yet, so no billing and contract-balance workpaper is produced.",
       engineValidation: null,
       analysis: null,
@@ -278,7 +286,11 @@ export function analyzeContractBalanceWorkflow(
   // progressive authority already produced. This layer presents that result; it
   // never rebuilds a second billing or balance interpretation from the draft.
   if (revenue.progressive) {
-    return progressiveBalanceWorkflow(revenue.progressive, draftValidation);
+    return progressiveBalanceWorkflow(
+      revenue.progressive,
+      draftValidation,
+      revenue.progressiveBlocked,
+    );
   }
 
   if (

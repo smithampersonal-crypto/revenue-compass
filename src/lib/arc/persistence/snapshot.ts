@@ -83,6 +83,14 @@ export interface ArcReconciliationSnapshot {
     NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"] | null;
   modification: NonNullable<WorkflowAnalysisResult["modification"]>["reconciliation"] | null;
   balances: NonNullable<ContractBalanceWorkflowResult["analysis"]>["reconciliation"] | null;
+  /**
+   * Phase 9G-R3. On the progressive path `analysis` is intentionally null, so
+   * the progressive engine's own reconciliation is the authoritative record.
+   * Copied verbatim; null for a legacy contract.
+   */
+  progressive: NonNullable<
+    NonNullable<WorkflowAnalysisResult["progressive"]>["reconciliation"]
+  > | null;
   groupedBalancesReconciled: boolean | null;
   journalsReconciled: boolean | null;
   groupedJournalsReconciled: boolean | null;
@@ -204,14 +212,24 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
     journals,
   };
 
+  // Phase 9G-R3: on the progressive path the legacy `analysis` fields are
+  // intentionally null. The progressive engine's own reconciliation is then the
+  // authoritative record and is COPIED here; no amount is recomputed.
+  const progressive = workflow.progressive?.reconciliation ?? null;
+
   const reconciliation: ArcReconciliationSnapshot = {
     engineVersion: ARC_ENGINE_VERSION,
     schemaVersion: ARC_WORKFLOW_SCHEMA_VERSION,
     step1Conclusion: workflow.step1Conclusion,
     totals: {
-      transactionPriceCents: workflow.analysis?.totals.transactionPriceCents ?? null,
-      allocatedCents: workflow.analysis?.totals.allocatedCents ?? null,
-      revenueCents: workflow.revenueSchedule?.totalCents ?? null,
+      transactionPriceCents:
+        workflow.analysis?.totals.transactionPriceCents ??
+        progressive?.transactionPriceCents ??
+        null,
+      allocatedCents:
+        workflow.analysis?.totals.allocatedCents ?? progressive?.allocatedCents ?? null,
+      revenueCents:
+        workflow.revenueSchedule?.totalCents ?? progressive?.scheduledRevenueCents ?? null,
       unscheduledRevenueCents: workflow.unscheduledRevenueCents,
       lifecycleConsiderationCents: workflow.lifecycleConsiderationCents,
     },
@@ -220,6 +238,7 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
     variableConsideration: workflow.variableConsideration?.reconciliation ?? null,
     modification: workflow.modification?.reconciliation ?? null,
     balances: balances.analysis?.reconciliation ?? null,
+    progressive,
     groupedBalancesReconciled: balances.grouped?.reconciled ?? null,
     journalsReconciled:
       journals.kind === "ordinary" ? journals.analysis.reconciliation.reconciled : null,
