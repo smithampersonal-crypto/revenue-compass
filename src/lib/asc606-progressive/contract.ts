@@ -286,6 +286,9 @@ export function analyzeProgressiveContract(
       recognition.state,
       billing.state,
       balances?.state ?? "blocked",
+      // Defense in depth: an engine-level blocked amount can never coexist
+      // with a "complete" contract state.
+      blocked.length > 0 ? "blocked" : "complete",
       financing?.state ?? "complete",
       reconciliation.reconciled ? "complete" : "blocked",
     ),
