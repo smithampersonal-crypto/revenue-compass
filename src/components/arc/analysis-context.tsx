@@ -467,6 +467,16 @@ export function AnalysisProvider({
         if (generation !== reloadGenerationRef.current) return { ok: false };
 
         if (!outcome.ok) {
+          // Post-R2 live regression patch. Bounded save contention (the server
+          // already retried once) is retryable: nothing was written, the local
+          // edits and lock version stay valid, and saving is NOT blocked.
+          const contention =
+            ("reason" in outcome && outcome.reason === "contention") ||
+            ("contention" in outcome && outcome.contention === true);
+          if (contention) {
+            setStatus({ kind: "contention" });
+            return { ok: false };
+          }
           blockedRef.current = true;
           setStatus(
             "reason" in outcome && outcome.reason === "expired"
