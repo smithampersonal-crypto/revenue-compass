@@ -360,7 +360,7 @@ function usageOnlyDraft(quantities: Record<string, string>): WorkflowDraft {
         ],
         realizedEvents: [],
         billOnRealization: false,
-        usagePeriods: [{ id: "up-1", seq: 1, month: "2027-03", quantities }],
+        usagePeriods: [{ id: "up-1", month: "2027-03", quantities }],
       },
     ],
   };
