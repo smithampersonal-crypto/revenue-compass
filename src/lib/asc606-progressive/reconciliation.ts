@@ -149,7 +149,7 @@ export function reconcileProgressive(
     allocatedCents: Number(allocatedTotal),
     scheduledRevenueCents,
     pendingCents: Number(pendingTotal) + externalPendingCents,
-    blockedCents: Number(blockedTotal) + sumBlockedCents(input.recognition.blocked) * 0,
+    blockedCents: Number(blockedTotal),
     byPo,
     pending: pendingComponents,
     reconciled: failures.length === 0,
