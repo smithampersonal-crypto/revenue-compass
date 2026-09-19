@@ -109,8 +109,8 @@ begin
   -- A competing session holds the owner row, exactly as an abandoned
   -- in-flight autosave would.
   perform dblink_exec(v_conn, 'begin');
-  perform dblink_exec(v_conn, format(
-    'select 1 from public.guest_workspaces where id = %L for update', v_guest));
+  perform * from dblink(v_conn, format(
+    'select 1 from public.guest_workspaces where id = %L for update', v_guest)) as t(x integer);
 
   v_started := clock_timestamp();
   begin
