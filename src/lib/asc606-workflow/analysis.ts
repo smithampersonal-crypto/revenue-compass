@@ -109,6 +109,12 @@ export interface WorkflowAnalysisResult {
   progressive: ProgressiveContractAnalysis | null;
   /** Facts that cannot be used yet, with the owner they belong to. */
   progressiveBlocked: BlockedFact[];
+  /**
+   * The single workflow-owned determination of what progressive accounting may
+   * be presented. Every presenter reads this, so no two surfaces can disagree
+   * about whether balances or journals are available.
+   */
+  progressiveGate: ProgressiveGate | null;
 }
 
 export interface AnalyzeWorkflowDeps {
