@@ -1455,3 +1455,12 @@ series exception through the general pool fails 8 of the 32 Part 2 tests.
 No DB-facing code changed, so no SQL suite run was required and the Cloud
 database is unchanged. Schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`
 unchanged. R4 NOT STARTED. R3 is not self-accepted.
+
+## Phase 9G-R3 Part 2 — Accounting Authority Tranche (B, D, E, F, J-orchestration)
+- Authoritative progressive path wired into analyzeWorkflow; ProgressiveOutputs renders the same result.
+- VC measurement engine remains source of truth (unconstrained estimate vs included amount kept distinct; resolution mapped to realized event).
+- Signed specific-series-period model: nonnegative PendingComponent magnitude + explicit direction.
+- Phase 3 balances / Phase 4 journals reused, extended for credit-memo signs and partial metadata.
+- Orchestration fails closed on duplicate/orphan identities.
+- Gate: 168 files / 2120 tests, typecheck, lint, build, bundle audit green. No Cloud mutation; schema v5 / prompt v6; G/H/K/L and R4 not started.
+- ZIP sha256 92ed5870b2e7a26108f43f50f067688d20715197da0d6f0a93ba78e8228781a6
