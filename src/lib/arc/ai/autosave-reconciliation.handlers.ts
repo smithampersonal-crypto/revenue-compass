@@ -36,8 +36,21 @@ export interface AutosaveScope {
 export type AutosaveOutcome =
   | { ok: true; lockVersion: number; savedAt: string; reconciled: boolean }
   | { ok: false; reason: "conflict" }
+  /**
+   * Post-R2 live regression patch. The trusted transaction could not take the
+   * owner-row lock within its bounded wait (SQLSTATE 55P03) after ONE retry.
+   * This is contention, never proof that a newer saved version exists, so it
+   * must not become the permanent conflict/write-block state.
+   */
+  | { ok: false; reason: "contention" }
   | { ok: false; reason: "unavailable" }
   | { ok: false; reason: "expired" };
+
+/**
+ * What one attempt at the trusted transaction produced. `null` is a proven
+ * stale optimistic lock (40001); `"contention"` is a bounded lock timeout.
+ */
+export type ReconciledSaveAttempt = { lockVersion: number; savedAt: string } | null | "contention";
 
 /**
  * What the store found when it looked for this analysis's AI sidecar.
@@ -69,12 +82,17 @@ export interface AutosaveReconciliationStore {
     schemaVersion: string;
     aiState: AiAnalysisState;
     reviewEvents: readonly EditReviewEventIntent[];
-  }): Promise<{ lockVersion: number; savedAt: string } | null>;
+  }): Promise<ReconciledSaveAttempt>;
 }
+
+/** The single bounded pause before the one permitted contention retry. */
+export const AUTOSAVE_CONTENTION_RETRY_DELAY_MS = 400;
 
 export interface AutosaveReconciliationDeps {
   store: AutosaveReconciliationStore;
   now(): Date;
+  /** Overridable only so tests need not wait in real time. */
+  delay?(ms: number): Promise<void>;
 }
 
 export interface AutosaveInput {
@@ -147,14 +165,31 @@ export async function autosaveWithReconciliation(
     deps.now().toISOString(),
   );
 
-  const saved = await deps.store.saveWithReconciliation({
-    scope: input.scope,
-    expectedLockVersion: input.expectedLockVersion,
-    canonical: input.canonical,
-    schemaVersion: input.schemaVersion,
-    aiState: stamped,
-    reviewEvents: reconciliation.reviewEvents,
-  });
+  const attempt = () =>
+    deps.store.saveWithReconciliation({
+      scope: input.scope,
+      expectedLockVersion: input.expectedLockVersion,
+      canonical: input.canonical,
+      schemaVersion: input.schemaVersion,
+      aiState: stamped,
+      reviewEvents: reconciliation.reviewEvents,
+    });
+
+  let saved = await attempt();
+
+  // Bounded lock contention. The timed-out transaction wrote nothing, so the
+  // expected lock version is still the right one to send. Exactly ONE retry
+  // after a short pause — never a loop, and never a false "newer version".
+  if (saved === "contention") {
+    await (deps.delay ?? defaultDelay)(AUTOSAVE_CONTENTION_RETRY_DELAY_MS);
+    saved = await attempt();
+    if (saved === "contention") return { ok: false, reason: "contention" };
+  }
+
   if (saved === null) return { ok: false, reason: "conflict" };
   return { ok: true, ...saved, reconciled: true };
+}
+
+function defaultDelay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

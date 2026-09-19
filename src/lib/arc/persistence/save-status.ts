@@ -19,6 +19,13 @@ export type SaveStatus =
   | { kind: "unsaved" }
   | { kind: "saving" }
   | { kind: "conflict" }
+  /**
+   * Post-R2 live regression patch. Another save for the SAME analysis was
+   * still finishing, so this one waited and gave up within a bounded time.
+   * That is contention, NOT proof that a newer saved version exists: saving is
+   * not blocked and the accountant simply tries again.
+   */
+  | { kind: "contention" }
   /** Phase 7E: the 9-hour temporary guest workspace is no longer authorized. */
   | { kind: "guest-expired" }
   | { kind: "error"; message: string };
@@ -104,6 +111,13 @@ export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
         tone: "warning",
         action: "reload",
       };
+    case "contention":
+      return {
+        label: "Still saving elsewhere",
+        detail: "Another save is still finishing. Your edits are still here — try saving again.",
+        tone: "pending",
+        action: "retry",
+      };
     case "guest-expired":
       return {
         label: "Temporary workspace expired",
@@ -131,6 +145,7 @@ export function hasPendingWork(status: SaveStatus): boolean {
     status.kind === "unsaved" ||
     status.kind === "saving" ||
     status.kind === "error" ||
+    status.kind === "contention" ||
     status.kind === "conflict"
   );
 }

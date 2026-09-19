@@ -153,6 +153,26 @@ export function RevisionLifecyclePanel() {
     );
   }
 
+  // Post-R2 live regression patch. A temporary guest workspace is saved
+  // server-side but has no revision, and never will until the accountant saves
+  // it to an account. That is a settled state, not a load in progress, so it
+  // gets its own stable presentation instead of a permanent loading line.
+  if (persistence.mode === "guest") {
+    return (
+      <Section
+        title="Revision lifecycle"
+        description="A draft is editable and autosaved. Finalizing records an immutable snapshot of a saved analysis."
+      >
+        <p className="text-sm">
+          <span className="font-semibold">Temporary workspace</span>{" "}
+          <span className="text-muted-foreground">
+            Save this analysis to your account before finalizing a revision.
+          </span>
+        </p>
+      </Section>
+    );
+  }
+
   const gate = finalizeGate({
     persistenceEnabled: persistence.enabled,
     status: persistence.status,

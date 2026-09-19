@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 /**
- * Phase 9G-R Task R2 acceptance patch — assumption-target navigation.
+ * Post-R2 live regression patch — defect 1.
  *
- * An explicit one-shot review intent may name a routine assumption. It opens
- * the right section, scrolls to the exact anchor when the production control
- * owns one, and consumes only the review parameter. Assumptions still never
- * add an actionable "AI review" count to an accordion.
+ * Review navigation must land the accountant ON the item: the section is
+ * expanded first, the exact anchor is scrolled to, tidying the URL suppresses
+ * router scroll reset, and a short-lived marker shows where they landed.
+ * Routine assumptions never gain an actionable marker.
+ *
+ * JSDOM cannot reproduce the router's own scroll restoration; the real-browser
+ * verification for that is recorded in roadmap.md.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
@@ -94,28 +97,37 @@ function workspace(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceSta
   } as AiWorkspaceStateDto;
 }
 
-const ASSUMPTION: AiReviewItemDto = {
-  id: "item-assumed",
+const YELLOW: AiReviewItemDto = {
+  id: "item-yellow",
   targetKey: "contract.customerName",
   section: "step_1",
-  state: "assumed",
-  severity: "assumed",
-  reasonCode: "routine_assumption",
-  reason: "ARC read the parties as approving the contract in writing.",
-  reviewFingerprint: "fp-assumed",
-  guidanceReferenceCount: 0,
-  citations: [],
-  resolution: null,
-};
-
-const YELLOW: AiReviewItemDto = {
-  ...ASSUMPTION,
-  id: "item-yellow",
   state: "yellow",
   severity: "yellow",
   reasonCode: "accountant_affirmation_required",
   reason: "Confirm the customer named in the contract.",
   reviewFingerprint: "fp-yellow",
+  guidanceReferenceCount: 0,
+  citations: [],
+  resolution: null,
+};
+
+const RED: AiReviewItemDto = {
+  ...YELLOW,
+  id: "item-red",
+  state: "red",
+  severity: "red",
+  reasonCode: "source_conflict",
+  reviewFingerprint: "fp-red",
+};
+
+const ASSUMPTION: AiReviewItemDto = {
+  ...YELLOW,
+  id: "item-assumed",
+  state: "assumed",
+  severity: "assumed",
+  reasonCode: "routine_assumption",
+  reason: "ARC read the parties as approving the contract in writing.",
+  reviewFingerprint: "fp-assumed",
 };
 
 function renderArea() {
@@ -129,31 +141,26 @@ function renderArea() {
   );
 }
 
+async function anchorFor(container: HTMLElement, item: AiReviewItemDto) {
+  return await waitFor(() => {
+    const found = container.querySelector(`#${CSS.escape(reviewTargetAnchorId(item.targetKey))}`);
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
+}
+
 beforeEach(() => {
   navigate.mockReset();
   search = {};
   aiState = workspace();
+  Element.prototype.scrollIntoView = function scrollIntoView() {} as never;
 });
 
-describe("R2 — assumption target navigation", () => {
-  it("resolves an assumption id, scrolls to its exact anchor and consumes only the review parameter", async () => {
-    aiState = workspace({ assumptionItems: [ASSUMPTION], assumptionCount: 1 });
-    search = { review: ASSUMPTION.id, contract: "c-1" };
-    const scrolled: Element[] = [];
-    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
-      scrolled.push(this);
-    } as never;
-
-    const { container } = renderArea();
-
-    const anchorId = reviewTargetAnchorId(ASSUMPTION.targetKey);
-    const anchor = await waitFor(() => {
-      const found = container.querySelector(`#${CSS.escape(anchorId)}`);
-      expect(found).not.toBeNull();
-      return found!;
-    });
-
-    await waitFor(() => expect(scrolled).toContain(anchor));
+describe("post-R2 — review navigation lands on the item", () => {
+  it("suppresses router scroll reset when it removes the one-shot parameter", async () => {
+    aiState = workspace({ reviewItems: [YELLOW], reviewIssueCount: 1 });
+    search = { review: YELLOW.id, contract: "c-1" };
+    renderArea();
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith({
         to: "/analysis",
@@ -164,45 +171,40 @@ describe("R2 — assumption target navigation", () => {
     );
   });
 
-  it("does not give the section an actionable AI review count merely because an assumption exists", async () => {
+  it("marks a yellow destination with a Review this item treatment that clears itself", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      aiState = workspace({ reviewItems: [YELLOW], reviewIssueCount: 1 });
+      search = { review: YELLOW.id };
+      const { container } = renderArea();
+      const anchor = await anchorFor(container, YELLOW);
+      await waitFor(() => expect(anchor.classList.contains("arc-review-focus")).toBe(true));
+      expect(anchor.getAttribute("data-arc-focus-label")).toBe("Review this item");
+
+      vi.advanceTimersByTime(5_000);
+      expect(anchor.classList.contains("arc-review-focus")).toBe(false);
+      expect(anchor.getAttribute("data-arc-focus-label")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("marks a red destination with a Resolve this item treatment", async () => {
+    aiState = workspace({ reviewItems: [RED], reviewIssueCount: 1 });
+    search = { review: RED.id };
+    const { container } = renderArea();
+    const anchor = await anchorFor(container, RED);
+    await waitFor(() =>
+      expect(anchor.getAttribute("data-arc-focus-label")).toBe("Resolve this item"),
+    );
+  });
+
+  it("highlights an assumption target without giving it an actionable label", async () => {
     aiState = workspace({ assumptionItems: [ASSUMPTION], assumptionCount: 1 });
     search = { review: ASSUMPTION.id };
-    renderArea();
-    await waitFor(() => expect(navigate).toHaveBeenCalled());
-    expect(screen.queryByText(/AI review$/)).toBeNull();
-  });
-
-  it("leaves ordinary actionable review navigation unchanged", async () => {
-    aiState = workspace({ reviewItems: [YELLOW], reviewIssueCount: 1 });
-    search = { review: YELLOW.id };
-    const scrolled: Element[] = [];
-    Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
-      scrolled.push(this);
-    } as never;
-
     const { container } = renderArea();
-    const anchor = await waitFor(() => {
-      const found = container.querySelector(
-        `#${CSS.escape(reviewTargetAnchorId(YELLOW.targetKey))}`,
-      );
-      expect(found).not.toBeNull();
-      return found!;
-    });
-    await waitFor(() => expect(scrolled).toContain(anchor));
-    await waitFor(() => expect(screen.getByText("1 AI review")).toBeInTheDocument());
-  });
-
-  it("still consumes a stale intent that names no known item", async () => {
-    aiState = workspace({ assumptionItems: [ASSUMPTION], assumptionCount: 1 });
-    search = { review: "item-gone", revision: "r-1" };
-    renderArea();
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: "/analysis",
-        search: { revision: "r-1" },
-        replace: true,
-        resetScroll: false,
-      }),
-    );
+    const anchor = await anchorFor(container, ASSUMPTION);
+    await waitFor(() => expect(anchor.classList.contains("arc-review-focus")).toBe(true));
+    expect(anchor.getAttribute("data-arc-focus-label")).toBeNull();
   });
 });

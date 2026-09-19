@@ -1964,7 +1964,25 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
     } else {
-      const method = mapEstimationMethod(component.estimationMethodProposal);
+      // Post-R2 live regression patch. A zero-at-inception routine assumption
+      // must be COMPLETE and internally valid, or the deterministic engine
+      // rejects ARC's own supposedly nonblocking draft. It is decided before
+      // the estimation method is merged, because a nil assumption is a most
+      // likely amount of $0 — never an expected-value distribution that would
+      // then demand probabilities the contract cannot supply.
+      const zeroCandidate =
+        component.initialEstimateBasis === "zero_no_expected_trigger" &&
+        isUnclaimedString(current().inception.includedInput) &&
+        current().inception.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
+      // The inception date is taken from an authoritative canonical date ARC
+      // already holds. If there is none, the assumption fails closed on the
+      // missing date rather than inventing one.
+      const inceptionDate = zeroCandidate ? canonicalInceptionDate(draft) : null;
+      const zeroAtInception = zeroCandidate && inceptionDate !== null;
+
+      const method = zeroAtInception
+        ? "most_likely_amount"
+        : mapEstimationMethod(component.estimationMethodProposal);
       if (method !== null) {
         mergeScalar<VcComponentDraft["estimationMethod"]>({
           key: fieldKeys.vc(canonicalId, "estimationMethod"),
@@ -1986,11 +2004,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // instead of blocking the whole workpaper. Zero is never invented: the
       // model must have concluded it explicitly, with both amounts exactly 0.
       const assessment = current().inception;
-      const inceptionUnclaimed =
-        isUnclaimedString(assessment.includedInput) &&
-        assessment.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
-      const zeroAtInception =
-        component.initialEstimateBasis === "zero_no_expected_trigger" && inceptionUnclaimed;
 
       if (zeroAtInception) {
         mergeScalar<string>({
@@ -1999,16 +2012,26 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           current: assessment.includedInput,
           proposed: "0",
           unclaimed: true,
+          // The whole inception assessment is written as one complete, valid
+          // most-likely-amount assumption: a single $0 most-likely outcome, $0
+          // included, the authoritative inception date and the model's own
+          // rationale. No probability is required, and nothing here overwrites
+          // an accountant-owned assessment — it is reached only when every
+          // inception amount was still unclaimed.
           apply: (value) =>
             update({
               inception: {
                 ...current().inception,
+                effectiveDate: current().inception.effectiveDate || inceptionDate!,
                 includedInput: value,
-                outcomes: current().inception.outcomes.map((outcome, index) =>
-                  index === 0
-                    ? { ...outcome, amountInput: value, isMostLikely: true }
-                    : { ...outcome, isMostLikely: false },
-                ),
+                outcomes: current()
+                  .inception.outcomes.slice(0, 1)
+                  .map((outcome) => ({
+                    ...outcome,
+                    amountInput: value,
+                    probabilityInput: "",
+                    isMostLikely: true,
+                  })),
                 constraintRationale: component.initialEstimateRationale,
               },
             }),
@@ -2034,11 +2057,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       } else {
         // Outcome probabilities, the constrained included amount and any
         // resolution amount are deliberately left blank rather than invented.
+        // A nil assumption with no defensible contract date fails closed here
+        // on the missing date rather than assuming when the estimate was made.
         raise({
           targetKey: fieldKeys.vc(canonicalId, "inception"),
           section,
           reasonCode: "missing_required_input",
-          reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
+          reason: zeroCandidate
+            ? `The contract gives no indication of an expected trigger for "${component.description.slice(0, 80)}", but it carries no date ARC can use as the date of the estimate. Enter the assessment date and the amount to include.`
+            : `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
           guidanceIds: component.guidanceIds,
           citations: component.citations,
           value: null,
@@ -2648,4 +2675,21 @@ export function aiObjectFingerprint(draft: WorkflowDraft, canonicalId: string): 
   const cash = draft.contractBalances.cashCollections.find((row) => row.id === canonicalId);
   if (cash !== undefined) return valueFingerprint(cashFingerprintValue(cash));
   return null;
+}
+
+/**
+ * Post-R2 live regression patch. The one authoritative date ARC may use as the
+ * date of a zero-at-inception estimate: the contract's execution date, and
+ * otherwise the earliest obligation service start already in the workpaper.
+ * It never invents a date — when neither exists it returns null and the caller
+ * fails closed.
+ */
+export function canonicalInceptionDate(draft: WorkflowDraft): IsoDate | null {
+  const execution = draft.contract.executionDate.trim();
+  if (execution !== "") return execution as IsoDate;
+  const starts = draft.performanceObligations
+    .map((po) => po.serviceStart)
+    .filter((value): value is IsoDate => value !== "")
+    .sort();
+  return starts[0] ?? null;
 }

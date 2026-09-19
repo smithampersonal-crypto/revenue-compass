@@ -176,6 +176,7 @@ describe("exact review navigation", () => {
         to: "/analysis",
         search: { contract: "c-1", revision: "r-1" },
         replace: true,
+        resetScroll: false,
       }),
     );
   });

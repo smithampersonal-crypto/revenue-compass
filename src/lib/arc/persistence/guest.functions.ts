@@ -147,7 +147,13 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
               schemaVersion: args.schemaVersion,
             },
           );
-          if (!outcome.ok) return { ok: false, reason: "conflict" };
+          if (!outcome.ok) {
+            // Contention is reported as its own retryable outcome; every other
+            // failure keeps the existing conflict/reload behaviour.
+            return outcome.reason === "contention"
+              ? { ok: false, reason: "contention" }
+              : { ok: false, reason: "conflict" };
+          }
           return { ok: true, lockVersion: outcome.lockVersion, savedAt: outcome.savedAt };
         },
       },

@@ -228,7 +228,10 @@ export const loadContractAnalysis = createServerFn({ method: "POST" })
   });
 
 export type SaveDraftResult =
-  { ok: true; lockVersion: number; savedAt: string } | { ok: false; conflict: true };
+  | { ok: true; lockVersion: number; savedAt: string }
+  | { ok: false; conflict: true }
+  /** Bounded lock contention; saving is not blocked and may be retried. */
+  | { ok: false; conflict: false; contention: true };
 
 /**
  * Autosave for an owned draft revision. The update is conditional on the
@@ -302,7 +305,11 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
       },
     );
 
-    if (!outcome.ok) return { ok: false, conflict: true };
+    if (!outcome.ok) {
+      return outcome.reason === "contention"
+        ? { ok: false, conflict: false, contention: true }
+        : { ok: false, conflict: true };
+    }
     return { ok: true, lockVersion: outcome.lockVersion, savedAt: outcome.savedAt };
   });
 

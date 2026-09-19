@@ -170,6 +170,8 @@ export async function resumeOrCreateGuestHandler(
 export type GuestSaveResult =
   | { ok: true; lockVersion: number; savedAt: string }
   | { ok: false; reason: "conflict" }
+  /** Bounded lock contention; saving is not blocked and may be retried. */
+  | { ok: false; reason: "contention" }
   | { ok: false; reason: "expired" };
 
 export async function saveGuestDraftHandler(

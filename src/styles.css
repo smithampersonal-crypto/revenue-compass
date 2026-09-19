@@ -160,3 +160,38 @@
     background: color-mix(in oklab, var(--color-primary) 35%, transparent);
   }
 }
+
+/*
+ * Post-R2 live regression patch. A short-lived, restrained marker at a review
+ * navigation destination. Presentation only: it changes no accounting and no
+ * review state, and the script that adds it removes it again shortly after.
+ */
+@layer components {
+  .arc-review-focus {
+    position: relative;
+    border-radius: 0.5rem;
+    outline: 2px solid color-mix(in oklab, var(--color-ring) 70%, transparent);
+    outline-offset: 4px;
+    background-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
+    scroll-margin-top: 5rem;
+  }
+
+  .arc-review-focus[data-arc-focus-label]::after {
+    content: attr(data-arc-focus-label);
+    position: absolute;
+    top: -0.75rem;
+    inset-inline-end: 0.5rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-primary-foreground);
+    background-color: var(--color-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .arc-review-focus {
+      outline-offset: 2px;
+    }
+  }
+}

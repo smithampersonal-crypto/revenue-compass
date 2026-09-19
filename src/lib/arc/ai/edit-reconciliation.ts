@@ -11,6 +11,7 @@
  */
 
 import { parseUsdToCents, type WorkflowDraft } from "@/lib/asc606-workflow";
+import type { RecognitionMethod } from "@/lib/asc606";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
@@ -643,8 +644,25 @@ function redConditionCured(
     const parsed = parseUsdToCents(after.value);
     return parsed.ok && parsed.cents > 0;
   }
+  // Post-R2 live regression patch. The red item says the proposed recognition
+  // treatment is not one the deterministic engine supports. Once the exact
+  // canonical obligation it points at holds a method the engine DOES support,
+  // the condition is deterministically cured: the field is valid, so the
+  // marker goes away on its own. No affirmation and no manual red resolution
+  // are fabricated, and a blank or unsupported value never cures it.
+  if (item.reasonCode === "unsupported_recognition_method") {
+    const after = canonicalFieldValue(nextDraft, item.targetKey);
+    if (!after.representable || typeof after.value !== "string") return false;
+    return ENGINE_SUPPORTED_RECOGNITION_METHODS.includes(after.value as RecognitionMethod);
+  }
   return false;
 }
+
+/** Exactly the recognition methods the deterministic engine can measure. */
+const ENGINE_SUPPORTED_RECOGNITION_METHODS = [
+  "over_time_ratable",
+  "point_in_time",
+] as const satisfies readonly RecognitionMethod[];
 
 /* ------------------------------------------------------------ reconcile -- */
 
