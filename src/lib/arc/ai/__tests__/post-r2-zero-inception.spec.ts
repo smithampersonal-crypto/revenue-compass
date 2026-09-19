@@ -171,11 +171,11 @@ describe("post-R2 acceptance — zero-at-inception ownership guard", () => {
     }));
     mutate(owned);
 
+    // The accountant's entry below is their own work, not ARC's untouched
+    // draft, so the AI provenance for the inception judgment is cleared.
     const aiState = structuredClone(first.aiState);
     for (const field of ["inception", "estimationMethod"]) {
-      const key = `vc:${canonicalId}.${field}`;
-      const prior = aiState.fieldProvenance[key];
-      if (prior) aiState.fieldProvenance[key] = { ...prior, state: "user_edited" };
+      delete aiState.fieldProvenance[`vc:${canonicalId}.${field}`];
     }
 
     return {
