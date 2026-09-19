@@ -1033,3 +1033,75 @@ compression) have not begun.
       change; frozen Phase 9G migration unchanged; schema v5 / prompt v6
       unchanged; no OpenAI call. R3 and R4 remain NOT STARTED. R2 remains
       awaiting acceptance.
+
+#### Post-R2 live regression patch (Genomix Test 02) — awaiting acceptance
+
+Narrow application-layer corrections only. No migration, no Cloud mutation, no
+OpenAI call, no Genomix live-model run. Schema stays `arc.ai.schema.v5`, prompt
+stays `arc.ai.prompt.v6`. R3 and R4 remain NOT STARTED.
+
+- [x] Defect 1 — review navigation landed at the top of `/analysis`. Root
+      cause: the production router runs with `scrollRestoration: true`, and the
+      navigation that strips the one-shot `review` parameter reset the scroll
+      the effect had just performed; the scroll also ran before the destination
+      section had mounted its content. `src/routes/analysis/index.tsx` now
+      expands the destination section first, defers the scroll across two
+      animation frames with a bounded wait for the real destination element
+      (exact anchor first, owning section only as the fallback), and passes the
+      router's own `resetScroll: false` on both the consume and stale-intent
+      navigations. A short-lived focus treatment (`.arc-review-focus` in
+      `src/styles.css`, with "Review this item" / "Resolve this item" for
+      actionable items only) marks the destination and clears itself; it
+      mutates no accounting and no review state, and an assumption never gains
+      an actionable label. JSDOM cannot reproduce router scroll restoration —
+      real-browser verification is manual: open Review & Finalize on an
+      analyzed workspace and use each of Step 3 / Step 4 / Step 5 "Go to
+      section", an exact "Go to field", and a Routine assumption "Go to …",
+      confirming each lands on and briefly marks the target.
+- [x] Defect 2 — zero-at-inception routine assumptions were incomplete.
+      `src/lib/arc/ai/merge.ts` now forces `most_likely_amount`, writes a single
+      $0 most-likely outcome with no probability, a $0 included amount, the
+      retained constraint rationale, and an effective date taken from an
+      authoritative canonical date (contract execution date, otherwise the
+      earliest obligation service start). With no defensible canonical date it
+      fails closed on the missing date instead of inventing one, and it never
+      overwrites an accountant-owned inception assessment.
+- [x] Defect 3 — a red "unsupported recognition method" item survived a genuine
+      cure. `src/lib/arc/ai/edit-reconciliation.ts` now clears it when that exact
+      canonical obligation carries a recognition method the deterministic engine
+      supports. No affirmation or manual-resolution event is fabricated; blank,
+      invalid and unrelated edits do not cure it.
+- [x] Defect 4 — guest autosave reported "The autosave store is unavailable".
+      Root cause: `arc_save_draft_with_ai_reconciliation` takes `FOR UPDATE` on
+      the owner row with no `lock_timeout`, so an abandoned in-flight autosave
+      leaves the row locked; every later save blocks, holding pooled
+      connections, until PostgREST returns `PGRST003 — Timed out acquiring
+      connection from connection pool`. Application half landed here: SQLSTATE
+      `55P03` is recognised as contention (not a stale lock), retried exactly
+      once after a short bounded pause, and otherwise surfaced as the retryable
+      "Still saving elsewhere" state with edits intact, plus structured
+      server-side failure logging that never reaches the browser. The database
+      half (adding `SET LOCAL lock_timeout`/`idle_in_transaction_session_timeout`
+      to the existing routine) is PROPOSED AND UNAPPLIED, awaiting migration
+      approval.
+- [x] Defect 5 — a temporary guest workspace sat on "Opening the saved
+      analysis…". `src/components/arc/RevisionLifecyclePanel.tsx` now shows
+      stable "Temporary workspace — Save this analysis to your account before
+      finalizing a revision." copy and never offers finalization; authenticated
+      saved, finalized and superseded revisions are untouched.
+- [x] New RED→GREEN suites (18 tests):
+      `src/routes/analysis/post-r2-navigation-focus.spec.tsx` (4),
+      `src/lib/arc/ai/__tests__/post-r2-zero-inception.spec.ts` (4),
+      `src/lib/arc/ai/__tests__/post-r2-recognition-cure.spec.ts` (4),
+      `src/lib/arc/ai/__tests__/post-r2-autosave-contention.spec.ts` (4),
+      `src/components/arc/post-r2-guest-lifecycle.spec.tsx` (2). RED proof:
+      neutralising each of the five fixes failed 11 of the 18 new tests;
+      restoring them returned all 18 green.
+- [x] Full `bun run verify` green: 162 test files / 1,994 tests, clean typecheck
+      and production build, `audit:bundle` clean, 11 pre-existing shadcn lint
+      warnings only. `guidance:check`: 116 approved cards, hash
+      `352bcf79e7cff1753f353451d9b12bf7f7cb7840eae6fe7699fdcbace6425d56`.
+- [x] All 21 SQL suites replayed green on a throwaway PostgreSQL (Docker
+      unavailable); no schema, RLS, grant, routine or Cloud mutation; frozen
+      Phase 9G Task 9 migration unchanged at
+      `3013e5370b7a12e8d266ddf4332034968bc5cc3cefb66dcb307ac04db261c251`.
