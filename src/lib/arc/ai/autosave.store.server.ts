@@ -57,7 +57,7 @@ function fail(operation: string, error: CodedError, scope?: AutosaveScope): neve
 }
 
 /** The one conflict code the trusted transaction raises for a stale save. */
-export const AUTOSAVE_CONFLICT_CODE = "40001";
+export const AUTOSAVE_CONFLICT_CODE = "PT409";
 
 /**
  * Bounded lock contention: the trusted transaction hit its transaction-local
@@ -65,6 +65,28 @@ export const AUTOSAVE_CONFLICT_CODE = "40001";
  * evidence that a newer saved version exists.
  */
 export const AUTOSAVE_CONTENTION_CODE = "55P03";
+
+/**
+ * Post-R2 database hardening. Exactly three meanings, and nothing else:
+ *
+ * - `PT409` — ARC's own optimistic-lock conflict. Permanent for this request:
+ *   the analysis must be reloaded, never retried.
+ * - `55P03` — bounded lock contention. Nothing was written; one retry with the
+ *   SAME expected lock version is correct.
+ * - anything else, INCLUDING a genuine PostgreSQL serialization failure
+ *   (`40001`) — an ordinary save failure. A real 40001 now means the database
+ *   itself could not serialize the transaction; it is never presented as a
+ *   stale-version conflict, because doing so is what let a retrying client
+ *   turn ARC conflicts into a request storm.
+ */
+export function classifyAutosaveSaveError(
+  error: CodedError | null | undefined,
+): "none" | "conflict" | "contention" | "failure" {
+  if (!error) return "none";
+  if (error.code === AUTOSAVE_CONFLICT_CODE) return "conflict";
+  if (error.code === AUTOSAVE_CONTENTION_CODE) return "contention";
+  return "failure";
+}
 
 function firstRow<T>(data: unknown): T | null {
   if (Array.isArray(data)) return (data[0] as T) ?? null;
@@ -182,15 +204,16 @@ export async function createAutosaveReconciliationStore(
         },
         p_review_events: args.reviewEvents,
       });
+      const classified = classifyAutosaveSaveError(error);
       // A stale save is an ordinary result, not an error the accountant sees.
-      if (error?.code === AUTOSAVE_CONFLICT_CODE) return null;
+      if (classified === "conflict") return null;
       // Bounded contention: nothing was written, and the caller may retry once
       // with the SAME expected lock version. Deliberately not a conflict.
-      if (error?.code === AUTOSAVE_CONTENTION_CODE) {
-        logAutosaveStoreFailure("save-contention", args.scope, error);
+      if (classified === "contention") {
+        logAutosaveStoreFailure("save-contention", args.scope, error!);
         return "contention";
       }
-      if (error) fail("save", error, args.scope);
+      if (classified === "failure") fail("save", error!, args.scope);
       const row = firstRow<{ lock_version: number; saved_at: string }>(data);
       if (row === null) return null;
       return { lockVersion: row.lock_version, savedAt: row.saved_at };

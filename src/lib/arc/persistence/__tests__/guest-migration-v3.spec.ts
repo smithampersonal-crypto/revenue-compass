@@ -103,7 +103,7 @@ describe("guest migration v3", () => {
   });
 
   it("a lost optimistic lock is reported as a conflict, not a failure", async () => {
-    const rpc = vi.fn(async () => ({ data: null, error: { code: "40001", message: "conflict" } }));
+    const rpc = vi.fn(async () => ({ data: null, error: { code: "PT409", message: "conflict" } }));
     expect(await migrate(rpc)).toMatchObject({ ok: false, code: "conflict" });
   });
 });

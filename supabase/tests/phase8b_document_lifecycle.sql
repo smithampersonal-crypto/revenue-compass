@@ -141,7 +141,7 @@ begin
   ok := false;
   begin
     perform public.arc_attach_source_document(user_a, rev1, doc3, 1);
-  exception when sqlstate '40001' then ok := true; end;
+  exception when sqlstate 'PT409' then ok := true; end;
   insert into arc_test_results values ('11 attach rejects a stale lock version',
     ok and not exists (select 1 from public.revision_source_documents
                         where revision_id = rev1 and source_document_id = doc3));
@@ -162,7 +162,7 @@ begin
   ok := false;
   begin
     perform public.arc_attach_source_document(user_a, rev1, doc3, 2);
-  exception when sqlstate '40001' then ok := true; end;
+  exception when sqlstate 'PT409' then ok := true; end;
   insert into arc_test_results values ('13b stale attach conflicts even when already selected',
     ok and (select lock_version from public.analysis_revisions where id = rev1) = 3);
 
@@ -170,7 +170,7 @@ begin
   ok := false;
   begin
     perform public.arc_remove_source_document(user_a, rev1, doc3, 2);
-  exception when sqlstate '40001' then ok := true; end;
+  exception when sqlstate 'PT409' then ok := true; end;
   lock_now := public.arc_remove_source_document(user_a, rev1, doc3, 3);
   insert into arc_test_results values ('14 remove rejects a stale lock and otherwise advances once',
     ok and lock_now = 4
@@ -186,7 +186,7 @@ begin
   ok := false;
   begin
     perform public.arc_remove_source_document(user_a, rev1, doc3, 3);
-  exception when sqlstate '40001' then ok := true; end;
+  exception when sqlstate 'PT409' then ok := true; end;
   insert into arc_test_results values ('14c stale remove conflicts even when already absent',
     ok and (select lock_version from public.analysis_revisions where id = rev1) = 4);
 
@@ -232,7 +232,7 @@ begin
   ok := false;
   begin
     perform public.arc_stage_source_document_deletion(user_a, null, doc4, 1);
-  exception when sqlstate '40001' then ok := true; end;
+  exception when sqlstate 'PT409' then ok := true; end;
   insert into arc_test_results values ('19 selected-document delete rejects a stale lock',
     ok and exists (select 1 from public.source_documents where id = doc4)
     and exists (select 1 from public.revision_source_documents

@@ -145,7 +145,7 @@ async function ownerScopeFor(
 /** Database detail never reaches the browser; only settled copy does. */
 function safeStoreError(error: unknown): Error {
   const code = (error as { code?: unknown } | null)?.code;
-  if (code === "40001") return new Error(AI_REVIEW_ACTION_CONFLICT);
+  if (code === "PT409") return new Error(AI_REVIEW_ACTION_CONFLICT);
   if (code === "42501" || code === "22023") return new Error(AI_REVIEW_ACTION_UNAVAILABLE);
   return new Error(AI_REVIEW_ACTION_FAILED);
 }

@@ -197,7 +197,7 @@ describe("Phase 9G review actions — yellow affirmation", () => {
 
   it("reports a changed conclusion as a plain-language conflict", async () => {
     const recorded = empty();
-    const store = storeFor(recorded, { affirmReviewItem: failing("40001") as never });
+    const store = storeFor(recorded, { affirmReviewItem: failing("PT409") as never });
     await expect(
       affirmReviewItemHandler({ store }, revisionCaller, {
         reviewItemId: "rev-yellow-1",
@@ -307,7 +307,7 @@ describe("Phase 9G review actions — manual red resolution", () => {
   });
 
   it("reports a changed conclusion as a conflict", async () => {
-    const store = storeFor(empty(), { resolveReviewIssue: failing("40001") as never });
+    const store = storeFor(empty(), { resolveReviewIssue: failing("PT409") as never });
     await expect(
       resolveReviewIssueHandler({ store }, revisionCaller, {
         reviewItemId: "rev-red-1",
@@ -356,7 +356,7 @@ describe("Phase 9G review actions — stale-source acknowledgment", () => {
   });
 
   it("reports a superseded source set as a conflict", async () => {
-    const store = storeFor(empty(), { acknowledgeStaleSources: failing("40001") as never });
+    const store = storeFor(empty(), { acknowledgeStaleSources: failing("PT409") as never });
     await expect(
       acknowledgeStaleSourcesHandler({ store }, revisionCaller, {
         expectedSourceSetFingerprint: SOURCE_FINGERPRINT,

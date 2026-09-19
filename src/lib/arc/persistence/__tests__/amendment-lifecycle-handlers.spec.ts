@@ -96,11 +96,22 @@ describe("resetAmendmentDraftHandler", () => {
 
   it("reports a conflict when the transaction itself detects newer work", async () => {
     const d = deps({
-      resetTransaction: vi.fn().mockResolvedValue({ data: null, error: { code: "40001" } }),
+      resetTransaction: vi.fn().mockResolvedValue({ data: null, error: { code: "PT409" } }),
     });
     await expect(
       resetAmendmentDraftHandler(d, { revisionId: REVISION, expectedLockVersion: 4 }),
     ).resolves.toEqual({ ok: false, reason: "conflict" });
+  });
+
+  // Post-R2 database hardening: a genuine serialization failure is a plain
+  // failure, never ARC's "someone else changed this" conflict.
+  it("does not treat a genuine 40001 serialization failure as a conflict", async () => {
+    const d = deps({
+      resetTransaction: vi.fn().mockResolvedValue({ data: null, error: { code: "40001" } }),
+    });
+    await expect(
+      resetAmendmentDraftHandler(d, { revisionId: REVISION, expectedLockVersion: 4 }),
+    ).rejects.toThrow(/could not be reset/i);
   });
 
   it("refuses a finalized or superseded revision", async () => {

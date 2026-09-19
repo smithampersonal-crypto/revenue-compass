@@ -36,6 +36,7 @@ const HOSTILE = "service_role failed: SQLSTATE 40001 gpt-5.6-terra prompt-v4 <co
 const LEAKS = [
   "service_role",
   "SQLSTATE",
+  "PT409",
   "40001",
   "gpt-5.6-terra",
   "prompt-v4",
@@ -117,7 +118,7 @@ describe("Task 3 handler errors are allowlisted", () => {
 
   it("collapses any unexpected error into one generic ARC message", () => {
     const raw = new Error(HOSTILE) as Error & { code?: string; cause?: unknown };
-    raw.code = "40001";
+    raw.code = "PT409";
     raw.cause = new Error(HOSTILE);
     const sanitized = sanitizeWorkspaceError(raw);
     expect(sanitized.message).toBe(AI_WORKSPACE_ACTION_FAILED);
