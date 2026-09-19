@@ -208,15 +208,16 @@ function progressiveBalanceWorkflow(
   const balances = progressive.balances;
   // A billing or cash fact that could not structurally enter the Phase 3 input
   // must not vanish behind a workpaper that presents itself as complete. The
-  // dependency block is carried into the balance presentation instead; Step 4
-  // and determinable revenue are untouched by it.
-  const billingBlocked = blockedFacts.filter((fact) => fact.ownerKind === "billing_event");
-  if (!balances || billingBlocked.length > 0) {
+  // SHARED workflow gate makes that determination once, so this workpaper and
+  // the progressive results panel can never disagree. Step 4 and determinable
+  // revenue are untouched by it.
+  const gate = buildProgressiveGate(progressive, blockedFacts);
+  if (!balances || !gate.balancesPresentable) {
     return {
       validation: draftValidation,
       finalized: false,
       blockedReason:
-        billingBlocked[0]?.message ??
+        gate.blockedReason ??
         "The facts this contract depends on cannot be used yet, so no billing and contract-balance workpaper is produced.",
       engineValidation: null,
       analysis: null,

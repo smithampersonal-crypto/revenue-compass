@@ -55,6 +55,7 @@ import {
   type BlockedComponent,
   type ProgressiveContractAnalysis,
 } from "@/lib/asc606-progressive";
+import { buildProgressiveGate, type ProgressiveGate } from "./progressive-gate";
 import { buildProgressiveInput, draftRequiresProgressive, type BlockedFact } from "./r3-adapter";
 
 /** An engine-level blocked amount described with its owning obligation. */
