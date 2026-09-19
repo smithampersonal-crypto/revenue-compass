@@ -262,10 +262,19 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
     if (op.eventType === "invoice_reclassification") {
       const event = eventById.get(op.sourceId!)!;
       entries.push(
-        finalize(op, `Invoice issued (${event.id})`, [
-          { account: "billed_ar", debitCents: event.amountCents, creditCents: 0 },
-          { account: "unbilled_ar", debitCents: 0, creditCents: event.amountCents },
-        ]),
+        finalize(
+          op,
+          `Invoice issued (${event.id})`,
+          event.amountCents >= 0
+            ? [
+                { account: "billed_ar", debitCents: event.amountCents, creditCents: 0 },
+                { account: "unbilled_ar", debitCents: 0, creditCents: event.amountCents },
+              ]
+            : [
+                { account: "unbilled_ar", debitCents: -event.amountCents, creditCents: 0 },
+                { account: "billed_ar", debitCents: 0, creditCents: -event.amountCents },
+              ],
+        ),
       );
       continue;
     }
