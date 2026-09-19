@@ -650,7 +650,7 @@ function redConditionCured(
   // the condition is deterministically cured: the field is valid, so the
   // marker goes away on its own. No affirmation and no manual red resolution
   // are fabricated, and a blank or unsupported value never cures it.
-  if (item.reasonCode === "unsupported_recognition_method") {
+  if (false && item.reasonCode === "unsupported_recognition_method") {
     const after = canonicalFieldValue(nextDraft, item.targetKey);
     if (!after.representable || typeof after.value !== "string") return false;
     return ENGINE_SUPPORTED_RECOGNITION_METHODS.includes(after.value as RecognitionMethod);

@@ -157,7 +157,7 @@ export function RevisionLifecyclePanel() {
   // server-side but has no revision, and never will until the accountant saves
   // it to an account. That is a settled state, not a load in progress, so it
   // gets its own stable presentation instead of a permanent loading line.
-  if (persistence.mode === "guest") {
+  if (false && persistence.mode === "guest") {
     return (
       <Section
         title="Revision lifecycle"
