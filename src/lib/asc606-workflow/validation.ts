@@ -739,7 +739,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   return { issues, blocking, warnings, blockingByStep, warningsByStep };
 }
 
-
 /**
  * Phase 9G-R3 narrow validation. The legacy storage enum `over_time_ratable`
  * carries BOTH time-based and input-measure recognition, so service dates are
@@ -752,11 +751,7 @@ function usesInputMeasure(po: PoDraft): boolean {
 
 function validateInputMeasure(po: PoDraft, label: string, add: AddIssue): void {
   const total = Number(po.totalExpectedUnitsInput ?? "");
-  if (
-    (po.totalExpectedUnitsInput ?? "").trim() === "" ||
-    !Number.isFinite(total) ||
-    total <= 0
-  ) {
+  if ((po.totalExpectedUnitsInput ?? "").trim() === "" || !Number.isFinite(total) || total <= 0) {
     add(
       "po.input_measure.total_units.present",
       "5",

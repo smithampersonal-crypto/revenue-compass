@@ -283,7 +283,10 @@ function toProgressiveVcComponent(
 
   // The accepted resolution model is the SAME realization fact the progressive
   // layer needs; it is mapped here rather than modelled a second time.
-  if (component.hasResolution && !realized.some((event) => event.id === resolutionEventId(component))) {
+  if (
+    component.hasResolution &&
+    !realized.some((event) => event.id === resolutionEventId(component))
+  ) {
     const resolved = cents(component.resolutionAmountInput);
     if (component.resolutionDate === "" || resolved === null) {
       blocked.push({

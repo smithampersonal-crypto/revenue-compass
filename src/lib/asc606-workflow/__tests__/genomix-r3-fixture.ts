@@ -72,7 +72,8 @@ function supportPo(): PoDraft {
     totalExpectedUnitsInput: "200",
     unitLabel: "hours",
     progressEvents: [],
-    recognitionRationale: "Progress is measured by support hours incurred against the contracted block.",
+    recognitionRationale:
+      "Progress is measured by support hours incurred against the contracted block.",
   };
 }
 

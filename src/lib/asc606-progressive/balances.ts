@@ -26,10 +26,7 @@ import {
 } from "@/lib/asc606-balances";
 
 import type { ProgressiveBillingEvent } from "./billing";
-import {
-  buildProgressiveBalanceInput,
-  type ProgressiveCashCollection,
-} from "./phase3-bridge";
+import { buildProgressiveBalanceInput, type ProgressiveCashCollection } from "./phase3-bridge";
 import type { CalculationState, PendingComponent } from "./types";
 
 export type { ProgressiveCashCollection } from "./phase3-bridge";

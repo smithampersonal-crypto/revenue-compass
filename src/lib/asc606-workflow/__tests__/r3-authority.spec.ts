@@ -55,16 +55,12 @@ describe("B — authoritative progressive workflow", () => {
       ["po-validation", GENOMIX_VALIDATION_CENTS, "awaiting_transfer_date"],
       ["po-support", GENOMIX_SUPPORT_CENTS, "awaiting_progress_actuals"],
     ]);
-    expect(result.unscheduledRevenueCents).toBe(
-      GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS,
-    );
+    expect(result.unscheduledRevenueCents).toBe(GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS);
   });
 
   it("shows both fixed billings and partial-but-correct balances", () => {
     const { progressive } = progressiveOf(genomixR3Draft());
-    expect(progressive!.billing.events.map((e) => e.amountCents)).toEqual([
-      24_500_000, 24_500_000,
-    ]);
+    expect(progressive!.billing.events.map((e) => e.amountCents)).toEqual([24_500_000, 24_500_000]);
     expect(progressive!.billing.totalCents).toBe(GENOMIX_FIXED_CENTS);
     expect(progressive!.balances!.partial).toBe(true);
     expect(progressive!.balances!.totalRevenueCents).toBe(GENOMIX_HOSTED_CENTS);
@@ -77,9 +73,9 @@ describe("B — authoritative progressive workflow", () => {
     const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS);
     expect(recon.allocatedCents).toBe(GENOMIX_FIXED_CENTS);
-    expect(
-      recon.scheduledRevenueCents + recon.pendingCents + recon.blockedCents,
-    ).toBe(GENOMIX_FIXED_CENTS);
+    expect(recon.scheduledRevenueCents + recon.pendingCents + recon.blockedCents).toBe(
+      GENOMIX_FIXED_CENTS,
+    );
     expect(recon.state).toBe("pending");
   });
 
@@ -212,7 +208,7 @@ describe("D — variable-consideration source of truth", () => {
       ],
     };
     const vc = buildProgressiveInput(resolved).input!.variableComponents![0]!;
-    expect(vc.realizedEvents.map((e) => [e.id, e.amountCents, e.date])).toEqual([
+    expect((vc.realizedEvents ?? []).map((e) => [e.id, e.amountCents, e.date])).toEqual([
       ["vc-sla:resolution", 1_200_000, "2027-09-30"],
     ]);
   });
@@ -378,10 +374,10 @@ describe("independent mutations", () => {
         { id: "pe-1", seq: 1, date: "2027-02-28", unitsInput: "50" },
       ]),
     );
-    const support = result.progressive!.reconciliation.byPo.find((p) => p.poId === "po-support")!;
+    const support = result.progressive!.reconciliation!.byPo.find((p) => p.poId === "po-support")!;
     expect(support.recognizedCents).toBe(GENOMIX_SUPPORT_CENTS / 4);
     expect(support.pendingCents).toBe(GENOMIX_SUPPORT_CENTS - GENOMIX_SUPPORT_CENTS / 4);
-    const validation = result.progressive!.reconciliation.byPo.find(
+    const validation = result.progressive!.reconciliation!.byPo.find(
       (p) => p.poId === "po-validation",
     )!;
     expect(validation.recognizedCents).toBe(0);
@@ -404,6 +400,7 @@ describe("independent mutations", () => {
 // J — orchestration-level duplicate / orphan checks
 // ---------------------------------------------------------------------------
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- identity-defect fixtures deliberately build malformed input shapes */
 describe("J — orchestration fails closed on identity defects", () => {
   function expectBlocked(mutate: (input: any) => void) {
     const built = buildProgressiveInput(genomixR3Draft());
