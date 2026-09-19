@@ -2004,11 +2004,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // instead of blocking the whole workpaper. Zero is never invented: the
       // model must have concluded it explicitly, with both amounts exactly 0.
       const assessment = current().inception;
-      const inceptionUnclaimed =
-        isUnclaimedString(assessment.includedInput) &&
-        assessment.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
-      const zeroAtInception =
-        component.initialEstimateBasis === "zero_no_expected_trigger" && inceptionUnclaimed;
 
       if (zeroAtInception) {
         mergeScalar<string>({
@@ -2017,16 +2012,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           current: assessment.includedInput,
           proposed: "0",
           unclaimed: true,
+          // The whole inception assessment is written as one complete, valid
+          // most-likely-amount assumption: a single $0 most-likely outcome, $0
+          // included, the authoritative inception date and the model's own
+          // rationale. No probability is required, and nothing here overwrites
+          // an accountant-owned assessment — it is reached only when every
+          // inception amount was still unclaimed.
           apply: (value) =>
             update({
               inception: {
                 ...current().inception,
+                effectiveDate: current().inception.effectiveDate || inceptionDate!,
                 includedInput: value,
-                outcomes: current().inception.outcomes.map((outcome, index) =>
-                  index === 0
-                    ? { ...outcome, amountInput: value, isMostLikely: true }
-                    : { ...outcome, isMostLikely: false },
-                ),
+                outcomes: current().inception.outcomes.slice(0, 1).map((outcome) => ({
+                  ...outcome,
+                  amountInput: value,
+                  probabilityInput: "",
+                  isMostLikely: true,
+                })),
                 constraintRationale: component.initialEstimateRationale,
               },
             }),
