@@ -2674,3 +2674,20 @@ export function aiObjectFingerprint(draft: WorkflowDraft, canonicalId: string): 
   if (cash !== undefined) return valueFingerprint(cashFingerprintValue(cash));
   return null;
 }
+
+/**
+ * Post-R2 live regression patch. The one authoritative date ARC may use as the
+ * date of a zero-at-inception estimate: the contract's execution date, and
+ * otherwise the earliest obligation service start already in the workpaper.
+ * It never invents a date — when neither exists it returns null and the caller
+ * fails closed.
+ */
+export function canonicalInceptionDate(draft: WorkflowDraft): IsoDate | null {
+  const execution = draft.contract.executionDate.trim();
+  if (execution !== "") return execution as IsoDate;
+  const starts = draft.performanceObligations
+    .map((po) => po.serviceStart)
+    .filter((value): value is IsoDate => value !== "")
+    .sort();
+  return starts[0] ?? null;
+}
