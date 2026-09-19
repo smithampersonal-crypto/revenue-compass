@@ -203,10 +203,11 @@ export function analyzeWorkflow(
       // its known accounting is fully available. An adapter-level fact that
       // could not be used also keeps the analysis unfinalizable: a fact never
       // disappears merely because the calculation could proceed without it.
-      finalized: progressive.state === "complete" && built.blocked.length === 0,
+      finalized: progressiveGate.state === "complete" && built.blocked.length === 0,
       blockedReason:
-        progressive.state === "blocked" || built.blocked.length > 0
-          ? (built.blocked[0]?.message ?? "Some facts this contract depends on cannot be used yet.")
+        progressiveGate.state === "blocked" || built.blocked.length > 0
+          ? (progressiveGate.blockedReason ??
+            "Some facts this contract depends on cannot be used yet.")
           : null,
       adapterErrors: [],
       engineValidation: null,
