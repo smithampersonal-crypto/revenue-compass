@@ -19,7 +19,7 @@
  *    the per-PO monetary summary.
  */
 
-import { sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
+import { bigIntToCents, sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
 
 import type { ProgressiveRevenueResult } from "./recognition";
 import {
@@ -232,14 +232,14 @@ export function reconcileProgressive(
     }
   }
 
-  const scheduledRevenueCents = sumCents([Number(scheduledTotal)]);
+  const scheduledRevenueCents = bigIntToCents(scheduledTotal, "scheduled revenue");
   if (scheduledRevenueCents !== input.recognition.schedule.totalCents) {
     failures.push(
       `Scheduled revenue ${scheduledRevenueCents} does not equal the revenue schedule total ${input.recognition.schedule.totalCents}.`,
     );
   }
 
-  const unresolvedCents = sumCents([Number(unresolvedTotal)]);
+  const unresolvedCents = bigIntToCents(unresolvedTotal, "unresolved allocation");
   const pendingComponents = [...input.recognition.pending, ...external];
   const state = mergeCalculationState(
     input.recognition.state,
@@ -252,8 +252,8 @@ export function reconcileProgressive(
     transactionPriceCents: input.transactionPriceCents,
     allocatedCents: sumCents(input.allocation.map((row) => row.allocatedCents)),
     scheduledRevenueCents,
-    pendingCents: sumCents([Number(pendingTotal), externalPendingCents]),
-    blockedCents: sumCents([Number(blockedTotal)]),
+    pendingCents: sumCents([bigIntToCents(pendingTotal, "pending"), externalPendingCents]),
+    blockedCents: bigIntToCents(blockedTotal, "blocked"),
     unresolvedCents,
     byPo,
     pending: pendingComponents,
