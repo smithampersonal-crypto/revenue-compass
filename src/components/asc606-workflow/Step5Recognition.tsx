@@ -128,12 +128,13 @@ export function Step5Recognition({
                 value={po.transferStatus ?? ""}
                 onChange={(e) => {
                   const value = e.target.value;
-                  patch(
-                    po.id,
-                    value === ""
-                      ? ({ transferStatus: undefined } as Partial<PoDraft>)
-                      : { transferStatus: value as "transferred" | "not_yet_transferred" },
-                  );
+                  const next: PoDraft = { ...po };
+                  if (value === "") delete next.transferStatus;
+                  else next.transferStatus = value as "transferred" | "not_yet_transferred";
+                  onChange({
+                    ...draft,
+                    performanceObligations: pos.map((row) => (row.id === po.id ? next : row)),
+                  });
                 }}
               >
                 <option value="">Select…</option>
