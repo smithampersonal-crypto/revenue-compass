@@ -67,16 +67,20 @@ export function validateContractBalanceInput(
   if (new Set(validSeqs).size !== validSeqs.length) {
     fail("consideration.seq.unique", "consideration", "Billing event sequences must be unique.");
   }
+  // A progressive contract can bill a realized decrease as a credit memo, so a
+  // negative amount is legitimate there. A complete contract still may not.
   const amountValid = (value: unknown): value is number =>
     typeof value === "number" &&
     Number.isInteger(value) &&
-    value > 0 &&
+    (partial ? value !== 0 : value > 0) &&
     Math.abs(value) <= MAX_CENTS;
   if (events.some((e) => !amountValid(e.amountCents))) {
     fail(
       "consideration.amount.valid",
       "consideration",
-      "Every billing event amount must be a supported whole-cent amount greater than zero.",
+      partial
+        ? "Every billing event amount must be a supported non-zero whole-cent amount."
+        : "Every billing event amount must be a supported whole-cent amount greater than zero.",
     );
   }
   if (events.some((e) => !isValidIsoDate(e.unconditionalRightDate))) {
