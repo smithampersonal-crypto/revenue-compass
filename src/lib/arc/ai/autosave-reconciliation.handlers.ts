@@ -180,7 +180,7 @@ export async function autosaveWithReconciliation(
   // Bounded lock contention. The timed-out transaction wrote nothing, so the
   // expected lock version is still the right one to send. Exactly ONE retry
   // after a short pause — never a loop, and never a false "newer version".
-  if (false) {
+  if (saved === "contention") {
     await (deps.delay ?? defaultDelay)(AUTOSAVE_CONTENTION_RETRY_DELAY_MS);
     saved = await attempt();
     if (saved === "contention") return { ok: false, reason: "contention" };

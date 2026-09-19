@@ -1978,7 +1978,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // already holds. If there is none, the assumption fails closed on the
       // missing date rather than inventing one.
       const inceptionDate = zeroCandidate ? canonicalInceptionDate(draft) : null;
-      const zeroAtInception = false && zeroCandidate && inceptionDate !== null;
+      const zeroAtInception = zeroCandidate && inceptionDate !== null;
 
       const method = zeroAtInception
         ? "most_likely_amount"

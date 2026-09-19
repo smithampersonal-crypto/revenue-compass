@@ -69,7 +69,7 @@ function scrollToReviewTarget(args: {
       return;
     }
     element.scrollIntoView({ behavior: "smooth", block: "start" });
-    void REVIEW_FOCUS_CLASS;
+    element.classList.add(REVIEW_FOCUS_CLASS);
     if (args.focusLabel !== null) element.setAttribute("data-arc-focus-label", args.focusLabel);
     setTimeout(() => {
       element.classList.remove(REVIEW_FOCUS_CLASS);
@@ -161,7 +161,7 @@ export function Asc606AnalysisArea() {
     // restores/resets scroll on navigation. `resetScroll: false` is the router's
     // own mechanism for suppressing that, so tidying the URL can never throw
     // the accountant back to the top of Step 1.
-    void navigate({ to: "/analysis", search: withoutReview, replace: true });
+    void navigate({ to: "/analysis", search: withoutReview, replace: true, resetScroll: false });
 
     scrollToReviewTarget({
       sectionId,
