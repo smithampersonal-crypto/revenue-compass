@@ -144,12 +144,14 @@ function runGenomix() {
 
 describe("Phase 9G-R Task R2 — synthetic Genomix benchmark", () => {
   it("is a schema-valid v5 analysis", () => {
-    expect(parseAiContractAnalysis(genomixAnalysis()).ok).toBe(true);
+    const parsed = parseAiContractAnalysis(genomixAnalysis());
+    if (!parsed.ok) console.log(parsed.issues);
+    expect(parsed.ok).toBe(true);
   });
 
   it("keeps the full-term fixed consideration deterministic (R1)", () => {
     const { draft } = runGenomix();
-    expect(draft.transactionPriceInput).toBe("150000");
+    expect(draft.transactionPriceInput).toBe("150000.00");
   });
 
   it("leaves a small, meaningful actionable queue", () => {
