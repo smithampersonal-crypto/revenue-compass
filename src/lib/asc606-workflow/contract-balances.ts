@@ -26,6 +26,7 @@ import {
 import { ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
+import { buildProgressiveGate } from "./progressive-gate";
 import type { BlockedFact } from "./r3-adapter";
 import type { WorkflowDraft } from "./types";
 
