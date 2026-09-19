@@ -101,7 +101,7 @@ describe("deterministic AI failure presentation", () => {
     expect(presentation.category).toBe("workspace_conflict");
     expect(presentation.whatHappened).toContain("workspace changed");
     const text = strings(presentation);
-    for (const forbidden of ["40001", "SQLSTATE", "serialization", "lock_version"]) {
+    for (const forbidden of ["PT409", "40001", "SQLSTATE", "serialization", "lock_version"]) {
       expect(text).not.toContain(forbidden);
     }
   });

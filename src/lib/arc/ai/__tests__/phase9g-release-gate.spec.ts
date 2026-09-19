@@ -43,21 +43,66 @@ describe("Phase 9G release gate — frozen Task 9 migration", () => {
     expect(sha).toBe(TASK9_SHA);
   });
 
-  it("carries only the one staged migration awaiting acceptance, never duplicated", () => {
-    const STAGED = "20260919043000_post_r2_autosave_lock_timeout.sql";
+  it("carries only the staged migrations awaiting acceptance, never duplicated", () => {
+    const STAGED = [
+      "20260919043000_post_r2_autosave_lock_timeout.sql",
+      "20260919060000_post_r2_conflict_sqlstate.sql",
+    ];
     let pending: string[] = [];
     try {
       pending = readdirSync(path.join(root, "supabase/pending"));
     } catch {
       pending = [];
     }
-    const staged = pending.filter((file) => file.endsWith(".sql"));
-    // Post-R2 defect 4: exactly one staged migration, held for byte-level
-    // review before any Cloud apply. It must not also exist as an applied
-    // migration, and nothing else may accumulate here.
-    expect(staged).toEqual([STAGED]);
+    const staged = pending.filter((file) => file.endsWith(".sql")).sort();
+    // Post-R2: the autosave lock bounding and the non-retryable conflict
+    // SQLSTATE, both held for byte-level review before any Cloud apply. Neither
+    // may also exist as an applied migration, and nothing else may accumulate.
+    expect(staged).toEqual(STAGED);
     const applied = readdirSync(path.join(root, "supabase/migrations"));
-    expect(applied).not.toContain(STAGED);
+    for (const file of STAGED) expect(applied).not.toContain(file);
+  });
+
+  it("redefines every routine that raised an ARC-authored 40001", () => {
+    // A PostgREST client retries SQLSTATE 40001. ARC's own optimistic-lock and
+    // business conflicts are permanent for the request that hit them, so the
+    // staged conflict migration — the last definition in replay order — must
+    // redefine every routine that ever raised one, and must raise PT409.
+    // Only the LAST definition of a routine describes the deployed function.
+    const latest = new Map<string, string>();
+    for (const file of walk("supabase/migrations", (f) => f.endsWith(".sql"))) {
+      const text = readFileSync(path.join(root, file), "utf8");
+      let current: string | null = null;
+      for (const line of text.split("\n")) {
+        const dropped = /drop function (?:if exists )?public\.([a-z0-9_]+)/i.exec(line);
+        if (dropped) latest.delete(dropped[1]!);
+        const declared = /create or replace function\s+public\.([a-z0-9_]+)/i.exec(line);
+        if (declared) {
+          current = declared[1]!;
+          latest.set(current, "");
+        }
+        if (current) latest.set(current, `${latest.get(current) ?? ""}\n${line}`);
+        // The body ends at its dollar-quote terminator; anything after it
+        // belongs to other statements, not to this routine.
+        if (current && /^\s*\$[a-z_]*\$\s*;/i.test(line)) current = null;
+      }
+    }
+    const offenders = new Set(
+      [...latest.entries()]
+        .filter(([, body]) => body.includes("errcode = '40001'"))
+        .map(([name]) => name),
+    );
+    expect(offenders.size).toBeGreaterThan(0);
+
+    const staged = readFileSync(
+      path.join(root, "supabase/pending/20260919060000_post_r2_conflict_sqlstate.sql"),
+      "utf8",
+    );
+    for (const routine of offenders) {
+      expect(staged).toContain(`CREATE OR REPLACE FUNCTION public.${routine}(`);
+    }
+    expect(staged.replace(/^--.*$/gm, "")).not.toContain("40001");
+    expect(staged).toContain("errcode = 'PT409'");
   });
 });
 

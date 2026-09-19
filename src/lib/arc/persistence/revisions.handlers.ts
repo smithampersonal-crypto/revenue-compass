@@ -164,8 +164,10 @@ export async function finalizeRevisionHandler(
   });
 
   if (rpcError) {
-    // 40001 is the transaction's optimistic-lock failure.
-    if (rpcError.code === "40001") return { ok: false, reason: "conflict" };
+    // PT409 is ARC's own non-retryable optimistic-lock conflict. A genuine
+    // PostgreSQL serialization failure (40001) is NOT this, and is never
+    // reported to the accountant as a stale-version conflict.
+    if (rpcError.code === "PT409") return { ok: false, reason: "conflict" };
     throw new Error("That revision could not be finalized.");
   }
 
@@ -210,7 +212,7 @@ export async function startNewRevisionHandler(
     p_contract_id: data.contractId,
     p_expected_source_revision_id: data.sourceRevisionId,
   });
-  if (error?.code === "40001") {
+  if (error?.code === "PT409") {
     throw new Error(
       "This analysis changed since this page loaded, so no new revision was started. Reload and try again.",
     );
@@ -281,7 +283,7 @@ export async function resetAmendmentDraftHandler(
     p_revision_id: data.revisionId,
     p_expected_lock_version: data.expectedLockVersion,
   });
-  if (error?.code === "40001") return { ok: false, reason: "conflict" };
+  if (error?.code === "PT409") return { ok: false, reason: "conflict" };
   const row = (Array.isArray(rows) ? rows[0] : rows) as { lock_version: number } | null;
   if (error || !row) throw new Error("This revision could not be reset.");
 
@@ -308,7 +310,7 @@ export async function discardAmendmentDraftHandler(
     p_revision_id: data.revisionId,
     p_expected_lock_version: data.expectedLockVersion,
   });
-  if (error?.code === "40001") return { ok: false, reason: "conflict" };
+  if (error?.code === "PT409") return { ok: false, reason: "conflict" };
   const finalizedRevisionId =
     typeof result === "string"
       ? result

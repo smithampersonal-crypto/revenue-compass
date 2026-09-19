@@ -130,7 +130,7 @@ begin
   failed := false;
   begin
     perform public.arc_attach_guest_source_document(hash_main, doc_a, lock_now + 5);
-  exception when sqlstate '40001' then failed := true; end;
+  exception when sqlstate 'PT409' then failed := true; end;
   insert into arc_test_results values ('13 stale lock version rejected on add', failed);
   insert into arc_test_results
   select '14 stale add changed neither the selection nor the lock',
@@ -169,7 +169,7 @@ begin
   failed := false;
   begin
     perform public.arc_remove_guest_source_document(hash_main, doc_b, lock_now - 1);
-  exception when sqlstate '40001' then failed := true; end;
+  exception when sqlstate 'PT409' then failed := true; end;
   insert into arc_test_results values ('18 stale lock version rejected on remove', failed);
   insert into arc_test_results
   select '19 stale remove left the document included',
@@ -208,7 +208,7 @@ begin
   failed := false;
   begin
     perform public.arc_stage_source_document_deletion(null, hash_main, doc_del, lock_now + 7);
-  exception when sqlstate '40001' then failed := true; end;
+  exception when sqlstate 'PT409' then failed := true; end;
   insert into arc_test_results values ('24 stale lock version rejected on delete', failed);
   insert into arc_test_results
   select '25 the refused deletions removed nothing',

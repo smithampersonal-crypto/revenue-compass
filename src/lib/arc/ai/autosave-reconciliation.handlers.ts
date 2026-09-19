@@ -48,7 +48,7 @@ export type AutosaveOutcome =
 
 /**
  * What one attempt at the trusted transaction produced. `null` is a proven
- * stale optimistic lock (40001); `"contention"` is a bounded lock timeout.
+ * stale optimistic lock (PT409); `"contention"` is a bounded lock timeout.
  */
 export type ReconciledSaveAttempt = { lockVersion: number; savedAt: string } | null | "contention";
 

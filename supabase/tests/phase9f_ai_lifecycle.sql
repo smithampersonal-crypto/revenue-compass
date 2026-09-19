@@ -272,10 +272,10 @@ begin
                                     'arc.workflow.v1', jsonb_build_object('sourceState', 'current'),
                                     v_fp, '{}'::jsonb, '{}'::jsonb, 0);
     ok := false;
-  exception when others then ok := (sqlstate = '40001');
+  exception when others then ok := (sqlstate = 'PT409');
   end;
   insert into arc_test_results
-  select '18 an out-of-date optimistic lock fails the apply with 40001',
+  select '18 an out-of-date optimistic lock fails the apply with PT409',
          ok and (select canonical_inputs from public.analysis_revisions where id = v_rev)
                   = '{"origin":"ai"}'::jsonb;
 

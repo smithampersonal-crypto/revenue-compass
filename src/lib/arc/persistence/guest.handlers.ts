@@ -315,7 +315,7 @@ export async function migrateGuestWorkspaceHandler(
     | undefined;
 
   if (error) {
-    return error.code === "40001"
+    return error.code === "PT409"
       ? { ok: false, code: "conflict", reason: CONFLICT_MESSAGE }
       : { ok: false, code: "failed", reason: FAILED_MESSAGE };
   }

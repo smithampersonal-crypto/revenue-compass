@@ -401,7 +401,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         p_review_issue_count: args.reviewIssueCount,
       } as never);
       // A lost optimistic lock is a retryable local conflict, not a failure.
-      if (error && (error as { code?: string }).code === "40001") {
+      if (error && (error as { code?: string }).code === "PT409") {
         throw new AiApplyConflictError();
       }
       if (error) fail("apply run", error);

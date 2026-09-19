@@ -71,7 +71,7 @@ export interface AiApplyArgs {
   reviewIssueCount: number;
 }
 
-/** A lost optimistic lock (Postgres 40001) during application. */
+/** A lost optimistic lock (ARC conflict code PT409) during application. */
 export class AiApplyConflictError extends Error {
   constructor() {
     super("The analysis changed while the AI result was being applied.");

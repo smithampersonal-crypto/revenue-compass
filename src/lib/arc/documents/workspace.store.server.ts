@@ -30,7 +30,7 @@ export class SourceLockConflictError extends Error {
 
 function isConflict(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
-  return error.code === "40001" || Boolean(error.message?.includes("changed since it was loaded"));
+  return error.code === "PT409" || Boolean(error.message?.includes("changed since it was loaded"));
 }
 
 interface DocumentRow {

@@ -543,7 +543,7 @@ describe("browser-facing review actions", () => {
   });
 
   it("turns a stale fingerprint conflict into settled copy", async () => {
-    const { deps } = fixture({ failing: { operation: "affirm", code: "40001" } });
+    const { deps } = fixture({ failing: { operation: "affirm", code: "PT409" } });
     await expect(
       affirmAiReviewItemAction(deps, revisionCaller, {
         reviewItemId: "item-1",

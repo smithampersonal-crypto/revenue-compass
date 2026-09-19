@@ -430,7 +430,7 @@ class Server {
         const scope = server.scopeFor(args);
         if (scope.currentSourceFingerprint !== args.expectedSourceSetFingerprint) {
           const error = new Error("moved on") as Error & { code?: string };
-          error.code = "40001";
+          error.code = "PT409";
           throw error;
         }
         const already =

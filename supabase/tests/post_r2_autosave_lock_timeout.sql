@@ -194,7 +194,7 @@ begin
   end;
 
   insert into arc_test_results
-  select '16 a stale expected lock still raises 40001', v_code = '40001';
+  select '16 a stale expected lock still raises PT409', v_code = 'PT409';
 
   insert into arc_test_results
   select '17 the rejected stale save changed nothing',

@@ -150,16 +150,31 @@ describe("finalizeRevisionHandler", () => {
     ).rejects.toThrow(/not found in your workspace/i);
   });
 
-  it("maps the transaction's 40001 optimistic-lock failure to a conflict", async () => {
+  it("maps the transaction's PT409 optimistic-lock conflict to a conflict", async () => {
     const outcome = await finalizeRevisionHandler(
       {
         reader: reader(),
         userId: USER_ID,
-        finalizeTransaction: async () => ({ data: null, error: { code: "40001" } }),
+        finalizeTransaction: async () => ({ data: null, error: { code: "PT409" } }),
       },
       { revisionId: REVISION_ID, expectedLockVersion: 3 },
     );
     expect(outcome).toEqual({ ok: false, reason: "conflict" });
+  });
+
+  // Post-R2 database hardening: a genuine PostgreSQL serialization failure is
+  // NOT ARC's optimistic-lock conflict and must not be shown as a stale version.
+  it("does not treat a genuine 40001 serialization failure as a conflict", async () => {
+    await expect(
+      finalizeRevisionHandler(
+        {
+          reader: reader(),
+          userId: USER_ID,
+          finalizeTransaction: async () => ({ data: null, error: { code: "40001" } }),
+        },
+        { revisionId: REVISION_ID, expectedLockVersion: 3 },
+      ),
+    ).rejects.toThrow(/could not be finalized/i);
   });
 
   it("fails safely on any other transaction failure", async () => {
@@ -245,13 +260,13 @@ describe("startNewRevisionHandler", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("turns the transaction's 40001 into the stale-analysis error", async () => {
+  it("turns the transaction's PT409 into the stale-analysis error", async () => {
     await expect(
       startNewRevisionHandler(
         {
           reader: reader(),
           userId: USER_ID,
-          amendmentTransaction: async () => ({ data: null, error: { code: "40001" } }),
+          amendmentTransaction: async () => ({ data: null, error: { code: "PT409" } }),
         },
         { contractId: CONTRACT_ID, sourceRevisionId: SOURCE_ID },
       ),

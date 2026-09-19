@@ -407,7 +407,7 @@ describe("migrateGuestWorkspaceHandler", () => {
         store: recorder.store,
         now: () => NOW,
         userId: "user-7",
-        migrateTransaction: async () => ({ data: null, error: { message: "x", code: "40001" } }),
+        migrateTransaction: async () => ({ data: null, error: { message: "x", code: "PT409" } }),
       },
       { token: "tok", contractTitle: "Northwind", expectedLockVersion: 3 },
     );

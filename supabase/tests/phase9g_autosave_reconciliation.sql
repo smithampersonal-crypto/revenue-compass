@@ -204,7 +204,7 @@ begin
       v_user, null, v_rev, null, 1, '{"transactionPriceInput":"999"}'::jsonb, 'arc.workflow.v1',
       jsonb_build_object('reviewItems', v_items), '[]'::jsonb, v_user);
   exception when others then
-    ok := sqlstate = '40001';
+    ok := sqlstate = 'PT409';
   end;
   insert into arc_test_results select '12 a stale save is refused as a conflict', ok;
 
