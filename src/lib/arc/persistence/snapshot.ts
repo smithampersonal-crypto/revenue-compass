@@ -83,6 +83,14 @@ export interface ArcReconciliationSnapshot {
     NonNullable<WorkflowAnalysisResult["variableConsideration"]>["reconciliation"] | null;
   modification: NonNullable<WorkflowAnalysisResult["modification"]>["reconciliation"] | null;
   balances: NonNullable<ContractBalanceWorkflowResult["analysis"]>["reconciliation"] | null;
+  /**
+   * Phase 9G-R3. On the progressive path `analysis` is intentionally null, so
+   * the progressive engine's own reconciliation is the authoritative record.
+   * Copied verbatim; null for a legacy contract.
+   */
+  progressive: NonNullable<
+    NonNullable<WorkflowAnalysisResult["progressive"]>["reconciliation"]
+  > | null;
   groupedBalancesReconciled: boolean | null;
   journalsReconciled: boolean | null;
   groupedJournalsReconciled: boolean | null;
