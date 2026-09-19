@@ -154,6 +154,7 @@ export function analyzeWorkflow(
     contractGroups: [],
     progressive: null,
     progressiveBlocked: [],
+    progressiveGate: null,
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -178,6 +179,7 @@ export function analyzeWorkflow(
             "This contract cannot be calculated until the missing facts are supplied.",
         ),
         progressiveBlocked: built.blocked,
+        progressiveGate: null,
       };
     }
     let progressive: ProgressiveContractAnalysis;
@@ -187,6 +189,7 @@ export function analyzeWorkflow(
       return {
         ...blocked((error as Error).message),
         progressiveBlocked: built.blocked,
+        progressiveGate: null,
       };
     }
     const unresolved = progressive.recognition
@@ -271,6 +274,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
@@ -316,6 +320,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
@@ -387,6 +392,7 @@ export function analyzeWorkflow(
       contractGroups: modification.groups,
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
