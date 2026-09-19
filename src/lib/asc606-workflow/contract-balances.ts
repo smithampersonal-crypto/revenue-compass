@@ -189,6 +189,16 @@ export function resolveConsiderationEventAmount(
   return period.totalCents;
 }
 
+/**
+ * Canonical draft rules R3 deliberately supersedes on the progressive path.
+ *
+ * "Enter at least one billing event" belongs to the legacy full-term
+ * workpaper: a progressive contract may legitimately have no billing fact yet,
+ * and the progressive engine reports that state itself. Every other canonical
+ * rule remains blocking.
+ */
+const R3_SUPERSEDED_BALANCE_ISSUES = new Set(["billing.events.exists"]);
+
 export interface ContractBalanceDeps {
   analyzeBalances?: typeof analyzeContractBalances;
 }
