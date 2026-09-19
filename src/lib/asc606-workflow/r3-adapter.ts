@@ -129,7 +129,7 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
       base.totalExpectedUnits = total;
     }
     base.unitLabel = po.unitLabel && po.unitLabel !== "" ? po.unitLabel : "units";
-    const events: NonNullable<ProgressiveContractPo["progressEvents"]> = [];
+    const events: { id: string; date: string; units: number }[] = [];
     for (const event of po.progressEvents ?? []) {
       const units = quantity(event.unitsInput);
       const entered = event.date !== "" || event.unitsInput.trim() !== "";
@@ -230,7 +230,14 @@ function toProgressiveVcComponent(
   }
   const current = latestIncluded ?? included;
 
-  const realized: NonNullable<ProgressiveVcComponent["realizedEvents"]> = [];
+  const realized: {
+    id: string;
+    date: string;
+    amountCents: Cents;
+    seriesPeriodId?: string;
+    billable: boolean;
+    description: string;
+  }[] = [];
   for (const event of [...(component.realizedEvents ?? [])].sort((a, b) => a.seq - b.seq)) {
     const amount = cents(event.amountInput);
     const entered = event.date !== "" || event.amountInput.trim() !== "";
