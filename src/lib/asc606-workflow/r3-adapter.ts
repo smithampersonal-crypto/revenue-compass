@@ -477,6 +477,20 @@ function toUsageInput(
     for (const [meterId, raw] of Object.entries(period.quantities)) {
       if (raw.trim() === "") continue;
       entered = true;
+      // The meter a reported quantity refers to must exist. An orphan
+      // reference is reported and retained as unusable; it is never silently
+      // dropped and never priced.
+      if (!component.meters.some((meter) => meter.id === meterId)) {
+        blocked.push({
+          ownerKind: "usage_actual",
+          ownerId: period.id,
+          ownerName: name,
+          code: "usage.actual.orphan_meter",
+          message: `Usage reported for ${period.month} refers to a meter that no longer exists.`,
+        });
+        quantities[meterId] = UNUSABLE;
+        continue;
+      }
       const value = quantity(raw);
       if (value === null || value < 0) {
         blocked.push({
