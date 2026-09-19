@@ -160,12 +160,16 @@ describe("Phase 9G release gate — frozen Task 9 migration", () => {
     const missing = declared.filter((name) => !effective.has(name));
     expect(missing).toEqual([]);
 
-    const withoutPt409 = declared.filter(
-      (name) => !(effective.get(name) ?? "").includes("errcode = 'PT409'"),
+    // Every redefined routine handles the conflict under the non-retryable
+    // code — raising `errcode = 'PT409'` or catching `sqlstate 'PT409'` from a
+    // nested trusted call.
+    const withoutPt409 = declared.filter((name) => !(effective.get(name) ?? "").includes("PT409"));
+    expect(withoutPt409).toEqual([]);
+
+    const raising = declared.filter((name) =>
+      (effective.get(name) ?? "").includes("errcode = 'PT409'"),
     );
-    // Every redefined routine raises the non-retryable conflict code. The
-    // immutability trigger only guards rows and raises its own codes.
-    expect(withoutPt409).toEqual(["arc_protect_revision_immutability"]);
+    expect(raising.length).toBeGreaterThanOrEqual(CONFLICT_ROUTINE_COUNT - 1);
   });
 });
 
