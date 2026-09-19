@@ -62,11 +62,7 @@ describe("Phase 9G-R Task R2 — outstanding review counts", () => {
 
   it("keeps assumptions out of the browser review queue", () => {
     const partition = partitionAiReviewItems(mixedReviewRows());
-    expect(partition.reviewItems.map((item) => item.state)).toEqual([
-      "yellow",
-      "red",
-      "resolved",
-    ]);
+    expect(partition.reviewItems.map((item) => item.state)).toEqual(["yellow", "red", "resolved"]);
     expect(partition.assumptionItems.every((item) => item.state === "assumed")).toBe(true);
   });
 

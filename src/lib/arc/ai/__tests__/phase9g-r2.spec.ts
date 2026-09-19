@@ -66,7 +66,15 @@ function vcComponent(overrides: Record<string, unknown> = {}) {
     relatesSpecifically: "no",
     consistentWithAllocationObjective: "yes",
     allocationRationale: "The credit relates to the contract as a whole.",
-    citations: [{ documentOrdinal: 1, quote: "service level credit", locator: "§4" }],
+    citations: [
+      {
+        documentId: "doc-fixture-1",
+        pageStart: 1,
+        pageEnd: 1,
+        evidenceMode: "text" as const,
+        excerpt: "service level credit",
+      },
+    ],
     guidanceIds: [],
     reviewState: "supported",
     ...overrides,
@@ -238,9 +246,9 @@ describe("R2 — routine drafting of the ordinary contract", () => {
 
   it("is deterministic across a repeated analysis of unchanged facts", () => {
     const again = merge(fixtureAAnalysis());
-    expect(again.issues.map((item) => [item.targetKey, item.state, item.reviewFingerprint])).toEqual(
-      issues.map((item) => [item.targetKey, item.state, item.reviewFingerprint]),
-    );
+    expect(
+      again.issues.map((item) => [item.targetKey, item.state, item.reviewFingerprint]),
+    ).toEqual(issues.map((item) => [item.targetKey, item.state, item.reviewFingerprint]));
   });
 });
 
@@ -372,7 +380,7 @@ describe("R2 — duplicate output never becomes duplicate accountant work", () =
       },
     ] as AiContractAnalysis["additionalTopics"];
     const topics = merge(analysis).issues.filter((item) =>
-      item.reason.includes("Renewal options"),
+      item.reason.toLowerCase().includes("material right"),
     );
     expect(topics.length).toBeLessThanOrEqual(1);
   });

@@ -59,7 +59,15 @@ function genomixAnalysis(): AiContractAnalysis {
       relatesSpecifically: "no",
       consistentWithAllocationObjective: "yes",
       allocationRationale: "The credit relates to the contract as a whole.",
-      citations: [{ documentOrdinal: 1, quote: "service level credit", locator: "§4" }],
+      citations: [
+        {
+          documentId: "doc-fixture-1",
+          pageStart: 1,
+          pageEnd: 1,
+          evidenceMode: "text" as const,
+          excerpt: "service level credit",
+        },
+      ],
       guidanceIds: [],
       reviewState: "supported",
     },
@@ -82,7 +90,15 @@ function genomixAnalysis(): AiContractAnalysis {
       relatesSpecifically: "yes",
       consistentWithAllocationObjective: "yes",
       allocationRationale: "The overage relates to the platform obligation only.",
-      citations: [{ documentOrdinal: 1, quote: "overage", locator: "§5" }],
+      citations: [
+        {
+          documentId: "doc-fixture-1",
+          pageStart: 1,
+          pageEnd: 1,
+          evidenceMode: "text" as const,
+          excerpt: "overage",
+        },
+      ],
       guidanceIds: [],
       reviewState: "supported",
     },
@@ -111,17 +127,19 @@ function genomixAnalysis(): AiContractAnalysis {
   // Duplicate model output must not become duplicate accountant work.
   analysis.additionalTopics = [
     {
-      topic: "Renewal options",
-      relevance: "relevant",
-      summary: "The agreement is silent on renewal pricing.",
+      topic: "material_rights",
+      applicable: "no",
+      conclusion: "No material right arises from the renewal terms.",
+      rationale: "Renewal pricing is not stated at a discount.",
       citations: [],
       guidanceIds: [],
       reviewState: "inference",
     },
     {
-      topic: "Renewal options",
-      relevance: "relevant",
-      summary: "The agreement is silent on renewal pricing.",
+      topic: "material_rights",
+      applicable: "no",
+      conclusion: "No material right arises from the renewal terms.",
+      rationale: "Renewal pricing is not stated at a discount.",
       citations: [],
       guidanceIds: [],
       reviewState: "inference",
@@ -180,7 +198,9 @@ describe("Phase 9G-R Task R2 — synthetic Genomix benchmark", () => {
   });
 
   it("does not let duplicate model output create duplicate interventions", () => {
-    const renewals = runGenomix().issues.filter((item) => item.reason.includes("Renewal options"));
+    const renewals = runGenomix().issues.filter((item) =>
+      item.reason.toLowerCase().includes("material right"),
+    );
     expect(renewals.length).toBeLessThanOrEqual(1);
   });
 
