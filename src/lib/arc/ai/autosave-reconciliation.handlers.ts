@@ -36,8 +36,21 @@ export interface AutosaveScope {
 export type AutosaveOutcome =
   | { ok: true; lockVersion: number; savedAt: string; reconciled: boolean }
   | { ok: false; reason: "conflict" }
+  /**
+   * Post-R2 live regression patch. The trusted transaction could not take the
+   * owner-row lock within its bounded wait (SQLSTATE 55P03) after ONE retry.
+   * This is contention, never proof that a newer saved version exists, so it
+   * must not become the permanent conflict/write-block state.
+   */
+  | { ok: false; reason: "contention" }
   | { ok: false; reason: "unavailable" }
   | { ok: false; reason: "expired" };
+
+/**
+ * What one attempt at the trusted transaction produced. `null` is a proven
+ * stale optimistic lock (40001); `"contention"` is a bounded lock timeout.
+ */
+export type ReconciledSaveAttempt = { lockVersion: number; savedAt: string } | null | "contention";
 
 /**
  * What the store found when it looked for this analysis's AI sidecar.
