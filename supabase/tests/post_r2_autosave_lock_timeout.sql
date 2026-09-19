@@ -95,11 +95,22 @@ declare
   v_elapsed numeric;
   v_code text;
 begin
-  v_dsn := format('dbname=%s port=%s host=%s user=%s',
-                  current_database(), current_setting('port'),
-                  split_part(current_setting('unix_socket_directories'), ',', 1),
-                  current_user);
-  perform dblink_connect(v_conn, v_dsn);
+  -- Authenticated connection string handed over by the runner for this
+  -- disposable session only; falls back to the local socket DSN on trust-auth
+  -- harnesses. The connect is wrapped so a libpq failure can never echo the
+  -- connection string into test output.
+  v_dsn := nullif(current_setting('arc.test_dsn', true), '');
+  if v_dsn is null then
+    v_dsn := format('dbname=%s port=%s host=%s user=%s',
+                    current_database(), current_setting('port'),
+                    split_part(current_setting('unix_socket_directories'), ',', 1),
+                    current_user);
+  end if;
+  begin
+    perform dblink_connect(v_conn, v_dsn);
+  exception when others then
+    raise exception 'ARC SQL suite: could not open the second test connection (%)', sqlstate;
+  end;
 
   -- Committed fixture: one temporary workspace with an AI sidecar, the exact
   -- production shape a guest autosave reconciles.
