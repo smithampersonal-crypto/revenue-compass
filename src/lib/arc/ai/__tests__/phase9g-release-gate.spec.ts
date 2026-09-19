@@ -59,7 +59,6 @@ describe("Phase 9G release gate — frozen Task 9 migration", () => {
     const applied = readdirSync(path.join(root, "supabase/migrations"));
     expect(applied).not.toContain(STAGED);
   });
-
 });
 
 describe("Phase 9G release gate — database security invariants", () => {

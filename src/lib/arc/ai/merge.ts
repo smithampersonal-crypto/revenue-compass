@@ -1980,8 +1980,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // re-analysis deterministic).
       const inceptionKey = fieldKeys.vc(canonicalId, "inception");
       const methodKey = fieldKeys.vc(canonicalId, "estimationMethod");
-      const inceptionAiOwned =
-        fieldProvenance[inceptionKey]?.state === "ai_generated_untouched";
+      const inceptionAiOwned = fieldProvenance[inceptionKey]?.state === "ai_generated_untouched";
       const inceptionEmpty =
         isUnclaimedString(current().inception.includedInput) &&
         isUnclaimedString(current().inception.constraintRationale) &&
