@@ -21,9 +21,14 @@ import type {
   ProgressiveContractPo,
   ProgressiveUsageInput,
 } from "@/lib/asc606-progressive";
-import type { ProgressiveVcComponent, VcSeriesPeriod } from "@/lib/asc606-progressive";
+import type {
+  ProgressiveCashCollection,
+  ProgressiveVcComponent,
+  VcSeriesPeriod,
+} from "@/lib/asc606-progressive";
 
 import { parseUsageQuantity, parseUsdToCents } from "./money-input";
+import { previewVcMeasurement } from "./vc-measurement";
 import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 /** Who owns a fact that could not be used. */
@@ -262,6 +267,41 @@ function toProgressiveVcComponent(
     });
   }
 
+  // The ACCEPTED Step 3 measurement engine remains the source of truth for the
+  // unconstrained estimate and the constraint conclusion. The progressive layer
+  // consumes that result; it never re-derives it and never collapses the
+  // unconstrained estimate into the included amount.
+  const measurement = previewVcMeasurement(component);
+  const unconstrained = measurement.unconstrainedCents;
+  // A later remeasurement replaces the included amount; the original estimate
+  // stays visible as provenance.
+  const includedNow = current;
+  const estimateNow =
+    unconstrained !== null && latestIncluded === null ? unconstrained : (includedNow ?? UNUSABLE);
+
+  // The accepted resolution model is the SAME realization fact the progressive
+  // layer needs; it is mapped here rather than modelled a second time.
+  if (component.hasResolution && !realized.some((event) => event.id === resolutionEventId(component))) {
+    const resolved = cents(component.resolutionAmountInput);
+    if (component.resolutionDate === "" || resolved === null) {
+      blocked.push({
+        ownerKind: "realized_event",
+        ownerId: resolutionEventId(component),
+        ownerName: name,
+        code: "vc.resolution.incomplete",
+        message: `The resolution of "${name}" needs both a date and an amount.`,
+      });
+    } else {
+      realized.push({
+        id: resolutionEventId(component),
+        date: component.resolutionDate,
+        amountCents: resolved,
+        billable: component.billOnRealization === true,
+        description: component.resolutionRationale || `Resolution of ${name}`,
+      });
+    }
+  }
+
   return {
     id: component.id,
     seq: component.seq,
@@ -270,12 +310,17 @@ function toProgressiveVcComponent(
     treatment: component.allocationTreatment,
     ...(component.targetPoId ? { targetPoId: component.targetPoId } : {}),
     seriesPeriods: periods,
-    // The unconstrained estimate and the amount included after the constraint
-    // are distinct facts and are never collapsed into one another.
-    estimateCents: current ?? UNUSABLE,
-    includedCents: current ?? UNUSABLE,
+    // Distinct facts: the unconstrained estimate and the amount included after
+    // the constraint are never collapsed into one another.
+    estimateCents: estimateNow,
+    includedCents: includedNow ?? UNUSABLE,
     realizedEvents: realized,
   };
+}
+
+/** Deterministic identity of the accepted resolution fact as a realized event. */
+function resolutionEventId(component: VcComponentDraft): string {
+  return `${component.id}:resolution`;
 }
 
 function toUsageInput(
@@ -479,9 +524,64 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
       variableComponents: components,
       usage,
       fixedBilling,
+      cashCollections: cashCollections(draft, blocked),
     },
     blocked,
   };
+}
+
+/**
+ * True when the draft carries a Phase 9G-R3 progressive fact: an input measure,
+ * an explicit transfer status, progress actuals, usage, or a series-period
+ * variable amount. Those contracts are analysed by the progressive engine,
+ * which is the authoritative path for them.
+ */
+/** Cash actually received, mapped to its known billing event; fail closed. */
+function cashCollections(
+  draft: WorkflowDraft,
+  blocked: BlockedFact[],
+): ProgressiveCashCollection[] {
+  const rows: ProgressiveCashCollection[] = [];
+  for (const collection of draft.contractBalances.cashCollections) {
+    const entered = collection.amountInput.trim() !== "" || collection.collectionDate !== "";
+    if (!entered) continue;
+    const amount = cents(collection.amountInput);
+    if (amount === null || collection.collectionDate === "" || !collection.considerationEventId) {
+      blocked.push({
+        ownerKind: "billing_event",
+        ownerId: collection.id,
+        ownerName: "Cash collection",
+        code: "cash_collection.incomplete",
+        message: "A cash collection needs an amount, a date and the billing event it settles.",
+      });
+      continue;
+    }
+    rows.push({
+      id: collection.id,
+      seq: collection.seq,
+      billingEventId: collection.considerationEventId,
+      amountCents: amount,
+      collectionDate: collection.collectionDate,
+    });
+  }
+  return rows;
+}
+
+export function draftRequiresProgressive(draft: WorkflowDraft): boolean {
+  for (const po of draft.performanceObligations) {
+    if (po.overTimeMeasure === "input_measure") return true;
+    if (po.transferStatus === "not_yet_transferred") return true;
+    if ((po.progressEvents?.length ?? 0) > 0) return true;
+  }
+  if (draft.hasVariableConsideration) {
+    for (const component of draft.variableConsiderationComponents) {
+      if (component.treatment === "usage_as_incurred") return true;
+      if (component.allocationTreatment === "specific_series_period") return true;
+      if ((component.seriesPeriods?.length ?? 0) > 0) return true;
+      if ((component.realizedEvents?.length ?? 0) > 0) return true;
+    }
+  }
+  return false;
 }
 
 export class ProgressiveInputBlockedError extends Error {

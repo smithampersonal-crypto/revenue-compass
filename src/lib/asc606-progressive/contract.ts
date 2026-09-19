@@ -27,7 +27,11 @@ import {
   type PendingBillingRule,
   type ProgressiveBillingSchedule,
 } from "./billing";
-import { buildProgressiveBalances, type ProgressiveBalances } from "./balances";
+import {
+  buildProgressiveBalances,
+  type ProgressiveBalances,
+  type ProgressiveCashCollection,
+} from "./balances";
 import {
   assessSignificantFinancing,
   type SignificantFinancingAssessment,
@@ -42,6 +46,7 @@ import {
 import { reconcileProgressive, type ProgressiveReconciliation } from "./reconciliation";
 import {
   mergeCalculationState,
+  ProgressiveAccountingError,
   type BlockedComponent,
   type CalculationState,
   type ProvisionalNote,
@@ -79,6 +84,8 @@ export interface ProgressiveContractInput {
   variableComponents?: readonly ProgressiveVcComponent[];
   usage?: readonly ProgressiveUsageInput[];
   fixedBilling?: readonly FixedBillingFact[];
+  /** Cash actually received against a known billing event. */
+  cashCollections?: readonly ProgressiveCashCollection[];
   financing?: SignificantFinancingInput;
 }
 
@@ -103,6 +110,7 @@ export interface ProgressiveContractAnalysis {
 export function analyzeProgressiveContract(
   input: ProgressiveContractInput,
 ): ProgressiveContractAnalysis {
+  assertDeterministicIdentities(input);
   const pos = [...input.performanceObligations].sort((a, b) => a.seq - b.seq);
   const poRefs = pos.map((po) => ({
     id: po.id,
@@ -208,10 +216,13 @@ export function analyzeProgressiveContract(
   for (const row of vc.seriesPeriod) {
     seriesByPo.set(row.poId, sumCents([seriesByPo.get(row.poId) ?? 0, row.amountCents]));
   }
-  for (const component of vc.pending) {
+  // Unresolved variable amounts join their obligation's allocation with their
+  // ECONOMIC SIGN: an unrealized service-level credit reduces both the
+  // transaction price and the target obligation's allocated consideration.
+  for (const allocationEffect of vc.pendingByPo) {
     seriesByPo.set(
-      component.poId,
-      sumCents([seriesByPo.get(component.poId) ?? 0, component.amountCents]),
+      allocationEffect.poId,
+      sumCents([seriesByPo.get(allocationEffect.poId) ?? 0, allocationEffect.signedCents]),
     );
   }
 
@@ -238,15 +249,15 @@ export function analyzeProgressiveContract(
 
   const balances = buildProgressiveBalances({
     billing: billing.events,
+    ...(input.cashCollections ? { cashCollections: input.cashCollections } : {}),
     schedule: recognition.schedule,
     pending: recognition.pending,
   });
 
   const journals = buildProgressiveJournals({
-    billing: billing.events,
-    schedule: recognition.schedule,
-    poNames: new Map(pos.map((po) => [po.id, po.name])),
+    contractBalanceInput: balances.contractBalanceInput,
     pending: recognition.pending,
+    partial: balances.partial,
   });
 
   return {
@@ -272,6 +283,83 @@ export function analyzeProgressiveContract(
     reconciliation,
     financing,
   };
+}
+
+/**
+ * Stage J (orchestration only): no accounting event may be duplicated, and no
+ * event may point at an obligation or series period that does not exist. The
+ * orchestration fails closed rather than silently dropping any event.
+ */
+function assertDeterministicIdentities(input: ProgressiveContractInput): void {
+  const poIds = new Set<string>();
+  for (const po of input.performanceObligations) {
+    if (poIds.has(po.id)) {
+      throw new ProgressiveAccountingError(`duplicate performance obligation identity "${po.id}"`);
+    }
+    poIds.add(po.id);
+  }
+
+  const seen = (label: string) => {
+    const ids = new Set<string>();
+    return (id: string) => {
+      if (ids.has(id)) {
+        throw new ProgressiveAccountingError(`duplicate ${label} identity "${id}"`);
+      }
+      ids.add(id);
+    };
+  };
+
+  const progressSeen = seen("progress event");
+  for (const po of input.performanceObligations) {
+    for (const event of po.progressEvents ?? []) progressSeen(event.id);
+  }
+
+  const componentSeen = seen("variable consideration component");
+  const vcEventSeen = seen("variable consideration event");
+  const seriesSeen = seen("series period");
+  for (const component of input.variableComponents ?? []) {
+    componentSeen(component.id);
+    for (const event of component.realizedEvents ?? []) vcEventSeen(event.id);
+    // Series period identities are scoped to their component.
+    for (const period of component.seriesPeriods ?? []) {
+      seriesSeen(`${component.id}:${period.id}`);
+    }
+    if (component.targetPoId !== undefined && !poIds.has(component.targetPoId)) {
+      throw new ProgressiveAccountingError(
+        `variable consideration "${component.id}" targets unknown obligation "${component.targetPoId}"`,
+      );
+    }
+  }
+
+  const usageSeen = seen("usage actual");
+  const meterSeen = seen("usage meter");
+  for (const usage of input.usage ?? []) {
+    if (!poIds.has(usage.rule.targetPoId)) {
+      throw new ProgressiveAccountingError(
+        `usage rule "${usage.rule.componentId}" targets unknown obligation "${usage.rule.targetPoId}"`,
+      );
+    }
+    for (const meter of usage.rule.meters) meterSeen(`${usage.rule.componentId}:${meter.id}`);
+    for (const actual of usage.actuals) usageSeen(actual.id);
+  }
+
+  const billingSeen = seen("billing event");
+  const billingIds = new Set<string>();
+  for (const event of input.fixedBilling ?? []) {
+    billingSeen(event.id);
+    billingIds.add(event.id);
+    // The schedule publishes the event under a derived stable identity.
+    billingIds.add(`billing:${event.id}`);
+  }
+  const cashSeen = seen("cash collection");
+  for (const collection of input.cashCollections ?? []) {
+    cashSeen(collection.id);
+    if (!billingIds.has(collection.billingEventId)) {
+      throw new ProgressiveAccountingError(
+        `cash collection "${collection.id}" references unknown billing event "${collection.billingEventId}"`,
+      );
+    }
+  }
 }
 
 /**

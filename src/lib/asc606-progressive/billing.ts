@@ -46,6 +46,8 @@ export interface ProgressiveBillingEvent {
   date: IsoDate;
   amountCents: Cents;
   description: string;
+  /** Invoice date when it differs from the unconditional-right date. */
+  invoiceDate?: IsoDate;
   /** Present for a variable event: the component that produced it. */
   componentId?: string;
 }
@@ -110,6 +112,7 @@ export function buildProgressiveBillingSchedule(
       date: fact.unconditionalRightDate,
       amountCents: fact.amountCents,
       description: fact.description ?? "Contractual billing",
+      ...(fact.invoiceDate ? { invoiceDate: fact.invoiceDate } : {}),
     });
   }
 

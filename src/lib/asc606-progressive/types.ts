@@ -54,14 +54,29 @@ export const PENDING_REASON_LABELS: Record<PendingReason, string> = {
  * Allocated consideration that is real, retained and NOT yet scheduled because
  * a future operational fact has not happened. A pending amount is never zero
  * revenue and never disappears.
+ *
+ * `amountCents` keeps the accepted Part 1 invariant: it is a NONNEGATIVE
+ * magnitude. An unresolved amount that will REDUCE the transaction price (for
+ * example an unrealized service-level credit) carries `direction: "decrease"`
+ * instead of a negative magnitude, so the economic sign is explicit everywhere
+ * and is never smuggled into a nonnegative field.
  */
 export interface PendingComponent {
   poId: string;
   poName: string;
   amountCents: Cents;
   reason: PendingReason;
+  /** Economic direction of the unresolved amount. Absent means "increase". */
+  direction?: PendingDirection;
   /** Machine-readable supporting facts; never prose accounting judgment. */
   detail?: Record<string, number | string | boolean>;
+}
+
+export type PendingDirection = "increase" | "decrease";
+
+/** The signed value of one pending component: magnitude x direction. */
+export function signedPendingCents(component: PendingComponent): Cents {
+  return component.direction === "decrease" ? -component.amountCents : component.amountCents;
 }
 
 /** An amount whose dependent calculation could not run: category A. */
@@ -123,6 +138,11 @@ export function isCalculable(state: CalculationState): boolean {
  */
 export function sumPendingCents(components: readonly PendingComponent[]): Cents {
   return sumCents(components.map((component) => component.amountCents));
+}
+
+/** Signed total: unresolved increases less unresolved decreases. */
+export function sumSignedPendingCents(components: readonly PendingComponent[]): Cents {
+  return sumCents(components.map(signedPendingCents));
 }
 
 export function sumBlockedCents(components: readonly BlockedComponent[]): Cents {

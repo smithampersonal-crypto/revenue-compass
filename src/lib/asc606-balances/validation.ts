@@ -28,6 +28,9 @@ export function validateContractBalanceInput(
 
   const events = input.considerationEvents;
   const cash = input.cashCollections;
+  // Phase 9G-R3: billing for a future operational fact has not arisen yet.
+  const partial = input.billingCompleteness === "partial";
+  const billingSeverity: BalanceCheckResult["severity"] = partial ? "warning" : "blocking";
 
   // ---- Revenue schedule integrity ----------------------------------------
   // The balance engine never trusts the upstream revenue schedule: an
@@ -101,7 +104,14 @@ export function validateContractBalanceInput(
     );
   }
   if (events.length === 0) {
-    fail("consideration.exists", "consideration", "Enter at least one billing event.");
+    fail(
+      "consideration.exists",
+      "consideration",
+      partial
+        ? "No billing event has arisen yet for this contract."
+        : "Enter at least one billing event.",
+      billingSeverity,
+    );
   }
   const priceValid = amountValid(input.transactionPriceCents);
   if (!priceValid) {
@@ -115,6 +125,7 @@ export function validateContractBalanceInput(
       "consideration.total.equals_transaction_price",
       "consideration",
       "Total billing events must equal the contract transaction price exactly before the contract-balance workpaper can be finalized.",
+      billingSeverity,
     );
   }
 
@@ -349,7 +360,8 @@ function validateRevenueSchedule(input: ContractBalanceInput, fail: FailFn): voi
     typeof input.transactionPriceCents === "number" &&
     Number.isInteger(input.transactionPriceCents);
   const unscheduled = input.unscheduledRevenueCents ?? 0;
-  if (!Number.isInteger(unscheduled) || unscheduled < 0) {
+  const partial = input.billingCompleteness === "partial";
+  if (!Number.isInteger(unscheduled) || (unscheduled < 0 && !partial)) {
     fail(
       "revenue_schedule.unscheduled.valid",
       "revenue_schedule",

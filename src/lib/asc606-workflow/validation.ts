@@ -461,7 +461,9 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       add("po.recognition_method.present", "5", `Select a recognition method for "${label}".`);
       continue;
     }
-    if (po.recognitionMethod === "over_time_ratable") {
+    if (po.recognitionMethod === "over_time_ratable" && usesInputMeasure(po)) {
+      validateInputMeasure(po, `"${label}"`, add);
+    } else if (po.recognitionMethod === "over_time_ratable") {
       if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
         add("po.service_dates.present", "5", `Enter service start and end dates for "${label}".`);
       } else if (po.serviceEnd < po.serviceStart) {
@@ -479,8 +481,8 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
         );
       }
     }
-    if (po.recognitionMethod === "point_in_time" && !isValidIsoDate(po.recognitionDate)) {
-      add("po.recognition_date.present", "5", `Enter a recognition date for "${label}".`);
+    if (po.recognitionMethod === "point_in_time") {
+      validatePointInTime(po, `"${label}"`, add);
     }
     if (isBlank(po.recognitionRationale)) {
       add(
@@ -737,6 +739,53 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
   return { issues, blocking, warnings, blockingByStep, warningsByStep };
 }
 
+
+/**
+ * Phase 9G-R3 narrow validation. The legacy storage enum `over_time_ratable`
+ * carries BOTH time-based and input-measure recognition, so service dates are
+ * only required for the time-based measure. An input measure validates its own
+ * denominator instead.
+ */
+function usesInputMeasure(po: PoDraft): boolean {
+  return po.recognitionMethod === "over_time_ratable" && po.overTimeMeasure === "input_measure";
+}
+
+function validateInputMeasure(po: PoDraft, label: string, add: AddIssue): void {
+  const total = Number(po.totalExpectedUnitsInput ?? "");
+  if (
+    (po.totalExpectedUnitsInput ?? "").trim() === "" ||
+    !Number.isFinite(total) ||
+    total <= 0
+  ) {
+    add(
+      "po.input_measure.total_units.present",
+      "5",
+      `Enter the total expected units of work for ${label}.`,
+    );
+  }
+}
+
+/**
+ * Point in time. A transfer that has not happened yet is a valid PENDING state,
+ * not an invalid contract: no recognition date may be fabricated for it.
+ */
+function validatePointInTime(po: PoDraft, label: string, add: AddIssue): void {
+  const hasDate = isValidIsoDate(po.recognitionDate);
+  if (po.transferStatus === "not_yet_transferred") {
+    if (hasDate) {
+      add(
+        "po.transfer_status.contradiction",
+        "5",
+        `${label} is marked as not yet transferred but carries a transfer date. Remove one of them.`,
+      );
+    }
+    return;
+  }
+  if (!hasDate) {
+    add("po.recognition_date.present", "5", `Enter a recognition date for ${label}.`);
+  }
+}
+
 type AddIssue = (
   id: string,
   step: WorkflowStepId,
@@ -750,7 +799,9 @@ function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): vo
     add("po.recognition_method.present", "5", `Select a recognition method for ${label}.`);
     return;
   }
-  if (po.recognitionMethod === "over_time_ratable") {
+  if (usesInputMeasure(po)) {
+    validateInputMeasure(po, label, add);
+  } else if (po.recognitionMethod === "over_time_ratable") {
     if (!isValidIsoDate(po.serviceStart) || !isValidIsoDate(po.serviceEnd)) {
       add("po.service_dates.present", "5", `Enter service start and end dates for ${label}.`);
     } else if (po.serviceEnd < po.serviceStart) {
@@ -767,8 +818,8 @@ function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): vo
       );
     }
   }
-  if (po.recognitionMethod === "point_in_time" && !isValidIsoDate(po.recognitionDate)) {
-    add("po.recognition_date.present", "5", `Enter a recognition date for ${label}.`);
+  if (po.recognitionMethod === "point_in_time") {
+    validatePointInTime(po, label, add);
   }
   if (isBlank(po.recognitionRationale)) {
     add(
