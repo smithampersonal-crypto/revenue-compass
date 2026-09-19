@@ -15,7 +15,7 @@
  * unusable, and missing fixed consideration is never coerced to $0.
  */
 
-import type { Cents } from "@/lib/asc606";
+import { isValidIsoDate, type Cents } from "@/lib/asc606";
 import type {
   ProgressiveContractInput,
   ProgressiveContractPo,
@@ -28,7 +28,7 @@ import type {
 } from "@/lib/asc606-progressive";
 
 import { parseUsageQuantity, parseUsdToCents } from "./money-input";
-import { previewVcMeasurement } from "./vc-measurement";
+import { previewVcCurrentMeasurement } from "./vc-measurement";
 import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 /** Who owns a fact that could not be used. */
@@ -71,11 +71,13 @@ function quantity(raw: string | undefined): number | null {
   return parsed.ok ? parsed.value : null;
 }
 
-/** A calendar date the accountant actually entered, in ISO form. */
+/**
+ * A calendar date the accountant actually entered. ARC's canonical strict
+ * calendar validation is the only definition of validity: 2027-02-29 and
+ * 2027-02-30 are rejected, 2028-02-29 is accepted.
+ */
 function isUsableDate(raw: string | undefined): boolean {
-  if (raw === undefined || raw.trim() === "") return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
-  return !Number.isNaN(Date.parse(`${raw}T00:00:00Z`));
+  return isValidIsoDate(raw);
 }
 
 /** The R3 recognition method implied by the accepted workflow facts. */
