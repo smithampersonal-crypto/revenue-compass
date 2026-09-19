@@ -83,8 +83,8 @@ export function Asc606AnalysisArea() {
   const reviewItem =
     requestedReview === null
       ? null
-      : ((ai.workspace?.reviewItems.find((item) => item.id === requestedReview) ??
-          ai.workspace?.assumptionItems.find((item) => item.id === requestedReview)) ??
+      : (ai.workspace?.reviewItems.find((item) => item.id === requestedReview) ??
+        ai.workspace?.assumptionItems.find((item) => item.id === requestedReview) ??
         null);
 
   useEffect(() => {
