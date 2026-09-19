@@ -212,7 +212,7 @@ describe("D — variable-consideration source of truth", () => {
       ],
     };
     const vc = buildProgressiveInput(resolved).input!.variableComponents![0]!;
-    expect(vc.realizedEvents.map((e) => [e.id, e.amountCents, e.date])).toEqual([
+    expect((vc.realizedEvents ?? []).map((e) => [e.id, e.amountCents, e.date])).toEqual([
       ["vc-sla:resolution", 1_200_000, "2027-09-30"],
     ]);
   });
@@ -378,10 +378,10 @@ describe("independent mutations", () => {
         { id: "pe-1", seq: 1, date: "2027-02-28", unitsInput: "50" },
       ]),
     );
-    const support = result.progressive!.reconciliation.byPo.find((p) => p.poId === "po-support")!;
+    const support = result.progressive!.reconciliation!.byPo.find((p) => p.poId === "po-support")!;
     expect(support.recognizedCents).toBe(GENOMIX_SUPPORT_CENTS / 4);
     expect(support.pendingCents).toBe(GENOMIX_SUPPORT_CENTS - GENOMIX_SUPPORT_CENTS / 4);
-    const validation = result.progressive!.reconciliation.byPo.find(
+    const validation = result.progressive!.reconciliation!.byPo.find(
       (p) => p.poId === "po-validation",
     )!;
     expect(validation.recognizedCents).toBe(0);
