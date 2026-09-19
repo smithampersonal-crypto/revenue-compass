@@ -38,6 +38,20 @@ export function buildInceptionAssessment(
   return buildAssessment(component, component.inception, "inception estimate", errors);
 }
 
+/**
+ * The SAME accepted assessment builder, exposed so the progressive adapter can
+ * consume dated remeasurements through this one implementation instead of
+ * parsing a raw included amount.
+ */
+export function buildDraftAssessment(
+  component: VcComponentDraft,
+  assessment: VcAssessmentDraft,
+  label: string,
+  errors: string[],
+): VcAssessmentInput | null {
+  return buildAssessment(component, assessment, label, errors);
+}
+
 function buildAssessment(
   component: VcComponentDraft,
   assessment: VcAssessmentDraft,
