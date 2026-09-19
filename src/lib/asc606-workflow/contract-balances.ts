@@ -215,6 +215,7 @@ function progressiveBalanceWorkflow(
       validation: draftValidation,
       finalized: false,
       blockedReason:
+        billingBlocked[0]?.message ??
         "The facts this contract depends on cannot be used yet, so no billing and contract-balance workpaper is produced.",
       engineValidation: null,
       analysis: null,
