@@ -938,3 +938,78 @@ no OpenAI call, no Genomix run, no R2/R3/R4 work.
       `bun run verify` green: 152 files / 1,921 tests; `audit:bundle` clean;
       11 pre-existing shadcn warnings. All 21 SQL suites replayed green; no SQL
       changed.
+
+### Phase 9G-R Task R1 — ACCEPTED and frozen
+
+R1, including the acceptance patch and the provenance / review-reopen
+acceptance patch above, is accepted and behaviourally frozen. No further R1
+change is planned.
+
+### Phase 9G-R Task R2 — Assumption-first AI drafting & review triage (implemented, awaiting acceptance)
+
+- [x] New persisted review state and severity `assumed`, reason code
+      `routine_assumption`. Assumed is non-actionable and non-blocking: it can
+      never be affirmed, never manually resolved, never carries a resolution or
+      affirmation metadata, never inherits a prior yellow/red resolution and
+      never blocks finalization. The trusted SQL routines already reject it
+      (affirm requires severity `yellow`, manual resolution requires `red`), so
+      R2 needed no SQL at all.
+- [x] Classification precedence unchanged where it matters: deterministic
+      blocking conditions, source conflict, engine-support gaps and genuinely
+      missing user input all outrank assumption treatment. Genuine ambiguity
+      stays yellow.
+- [x] Strict persisted normalization: a malformed assumed row fails closed and
+      the whole payload is treated as unreadable rather than partially exposed.
+- [x] One definition of outstanding accountant work — yellow + red. The two
+      legacy `state !== "resolved"` count paths (`outstandingIssueCount` in the
+      orchestrator, `outstandingReviewIssueCount` in the workspace store) now
+      count only actionable items, and the workspace handler derives
+      `reviewIssueCount` from the same trusted partition it uses for
+      `reviewItems` / `assumptionItems`. Finalization semantics unchanged.
+- [x] Accountant edits to the underlying accounting silently drop the affected
+      assumption: no review event, no manufactured affirmation, no block.
+- [x] Schema `arc.ai.schema.v5`: variable-consideration initial estimate
+      (`initialEstimateBasis`, `initialEstimatedAmountInput`,
+      `initialIncludedAmountInput`, `initialEstimateRationale`) with strict
+      validation — a zero-at-inception basis requires exactly zero amounts and
+      every other basis requires null amounts, keeping usage-as-incurred
+      structurally distinct from a zero estimate (R3 owns the schedule work).
+      Provisional standalone selling price via
+      `stated_contract_price_assumption` + `proposedSspAmountInput`, never
+      recorded as observable.
+- [x] Prompt `arc.ai.prompt.v6`: assumption-first drafting, positive Step 1
+      defaults, collectibility / distinctness / practical-expedient / noncash
+      defaults, zero-at-inception versus usage-as-incurred rules, relevance-gated
+      additional topics, no volume forecasting.
+- [x] Merge policy: routine Step 1 affirmations, routine no-financing /
+      no-noncash / no-consideration-payable, service-credit zero at inception,
+      one consolidated provisional-SSP review item at
+      `step4.provisionalSsp` (never one per obligation), deterministic
+      duplicate-topic and duplicate-issue filtering.
+- [x] Accountant-facing read-only "Routine assumptions" group in the review
+      panel: reason, section, evidence and Guidance access, optional navigation
+      to the underlying accounting; no Confirm, no Resolve, no "next issue"
+      participation, no event, and nothing rendered when there are none.
+- [x] Dedicated R2 suites with true RED → GREEN evidence:
+      `phase9g-r2.spec.ts` (31), `phase9g-r2-counts.spec.ts` (7),
+      `phase9g-r2-genomix.spec.ts` (8) plus shared `r2-fixtures.ts`. Reverting
+      the assumption classification and the count definition failed 11 of them.
+- [x] Synthetic Genomix R2 benchmark (no model call): full-term fixed
+      consideration preserved, allocation behaviour preserved, routine
+      conclusions separated from a small meaningful actionable queue, the
+      provisional price visibly provisional and consolidated, the genuinely
+      missing standalone selling price still red, duplicates collapsed.
+- [x] Full `bun run verify` green: 155 test files / 1,967 tests, clean
+      typecheck and production build, `audit:bundle` clean, 11 pre-existing
+      shadcn lint warnings only. `guidance:check`: 116 approved cards, hash
+      `352bcf79e7cff1753f353451d9b12bf7f7cb7840eae6fe7699fdcbace6425d56`.
+- [x] Database untouched: all 21 SQL suites replayed green on a throwaway
+      PostgreSQL (Docker unavailable); no migration, no schema, RLS, grant,
+      routine or Cloud mutation; the frozen Phase 9G Task 9 migration remains
+      `3013e5370b7a12e8d266ddf4332034968bc5cc3cefb66dcb307ac04db261c251`.
+- [x] No OpenAI call and no Genomix live-model run.
+
+### Phase 9G-R Task R3 — NOT STARTED
+
+R3 (variable-consideration schedules and usage engine work) and R4 (UX
+compression) have not begun.
