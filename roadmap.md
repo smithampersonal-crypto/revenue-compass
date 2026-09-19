@@ -1352,3 +1352,42 @@ contract balances and journal entries; review/provenance/fingerprint integration
 new material facts; narrow significant-financing normalization; the minimum Step 4 /
 Step 5 / Balances / Journals UI states; the integrated Genomix R3 workflow fixture; and
 browser acceptance.
+
+## Phase 9G-R3 — Part 1 foundation hardening (COMPLETE, gate green)
+
+Narrow hardening of the accepted progressive/provisional architecture (no redesign):
+
+1. **Allocation validated at the recognition boundary.** `generateProgressiveRevenueSchedule()`
+   now validates each PO's `allocatedCents` with the canonical `isValidCents` money utility
+   before choosing pending/complete behaviour. An invalid allocation blocks only that PO
+   (`allocation.invalid`), is never carried into a pending bucket, and never reaches the
+   schedule. Covered for negative, fractional, non-finite, NaN and out-of-range amounts.
+2. **Unknown transfer date is explicit.** `transferDateUnknown === true` + no date →
+   `awaiting_transfer_date`; valid date + not marked unknown → recognize; marked unknown +
+   date supplied → blocked (contradictory); no date + not marked unknown → blocked
+   (`recognition.point_in_time.date_missing`). An ordinary missing input is no longer
+   silently converted into a future-event assumption. Part 2's adapter must set
+   `transferDateUnknown` only when the accepted workflow facts support it.
+3. **Exactly-one recognition result per allocated PO.** `reconcileProgressive()` no longer
+   synthesizes a blocked bucket for a missing recognition row. Missing rows, duplicate rows
+   and recognition without allocation are reconciliation failures; the amount is reported as
+   `unresolvedCents` and `reconciled` is false.
+4. **Detail arrays reconcile to the per-PO buckets.** Per PO: pending[] sum, blocked[] sum and
+   revenue-schedule rows must each equal the corresponding monetary summary; duplicate
+   pending/blocked component identities fail reconciliation.
+5. **Exact money range guarantees.** `sumPendingCents`, `sumBlockedCents` and all
+   reconciliation totals route through `sumCents` / `bigIntToCents` instead of `Number(bigint)`.
+6. **externalPending is transitional only** — documented in `reconciliation.ts`. Nonzero
+   included specific-series-period VC must be modelled by the deterministic VC layer in Part 2
+   and reconciled together with the transaction price.
+
+RED→GREEN evidence: `src/lib/asc606-progressive/__tests__/part1-hardening.spec.ts` (19 tests).
+With the hardening reverted in place, 15 of 19 failed; with it restored, 19/19 pass.
+Gate: 165 test files / 2,051 tests green, typecheck / lint / production build / bundle audit clean.
+AI contract unchanged (arc.ai.schema.v5 / arc.ai.prompt.v6). No Cloud mutation. R4 not started.
+
+### R3 Part 2 — NOT YET IMPLEMENTED
+workflow draft fields/adapters; usage rule vs actual activity; specific_series_period realized
+targeting; deterministic VC layer inside transaction-price reconciliation; progressive billing,
+balances and journals; review/provenance/fingerprint integration; significant-financing
+normalization; minimum R3 UI states; integrated Genomix R3 fixture; browser acceptance.
