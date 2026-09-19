@@ -256,7 +256,12 @@ export function analyzeProgressiveContract(
   //
   // A PENDING future fact is different: it keeps its established
   // unresolved-consideration treatment and still permits partial balances.
-  const recognitionBlocked = recognition.blocked.length > 0;
+  //
+  // An ENGINE-LEVEL blocked amount (invalid usage, an unusable variable
+  // component, a blocked allocation) is the same situation: the transaction
+  // price the bridge would build silently excludes it, so no monetary
+  // rollforward may be produced from it.
+  const recognitionBlocked = recognition.blocked.length > 0 || blocked.length > 0;
 
   const balances = recognitionBlocked
     ? null
@@ -281,6 +286,9 @@ export function analyzeProgressiveContract(
       recognition.state,
       billing.state,
       balances?.state ?? "blocked",
+      // Defense in depth: an engine-level blocked amount can never coexist
+      // with a "complete" contract state.
+      blocked.length > 0 ? "blocked" : "complete",
       financing?.state ?? "complete",
       reconciliation.reconciled ? "complete" : "blocked",
     ),

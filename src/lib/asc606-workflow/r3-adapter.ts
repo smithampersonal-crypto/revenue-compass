@@ -15,7 +15,7 @@
  * unusable, and missing fixed consideration is never coerced to $0.
  */
 
-import type { Cents } from "@/lib/asc606";
+import { isValidIsoDate, type Cents } from "@/lib/asc606";
 import type {
   ProgressiveContractInput,
   ProgressiveContractPo,
@@ -28,7 +28,7 @@ import type {
 } from "@/lib/asc606-progressive";
 
 import { parseUsageQuantity, parseUsdToCents } from "./money-input";
-import { previewVcMeasurement } from "./vc-measurement";
+import { previewVcCurrentMeasurement } from "./vc-measurement";
 import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 /** Who owns a fact that could not be used. */
@@ -71,11 +71,13 @@ function quantity(raw: string | undefined): number | null {
   return parsed.ok ? parsed.value : null;
 }
 
-/** A calendar date the accountant actually entered, in ISO form. */
+/**
+ * A calendar date the accountant actually entered. ARC's canonical strict
+ * calendar validation is the only definition of validity: 2027-02-29 and
+ * 2027-02-30 are rejected, 2028-02-29 is accepted.
+ */
 function isUsableDate(raw: string | undefined): boolean {
-  if (raw === undefined || raw.trim() === "") return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
-  return !Number.isNaN(Date.parse(`${raw}T00:00:00Z`));
+  return isValidIsoDate(raw);
 }
 
 /** The R3 recognition method implied by the accepted workflow facts. */
@@ -146,7 +148,7 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
       const units = quantity(event.unitsInput);
       const entered = event.date !== "" || event.unitsInput.trim() !== "";
       if (!entered) continue;
-      if (event.date === "" || units === null) {
+      if (!isUsableDate(event.date) || units === null) {
         blocked.push({
           ownerKind: "progress_event",
           ownerId: event.id,
@@ -169,6 +171,15 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
     if (po.transferStatus === "not_yet_transferred") {
       base.transferDateUnknown = true;
     } else if (po.recognitionDate !== "") {
+      if (!isUsableDate(po.recognitionDate)) {
+        blocked.push({
+          ownerKind: "performance_obligation",
+          ownerId: po.id,
+          ownerName: name,
+          code: "transfer_date.unusable",
+          message: `The transfer date entered for "${name}" is not a valid calendar date.`,
+        });
+      }
       base.recognitionDate = po.recognitionDate;
     }
   }
@@ -186,13 +197,20 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): Ser
   const periods: VcSeriesPeriod[] = [];
   let invalid = false;
   for (const period of [...(component.seriesPeriods ?? [])].sort((a, b) => a.seq - b.seq)) {
-    if (period.startDate === "" || period.endDate === "") {
+    // Strict calendar validity AND a coherent ordering: an impossible date or
+    // an end before its start makes the period unusable.
+    if (
+      !isUsableDate(period.startDate) ||
+      !isUsableDate(period.endDate) ||
+      period.startDate > period.endDate
+    ) {
       blocked.push({
         ownerKind: "series_period",
         ownerId: period.id,
         ownerName: period.label || component.description || component.id,
         code: "series_period.incomplete",
-        message: "A service period needs both a start date and an end date.",
+        message:
+          "A service period needs a valid start date and a valid end date that does not precede it.",
       });
       // FAIL CLOSED: an unusable period is not dropped; it makes every amount
       // that depends on this component's service periods unusable too.
@@ -235,35 +253,11 @@ function toProgressiveVcComponent(
     };
   }
 
-  const includedRaw = cents(component.inception.includedInput);
-  // The accepted VC path expresses an included amount as a MAGNITUDE; its sign
-  // is carried by the component's effect. A negative entry is rejected rather
-  // than quietly reinterpreted here.
-  const included = includedRaw !== null && includedRaw < 0 ? null : includedRaw;
-  if (included === null) {
-    blocked.push({
-      ownerKind: "variable_component",
-      ownerId: component.id,
-      ownerName: name,
-      code: "vc.included.unusable",
-      message: `"${name}" needs a usable included amount after the constraint.`,
-    });
-    unusable = true;
-  }
-  const latest = [...component.remeasurements].sort((a, b) => b.seq - a.seq)[0];
-  const latestRaw = latest ? cents(latest.includedInput) : null;
-  const latestIncluded = latestRaw !== null && latestRaw < 0 ? null : latestRaw;
-  if (latest && latestIncluded === null && latest.includedInput.trim() !== "") {
-    blocked.push({
-      ownerKind: "variable_component",
-      ownerId: component.id,
-      ownerName: name,
-      code: "vc.remeasurement.unusable",
-      message: `The latest remeasurement of "${name}" has an unusable included amount.`,
-    });
-    unusable = true;
-  }
-  const current = latestIncluded ?? included;
+  // The ACCEPTED measurement path owns the inception assessment AND every
+  // dated remeasurement: estimation method, outcomes, probabilities, the
+  // constraint, effective dates and their chronology. Nothing here parses a
+  // raw included amount for an estimated component.
+  const measurement = previewVcCurrentMeasurement(component);
 
   const realized: {
     id: string;
@@ -277,7 +271,7 @@ function toProgressiveVcComponent(
     const amount = cents(event.amountInput);
     const entered = event.date !== "" || event.amountInput.trim() !== "";
     if (!entered) continue;
-    if (event.date === "" || amount === null) {
+    if (!isUsableDate(event.date) || amount === null) {
       blocked.push({
         ownerKind: "realized_event",
         ownerId: event.id,
@@ -308,22 +302,15 @@ function toProgressiveVcComponent(
     });
   }
 
-  // The ACCEPTED Step 3 measurement engine remains the source of truth for the
-  // unconstrained estimate and the constraint conclusion. The progressive layer
-  // consumes that result; it never re-derives it and never collapses the
-  // unconstrained estimate into the included amount.
-  const measurement = previewVcMeasurement(component);
-  const unconstrained = measurement.unconstrainedCents;
-  // A later remeasurement replaces the included amount; the original estimate
-  // stays visible as provenance.
-  const includedNow = current;
-
   let estimateNow: Cents;
+  let includedNow: Cents | null;
   if (component.treatment === "estimated") {
-    // FAIL CLOSED. For an estimated component the measurement engine OWNS the
-    // unconstrained estimate. If it reports issues, or cannot produce an
-    // estimate at all, the component is unusable: the constrained included
-    // amount is NEVER promoted into the estimate merely because it parses.
+    // FAIL CLOSED. For an estimated component the accepted measurement path
+    // OWNS both the unconstrained estimate and the amount included after the
+    // constraint, at inception AND at every dated remeasurement. If it reports
+    // issues, or cannot produce an estimate, the component is unusable: a
+    // constrained included amount is NEVER promoted into the estimate, and a
+    // malformed later assessment never falls back to the earlier one.
     if (measurement.issues.length > 0) {
       blocked.push({
         ownerKind: "variable_component",
@@ -336,9 +323,26 @@ function toProgressiveVcComponent(
       });
       unusable = true;
     }
-    if (unconstrained === null) unusable = true;
-    estimateNow = unconstrained ?? UNUSABLE;
+    if (measurement.unconstrainedCents === null) unusable = true;
+    estimateNow = measurement.unconstrainedCents ?? UNUSABLE;
+    includedNow = measurement.includedCents;
   } else {
+    // A known (non-estimated) amount carries no assessment to measure; its
+    // included magnitude is the accountant's own entry. Its sign is carried by
+    // the component's effect, so a negative entry is rejected, never
+    // reinterpreted.
+    const raw = cents(component.inception.includedInput);
+    includedNow = raw !== null && raw < 0 ? null : raw;
+    if (includedNow === null) {
+      blocked.push({
+        ownerKind: "variable_component",
+        ownerId: component.id,
+        ownerName: name,
+        code: "vc.included.unusable",
+        message: `"${name}" needs a usable included amount after the constraint.`,
+      });
+      unusable = true;
+    }
     estimateNow = includedNow ?? UNUSABLE;
   }
 
@@ -349,7 +353,7 @@ function toProgressiveVcComponent(
     !realized.some((event) => event.id === resolutionEventId(component))
   ) {
     const resolved = cents(component.resolutionAmountInput);
-    if (component.resolutionDate === "" || resolved === null) {
+    if (!isUsableDate(component.resolutionDate) || resolved === null) {
       blocked.push({
         ownerKind: "realized_event",
         ownerId: resolutionEventId(component),
@@ -472,6 +476,20 @@ function toUsageInput(
     for (const [meterId, raw] of Object.entries(period.quantities)) {
       if (raw.trim() === "") continue;
       entered = true;
+      // The meter a reported quantity refers to must exist. An orphan
+      // reference is reported and retained as unusable; it is never silently
+      // dropped and never priced.
+      if (!component.meters.some((meter) => meter.id === meterId)) {
+        blocked.push({
+          ownerKind: "usage_actual",
+          ownerId: period.id,
+          ownerName: name,
+          code: "usage.actual.orphan_meter",
+          message: `Usage reported for ${period.month} refers to a meter that no longer exists.`,
+        });
+        quantities[meterId] = UNUSABLE;
+        continue;
+      }
       const value = quantity(raw);
       if (value === null || value < 0) {
         blocked.push({
@@ -529,10 +547,13 @@ function owningPeriod(
   periods: readonly VcSeriesPeriod[],
   month: string,
 ): VcSeriesPeriod | undefined {
-  return periods.find(
+  const matches = periods.filter(
     (candidate) =>
       month >= candidate.startDate.slice(0, 7) && month <= candidate.endDate.slice(0, 7),
   );
+  // Ambiguous ownership FAILS CLOSED: if two declared periods both cover the
+  // month, no period is selected and the usage rule blocks.
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** Last calendar day of an accounting month, "YYYY-MM". */

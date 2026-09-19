@@ -55,6 +55,7 @@ import {
   type BlockedComponent,
   type ProgressiveContractAnalysis,
 } from "@/lib/asc606-progressive";
+import { buildProgressiveGate, type ProgressiveGate } from "./progressive-gate";
 import { buildProgressiveInput, draftRequiresProgressive, type BlockedFact } from "./r3-adapter";
 
 /** An engine-level blocked amount described with its owning obligation. */
@@ -109,6 +110,12 @@ export interface WorkflowAnalysisResult {
   progressive: ProgressiveContractAnalysis | null;
   /** Facts that cannot be used yet, with the owner they belong to. */
   progressiveBlocked: BlockedFact[];
+  /**
+   * The single workflow-owned determination of what progressive accounting may
+   * be presented. Every presenter reads this, so no two surfaces can disagree
+   * about whether balances or journals are available.
+   */
+  progressiveGate: ProgressiveGate | null;
 }
 
 export interface AnalyzeWorkflowDeps {
@@ -148,6 +155,7 @@ export function analyzeWorkflow(
     contractGroups: [],
     progressive: null,
     progressiveBlocked: [],
+    progressiveGate: null,
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -172,6 +180,7 @@ export function analyzeWorkflow(
             "This contract cannot be calculated until the missing facts are supplied.",
         ),
         progressiveBlocked: built.blocked,
+        progressiveGate: null,
       };
     }
     let progressive: ProgressiveContractAnalysis;
@@ -181,11 +190,13 @@ export function analyzeWorkflow(
       return {
         ...blocked((error as Error).message),
         progressiveBlocked: built.blocked,
+        progressiveGate: null,
       };
     }
     const unresolved = progressive.recognition
       ? sumSignedPendingCents(progressive.recognition.pending)
       : 0;
+    const progressiveGate = buildProgressiveGate(progressive, built.blocked);
     return {
       workflowValidation,
       step1Conclusion,
@@ -193,10 +204,11 @@ export function analyzeWorkflow(
       // its known accounting is fully available. An adapter-level fact that
       // could not be used also keeps the analysis unfinalizable: a fact never
       // disappears merely because the calculation could proceed without it.
-      finalized: progressive.state === "complete" && built.blocked.length === 0,
+      finalized: progressiveGate.state === "complete" && built.blocked.length === 0,
       blockedReason:
-        progressive.state === "blocked" || built.blocked.length > 0
-          ? (built.blocked[0]?.message ?? "Some facts this contract depends on cannot be used yet.")
+        progressiveGate.state === "blocked" || built.blocked.length > 0
+          ? (progressiveGate.blockedReason ??
+            "Some facts this contract depends on cannot be used yet.")
           : null,
       adapterErrors: [],
       engineValidation: null,
@@ -212,6 +224,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive,
       progressiveBlocked: [...built.blocked, ...progressive.blocked.map(toBlockedFact)],
+      progressiveGate,
     };
   }
 
@@ -265,6 +278,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
@@ -310,6 +324,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
@@ -381,6 +396,7 @@ export function analyzeWorkflow(
       contractGroups: modification.groups,
       progressive: null,
       progressiveBlocked: [],
+      progressiveGate: null,
     };
   }
 
@@ -408,6 +424,7 @@ export function analyzeWorkflow(
     contractGroups: [],
     progressive: null,
     progressiveBlocked: [],
+    progressiveGate: null,
   };
 }
 

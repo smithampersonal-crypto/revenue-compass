@@ -44,6 +44,11 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
   const unresolvedSignedCents = sumSignedPendingCents(facts.pending);
   const transactionPriceCents = sumCents([facts.schedule.totalCents, unresolvedSignedCents]);
 
+  // A fixed billing event's invoice date is an accountant-owned fact and is
+  // validated where it is entered (the R3 workflow adapter), which blocks the
+  // dependent billing, balance and journal output. Facts that reach this
+  // bridge already carry their own invoice date, or are billed on realization,
+  // where same-day invoicing is a genuinely deterministic rule.
   const considerationEvents = [...facts.billing]
     .sort((a, b) => a.seq - b.seq)
     .map((event) => ({
@@ -51,7 +56,6 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
       seq: event.seq,
       amountCents: event.amountCents,
       unconditionalRightDate: event.date,
-      // No invoice fact means the invoice accompanies the unconditional right.
       invoiceDate: event.invoiceDate ?? event.date,
     }));
 
