@@ -115,7 +115,11 @@ describe("post-R2 — zero-at-inception assumptions are deterministically comple
     const { draft, issues } = merge(analysis as unknown as AiContractAnalysis);
     const vcItems = issues.filter((item) => item.targetKey.startsWith("vc:"));
     expect(vcItems.some((item) => item.state === "assumed")).toBe(false);
-    expect(vcItems.some((item) => item.blocking)).toBe(true);
+    expect(
+      vcItems.some(
+        (item) => item.reasonCode === "missing_required_input" && item.state !== "assumed",
+      ),
+    ).toBe(true);
     expect(draft.variableConsiderationComponents[0]!.inception.effectiveDate).toBe("");
   });
 
