@@ -11,7 +11,7 @@
  */
 
 import { parseUsdToCents, type WorkflowDraft } from "@/lib/asc606-workflow";
-import type { RecognitionMethod } from "@/lib/asc606-workflow/types";
+import type { RecognitionMethod } from "@/lib/asc606";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
