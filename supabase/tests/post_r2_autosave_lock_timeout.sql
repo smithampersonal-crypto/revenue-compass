@@ -13,6 +13,24 @@
 -- source rather than by sleeping 15s in the harness: a wall-clock idle test is
 -- inherently flaky here. It is exercised by the controlled hosted verification
 -- recorded in roadmap.md.
+-- The second session must be genuinely authenticated: local Supabase (and CI)
+-- require a password, so a DSN reconstructed from catalog settings cannot
+-- connect. The runner hands this suite the authenticated connection string it
+-- already resolved, as the psql variable :arc_dsn. It is stashed in a custom
+-- session setting with all output redirected to /dev/null, so the value is
+-- never echoed into CI output, and it is cleared at the end of the file; it
+-- exists only inside this disposable psql session. Trust-auth harnesses that
+-- pass no variable fall back to the reconstructed local socket DSN.
+\set QUIET on
+\o /dev/null
+\if :{?arc_dsn}
+select set_config('arc.test_dsn', :'arc_dsn', false);
+\else
+select set_config('arc.test_dsn', '', false);
+\endif
+\o
+\set QUIET off
+
 begin;
 
 create extension if not exists dblink;
