@@ -223,6 +223,7 @@ export function analyzeWorkflow(
       contractGroups: [],
       progressive,
       progressiveBlocked: [...built.blocked, ...progressive.blocked.map(toBlockedFact)],
+      progressiveGate,
     };
   }
 
