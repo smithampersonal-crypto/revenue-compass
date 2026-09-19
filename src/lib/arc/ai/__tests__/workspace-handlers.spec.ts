@@ -73,6 +73,8 @@ function runRow(overrides: Partial<AiWorkspaceRunRecord> = {}): AiWorkspaceRunRe
   };
 }
 
+import { reviewRow, resolvedRow } from "./r2-fixtures";
+
 const SNAPSHOT: AiWorkspaceSnapshot = {
   lastSuccessfulRunId: null,
   currentSourceSetFingerprint: CURRENT_FINGERPRINT,
@@ -220,7 +222,17 @@ describe("AI workspace read boundary", () => {
       snapshot: {
         lastSuccessfulRunId: "run-0",
         sourceState: "current",
+        // R2: the count is derived from the trusted partition, so the rows
+        // themselves must carry four actionable states.
         outstandingReviewIssueCount: 4,
+        reviewItems: [
+          reviewRow("y1", "yellow"),
+          reviewRow("y2", "yellow"),
+          reviewRow("r1", "red"),
+          reviewRow("r2", "red"),
+          reviewRow("a1", "assumed"),
+          resolvedRow("done"),
+        ],
       },
       monthlyUsed: 3,
     });
