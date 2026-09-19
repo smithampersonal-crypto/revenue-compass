@@ -82,12 +82,17 @@ export interface AutosaveReconciliationStore {
     schemaVersion: string;
     aiState: AiAnalysisState;
     reviewEvents: readonly EditReviewEventIntent[];
-  }): Promise<{ lockVersion: number; savedAt: string } | null>;
+  }): Promise<ReconciledSaveAttempt>;
 }
+
+/** The single bounded pause before the one permitted contention retry. */
+export const AUTOSAVE_CONTENTION_RETRY_DELAY_MS = 400;
 
 export interface AutosaveReconciliationDeps {
   store: AutosaveReconciliationStore;
   now(): Date;
+  /** Overridable only so tests need not wait in real time. */
+  delay?(ms: number): Promise<void>;
 }
 
 export interface AutosaveInput {
