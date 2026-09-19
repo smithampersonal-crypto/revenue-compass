@@ -37,6 +37,50 @@ export const Route = createFileRoute("/analysis/")({
   component: Asc606AnalysisArea,
 });
 
+/** Presentation-only focus treatment applied at a navigation destination. */
+const REVIEW_FOCUS_CLASS = "arc-review-focus";
+const REVIEW_FOCUS_MS = 3500;
+/** Bounded wait for the destination element to mount (never a long timeout). */
+const REVIEW_SCROLL_MAX_FRAMES = 30;
+
+/**
+ * Scrolls to a review destination once it actually exists in the document, and
+ * marks it briefly so the accountant can see where they landed. It changes no
+ * accounting and no review state, and it clears itself.
+ */
+function scrollToReviewTarget(args: {
+  sectionId: string;
+  anchorId: string | null;
+  focusLabel: string | null;
+}): void {
+  if (typeof document === "undefined" || typeof requestAnimationFrame !== "function") return;
+  let frames = 0;
+  const attempt = () => {
+    const anchor = args.anchorId === null ? null : document.getElementById(args.anchorId);
+    // An exact target waits for its own anchor; only once it is clearly not
+    // coming does the owning section become the destination.
+    const element =
+      anchor ??
+      (args.anchorId !== null && frames < REVIEW_SCROLL_MAX_FRAMES
+        ? null
+        : document.getElementById(args.sectionId));
+    if (element === null) {
+      if (frames++ < REVIEW_SCROLL_MAX_FRAMES) requestAnimationFrame(attempt);
+      return;
+    }
+    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    element.classList.add(REVIEW_FOCUS_CLASS);
+    if (args.focusLabel !== null) element.setAttribute("data-arc-focus-label", args.focusLabel);
+    setTimeout(() => {
+      element.classList.remove(REVIEW_FOCUS_CLASS);
+      element.removeAttribute("data-arc-focus-label");
+    }, REVIEW_FOCUS_MS);
+  };
+  // Two frames: the expanded section is committed and laid out before the
+  // destination is measured.
+  requestAnimationFrame(() => requestAnimationFrame(attempt));
+}
+
 export function Asc606AnalysisArea() {
   const { draft, setDraft, result, ai } = useAnalysis();
   const navigate = useNavigate();
