@@ -96,6 +96,7 @@ describe("Fixture C — re-analysis preserves user work", () => {
     analysis.performanceObligations[0]!.description = "Hosted platform subscription";
     analysis.promises[0]!.description = "Hosted platform access";
     analysis.transactionPrice.fixedConsiderationInput = "150000";
+    analysis.billingTerms[0]!.amountOrRateInput = "150000";
     return analysis;
   }
 
@@ -104,7 +105,7 @@ describe("Fixture C — re-analysis preserves user work", () => {
     const second = run(secondRun(), first.draft, first.aiState, RUN_2);
     expect(second.draft.performanceObligations[0]!.id).toBe(PO_ID);
     expect(second.draft.performanceObligations[0]!.name).toBe("Hosted platform subscription");
-    expect(second.draft.transactionPriceInput).toBe("150000");
+    expect(second.draft.transactionPriceInput).toBe("150000.00");
     expect(second.aiState.lastSuccessfulRunId).toBe(RUN_2);
   });
 
@@ -632,6 +633,12 @@ describe("the missing-fixed-consideration item reviews the whole conclusion", ()
 
   function withoutFixedConsideration(analysis: AiContractAnalysis): AiContractAnalysis {
     analysis.transactionPrice.fixedConsiderationInput = null;
+    // No fixed billing schedule either, so ARC cannot derive a total and the
+    // missing-input item is the only possible outcome.
+    analysis.billingTerms = analysis.billingTerms.map((term) => ({
+      ...term,
+      billingTiming: "on_usage" as const,
+    }));
     return analysis;
   }
 

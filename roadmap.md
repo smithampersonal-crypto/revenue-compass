@@ -880,3 +880,38 @@ no OpenAI call, no Genomix run, no R2/R3/R4 work.
       `bun run verify` green: 151 files / 1,886 tests, clean typecheck and
       build, `audit:bundle` clean, 11 pre-existing shadcn lint warnings only.
 - [x] Database: R1 changed no SQL, no schema, no RLS, no grants and no routine.
+
+#### R1 acceptance patch
+
+- [x] Fixed consideration precedence corrected: when the contract's billing
+      schedule unambiguously determines the full-term total, ARC's deterministic
+      total is canonical whatever the model reported (period fee, correct total,
+      wrong total or nothing). The model's validated full-term conclusion is used
+      only when no unambiguous schedule exists, and neither ever overwrites the
+      accountant's own transaction price (preserved, exactly one focused review
+      item). The transaction-price note is ARC-authored whenever ARC supplied the
+      amount.
+- [x] Prompt v5 semantics restored (no version bump): `fixedConsiderationInput`
+      is the TOTAL fixed consideration enforceable over the complete current
+      contract term, excluding variable consideration; the per-period amount
+      belongs to the billing terms; ARC's deterministic total prevails.
+- [x] Variable-consideration allocation is one user-ownable judgment group.
+      `allocationTreatment`, target PO, `relatesSpecifically`,
+      `consistentWithAllocationObjective` and `allocationRationale` each carry
+      their own field provenance; ownership is collective, so an accountant edit
+      to ANY of them preserves the whole judgment on re-analysis and raises
+      exactly ONE focused difference. Unrelated VC fields (description,
+      estimation) stay refreshable.
+- [x] `supabaseAdmin.rpc.bind(supabaseAdmin)` in `autosave.store.server.ts` and
+      `review-actions.store.server.ts` kept: a real runtime defect (detached
+      `rpc` lost its receiver and threw "Cannot read properties of undefined
+      (reading 'rest')"). Frozen behaviour is unchanged; a regression now proves
+      the store calls the routine with the client as receiver.
+- [x] Tests: new `phase9g-r1-acceptance.spec.ts` (23) covering the
+      245K/490K/500K/null matrix, manual-price preservation, ambiguous-schedule
+      fallback, missing-input failure, the five per-field allocation
+      re-analysis regressions, untouched-group refresh, fail-closed target,
+      manual-from-start protection and review-fingerprint coverage. Full
+      `bun run verify` green: 152 files / 1,909 tests, clean typecheck and
+      build, `audit:bundle` clean, 11 pre-existing shadcn lint warnings only.
+      All 21 SQL suites replayed green (Docker unavailable); no SQL changed.
