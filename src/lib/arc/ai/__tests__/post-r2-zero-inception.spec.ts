@@ -145,3 +145,123 @@ describe("post-R2 — zero-at-inception assumptions are deterministically comple
     expect(second.draft.variableConsiderationComponents[0]!.inception.includedInput).toBe("2500");
   });
 });
+
+/**
+ * Post-R2 acceptance patch — the zero shortcut may only run when the MATERIAL
+ * inception judgment is genuinely unclaimed. Blank amounts are not proof of
+ * that: the accountant may own the estimation method, a probability, a
+ * most-likely designation or the constraint rationale.
+ */
+describe("post-R2 acceptance — zero-at-inception ownership guard", () => {
+  function ownedRemerge(mutate: (draft: ReturnType<typeof createEmptyDraft>) => void) {
+    const first = merge(analysisWithZeroComponent());
+    const owned = structuredClone(first.draft);
+    const canonicalId = owned.variableConsiderationComponents[0]!.id;
+    // Start from a blank inception assessment: only the accountant's own entry
+    // below distinguishes this from a genuinely untouched judgment.
+    const component = owned.variableConsiderationComponents[0]!;
+    component.estimationMethod = null;
+    component.inception.includedInput = "";
+    component.inception.constraintRationale = "";
+    component.inception.outcomes = component.inception.outcomes.map((outcome) => ({
+      ...outcome,
+      amountInput: "",
+      probabilityInput: "",
+      isMostLikely: false,
+    }));
+    mutate(owned);
+
+    // The accountant's entry below is their own work, not ARC's untouched
+    // draft, so the AI provenance for the inception judgment is cleared.
+    const aiState = structuredClone(first.aiState);
+    for (const field of ["inception", "estimationMethod"]) {
+      delete aiState.fieldProvenance[`vc:${canonicalId}.${field}`];
+    }
+
+    return {
+      canonicalId,
+      result: mergeAiAnalysis({
+        currentDraft: owned,
+        currentAiState: aiState,
+        analysis: analysisWithZeroComponent(),
+        runId: RUN_ID,
+        guidancePack: guidancePackFixture(),
+        priorContext: null,
+      }),
+    };
+  }
+
+  it("still drafts the complete zero assumption when nothing is claimed", () => {
+    const { draft } = merge(analysisWithZeroComponent());
+    const component = draft.variableConsiderationComponents[0]!;
+    expect(component.estimationMethod).toBe("most_likely_amount");
+    expect(component.inception.includedInput).toBe("0");
+    expect(component.inception.outcomes.filter((outcome) => outcome.isMostLikely)).toHaveLength(1);
+  });
+
+  it("preserves an accountant-owned expected-value method and does not rewrite the assessment", () => {
+    const { result } = ownedRemerge((draft) => {
+      draft.variableConsiderationComponents[0]!.estimationMethod = "expected_value";
+    });
+    const component = result.draft.variableConsiderationComponents[0]!;
+    expect(component.estimationMethod).toBe("expected_value");
+    expect(component.inception.includedInput).toBe("");
+    expect(component.inception.outcomes.every((outcome) => !outcome.isMostLikely)).toBe(true);
+    const vcItems = result.issues.filter((item) => item.targetKey.endsWith(".inception"));
+    expect(vcItems.some((item) => item.reasonCode === "missing_required_input")).toBe(true);
+    expect(vcItems.some((item) => item.state === "assumed")).toBe(false);
+  });
+
+  it("never erases an accountant-entered outcome probability", () => {
+    const { result } = ownedRemerge((draft) => {
+      const outcomes = draft.variableConsiderationComponents[0]!.inception.outcomes;
+      outcomes[0]!.probabilityInput = "35";
+    });
+    const component = result.draft.variableConsiderationComponents[0]!;
+    expect(component.inception.outcomes[0]!.probabilityInput).toBe("35");
+    expect(component.inception.includedInput).toBe("");
+  });
+
+  it("never overwrites an accountant-entered constraint rationale", () => {
+    const { result } = ownedRemerge((draft) => {
+      draft.variableConsiderationComponents[0]!.inception.constraintRationale =
+        "Accountant judgment: credits are probable given the pilot outage history.";
+    });
+    const component = result.draft.variableConsiderationComponents[0]!;
+    expect(component.inception.constraintRationale).toBe(
+      "Accountant judgment: credits are probable given the pilot outage history.",
+    );
+    expect(component.inception.includedInput).toBe("");
+  });
+
+  it("never overwrites an accountant-entered most-likely designation", () => {
+    const { result } = ownedRemerge((draft) => {
+      const outcomes = draft.variableConsiderationComponents[0]!.inception.outcomes;
+      outcomes[0]!.isMostLikely = true;
+    });
+    const component = result.draft.variableConsiderationComponents[0]!;
+    expect(component.inception.includedInput).toBe("");
+    expect(component.inception.constraintRationale).toBe("");
+  });
+
+  it("keeps a manually supplied effective date and damages nothing around it", () => {
+    const { result } = ownedRemerge((draft) => {
+      draft.variableConsiderationComponents[0]!.inception.effectiveDate = "2026-02-01";
+    });
+    const component = result.draft.variableConsiderationComponents[0]!;
+    // A manually supplied assessment date is preserved exactly; it is not
+    // treated as ownership of the estimation judgment, so the complete zero
+    // assumption is still drafted around it.
+    expect(component.inception.effectiveDate).toBe("2026-02-01");
+    expect(component.inception.includedInput).toBe("0");
+    expect(component.estimationMethod).toBe("most_likely_amount");
+  });
+
+  it("still drafts the zero assumption when only the date was supplied on an unclaimed assessment", () => {
+    const seeded = createEmptyDraft();
+    const { draft } = merge(analysisWithZeroComponent(), seeded);
+    // The untouched path remains complete and internally valid.
+    expect(draft.variableConsiderationComponents[0]!.inception.includedInput).toBe("0");
+    expect(buildVariableConsiderationInput(draft).ok).toBe(true);
+  });
+});

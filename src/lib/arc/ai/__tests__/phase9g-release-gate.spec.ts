@@ -43,14 +43,21 @@ describe("Phase 9G release gate — frozen Task 9 migration", () => {
     expect(sha).toBe(TASK9_SHA);
   });
 
-  it("carries no unapplied or duplicated pending migration", () => {
+  it("carries only the one staged migration awaiting acceptance, never duplicated", () => {
+    const STAGED = "20260919043000_post_r2_autosave_lock_timeout.sql";
     let pending: string[] = [];
     try {
       pending = readdirSync(path.join(root, "supabase/pending"));
     } catch {
       pending = [];
     }
-    expect(pending.filter((file) => file.endsWith(".sql"))).toEqual([]);
+    const staged = pending.filter((file) => file.endsWith(".sql"));
+    // Post-R2 defect 4: exactly one staged migration, held for byte-level
+    // review before any Cloud apply. It must not also exist as an applied
+    // migration, and nothing else may accumulate here.
+    expect(staged).toEqual([STAGED]);
+    const applied = readdirSync(path.join(root, "supabase/migrations"));
+    expect(applied).not.toContain(STAGED);
   });
 });
 

@@ -1097,11 +1097,69 @@ stays `arc.ai.prompt.v6`. R3 and R4 remain NOT STARTED.
       `src/components/arc/post-r2-guest-lifecycle.spec.tsx` (2). RED proof:
       neutralising each of the five fixes failed 11 of the 18 new tests;
       restoring them returned all 18 green.
-- [x] Full `bun run verify` green: 162 test files / 1,994 tests, clean typecheck
+##### Post-R2 acceptance patch (two final gates)
+
+- [x] Gate 1 — zero-at-inception ownership. The complete $0 assumption is now
+      drafted only when the MATERIAL inception estimation judgment is genuinely
+      unclaimed: estimation method unclaimed or ARC-owned, and the assessment
+      empty across included amount, outcome amounts, outcome probabilities,
+      most-likely designation and constraint rationale, judged with field
+      provenance where present. A manually supplied effective date alone is not
+      ownership. Where the assessment is accountant-owned ARC preserves it and
+      uses the existing manual-value-preserved / missing-input review
+      semantics instead of forcing the zero structure.
+      `src/lib/arc/ai/__tests__/post-r2-zero-inception.spec.ts` now carries 11
+      tests (untouched → complete valid $0 most-likely; accountant-owned
+      expected-value method preserved with no partial rewrite; accountant
+      probability never erased; accountant constraint rationale never
+      overwritten; most-likely designation never overwritten; manual date
+      preserved; valid untouched zero assumption still passes
+      `buildVariableConsiderationInput`; no defensible inception date still
+      fails closed). RED proof: reverting the guard failed 4 of 11.
+- [x] Gate 2 — staged autosave timeout migration, PROPOSED AND UNAPPLIED:
+      `supabase/pending/20260919043000_post_r2_autosave_lock_timeout.sql`
+      (SHA-256 `873a59fe573c22d41ac06e199e66588e3f63cac8f7aee7c2c072800f367fb3ef`).
+      It is a `create or replace` of `public.arc_save_draft_with_ai_reconciliation`
+      alone, reproducing the accepted Task 4 body byte-for-byte with exactly two
+      added statements immediately after `begin`, before validation and locking:
+      `set local lock_timeout = '3s';` and
+      `set local idle_in_transaction_session_timeout = '15s';`. Signature,
+      return shape, SECURITY DEFINER, `search_path`, ownership validation, scope
+      locking, actor derivation, lock ordering, optimistic-lock behaviour,
+      canonical write, sidecar write, review-event append semantics and
+      privileges are unchanged; no table, schema, RLS, grant, trigger or data
+      change. NOT Cloud-applied — awaiting byte-level review.
+- [x] Gate 3 — dedicated SQL regression
+      `supabase/tests/post_r2_autosave_lock_timeout.sql` (17 assertions): the
+      bounds exist and precede validation/locking; SECURITY DEFINER,
+      `search_path` and service-role-only execution unchanged; a competing
+      transaction holding the owner row makes the save fail in bounded time with
+      SQLSTATE `55P03`; the canonical draft, owner `lock_version`, AI sidecar and
+      review-event trail are all untouched by the timed-out save; after the
+      holder releases, the same save succeeds, the lock advances exactly once and
+      exactly one audit event is appended; a stale expected lock still raises
+      `40001` and changes nothing. Contention uses a genuinely concurrent
+      `dblink` session. The 15s idle bound is asserted from the routine's source
+      rather than by a wall-clock sleep, which would be flaky in the harness; it
+      is to be confirmed by controlled hosted verification after Cloud apply.
+      RED proof: replaying without the staged migration, the contended save never
+      returns `55P03` — it blocks until an externally imposed statement timeout
+      (`57014`), and the three bound assertions are absent.
+- [x] `src/lib/arc/ai/__tests__/phase9g-release-gate.spec.ts` now asserts exactly
+      one staged migration awaiting acceptance and that it is not duplicated into
+      `supabase/migrations/`, instead of asserting an empty staging directory.
+- [x] Full `bun run verify` green: 162 test files / 2,001 tests, clean typecheck
       and production build, `audit:bundle` clean, 11 pre-existing shadcn lint
       warnings only. `guidance:check`: 116 approved cards, hash
       `352bcf79e7cff1753f353451d9b12bf7f7cb7840eae6fe7699fdcbace6425d56`.
-- [x] All 21 SQL suites replayed green on a throwaway PostgreSQL (Docker
+- [x] All 22 SQL suites (21 existing + the new contention suite) replayed green
+      on a throwaway PostgreSQL with the staged migration applied last (Docker
       unavailable); no schema, RLS, grant, routine or Cloud mutation; frozen
       Phase 9G Task 9 migration unchanged at
       `3013e5370b7a12e8d266ddf4332034968bc5cc3cefb66dcb307ac04db261c251`.
+- [ ] Real-browser verification of the five navigation variants — NOT performed
+      here: it needs an analyzed workspace with review items in the connected
+      Cloud project, and seeding that data is a Cloud data change this patch is
+      not authorized to make. Manual steps are recorded under Defect 1.
+- [ ] Cloud apply of the staged migration — blocked on byte-level acceptance.
+- R3 and R4 remain NOT STARTED.
