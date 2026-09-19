@@ -180,18 +180,22 @@ describe("Fixture C — re-analysis preserves user work", () => {
     const first = run(fixtureAAnalysis(), manualBilling);
     const affirmedState: AiAnalysisState = {
       ...first.aiState,
-      reviewItems: first.aiState.reviewItems.map((item) => (item.state === "assumed" ? item : {
-        ...item,
-        state: "resolved" as const,
-        resolution: {
-          kind: "affirmed" as const,
-          at: "2027-02-01T00:00:00.000Z",
-          method: "individual" as const,
-          reviewFingerprint: item.reviewFingerprint,
-        },
-        affirmedAt: "2027-02-01T00:00:00.000Z",
-        affirmedMethod: "individual" as const,
-      })),
+      reviewItems: first.aiState.reviewItems.map((item) =>
+        item.state === "assumed"
+          ? item
+          : {
+              ...item,
+              state: "resolved" as const,
+              resolution: {
+                kind: "affirmed" as const,
+                at: "2027-02-01T00:00:00.000Z",
+                method: "individual" as const,
+                reviewFingerprint: item.reviewFingerprint,
+              },
+              affirmedAt: "2027-02-01T00:00:00.000Z",
+              affirmedMethod: "individual" as const,
+            },
+      ),
     };
 
     const unchanged = run(fixtureAAnalysis(), first.draft, affirmedState, RUN_2);
@@ -400,30 +404,33 @@ describe("review fingerprints follow the material conclusion, not the display te
     return {
       ...state,
       reviewItems: state.reviewItems.map((item) =>
-        item.state === "red"
-          ? {
-              ...item,
-              state: "resolved" as const,
-              resolution: {
-                kind: "manual_red" as const,
-                at: AT,
-                reason: "reviewed_current_treatment" as const,
-                note: null,
-                reviewFingerprint: item.reviewFingerprint,
+        // R2: routine assumptions are not affirmable and stay as they are.
+        item.state === "assumed"
+          ? item
+          : item.state === "red"
+            ? {
+                ...item,
+                state: "resolved" as const,
+                resolution: {
+                  kind: "manual_red" as const,
+                  at: AT,
+                  reason: "reviewed_current_treatment" as const,
+                  note: null,
+                  reviewFingerprint: item.reviewFingerprint,
+                },
+              }
+            : {
+                ...item,
+                state: "resolved" as const,
+                resolution: {
+                  kind: "affirmed" as const,
+                  at: AT,
+                  method: "individual" as const,
+                  reviewFingerprint: item.reviewFingerprint,
+                },
+                affirmedAt: AT,
+                affirmedMethod: "individual" as const,
               },
-            }
-          : {
-              ...item,
-              state: "resolved" as const,
-              resolution: {
-                kind: "affirmed" as const,
-                at: AT,
-                method: "individual" as const,
-                reviewFingerprint: item.reviewFingerprint,
-              },
-              affirmedAt: AT,
-              affirmedMethod: "individual" as const,
-            },
       ),
     };
   }
@@ -585,30 +592,33 @@ describe("re-analysis never trusts unnormalized persisted review state", () => {
     return {
       ...state,
       reviewItems: state.reviewItems.map((item) =>
-        item.state === "red"
-          ? {
-              ...item,
-              state: "resolved" as const,
-              resolution: {
-                kind: "manual_red" as const,
-                at: AT,
-                reason: "reviewed_current_treatment" as const,
-                note: null,
-                reviewFingerprint: item.reviewFingerprint,
+        // R2: routine assumptions are not affirmable and stay as they are.
+        item.state === "assumed"
+          ? item
+          : item.state === "red"
+            ? {
+                ...item,
+                state: "resolved" as const,
+                resolution: {
+                  kind: "manual_red" as const,
+                  at: AT,
+                  reason: "reviewed_current_treatment" as const,
+                  note: null,
+                  reviewFingerprint: item.reviewFingerprint,
+                },
+              }
+            : {
+                ...item,
+                state: "resolved" as const,
+                resolution: {
+                  kind: "affirmed" as const,
+                  at: AT,
+                  method: "individual" as const,
+                  reviewFingerprint: item.reviewFingerprint,
+                },
+                affirmedAt: AT,
+                affirmedMethod: "individual" as const,
               },
-            }
-          : {
-              ...item,
-              state: "resolved" as const,
-              resolution: {
-                kind: "affirmed" as const,
-                at: AT,
-                method: "individual" as const,
-                reviewFingerprint: item.reviewFingerprint,
-              },
-              affirmedAt: AT,
-              affirmedMethod: "individual" as const,
-            },
       ),
     };
   }
@@ -642,7 +652,21 @@ describe("re-analysis never trusts unnormalized persisted review state", () => {
   });
 
   it("still inherits a resolution from a well-formed persisted row", () => {
-    const one = run(fixtureAAnalysis());
+    const manualBilling: WorkflowDraft = {
+      ...createEmptyDraft(),
+      contractBalances: {
+        ...createEmptyDraft().contractBalances,
+        considerationEvents: [
+          {
+            ...createConsiderationEventDraft(1, "ce-manual-1"),
+            amountInput: "120000",
+            invoiceDate: "2027-01-01",
+            unconditionalRightDate: "2027-01-01",
+          },
+        ],
+      },
+    };
+    const one = run(fixtureAAnalysis(), manualBilling);
     const two = run(fixtureAAnalysis(), one.draft, resolvedState(one.aiState), RUN_2);
     expect(two.issues.some((item) => item.state === "resolved")).toBe(true);
   });
