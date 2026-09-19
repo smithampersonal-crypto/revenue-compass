@@ -102,9 +102,7 @@ const STATE_RANK: Record<CalculationState, number> = {
 };
 
 /** The least-ready of the supplied states. Deterministic and associative. */
-export function mergeCalculationState(
-  ...states: readonly CalculationState[]
-): CalculationState {
+export function mergeCalculationState(...states: readonly CalculationState[]): CalculationState {
   let worst: CalculationState = "complete";
   for (const state of states) {
     if (STATE_RANK[state] > STATE_RANK[worst]) worst = state;

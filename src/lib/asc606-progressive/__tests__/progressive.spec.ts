@@ -26,9 +26,27 @@ function genomixPos(
   confidence: ProvisionalAllocatablePo["sspConfidence"] = "provisional",
 ): ProvisionalAllocatablePo[] {
   return [
-    { id: "po-hosted", seq: 1, name: "Hosted SaaS service", sspCents: HOSTED, sspConfidence: confidence },
-    { id: "po-validation", seq: 2, name: "Validation package", sspCents: VALIDATION, sspConfidence: confidence },
-    { id: "po-support", seq: 3, name: "Support hours", sspCents: SUPPORT, sspConfidence: confidence },
+    {
+      id: "po-hosted",
+      seq: 1,
+      name: "Hosted SaaS service",
+      sspCents: HOSTED,
+      sspConfidence: confidence,
+    },
+    {
+      id: "po-validation",
+      seq: 2,
+      name: "Validation package",
+      sspCents: VALIDATION,
+      sspConfidence: confidence,
+    },
+    {
+      id: "po-support",
+      seq: 3,
+      name: "Support hours",
+      sspCents: SUPPORT,
+      sspConfidence: confidence,
+    },
   ];
 }
 
@@ -179,7 +197,10 @@ describe("D. over-time input measure", () => {
 
   it("24. fails closed on negative, duplicated or undated actuals", () => {
     expect(() =>
-      recognizeInputMeasure({ ...po, progressEvents: [{ id: "e1", date: "2026-11-10", units: -1 }] }, SUPPORT),
+      recognizeInputMeasure(
+        { ...po, progressEvents: [{ id: "e1", date: "2026-11-10", units: -1 }] },
+        SUPPORT,
+      ),
     ).toThrow(ProgressiveAccountingError);
     expect(() =>
       recognizeInputMeasure(
@@ -194,7 +215,10 @@ describe("D. over-time input measure", () => {
       ),
     ).toThrow(ProgressiveAccountingError);
     expect(() =>
-      recognizeInputMeasure({ ...po, progressEvents: [{ id: "e1", date: "not-a-date", units: 5 }] }, SUPPORT),
+      recognizeInputMeasure(
+        { ...po, progressEvents: [{ id: "e1", date: "not-a-date", units: 5 }] },
+        SUPPORT,
+      ),
     ).toThrow(ProgressiveAccountingError);
   });
 

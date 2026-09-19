@@ -55,9 +55,7 @@ function usableSsp(po: ProvisionalAllocatablePo): boolean {
  *   provisional — allocation ran and at least one SSP awaits confirmation
  *   blocked     — at least one SSP is unusable, so the denominator is unknown
  */
-export function allocateProgressively(
-  input: ProgressiveAllocationInput,
-): ProgressiveAllocation {
+export function allocateProgressively(input: ProgressiveAllocationInput): ProgressiveAllocation {
   const pos = [...input.performanceObligations].sort((a, b) => a.seq - b.seq);
 
   const blocked: BlockedComponent[] = pos
