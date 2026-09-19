@@ -1264,3 +1264,43 @@ reviewed file). Hosted verification:
   recurrence, CPU at background level. Test fixture deleted.
 
 R3/R4 not started.
+
+## Post-R2 Database Hardening — repository normalization (post-Cloud)
+
+Applied and verified on the connected Supabase project; nothing remains staged.
+
+Retired pending files (applied to Cloud, hashes preserved for audit history):
+
+- `20260919043000_post_r2_autosave_lock_timeout.sql`
+  `873a59fe573c22d41ac06e199e66588e3f63cac8f7aee7c2c072800f367fb3ef`
+  applied as `supabase/migrations/20260919181822_09396f1f-a301-46cb-892f-11307c442134.sql`
+  (byte-identical, same SHA-256).
+- `20260919060000_post_r2_conflict_sqlstate.sql`
+  `a7b1db368695870992d396fbd019a09c972d5aea03330afc7160f2a1596f6f72`
+  applied as four parts split on routine boundaries:
+  `20260919182118_0f2b88d8-edf9-459f-bf74-6f62c6e32545.sql` `d28de23e70491040b6c4b573757b55cfbff3a7cdb51a1c7a157ccf1d31e40064`
+  `20260919182256_bc74f2ad-8bdb-4c2c-a80e-44cd413c933b.sql` `525c40f5be0690bb1c51221d658ca88951334245cf3294420b5f7dcfc384854e`
+  `20260919182452_33edf847-c3f2-4853-be19-334c3068831e.sql` `253c558c664ea6e127100ac1da0791677e6887d569eee9dd08efb93444727305`
+  `20260919182906_7d2f5f4a-90a4-446c-b848-b25c6d0ec34e.sql` `33e4bbda628d4d2df91a0b7e7f8a1e1fb8717d082fcae70ed2f7cf1df8839421`
+
+`supabase/pending/` now holds zero `.sql` files; the generic pending loop stays in
+`scripts/run-sql-suites.sh` for future staged migrations but is a no-op, so the SQL
+gate can no longer mask an incomplete applied history.
+
+Release gate (`phase9g-release-gate.spec.ts`) moved to the post-Cloud state: no
+pending SQL migration, the five applied files frozen by hash, migrations replayed in
+deterministic filename order, dollar-quote terminator recognised as `$function$;` or
+`$function$` on its own line, both unsafe forms (`errcode = '40001'` and
+`exception when sqlstate '40001'`) checked against the latest effective definitions,
+which must now be zero, and a retained safety gate that the conflict migration
+redefined 20 routines whose effective definitions are on PT409.
+
+Evidence: with the old terminator-only-with-semicolon parser two routines still read
+as 40001 offenders (`arc_set_ai_review_state`, `arc_affirm_ai_review_scope`) through
+statement bleed-through; with the fixed parser the effective offender set is empty.
+Migration history alone (no staged files) rebuilt a fresh disposable PostgreSQL to the
+accepted Post-R2 state: 23 SQL suites plus the host-side contention driver green.
+Application gate: 163/163 files, 2,011/2,011 tests (the gate spec gained two cases),
+typecheck, lint, production build and bundle audit green. Task 9 SHA unchanged
+(`3013e537…`), schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`, no Cloud mutation,
+R3/R4 not started.
