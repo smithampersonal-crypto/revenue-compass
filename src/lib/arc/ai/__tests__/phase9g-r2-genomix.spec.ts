@@ -162,9 +162,7 @@ function runGenomix() {
 
 describe("Phase 9G-R Task R2 — synthetic Genomix benchmark", () => {
   it("is a schema-valid v5 analysis", () => {
-    const parsed = parseAiContractAnalysis(genomixAnalysis());
-    if (!parsed.ok) console.log(parsed.issues);
-    expect(parsed.ok).toBe(true);
+    expect(parseAiContractAnalysis(genomixAnalysis()).ok).toBe(true);
   });
 
   it("keeps the full-term fixed consideration deterministic (R1)", () => {
