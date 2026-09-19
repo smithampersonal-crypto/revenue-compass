@@ -55,16 +55,12 @@ describe("B — authoritative progressive workflow", () => {
       ["po-validation", GENOMIX_VALIDATION_CENTS, "awaiting_transfer_date"],
       ["po-support", GENOMIX_SUPPORT_CENTS, "awaiting_progress_actuals"],
     ]);
-    expect(result.unscheduledRevenueCents).toBe(
-      GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS,
-    );
+    expect(result.unscheduledRevenueCents).toBe(GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS);
   });
 
   it("shows both fixed billings and partial-but-correct balances", () => {
     const { progressive } = progressiveOf(genomixR3Draft());
-    expect(progressive!.billing.events.map((e) => e.amountCents)).toEqual([
-      24_500_000, 24_500_000,
-    ]);
+    expect(progressive!.billing.events.map((e) => e.amountCents)).toEqual([24_500_000, 24_500_000]);
     expect(progressive!.billing.totalCents).toBe(GENOMIX_FIXED_CENTS);
     expect(progressive!.balances!.partial).toBe(true);
     expect(progressive!.balances!.totalRevenueCents).toBe(GENOMIX_HOSTED_CENTS);
@@ -77,9 +73,9 @@ describe("B — authoritative progressive workflow", () => {
     const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS);
     expect(recon.allocatedCents).toBe(GENOMIX_FIXED_CENTS);
-    expect(
-      recon.scheduledRevenueCents + recon.pendingCents + recon.blockedCents,
-    ).toBe(GENOMIX_FIXED_CENTS);
+    expect(recon.scheduledRevenueCents + recon.pendingCents + recon.blockedCents).toBe(
+      GENOMIX_FIXED_CENTS,
+    );
     expect(recon.state).toBe("pending");
   });
 

@@ -414,7 +414,6 @@ export function buildVcLayers(
       });
     }
 
-
     states.push({
       componentId: component.id,
       description: component.description,
