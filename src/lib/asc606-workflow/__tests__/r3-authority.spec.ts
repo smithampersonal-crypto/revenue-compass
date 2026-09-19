@@ -37,7 +37,7 @@ function progressiveOf(draft: ReturnType<typeof genomixR3Draft>) {
 describe("B — authoritative progressive workflow", () => {
   it("produces the fixed allocation from the workflow API at inception", () => {
     const result = progressiveOf(genomixR3Draft());
-    const rows = result.progressive!.allocation;
+    const rows = result.progressive!.allocation!;
     expect(rows.map((r) => [r.poId, r.allocatedCents])).toEqual([
       ["po-hosted", GENOMIX_HOSTED_CENTS],
       ["po-validation", GENOMIX_VALIDATION_CENTS],
@@ -74,7 +74,7 @@ describe("B — authoritative progressive workflow", () => {
   });
 
   it("reconciles transaction price to allocation, recognition and pending", () => {
-    const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation;
+    const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS);
     expect(recon.allocatedCents).toBe(GENOMIX_FIXED_CENTS);
     expect(
@@ -164,16 +164,18 @@ describe("D — variable-consideration source of truth", () => {
               {
                 id: "o1",
                 seq: 1,
-                label: "Bonus earned",
+                description: "Bonus earned",
                 amountInput: "40,000.00",
                 probabilityInput: "60",
+                isMostLikely: true,
               },
               {
                 id: "o2",
                 seq: 2,
-                label: "Bonus missed",
+                description: "Bonus missed",
                 amountInput: "0.00",
                 probabilityInput: "40",
+                isMostLikely: false,
               },
             ],
           },
@@ -183,7 +185,7 @@ describe("D — variable-consideration source of truth", () => {
       ],
     };
     const built = buildProgressiveInput(constrained);
-    const vc = built.input!.variableComponents[0]!;
+    const vc = built.input!.variableComponents![0]!;
     // The included-after-constraint amount drives the transaction price; the
     // unconstrained estimate is preserved separately as provenance.
     expect(vc.includedCents).toBe(1_000_000);
@@ -209,7 +211,7 @@ describe("D — variable-consideration source of truth", () => {
         },
       ],
     };
-    const vc = buildProgressiveInput(resolved).input!.variableComponents[0]!;
+    const vc = buildProgressiveInput(resolved).input!.variableComponents![0]!;
     expect(vc.realizedEvents.map((e) => [e.id, e.amountCents, e.date])).toEqual([
       ["vc-sla:resolution", 1_200_000, "2027-09-30"],
     ]);
@@ -237,9 +239,10 @@ describe("E — signed specific-series-period accounting", () => {
               {
                 id: "o1",
                 seq: 1,
-                label: "Expected outcome",
+                description: "Expected outcome",
                 amountInput: included,
                 probabilityInput: "100",
+                isMostLikely: true,
               },
             ],
           },
@@ -249,13 +252,13 @@ describe("E — signed specific-series-period accounting", () => {
   }
 
   it("$0 inception carries no amount into the transaction price", () => {
-    const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation;
+    const recon = progressiveOf(genomixR3Draft()).progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS);
   });
 
   it("an unrealized decrease lowers price and the target allocation together", () => {
     const result = progressiveOf(withEstimate("decrease", "5,000.00"));
-    const recon = result.progressive!.reconciliation;
+    const recon = result.progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS - 500_000);
     const hosted = recon.byPo.find((p) => p.poId === "po-hosted")!;
     expect(hosted.allocatedCents).toBe(GENOMIX_HOSTED_CENTS - 500_000);
@@ -265,7 +268,7 @@ describe("E — signed specific-series-period accounting", () => {
 
   it("an unrealized increase raises price and the target allocation together", () => {
     const result = progressiveOf(withEstimate("increase", "5,000.00"));
-    const recon = result.progressive!.reconciliation;
+    const recon = result.progressive!.reconciliation!;
     expect(recon.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS + 500_000);
     const hosted = recon.byPo.find((p) => p.poId === "po-hosted")!;
     expect(hosted.allocatedCents).toBe(GENOMIX_HOSTED_CENTS + 500_000);
@@ -275,9 +278,9 @@ describe("E — signed specific-series-period accounting", () => {
     const result = progressiveOf(
       withRealizedCredit(genomixR3Draft(), "5,000.00", "q2", "2027-06-30"),
     );
-    const layers = result.progressive!.vc.seriesPeriod;
+    const layers = result.progressive!.vc!.seriesPeriod;
     expect(layers.map((l) => [l.seriesPeriodId, l.amountCents])).toEqual([["q2", -500_000]]);
-    expect(result.progressive!.vc.generalPoolCents).toBe(0);
+    expect(result.progressive!.vc!.generalPoolCents).toBe(0);
     expect(result.revenueSchedule!.totalCents).toBe(GENOMIX_HOSTED_CENTS - 500_000);
   });
 
@@ -287,12 +290,12 @@ describe("E — signed specific-series-period accounting", () => {
       withEstimate("decrease", "5,000.00"),
       withEstimate("increase", "5,000.00"),
     ]) {
-      expect(progressiveOf(draft).progressive!.vc.generalPoolCents).toBe(0);
+      expect(progressiveOf(draft).progressive!.vc!.generalPoolCents).toBe(0);
     }
   });
 
   it("carries pending magnitudes non-negatively with an explicit direction", () => {
-    const vc = progressiveOf(withEstimate("decrease", "5,000.00")).progressive!.vc;
+    const vc = progressiveOf(withEstimate("decrease", "5,000.00")).progressive!.vc!;
     for (const component of vc.components) {
       expect(component.pendingSignedCents).toBeLessThanOrEqual(0);
     }
@@ -310,13 +313,13 @@ describe("F — Phase 3 / Phase 4 reuse", () => {
   it("balances come from the approved contract-balance engine", () => {
     const balances = progressiveOf(genomixR3Draft()).progressive!.balances!;
     expect(balances.analysis).toBeDefined();
-    expect(balances.monthly.length).toBeGreaterThan(0);
+    expect(balances.monthly!.length).toBeGreaterThan(0);
     expect(balances.totalBilledCents).toBe(GENOMIX_FIXED_CENTS);
   });
 
   it("advance billing creates a contract liability", () => {
     const balances = progressiveOf(genomixR3Draft()).progressive!.balances!;
-    const january = balances.monthly.find((m) => m.month === "2027-01")!;
+    const january = balances.monthly!.find((m) => m.month === "2027-01")!;
     expect(january.contractLiabilityCents).toBeGreaterThan(0);
     expect(january.contractAssetCents).toBe(0);
   });
@@ -385,13 +388,13 @@ describe("independent mutations", () => {
   });
 
   it("a realized credit leaves validation and support untouched", () => {
-    const base = progressiveOf(genomixR3Draft()).progressive!.reconciliation;
+    const base = progressiveOf(genomixR3Draft()).progressive!.reconciliation!;
     const after = progressiveOf(
       withRealizedCredit(genomixR3Draft(), "5,000.00", "q2", "2027-06-30"),
-    ).progressive!.reconciliation;
+    ).progressive!.reconciliation!;
     for (const poId of ["po-validation", "po-support"]) {
-      expect(after.byPo.find((p) => p.poId === poId)).toEqual(
-        base.byPo.find((p) => p.poId === poId),
+      expect(after!.byPo.find((p) => p.poId === poId)).toEqual(
+        base!.byPo.find((p) => p.poId === poId),
       );
     }
   });

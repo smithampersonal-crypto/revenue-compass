@@ -100,9 +100,10 @@ function slaComponent(): VcComponentDraft {
         {
           id: "vc-sla-o1",
           seq: 1,
-          label: "No service-level failure",
+          description: "No service-level failure",
           amountInput: "0.00",
           probabilityInput: "100",
+          isMostLikely: true,
         },
       ],
     },
