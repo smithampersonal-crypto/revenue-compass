@@ -96,8 +96,8 @@ export function buildProgressiveJournals(
 
   const pendingEvents: PendingAccountingEvent[] = input.pending.map((component) => ({
     id:
-      typeof component.detail?.identity === "string"
-        ? component.detail.identity
+      typeof component.detail?.["identity"] === "string"
+        ? (component.detail["identity"] as string)
         : `pending:${component.poId}:${component.reason}`,
     poId: component.poId,
     poName: component.poName,

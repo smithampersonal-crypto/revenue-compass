@@ -141,7 +141,7 @@ export function analyzeProgressiveContract(
       seq: po.seq,
       name: po.name,
       sspCents: po.sspCents,
-      sspConfidence: po.sspConfidence,
+      ...(po.sspConfidence ? { sspConfidence: po.sspConfidence } : {}),
     })),
   });
 
