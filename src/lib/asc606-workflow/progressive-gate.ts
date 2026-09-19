@@ -54,11 +54,15 @@ export function buildProgressiveGate(
     adapterBlocked.length > 0 ? "blocked" : "complete",
   );
 
-  const blockedReason =
-    dependencyBlockers[0]?.message ??
-    (engineBlocked ? progressive.blocked[0]?.message : undefined) ??
-    adapterBlocked[0]?.message ??
-    null;
+  // The first blocker a presenter should show: the dependency fact, then the
+  // engine's own blocked amount, then any other unusable fact.
+  let blockedReason: string | null = null;
+  const firstDependency = dependencyBlockers[0];
+  const firstEngine = progressive.blocked[0];
+  const firstAdapter = adapterBlocked[0];
+  if (firstDependency !== undefined) blockedReason = firstDependency.message;
+  else if (engineBlocked && firstEngine !== undefined) blockedReason = firstEngine.message;
+  else if (firstAdapter !== undefined) blockedReason = firstAdapter.message;
 
   return {
     dependencyBlockers: [...dependencyBlockers],
