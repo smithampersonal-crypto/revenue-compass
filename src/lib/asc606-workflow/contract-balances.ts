@@ -230,9 +230,22 @@ function progressiveBalanceWorkflow(
   const engineIssues: ContractBalanceIssue[] = balances.analysis.validation.results
     .filter((r) => !r.passed)
     .map((r) => ({ id: r.id, severity: r.severity, message: r.message }));
-  const validation = outcome(engineIssues);
+
+  // The canonical source-data checks do NOT disappear because the progressive
+  // engine produced a result: a billing or cash fact the accountant entered
+  // badly stays blocking here. Only the rules R3 deliberately supersedes are
+  // translated away, and each is named explicitly rather than dropped wholesale.
+  const carried = draftValidation.issues.filter(
+    (issue) => !R3_SUPERSEDED_BALANCE_ISSUES.has(issue.id),
+  );
+  const seen = new Set(engineIssues.map((issue) => `${issue.id}:${issue.message}`));
+  const validation = outcome([
+    ...engineIssues,
+    ...carried.filter((issue) => !seen.has(`${issue.id}:${issue.message}`)),
+  ]);
 
   const complete =
+    validation.blocking.length === 0 &&
     progressive.state === "complete" &&
     !balances.partial &&
     balances.analysis.validation.blockingFailures.length === 0 &&
