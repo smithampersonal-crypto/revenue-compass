@@ -138,6 +138,8 @@ const vcMeterSchema = z.object({
   rateAmountInput: text,
   rateQuantityInput: text,
   unit: text,
+  /** R3 tier threshold. Optional so earlier drafts stay readable. */
+  includedQuantityInput: text.optional(),
 });
 
 const vcUsagePeriodSchema = z.object({
@@ -165,6 +167,9 @@ const vcComponentSchema = z.object({
   resolutionAmountInput: text,
   resolutionRationale: text,
   meters: z.array(vcMeterSchema),
+  seriesPeriods: z.array(vcSeriesPeriodSchema).optional(),
+  realizedEvents: z.array(vcRealizedEventSchema).optional(),
+  billOnRealization: z.boolean().optional(),
   usagePeriods: z.array(vcUsagePeriodSchema),
 });
 
