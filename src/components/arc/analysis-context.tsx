@@ -567,7 +567,7 @@ export function AnalysisProvider({
       // this way — the server may hold a genuinely newer version.
       if (!currentSaveInFlight()) {
         setStatus((current) =>
-          current.kind === "unsaved" || current.kind === "error"
+          current.kind === "unsaved" || current.kind === "error" || current.kind === "contention"
             ? { kind: "saved", at: lastSavedAtRef.current }
             : current,
         );
