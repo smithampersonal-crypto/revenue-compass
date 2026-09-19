@@ -1130,7 +1130,17 @@ stays `arc.ai.prompt.v6`. R3 and R4 remain NOT STARTED.
       privileges are unchanged; no table, schema, RLS, grant, trigger or data
       change. NOT Cloud-applied — awaiting byte-level review.
 - [x] Gate 3 — dedicated SQL regression
-      `supabase/tests/post_r2_autosave_lock_timeout.sql` (17 assertions): the
+      **Harness correction (final):** contention is no longer orchestrated with
+dblink from inside PostgreSQL — dblink dials out from inside the database
+container, where the host-facing disposable URL is unreachable. The competing
+session is now a second, independent host-side psql session driven by
+`scripts/post-r2-contention.sh`, with a deterministic ready signal (the owner
+row's xmax), FIFO-controlled holder lifetime and trap cleanup. SQL assertions
+live in `supabase/tests/concurrency/*.sql`; the suite file keeps the routine
+surface/privilege and idle-timeout source assertions. Hosted verification of
+the 15s idle bound after Cloud apply is unchanged.
+
+`supabase/tests/post_r2_autosave_lock_timeout.sql` (17 assertions): the
       bounds exist and precede validation/locking; SECURITY DEFINER,
       `search_path` and service-role-only execution unchanged; a competing
       transaction holding the owner row makes the save fail in bounded time with
