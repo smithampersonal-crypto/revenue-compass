@@ -163,10 +163,24 @@ describe("Fixture C — re-analysis preserves user work", () => {
   });
 
   it("keeps an affirmation only while the reviewed value is unchanged", () => {
-    const first = run(fixtureAAnalysis());
+    const manualBilling: WorkflowDraft = {
+      ...createEmptyDraft(),
+      contractBalances: {
+        ...createEmptyDraft().contractBalances,
+        considerationEvents: [
+          {
+            ...createConsiderationEventDraft(1, "ce-manual-1"),
+            amountInput: "120000",
+            invoiceDate: "2027-01-01",
+            unconditionalRightDate: "2027-01-01",
+          },
+        ],
+      },
+    };
+    const first = run(fixtureAAnalysis(), manualBilling);
     const affirmedState: AiAnalysisState = {
       ...first.aiState,
-      reviewItems: first.aiState.reviewItems.map((item) => ({
+      reviewItems: first.aiState.reviewItems.map((item) => (item.state === "assumed" ? item : {
         ...item,
         state: "resolved" as const,
         resolution: {
@@ -556,7 +570,8 @@ describe("review fingerprints follow the material conclusion, not the display te
       if (item.targetKey === BILLING_KEY) continue;
       const before = itemFor(one.issues, item.targetKey);
       if (before === undefined) continue;
-      expect(item.state).toBe("resolved");
+      // R2: routine assumptions are never affirmable, so they simply persist.
+      expect(item.state).toBe(before.state === "assumed" ? "assumed" : "resolved");
     }
   });
 });
