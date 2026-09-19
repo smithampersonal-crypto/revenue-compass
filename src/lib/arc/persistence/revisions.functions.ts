@@ -305,7 +305,11 @@ export const saveDraftRevision = createServerFn({ method: "POST" })
       },
     );
 
-    if (!outcome.ok) return { ok: false, conflict: true };
+    if (!outcome.ok) {
+      return outcome.reason === "contention"
+        ? { ok: false, conflict: false, contention: true }
+        : { ok: false, conflict: true };
+    }
     return { ok: true, lockVersion: outcome.lockVersion, savedAt: outcome.savedAt };
   });
 
