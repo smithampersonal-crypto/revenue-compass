@@ -99,5 +99,6 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
     },
     unresolvedSignedCents,
     partial,
+    unusable,
   };
 }
