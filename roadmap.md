@@ -915,3 +915,26 @@ no OpenAI call, no Genomix run, no R2/R3/R4 work.
       `bun run verify` green: 152 files / 1,909 tests, clean typecheck and
       build, `audit:bundle` clean, 11 pre-existing shadcn lint warnings only.
       All 21 SQL suites replayed green (Docker unavailable); no SQL changed.
+
+#### R1 provenance / review-reopen acceptance patch
+
+- [x] Root cause: `compositeTargetGroup()` did not map `vc:<id>.allocation` to
+      the canonical `allocation` material group, so the consolidated allocation
+      review fingerprinted a non-existent `row["allocation"]` and a material
+      allocation edit could fail to reopen a resolved item. One line added to
+      the accepted composite-target classification path; no review state is
+      special-cased anywhere else.
+- [x] Allocation field provenance now uses the REAL canonical field names —
+      `allocationTreatment`, `targetPoId`, `relatesSpecifically`,
+      `consistentWithAllocationObjective`, `allocationRationale` — so Task 4
+      detects an edit at autosave and provenance means the same thing
+      everywhere. No merge-only aliases remain.
+- [x] Tests: `phase9g-r1-acceptance.spec.ts` now 35, adding immediate
+      edit detection for all five fields, resolved-review reopening for all
+      five (one `review_item_reopened` intent, original severity restored, no
+      inherited resolution, no unrelated item reopened), composite
+      classification of the allocation target and fingerprint isolation from
+      `description`, `estimationMethod` and `usagePeriods`. Full
+      `bun run verify` green: 152 files / 1,921 tests; `audit:bundle` clean;
+      11 pre-existing shadcn warnings. All 21 SQL suites replayed green; no SQL
+      changed.
