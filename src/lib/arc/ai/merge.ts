@@ -2055,11 +2055,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       } else {
         // Outcome probabilities, the constrained included amount and any
         // resolution amount are deliberately left blank rather than invented.
+        // A nil assumption with no defensible contract date fails closed here
+        // on the missing date rather than assuming when the estimate was made.
         raise({
           targetKey: fieldKeys.vc(canonicalId, "inception"),
           section,
           reasonCode: "missing_required_input",
-          reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
+          reason: zeroCandidate
+            ? `The contract gives no indication of an expected trigger for "${component.description.slice(0, 80)}", but it carries no date ARC can use as the date of the estimate. Enter the assessment date and the amount to include.`
+            : `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
           guidanceIds: component.guidanceIds,
           citations: component.citations,
           value: null,
