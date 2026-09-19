@@ -293,9 +293,9 @@ describe("R3: an unusable billing or cash fact blocks its dependent output", () 
         basis: "actual",
       },
     ]);
-    expect(
-      analyzeWorkflow(draft).progressiveBlocked.map((fact) => fact.code),
-    ).toContain("cash_collection.incomplete");
+    expect(analyzeWorkflow(draft).progressiveBlocked.map((fact) => fact.code)).toContain(
+      "cash_collection.incomplete",
+    );
     expect(buildWorkpaper(draft).journals).toBeNull();
   });
 });

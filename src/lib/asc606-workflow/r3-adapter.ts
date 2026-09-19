@@ -663,7 +663,11 @@ function cashCollections(
     const entered = collection.amountInput.trim() !== "" || collection.collectionDate !== "";
     if (!entered) continue;
     const amount = cents(collection.amountInput);
-    if (amount === null || !isUsableDate(collection.collectionDate) || !collection.considerationEventId) {
+    if (
+      amount === null ||
+      !isUsableDate(collection.collectionDate) ||
+      !collection.considerationEventId
+    ) {
       blocked.push({
         ownerKind: "billing_event",
         ownerId: collection.id,

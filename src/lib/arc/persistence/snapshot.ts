@@ -223,8 +223,11 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
     step1Conclusion: workflow.step1Conclusion,
     totals: {
       transactionPriceCents:
-        workflow.analysis?.totals.transactionPriceCents ?? progressive?.transactionPriceCents ?? null,
-      allocatedCents: workflow.analysis?.totals.allocatedCents ?? progressive?.allocatedCents ?? null,
+        workflow.analysis?.totals.transactionPriceCents ??
+        progressive?.transactionPriceCents ??
+        null,
+      allocatedCents:
+        workflow.analysis?.totals.allocatedCents ?? progressive?.allocatedCents ?? null,
       revenueCents:
         workflow.revenueSchedule?.totalCents ?? progressive?.scheduledRevenueCents ?? null,
       unscheduledRevenueCents: workflow.unscheduledRevenueCents,
