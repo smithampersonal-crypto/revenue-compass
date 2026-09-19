@@ -28,7 +28,27 @@ interface CodedError {
   message?: string;
 }
 
-function fail(operation: string, error: CodedError): never {
+/**
+ * Structured server-side diagnostics. The real database code and message are
+ * preserved here, in the server log, and NEVER handed to the browser: no
+ * credentials, token hashes, canonical draft contents, review payloads or
+ * source text ever appear in it.
+ */
+export function logAutosaveStoreFailure(
+  operation: string,
+  scope: Pick<AutosaveScope, "revisionId" | "guestWorkspaceId">,
+  error: CodedError,
+): void {
+  console.error("[arc.autosave.store]", {
+    operation,
+    scopeKind: scope.revisionId !== null ? "revision" : "guest",
+    code: error?.code ?? null,
+    message: error?.message ?? null,
+  });
+}
+
+function fail(operation: string, error: CodedError, scope?: AutosaveScope): never {
+  if (scope) logAutosaveStoreFailure(operation, scope, error);
   const thrown = new Error(`The autosave store is unavailable (${operation}).`, {
     cause: error,
   }) as Error & { code?: string };
@@ -38,6 +58,13 @@ function fail(operation: string, error: CodedError): never {
 
 /** The one conflict code the trusted transaction raises for a stale save. */
 export const AUTOSAVE_CONFLICT_CODE = "40001";
+
+/**
+ * Bounded lock contention: the trusted transaction hit its transaction-local
+ * `lock_timeout` waiting for the owner row. It wrote nothing, and it is NOT
+ * evidence that a newer saved version exists.
+ */
+export const AUTOSAVE_CONTENTION_CODE = "55P03";
 
 function firstRow<T>(data: unknown): T | null {
   if (Array.isArray(data)) return (data[0] as T) ?? null;
