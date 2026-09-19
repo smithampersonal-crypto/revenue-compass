@@ -457,6 +457,13 @@ export interface VcComponentDraft {
   resolutionAmountInput: string;
   resolutionRationale: string;
   meters: VcMeterDraft[];
+  // ---- Phase 9G-R3 additive facts ----------------------------------------
+  /** Declared distinct service periods a specific-series-period amount targets. */
+  seriesPeriods?: VcSeriesPeriodDraft[];
+  /** Realized actual variable amounts. Accountant-owned, never inferred. */
+  realizedEvents?: VcRealizedEventDraft[];
+  /** True when the accepted contract rule bills a realized amount. */
+  billOnRealization?: boolean;
   usagePeriods: VcUsagePeriodDraft[];
 }
 
