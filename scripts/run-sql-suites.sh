@@ -23,14 +23,14 @@ for staged in supabase/pending/*.sql; do
 done
 shopt -u nullglob
 
-# The contention suite needs a genuinely authenticated SECOND connection to the
-# same disposable database. It is handed the connection string the runner has
-# already resolved, as a psql variable, and the suite stores it in a
-# session-local setting with all output redirected, so the value is never echoed
-# into CI logs and never outlives the disposable psql session.
 for suite in supabase/tests/*.sql; do
   echo "== $suite"
-  psql "$DB_URL" -v ON_ERROR_STOP=1 -v arc_dsn="$DB_URL" -f "$suite"
+  psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$suite"
 done
+
+# Real contention needs two independent client sessions, so it is orchestrated
+# by the runner rather than from inside the database. The driver reuses the very
+# same disposable database URL and never prints it.
+bash scripts/post-r2-contention.sh "$DB_URL"
 
 echo "db:test — all SQL suites passed."

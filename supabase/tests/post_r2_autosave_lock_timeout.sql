@@ -1,43 +1,26 @@
--- ARC Post-R2 live regression patch — autosave lock bounding (defect 4).
+-- ARC Post-R2 live regression patch — autosave lock bounding (defect 4),
+-- routine surface assertions.
 --
 -- Proves the staged replacement of arc_save_draft_with_ai_reconciliation
--- bounds its wait on the owner row instead of blocking until the connection
--- pool is exhausted, and that a timed-out save writes NOTHING.
+-- declares both bounds, sets them before any validation or locking, and keeps
+-- its security and privilege invariants.
 --
--- Contention needs a second, genuinely concurrent session, so the competing
--- holder runs over dblink. The fixture rows the holder must see are committed
--- through that same side connection and removed at the end; everything this
--- session writes stays inside the rolled-back transaction below.
+-- The behavioural half of this regression — a genuinely concurrent competing
+-- transaction, the bounded 55P03 failure, the untouched draft/lock/sidecar/
+-- audit trail, the successful save after release and the PT409 stale save — is
+-- driven by scripts/post-r2-contention.sh, which the SQL suite runner executes
+-- straight after these suites. Contention needs two independent client
+-- sessions, which a single psql session cannot create (and which dblink cannot
+-- create either against local Supabase or CI, because it dials out from inside
+-- the database container where the host-facing URL is not reachable).
 --
--- The idle_in_transaction_session_timeout is asserted by reading the routine's
--- source rather than by sleeping 15s in the harness: a wall-clock idle test is
--- inherently flaky here. It is exercised by the controlled hosted verification
--- recorded in roadmap.md.
--- The second session must be genuinely authenticated: local Supabase (and CI)
--- require a password, so a DSN reconstructed from catalog settings cannot
--- connect. The runner hands this suite the authenticated connection string it
--- already resolved, as the psql variable :arc_dsn. It is stashed in a custom
--- session setting with all output redirected to /dev/null, so the value is
--- never echoed into CI output, and it is cleared at the end of the file; it
--- exists only inside this disposable psql session. Trust-auth harnesses that
--- pass no variable fall back to the reconstructed local socket DSN.
-\set QUIET on
-\o /dev/null
-\if :{?arc_dsn}
-select set_config('arc.test_dsn', :'arc_dsn', false);
-\else
-select set_config('arc.test_dsn', '', false);
-\endif
-\o
-\set QUIET off
-
+-- The idle_in_transaction_session_timeout is asserted from the routine's
+-- source rather than by sleeping 15s: a wall-clock idle test is inherently
+-- flaky here. It is exercised by the controlled hosted verification recorded
+-- in roadmap.md after Cloud apply.
 begin;
 
-create extension if not exists dblink;
-
 create temporary table arc_test_results (assertion text, passed boolean not null) on commit drop;
-
-/* ---------------------------------------------------------- 01 surface */
 
 insert into arc_test_results
 select '01 the routine bounds how long it waits for the owner row',
@@ -77,163 +60,6 @@ select '06 exactly one routine of this name exists',
        (select count(*) = 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
          where n.nspname = 'public' and p.proname = 'arc_save_draft_with_ai_reconciliation');
 
-/* ------------------------------------------------------- 07 contention */
-
-do $contention$
-declare
-  v_conn text := 'arc_lock_holder';
-  v_dsn text;
-  v_hash text := repeat('b', 64);
-  v_guest uuid;
-  v_run uuid := gen_random_uuid();
-  v_lock integer;
-  v_state jsonb;
-  v_draft text;
-  v_state_lock integer;
-  v_events bigint;
-  v_started timestamptz;
-  v_elapsed numeric;
-  v_code text;
-begin
-  -- Authenticated connection string handed over by the runner for this
-  -- disposable session only; falls back to the local socket DSN on trust-auth
-  -- harnesses. The connect is wrapped so a libpq failure can never echo the
-  -- connection string into test output.
-  v_dsn := nullif(current_setting('arc.test_dsn', true), '');
-  if v_dsn is null then
-    v_dsn := format('dbname=%s port=%s host=%s user=%s',
-                    current_database(), current_setting('port'),
-                    split_part(current_setting('unix_socket_directories'), ',', 1),
-                    current_user);
-  end if;
-  begin
-    perform dblink_connect(v_conn, v_dsn);
-  exception when others then
-    raise exception 'ARC SQL suite: could not open the second test connection (%)', sqlstate;
-  end;
-
-  -- Committed fixture: one temporary workspace with an AI sidecar, the exact
-  -- production shape a guest autosave reconciles.
-  perform dblink_exec(v_conn, format($f$
-    insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at)
-    values (%L, '{"transactionPriceInput":"120000"}'::jsonb, 'arc.workflow.v1',
-            now() + interval '9 hours');
-  $f$, v_hash));
-
-  select g.id into v_guest from public.guest_workspaces g where g.token_hash = v_hash;
-
-  perform dblink_exec(v_conn, format($f$
-    insert into public.ai_runs (id, guest_workspace_id, guest_token_hash, quota_scope, stage,
-                                source_set_fingerprint, pre_run_canonical_inputs, model,
-                                reasoning_effort, prompt_version, output_schema_version,
-                                guidance_registry_hash, openai_started_at, completed_at)
-    values (%L, %L, %L, 'guest', 'succeeded', 'fp-post-r2', '{}'::jsonb,
-            'm', 'high', 'p', 's', 'h', now(), now());
-    insert into public.ai_analysis_state (guest_workspace_id, last_successful_run_id,
-                                          source_set_fingerprint, field_provenance,
-                                          object_provenance, tombstones, review_items)
-    values (%L, %L, 'fp-post-r2', '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb);
-  $f$, v_run, v_guest, v_hash, v_guest, v_run));
-
-  -- A competing session holds the owner row, exactly as an abandoned
-  -- in-flight autosave would.
-  perform dblink_exec(v_conn, 'begin');
-  perform * from dblink(v_conn, format(
-    'select 1 from public.guest_workspaces where id = %L for update', v_guest)) as t(x integer);
-
-  v_started := clock_timestamp();
-  begin
-    select s.lock_version into v_lock
-      from public.arc_save_draft_with_ai_reconciliation(
-        null, v_hash, null, v_guest, 1, '{"transactionPriceInput":"140000"}'::jsonb,
-        'arc.workflow.v1',
-        jsonb_build_object('reviewItems', '[]'::jsonb), '[]'::jsonb, null) s;
-    v_code := 'none';
-  exception when others then
-    v_code := sqlstate;
-  end;
-  v_elapsed := extract(epoch from clock_timestamp() - v_started);
-
-  insert into arc_test_results
-  select '07 a contended save fails with 55P03 rather than waiting forever', v_code = '55P03';
-
-  insert into arc_test_results
-  select '08 it fails in bounded time', v_elapsed < 10;
-
-  select g.draft_json ->> 'transactionPriceInput', g.lock_version
-    into v_draft, v_lock
-    from public.guest_workspaces g where g.id = v_guest;
-
-  insert into arc_test_results
-  select '09 the timed-out save left the canonical draft untouched', v_draft = '120000';
-
-  insert into arc_test_results
-  select '10 the timed-out save did not advance the owner lock', v_lock = 1;
-
-  select s.review_items, s.lock_version into v_state, v_state_lock
-    from public.ai_analysis_state s where s.guest_workspace_id = v_guest;
-
-  insert into arc_test_results
-  select '11 the timed-out save left the AI sidecar untouched',
-         v_state = '[]'::jsonb and v_state_lock = 1;
-
-  select count(*) into v_events
-    from public.ai_review_events e where e.guest_workspace_id = v_guest;
-
-  insert into arc_test_results
-  select '12 the timed-out save appended no review event', v_events = 0;
-
-  -- Release the competing holder; the very same save must now succeed.
-  perform dblink_exec(v_conn, 'rollback');
-
-  select s.lock_version into v_lock
-    from public.arc_save_draft_with_ai_reconciliation(
-      null, v_hash, null, v_guest, 1, '{"transactionPriceInput":"140000"}'::jsonb,
-      'arc.workflow.v1',
-      jsonb_build_object('reviewItems', '[]'::jsonb),
-      jsonb_build_array(jsonb_build_object(
-        'type', 'yellow_affirmed', 'reviewItemId', 'item-1',
-        'targetKey', 'transactionPrice.input', 'section', 'step_3',
-        'reviewFingerprint', 'fp-1')), null) s;
-
-  insert into arc_test_results
-  select '13 once the competing lock is released the same save succeeds', v_lock = 2;
-
-  insert into arc_test_results
-  select '14 the owner lock advanced exactly once',
-         (select g.lock_version from public.guest_workspaces g where g.id = v_guest) = 2
-     and (select g.draft_json ->> 'transactionPriceInput' from public.guest_workspaces g
-           where g.id = v_guest) = '140000';
-
-  insert into arc_test_results
-  select '15 the reconciliation still appended exactly one audit event',
-         (select count(*) from public.ai_review_events e
-           where e.guest_workspace_id = v_guest) = 1;
-
-  -- A stale expected lock is still an optimistic-lock conflict, not contention.
-  begin
-    perform s.lock_version
-      from public.arc_save_draft_with_ai_reconciliation(
-        null, v_hash, null, v_guest, 1, '{"transactionPriceInput":"150000"}'::jsonb,
-        'arc.workflow.v1',
-        jsonb_build_object('reviewItems', '[]'::jsonb), '[]'::jsonb, null) s;
-    v_code := 'none';
-  exception when others then
-    v_code := sqlstate;
-  end;
-
-  insert into arc_test_results
-  select '16 a stale expected lock still raises PT409', v_code = 'PT409';
-
-  insert into arc_test_results
-  select '17 the rejected stale save changed nothing',
-         (select g.draft_json ->> 'transactionPriceInput' from public.guest_workspaces g
-           where g.id = v_guest) = '140000'
-     and (select g.lock_version from public.guest_workspaces g where g.id = v_guest) = 2;
-
-  perform dblink_disconnect(v_conn);
-end $contention$;
-
 /* -------------------------------------------------------------- gate */
 
 do $gate$
@@ -250,24 +76,3 @@ begin
 end $gate$;
 
 rollback;
-
--- The fixture rows were committed over the side connection, so they are
--- removed here, after this session's transaction has released them.
-delete from public.ai_analysis_state s
- using public.guest_workspaces g
- where g.id = s.guest_workspace_id and g.token_hash = repeat('b', 64);
-delete from public.ai_review_events e
- using public.guest_workspaces g
- where g.id = e.guest_workspace_id and g.token_hash = repeat('b', 64);
-delete from public.ai_runs r
- using public.guest_workspaces g
- where g.id = r.guest_workspace_id and g.token_hash = repeat('b', 64);
-delete from public.guest_workspaces where token_hash = repeat('b', 64);
-
--- The handed-over connection string is cleared from the session before this
--- disposable psql session ends. Output is redirected so it is never echoed.
-\set QUIET on
-\o /dev/null
-select set_config('arc.test_dsn', '', false);
-\o
-\set QUIET off
