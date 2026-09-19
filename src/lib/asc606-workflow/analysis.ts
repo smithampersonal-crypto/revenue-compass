@@ -424,6 +424,7 @@ export function analyzeWorkflow(
     contractGroups: [],
     progressive: null,
     progressiveBlocked: [],
+    progressiveGate: null,
   };
 }
 
