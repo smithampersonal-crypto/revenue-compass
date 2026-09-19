@@ -75,9 +75,9 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         </div>
 
         {gateBlocker !== null ? (
-          <Notice tone="warning" data-testid="progressive-outputs-dependency-blocked">
-            {gateBlocker}
-          </Notice>
+          <div data-testid="progressive-outputs-dependency-blocked">
+            <Notice tone="warning">{gateBlocker}</Notice>
+          </div>
         ) : null}
 
         {/* ---- Step 4 allocation, including provisional SSPs -------------- */}
