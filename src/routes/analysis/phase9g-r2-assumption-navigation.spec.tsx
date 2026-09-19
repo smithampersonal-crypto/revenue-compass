@@ -159,6 +159,7 @@ describe("R2 — assumption target navigation", () => {
         to: "/analysis",
         search: { contract: "c-1" },
         replace: true,
+        resetScroll: false,
       }),
     );
   });
@@ -200,6 +201,7 @@ describe("R2 — assumption target navigation", () => {
         to: "/analysis",
         search: { revision: "r-1" },
         replace: true,
+        resetScroll: false,
       }),
     );
   });
