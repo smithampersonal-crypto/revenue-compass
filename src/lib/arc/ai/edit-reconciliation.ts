@@ -430,6 +430,9 @@ function compositeTargetGroup(family: ObjectFamily, field: string): string | "ob
   if (family === "po" && field === SERVICE_PERIOD_FIELD) return "recognition";
   if (family === "modification" && field === PHASE_5C_FIELD) return "object";
   if (family === "vc" && field.startsWith(`${METER_PREFIX}.`)) return "usage";
+  // The variable-consideration allocation review names the whole allocation
+  // judgment, not a stored property, so it rests on the allocation group.
+  if (family === "vc" && field === "allocation") return "allocation";
   return null;
 }
 

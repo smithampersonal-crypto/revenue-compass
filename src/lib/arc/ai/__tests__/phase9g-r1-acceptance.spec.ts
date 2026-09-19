@@ -24,9 +24,9 @@ const SAAS_PO_ID = deriveCanonicalId("performance_obligation", R1_SAAS_PO_KEY);
 const SLA_VC_ID = deriveCanonicalId("variable_component", "vc:sla-service-credit");
 const ALLOCATION_KEYS = {
   treatment: fieldKeys.vc(SLA_VC_ID, "allocationTreatment"),
-  target: fieldKeys.vc(SLA_VC_ID, "allocationTargetPoId"),
-  relates: fieldKeys.vc(SLA_VC_ID, "allocationRelatesSpecifically"),
-  objective: fieldKeys.vc(SLA_VC_ID, "allocationConsistentWithObjective"),
+  target: fieldKeys.vc(SLA_VC_ID, "targetPoId"),
+  relates: fieldKeys.vc(SLA_VC_ID, "relatesSpecifically"),
+  objective: fieldKeys.vc(SLA_VC_ID, "consistentWithAllocationObjective"),
   rationale: fieldKeys.vc(SLA_VC_ID, "allocationRationale"),
 };
 
