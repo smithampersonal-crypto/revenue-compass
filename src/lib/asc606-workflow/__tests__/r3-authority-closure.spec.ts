@@ -92,7 +92,7 @@ describe("R3: one workflow-owned determination of presentable accounting", () =>
     },
     {
       name: "a cash collection with no billing event",
-      code: "cash.event",
+      code: "cash_collection",
       mutate: (draft) =>
         withCash(draft, [
           {
@@ -106,7 +106,7 @@ describe("R3: one workflow-owned determination of presentable accounting", () =>
     },
     {
       name: "a cash collection with an unusable amount",
-      code: "cash",
+      code: "cash_collection",
       mutate: (draft) =>
         withCash(draft, [
           {
@@ -355,7 +355,9 @@ function usageOnlyDraft(quantities: Record<string, string>): WorkflowDraft {
             includedQuantityInput: "50",
           },
         ],
-        seriesPeriods: [],
+        seriesPeriods: [
+          { id: "q1", seq: 1, label: "Q1 2027", startDate: "2027-01-01", endDate: "2027-03-31" },
+        ],
         realizedEvents: [],
         billOnRealization: false,
         usagePeriods: [{ id: "up-1", seq: 1, month: "2027-03", quantities }],
