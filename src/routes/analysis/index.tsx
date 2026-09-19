@@ -146,7 +146,7 @@ export function Asc606AnalysisArea() {
       // link is stale. Drop only this parameter and keep every other identity
       // hint; never fabricate a target or open an arbitrary section.
       consumedReviewRef.current = requestedReview;
-      void navigate({ to: "/analysis", search: withoutReview, replace: true });
+      void navigate({ to: "/analysis", search: withoutReview, replace: true, resetScroll: false });
       return;
     }
     consumedReviewRef.current = requestedReview;
