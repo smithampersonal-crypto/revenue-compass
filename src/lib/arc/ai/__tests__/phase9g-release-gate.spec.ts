@@ -24,7 +24,9 @@ function read(relative: string): string {
 function walk(relative: string, match: (file: string) => boolean): string[] {
   const absolute = path.join(root, relative);
   const out: string[] = [];
-  for (const entry of readdirSync(absolute)) {
+  // Deterministic order: migration replay depends on the filename timestamp,
+  // never on the order the filesystem happens to return entries in.
+  for (const entry of [...readdirSync(absolute)].sort()) {
     const child = path.join(absolute, entry);
     if (statSync(child).isDirectory()) {
       out.push(...walk(path.join(relative, entry), match));
@@ -32,7 +34,75 @@ function walk(relative: string, match: (file: string) => boolean): string[] {
       out.push(path.join(relative, entry));
     }
   }
-  return out;
+  return out.sort();
+}
+
+// The five migration files generated when the reviewed Post-R2 autosave
+// bounding and conflict-SQLSTATE changes were applied to Cloud. The conflict
+// change was submitted in four parts at routine boundaries; together with the
+// autosave file they are the accepted, frozen Post-R2 database state.
+const POST_R2_APPLIED: ReadonlyArray<readonly [string, string]> = [
+  [
+    "20260919181822_09396f1f-a301-46cb-892f-11307c442134.sql",
+    "873a59fe573c22d41ac06e199e66588e3f63cac8f7aee7c2c072800f367fb3ef",
+  ],
+  [
+    "20260919182118_0f2b88d8-edf9-459f-bf74-6f62c6e32545.sql",
+    "d28de23e70491040b6c4b573757b55cfbff3a7cdb51a1c7a157ccf1d31e40064",
+  ],
+  [
+    "20260919182256_bc74f2ad-8bdb-4c2c-a80e-44cd413c933b.sql",
+    "525c40f5be0690bb1c51221d658ca88951334245cf3294420b5f7dcfc384854e",
+  ],
+  [
+    "20260919182452_33edf847-c3f2-4853-be19-334c3068831e.sql",
+    "253c558c664ea6e127100ac1da0791677e6887d569eee9dd08efb93444727305",
+  ],
+  [
+    "20260919182906_7d2f5f4a-90a4-446c-b848-b25c6d0ec34e.sql",
+    "33e4bbda628d4d2df91a0b7e7f8a1e1fb8717d082fcae70ed2f7cf1df8839421",
+  ],
+];
+
+// The four parts that carry the conflict-SQLSTATE change.
+const CONFLICT_MIGRATIONS = POST_R2_APPLIED.slice(1).map(([file]) => file);
+const CONFLICT_ROUTINE_COUNT = 20;
+
+/**
+ * Replays `supabase/migrations` in filename order and returns the LAST
+ * definition of every routine — the only definition that describes the
+ * deployed function. A body ends at its dollar-quote terminator, written
+ * either as `$function$;` or as `$function$` on its own line followed by `;`.
+ */
+function effectiveRoutineBodies(): Map<string, string> {
+  const latest = new Map<string, string>();
+  for (const file of walk("supabase/migrations", (f) => f.endsWith(".sql"))) {
+    const text = readFileSync(path.join(root, file), "utf8");
+    let current: string | null = null;
+    for (const line of text.split("\n")) {
+      const dropped = /drop function (?:if exists )?public\.([a-z0-9_]+)/i.exec(line);
+      if (dropped) latest.delete(dropped[1]!);
+      const declared = /create or replace function\s+public\.([a-z0-9_]+)/i.exec(line);
+      if (declared) {
+        current = declared[1]!;
+        latest.set(current, "");
+      }
+      if (current) latest.set(current, `${latest.get(current) ?? ""}\n${line}`);
+      if (current && /^\s*\$[a-z_]*\$\s*;?\s*$/i.test(line) && !declared) current = null;
+    }
+  }
+  return latest;
+}
+
+function routinesDeclaredIn(files: readonly string[]): Set<string> {
+  const names = new Set<string>();
+  for (const file of files) {
+    const text = read(path.join("supabase/migrations", file));
+    for (const match of text.matchAll(/create or replace function\s+public\.([a-z0-9_]+)/gi)) {
+      names.add(match[1]!);
+    }
+  }
+  return names;
 }
 
 describe("Phase 9G release gate — frozen Task 9 migration", () => {
@@ -43,66 +113,59 @@ describe("Phase 9G release gate — frozen Task 9 migration", () => {
     expect(sha).toBe(TASK9_SHA);
   });
 
-  it("carries only the staged migrations awaiting acceptance, never duplicated", () => {
-    const STAGED = [
-      "20260919043000_post_r2_autosave_lock_timeout.sql",
-      "20260919060000_post_r2_conflict_sqlstate.sql",
-    ];
+  it("stages no pending SQL migration", () => {
+    // Post-R2: both staged files were applied to Cloud and now live in
+    // migration history. Nothing may remain in `supabase/pending`, or the SQL
+    // runner would reapply it on top of history and could mask an incomplete
+    // applied migration.
     let pending: string[] = [];
     try {
       pending = readdirSync(path.join(root, "supabase/pending"));
     } catch {
       pending = [];
     }
-    const staged = pending.filter((file) => file.endsWith(".sql")).sort();
-    // Post-R2: the autosave lock bounding and the non-retryable conflict
-    // SQLSTATE, both held for byte-level review before any Cloud apply. Neither
-    // may also exist as an applied migration, and nothing else may accumulate.
-    expect(staged).toEqual(STAGED);
-    const applied = readdirSync(path.join(root, "supabase/migrations"));
-    for (const file of STAGED) expect(applied).not.toContain(file);
+    expect(pending.filter((file) => file.endsWith(".sql")).sort()).toEqual([]);
   });
 
-  it("redefines every routine that raised an ARC-authored 40001", () => {
-    // A PostgREST client retries SQLSTATE 40001. ARC's own optimistic-lock and
-    // business conflicts are permanent for the request that hit them, so the
-    // staged conflict migration — the last definition in replay order — must
-    // redefine every routine that ever raised one, and must raise PT409.
-    // Only the LAST definition of a routine describes the deployed function.
-    const latest = new Map<string, string>();
-    for (const file of walk("supabase/migrations", (f) => f.endsWith(".sql"))) {
-      const text = readFileSync(path.join(root, file), "utf8");
-      let current: string | null = null;
-      for (const line of text.split("\n")) {
-        const dropped = /drop function (?:if exists )?public\.([a-z0-9_]+)/i.exec(line);
-        if (dropped) latest.delete(dropped[1]!);
-        const declared = /create or replace function\s+public\.([a-z0-9_]+)/i.exec(line);
-        if (declared) {
-          current = declared[1]!;
-          latest.set(current, "");
-        }
-        if (current) latest.set(current, `${latest.get(current) ?? ""}\n${line}`);
-        // The body ends at its dollar-quote terminator; anything after it
-        // belongs to other statements, not to this routine.
-        if (current && /^\s*\$[a-z_]*\$\s*;/i.test(line)) current = null;
-      }
-    }
-    const offenders = new Set(
-      [...latest.entries()]
-        .filter(([, body]) => body.includes("errcode = '40001'"))
-        .map(([name]) => name),
-    );
-    expect(offenders.size).toBeGreaterThan(0);
+  it("keeps the five accepted Post-R2 migrations byte-identical", () => {
+    const actual = POST_R2_APPLIED.map(([file]) => {
+      const sha = createHash("sha256")
+        .update(readFileSync(path.join(root, "supabase/migrations", file)))
+        .digest("hex");
+      return [file, sha] as const;
+    });
+    expect(actual).toEqual(POST_R2_APPLIED.map(([file, sha]) => [file, sha] as const));
+  });
 
-    const staged = readFileSync(
-      path.join(root, "supabase/pending/20260919060000_post_r2_conflict_sqlstate.sql"),
-      "utf8",
+  it("leaves no ARC-authored 40001 in any effective routine definition", () => {
+    // A PostgREST client retries SQLSTATE 40001, which saturated the database
+    // when ARC raised it for its own permanent business conflicts. The accepted
+    // conflict migration is the last definition of every affected routine, so
+    // the effective catalog must now be free of both unsafe forms.
+    const offenders = [...effectiveRoutineBodies().entries()]
+      .filter(
+        ([, body]) =>
+          body.includes("errcode = '40001'") || /exception\s+when\s+sqlstate\s+'40001'/i.test(body),
+      )
+      .map(([name]) => name)
+      .sort();
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps the conflict migration's 20 routines effectively on PT409", () => {
+    const declared = [...routinesDeclaredIn(CONFLICT_MIGRATIONS)].sort();
+    expect(declared).toHaveLength(CONFLICT_ROUTINE_COUNT);
+
+    const effective = effectiveRoutineBodies();
+    const missing = declared.filter((name) => !effective.has(name));
+    expect(missing).toEqual([]);
+
+    const withoutPt409 = declared.filter(
+      (name) => !(effective.get(name) ?? "").includes("errcode = 'PT409'"),
     );
-    for (const routine of offenders) {
-      expect(staged).toContain(`CREATE OR REPLACE FUNCTION public.${routine}(`);
-    }
-    expect(staged.replace(/^--.*$/gm, "")).not.toContain("40001");
-    expect(staged).toContain("errcode = 'PT409'");
+    // Every redefined routine raises the non-retryable conflict code. The
+    // immutability trigger only guards rows and raises its own codes.
+    expect(withoutPt409).toEqual(["arc_protect_revision_immutability"]);
   });
 });
 
