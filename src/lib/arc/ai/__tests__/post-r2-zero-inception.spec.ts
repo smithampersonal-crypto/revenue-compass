@@ -8,8 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { mergeAiAnalysis } from "@/lib/arc/ai/merge";
-import { createEmptyAiAnalysisState } from "@/lib/arc/ai/state";
+import { createEmptyAiAnalysisState, mergeAiAnalysis } from "../merge";
 import type { AiContractAnalysis } from "@/lib/arc/ai/schema";
 import { createEmptyDraft } from "@/lib/asc606-workflow";
 import { buildVariableConsiderationInput } from "@/lib/asc606-workflow/vc-adapter";
