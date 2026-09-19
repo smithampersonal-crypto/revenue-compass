@@ -1,0 +1,71 @@
+/**
+ * Phase 9G-R3 — the single workflow-owned dependency gate.
+ *
+ * One determination of whether the progressive contract's BALANCES and
+ * JOURNALS may be presented as authoritative accounting. Every production
+ * surface (the balance workpaper, the journal workpaper, finalization and the
+ * progressive results panel) reads THIS result, so no two presenters can ever
+ * disagree about whether an output is available.
+ *
+ * Presentation only: nothing is calculated here. The gate observes facts the
+ * adapter and the deterministic engine already reported.
+ *
+ * Central R3 invariant is preserved: allocation and determinable revenue stay
+ * available; only the output that mathematically depends on an unusable
+ * billing or cash fact is withheld.
+ */
+
+import {
+  mergeCalculationState,
+  type CalculationState,
+  type ProgressiveContractAnalysis,
+} from "@/lib/asc606-progressive";
+
+import type { BlockedFact } from "./r3-adapter";
+
+export interface ProgressiveGate {
+  /** Unusable billing / cash facts: the balance and journal dependencies. */
+  dependencyBlockers: BlockedFact[];
+  /** Engine-level blocked amounts (usage, variable consideration, allocation). */
+  engineBlocked: boolean;
+  balancesPresentable: boolean;
+  journalsPresentable: boolean;
+  /** The state every presenter must show; never "complete" while blocked. */
+  state: CalculationState;
+  blockedReason: string | null;
+}
+
+export function buildProgressiveGate(
+  progressive: ProgressiveContractAnalysis,
+  adapterBlocked: readonly BlockedFact[],
+): ProgressiveGate {
+  // Billing events and cash collections share the "billing_event" owner kind:
+  // they are exactly the facts the Phase 3 rollforward depends on.
+  const dependencyBlockers = adapterBlocked.filter((fact) => fact.ownerKind === "billing_event");
+  const engineBlocked = progressive.blocked.length > 0;
+
+  const balancesPresentable =
+    progressive.balances !== null && dependencyBlockers.length === 0 && !engineBlocked;
+  const journalsPresentable = balancesPresentable && progressive.journals !== null;
+
+  const state = mergeCalculationState(
+    progressive.state,
+    balancesPresentable ? "complete" : "blocked",
+    adapterBlocked.length > 0 ? "blocked" : "complete",
+  );
+
+  const blockedReason =
+    dependencyBlockers[0]?.message ??
+    (engineBlocked ? (progressive.blocked[0]?.message ?? null) : null) ??
+    adapterBlocked[0]?.message ??
+    null;
+
+  return {
+    dependencyBlockers: [...dependencyBlockers],
+    engineBlocked,
+    balancesPresentable,
+    journalsPresentable,
+    state,
+    blockedReason,
+  };
+}
