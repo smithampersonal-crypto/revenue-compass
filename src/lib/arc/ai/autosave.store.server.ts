@@ -184,7 +184,13 @@ export async function createAutosaveReconciliationStore(
       });
       // A stale save is an ordinary result, not an error the accountant sees.
       if (error?.code === AUTOSAVE_CONFLICT_CODE) return null;
-      if (error) fail("save", error);
+      // Bounded contention: nothing was written, and the caller may retry once
+      // with the SAME expected lock version. Deliberately not a conflict.
+      if (error?.code === AUTOSAVE_CONTENTION_CODE) {
+        logAutosaveStoreFailure("save-contention", args.scope, error);
+        return "contention";
+      }
+      if (error) fail("save", error, args.scope);
       const row = firstRow<{ lock_version: number; saved_at: string }>(data);
       if (row === null) return null;
       return { lockVersion: row.lock_version, savedAt: row.saved_at };
