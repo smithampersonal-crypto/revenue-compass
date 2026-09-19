@@ -202,9 +202,15 @@ export interface ContractBalanceDeps {
 function progressiveBalanceWorkflow(
   progressive: NonNullable<ReturnType<typeof analyzeWorkflow>["progressive"]>,
   draftValidation: ContractBalanceValidationOutcome,
+  blockedFacts: readonly BlockedFact[] = [],
 ): ContractBalanceWorkflowResult {
   const balances = progressive.balances;
-  if (!balances) {
+  // A billing or cash fact that could not structurally enter the Phase 3 input
+  // must not vanish behind a workpaper that presents itself as complete. The
+  // dependency block is carried into the balance presentation instead; Step 4
+  // and determinable revenue are untouched by it.
+  const billingBlocked = blockedFacts.filter((fact) => fact.ownerKind === "billing_event");
+  if (!balances || billingBlocked.length > 0) {
     return {
       validation: draftValidation,
       finalized: false,
