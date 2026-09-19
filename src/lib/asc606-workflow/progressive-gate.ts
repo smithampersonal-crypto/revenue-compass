@@ -56,7 +56,7 @@ export function buildProgressiveGate(
 
   const blockedReason =
     dependencyBlockers[0]?.message ??
-    (engineBlocked ? (progressive.blocked[0]?.message ?? null) : null) ??
+    (engineBlocked ? progressive.blocked[0]?.message : undefined) ??
     adapterBlocked[0]?.message ??
     null;
 
