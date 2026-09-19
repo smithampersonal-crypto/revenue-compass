@@ -17,7 +17,13 @@ import { normalizeCitationText } from "./citations";
 import { canonicalJson, stableHash, valueFingerprint } from "./identity";
 import type { AiReviewState } from "./schema";
 
-export type AiReviewItemState = "yellow" | "red" | "resolved";
+/**
+ * Phase 9G-R Task R2. `assumed` is a routine, low-risk ARC draft assumption:
+ * visible and auditable, but never actionable and never a blocker. It is
+ * deliberately NOT an auto-resolved yellow item — that would falsely imply the
+ * accountant approved it.
+ */
+export type AiReviewItemState = "assumed" | "yellow" | "red" | "resolved";
 
 /**
  * The immutable base severity of a review item: what kind of review item was
@@ -25,7 +31,7 @@ export type AiReviewItemState = "yellow" | "red" | "resolved";
  * "resolved"; `severity` always records what was resolved, so ARC never has to
  * infer the original severity from a reason code.
  */
-export type AiReviewSeverity = "yellow" | "red";
+export type AiReviewSeverity = "assumed" | "yellow" | "red";
 
 export type AiAffirmationMethod = "individual" | "page_all" | "global_all" | "edited";
 
@@ -99,6 +105,9 @@ export type AiReviewReasonCode =
   | "ai_proposal_omitted"
   | "ai_proposal_tombstoned"
   | "advisory_topic"
+  | "provisional_ssp_basis"
+  /** Phase 9G-R Task R2. An ARC-approved, low-risk routine draft assumption. */
+  | "routine_assumption"
   | "accountant_affirmation_required";
 
 /** Every valid machine reason code, for validating persisted values. */
@@ -118,6 +127,8 @@ export const AI_REVIEW_REASON_CODES: readonly AiReviewReasonCode[] = [
   "ai_proposal_omitted",
   "ai_proposal_tombstoned",
   "advisory_topic",
+  "provisional_ssp_basis",
+  "routine_assumption",
   "accountant_affirmation_required",
 ];
 
@@ -143,7 +154,21 @@ export const MANUAL_RED_REASONS: readonly ManualRedReason[] = [
   "not_applicable",
 ];
 
-export const AI_REVIEW_ITEM_STATES: readonly AiReviewItemState[] = ["yellow", "red", "resolved"];
+export const AI_REVIEW_ITEM_STATES: readonly AiReviewItemState[] = [
+  "assumed",
+  "yellow",
+  "red",
+  "resolved",
+];
+
+/** An item an accountant can act on. A routine assumption never is one. */
+export function isActionableReviewItem(item: { state: AiReviewItemState }): boolean {
+  return item.state === "yellow" || item.state === "red";
+}
+
+export function isAssumptionItem(item: { state: AiReviewItemState }): boolean {
+  return item.state === "assumed";
+}
 
 export function isAiReviewReasonCode(value: unknown): value is AiReviewReasonCode {
   return AI_REVIEW_REASON_CODES.includes(value as AiReviewReasonCode);
@@ -184,7 +209,7 @@ export function isAiReviewResolution(value: unknown): value is AiReviewResolutio
   return false;
 }
 
-export const AI_REVIEW_SEVERITIES: readonly AiReviewSeverity[] = ["yellow", "red"];
+export const AI_REVIEW_SEVERITIES: readonly AiReviewSeverity[] = ["assumed", "yellow", "red"];
 
 export function isAiReviewSeverity(value: unknown): value is AiReviewSeverity {
   return AI_REVIEW_SEVERITIES.includes(value as AiReviewSeverity);
@@ -200,6 +225,9 @@ export function resolutionAllowedForSeverity(
   severity: AiReviewSeverity,
   resolution: AiReviewResolution,
 ): boolean {
+  // A routine assumption is never approved, affirmed or manually resolved:
+  // there is nothing for the accountant to accept.
+  if (severity === "assumed") return false;
   return severity === "yellow" ? resolution.kind === "affirmed" : resolution.kind === "manual_red";
 }
 
@@ -299,7 +327,7 @@ export function reviewItemId(
   return `rev-${stableHash(`${section}\u0000${targetKey}\u0000${reasonCode}`)}`;
 }
 
-const RANK: Record<AiReviewItemState, number> = { red: 3, yellow: 2, resolved: 1 };
+const RANK: Record<AiReviewItemState, number> = { red: 4, yellow: 3, resolved: 2, assumed: 1 };
 
 /**
  * Does the Guidance machine policy itself require accountant review for a
@@ -328,6 +356,16 @@ export function classifyReviewState(input: ReviewDerivationInput): AiReviewItemS
   if (input.aiReviewState === "source_conflict") return "red";
   if (policyEngineGap(ids)) return "red";
   if (input.aiReviewState === "needs_user_input") return "red";
+  // Phase 9G-R Task R2. ARC — never the model — decides what is routine. The
+  // assumption path is reachable only after every fail-closed condition above
+  // has been cleared, and only for an ARC-approved routine assumption whose
+  // own AI state is confident.
+  if (
+    input.reasonCode === "routine_assumption" &&
+    (input.aiReviewState === "supported" || input.aiReviewState === "inference")
+  ) {
+    return "assumed";
+  }
   if (input.aiReviewState === "inference" || input.aiReviewState === "needs_review") {
     return "yellow";
   }

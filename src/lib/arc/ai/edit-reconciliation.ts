@@ -13,7 +13,7 @@
 import { parseUsdToCents, type WorkflowDraft } from "@/lib/asc606-workflow";
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
-import { valueFingerprint } from "./identity";
+import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
 import { type AiAnalysisState } from "./merge";
 import type { AiReviewItem, AiReviewSeverity } from "./review-state";
 
@@ -481,6 +481,18 @@ export function canonicalReviewTargetFingerprint(
   draft: WorkflowDraft,
   targetKey: string,
 ): string | null {
+  // Task R2. The consolidated provisional-SSP review rests on the whole Step 4
+  // standalone-selling-price workpaper: every PO's amount and basis, by
+  // identity and sorted, and nothing else. A recognition rationale edit must
+  // never reopen it, and an SSP amount or basis edit always must.
+  if (targetKey === PROVISIONAL_SSP_TARGET_KEY) {
+    return valueFingerprint({
+      provisionalSsp: draft.performanceObligations
+        .map((po) => ({ id: po.id, sspInput: po.sspInput, sspBasis: po.sspBasis }))
+        .sort((a, b) => a.id.localeCompare(b.id)),
+    });
+  }
+
   const parsed = parseCanonicalKey(targetKey);
   if (parsed.family === null) return null;
 
@@ -548,6 +560,7 @@ export function classifyReviewTarget(
   draft: WorkflowDraft,
   targetKey: string,
 ): TargetClassification {
+  if (targetKey === PROVISIONAL_SSP_TARGET_KEY) return "composite";
   const parsed = parseCanonicalKey(targetKey);
   if (parsed.family === null) return "unrepresentable";
   if (parsed.family === "object") {
@@ -692,6 +705,19 @@ export function reconcileAiEdits(input: ReconcileAiEditInput): ReconcileAiEditRe
     const before = canonicalReviewTargetFingerprint(previous, item.targetKey);
     const after = canonicalReviewTargetFingerprint(next, item.targetKey);
     const materialChanged = before !== null && after !== null && before !== after;
+
+    // Task R2. An assumption describes ARC's own draft. Once the accountant
+    // edits the underlying accounting, the assumption is simply no longer
+    // true, so it is dropped: no audit event, no manufactured affirmation and
+    // never a block on the edit.
+    if (item.state === "assumed") {
+      if (materialChanged) {
+        changed = true;
+        continue;
+      }
+      reviewItems.push(item);
+      continue;
+    }
 
     if (item.state === "resolved") {
       if (!materialChanged) {

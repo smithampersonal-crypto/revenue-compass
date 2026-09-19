@@ -130,3 +130,10 @@ export const fieldKeys = {
   topic: (topic: string) => `additionalTopic:${topic}`,
   issue: (semanticKey: string) => `issue:${semanticKey}`,
 } as const;
+
+/**
+ * Phase 9G-R Task R2. The single consolidated provisional standalone-selling-
+ * price judgment. It is a real canonical composite target: Task 4 fingerprints
+ * the whole Step 4 SSP workpaper behind it, never a synthetic null.
+ */
+export const PROVISIONAL_SSP_TARGET_KEY = "step4.provisionalSsp";

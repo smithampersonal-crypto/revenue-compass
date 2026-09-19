@@ -22,9 +22,9 @@
 
 import { presentAiFailure, type AiFailurePresentation } from "./failure-presentation";
 import {
+  partitionAiReviewItems,
   sanitizeFieldProvenance,
   sanitizeObjectProvenance,
-  toAiReviewItemDtos,
   type AiFieldProvenanceDto,
   type AiObjectProvenanceDto,
   type AiReviewItemDto,
@@ -119,6 +119,13 @@ export interface AiWorkspaceStateDto {
    * shorter, reassuring review list.
    */
   reviewItems: AiReviewItemDto[];
+  /**
+   * Phase 9G-R Task R2. ARC's own routine draft assumptions. They are visible,
+   * evidenced and auditable, but never actionable and never counted towards
+   * finalization, so they are deliberately kept out of `reviewItems`.
+   */
+  assumptionItems: AiReviewItemDto[];
+  assumptionCount: number;
   /**
    * True when any persisted review entry failed normalization. Review actions
    * are unavailable and finalization stays fail-closed while it is true; the
@@ -337,6 +344,14 @@ export async function aiWorkspaceStateHandler(
     candidate,
   });
 
+  // Fail closed: a payload that could not be read completely presents no
+  // review items and no assumptions at all, so no review action can be
+  // offered against a partially understood sidecar.
+  const partitioned =
+    snapshot.reviewPayloadMalformed === true
+      ? { reviewItems: [], assumptionItems: [], outstandingActionableCount: 0 }
+      : partitionAiReviewItems(snapshot.reviewItems ?? []);
+
   return {
     hasAnalysis,
     activeRun: active ? runDto(active) : null,
@@ -346,13 +361,9 @@ export async function aiWorkspaceStateHandler(
     hasIncludedSources: snapshot.hasIncludedSources,
     sourceSetFingerprint: snapshot.currentSourceSetFingerprint,
     reviewIssueCount: snapshot.outstandingReviewIssueCount,
-    // Fail closed: a payload that could not be read completely presents no
-    // review items at all, so no review action can be offered against a
-    // partially understood sidecar.
-    reviewItems:
-      snapshot.reviewPayloadMalformed === true
-        ? []
-        : toAiReviewItemDtos(snapshot.reviewItems ?? []),
+    reviewItems: partitioned.reviewItems,
+    assumptionItems: partitioned.assumptionItems,
+    assumptionCount: partitioned.assumptionItems.length,
     reviewPayloadMalformed: snapshot.reviewPayloadMalformed === true,
     fieldProvenance: sanitizeFieldProvenance(snapshot.fieldProvenance),
     objectProvenance: sanitizeObjectProvenance(snapshot.objectProvenance),

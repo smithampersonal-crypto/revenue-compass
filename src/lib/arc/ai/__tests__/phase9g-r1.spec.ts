@@ -57,11 +57,11 @@ function term(
 }
 
 describe("R1 — schema and prompt versions", () => {
-  it("pins the AI output schema to v4", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v4");
+  it("pins the AI output schema to v5", () => {
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v5");
   });
 
-  it("accepts the Genomix benchmark analysis under the strict v4 schema", () => {
+  it("accepts the Genomix benchmark analysis under the strict v5 schema", () => {
     expect(() => aiContractAnalysisSchema.parse(genomixR1Analysis())).not.toThrow();
   });
 

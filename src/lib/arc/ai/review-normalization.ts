@@ -94,6 +94,37 @@ function parseLegacyOrCurrentReviewItem(entry: unknown): AiReviewItem | null {
     : null;
 
   const persistedState = row["state"];
+
+  // Phase 9G-R Task R2. A routine assumption has exactly one valid persisted
+  // shape. Anything else — an assumed row carrying a resolution, a mismatched
+  // severity, or a resolved row claiming assumed severity — is malformed and
+  // is rejected rather than quietly reinterpreted.
+  const claimsAssumed = persistedState === "assumed" || row["severity"] === "assumed";
+  if (claimsAssumed) {
+    const resolutionValue = row["resolution"];
+    if (persistedState !== "assumed" || row["severity"] !== "assumed") return null;
+    if (typeof row["reviewFingerprint"] !== "string") return null;
+    if (resolutionValue !== undefined && resolutionValue !== null) return null;
+    if (affirmedAt !== null || affirmedMethod !== null) return null;
+    if (row["affirmedAt"] != null || row["affirmedMethod"] != null) return null;
+    return {
+      id: row["id"],
+      targetKey: row["targetKey"],
+      section: row["section"],
+      state: "assumed",
+      severity: "assumed",
+      reasonCode,
+      reason: row["reason"],
+      guidanceIds,
+      citations: parseCitations(row["citations"]),
+      valueFingerprint: typeof row["valueFingerprint"] === "string" ? row["valueFingerprint"] : "",
+      reviewFingerprint,
+      resolution: null,
+      affirmedAt: null,
+      affirmedMethod: null,
+    };
+  }
+
   const legacyResolution: AiReviewResolution | null =
     persistedState === "resolved" &&
     row["resolution"] === undefined &&

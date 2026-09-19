@@ -45,6 +45,8 @@ function workspace(items: AiReviewItemDto[]): AiWorkspaceStateDto {
     sourceSetFingerprint: "fp",
     reviewIssueCount: items.length,
     reviewItems: items,
+    assumptionItems: [],
+    assumptionCount: 0,
     reviewPayloadMalformed: false,
     fieldProvenance: {},
     objectProvenance: {},

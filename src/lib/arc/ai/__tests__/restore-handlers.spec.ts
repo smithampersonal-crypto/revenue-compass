@@ -91,6 +91,8 @@ function fixture(options: Options = {}): {
       outstandingReviewIssueCount: 0,
       guestWorkspaceExpiresAt: null,
       reviewItems: [],
+      assumptionItems: [],
+      assumptionCount: 0,
       reviewPayloadMalformed: false,
     }),
     loadRestoreCandidate: async (_caller: AiCallerScope, runId: string) =>

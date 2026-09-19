@@ -115,6 +115,8 @@ function fixture(options: Options = {}): {
         : { id: "33333333-3333-4333-8333-333333333333", lockVersion: 4 },
     loadWorkspaceSnapshot: async () => ({
       reviewItems: options.items ?? [item()],
+      assumptionItems: [],
+      assumptionCount: 0,
       reviewPayloadMalformed: options.malformed === true,
     }),
   } as unknown as AiWorkspaceStore;

@@ -18,6 +18,8 @@ const baseWorkspace: AiWorkspaceStateDto = {
   sourceSetFingerprint: "source-fingerprint",
   reviewIssueCount: 0,
   reviewItems: [],
+  assumptionItems: [],
+  assumptionCount: 0,
   reviewPayloadMalformed: false,
   fieldProvenance: {},
   objectProvenance: {},

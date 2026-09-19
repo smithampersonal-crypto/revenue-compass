@@ -134,6 +134,14 @@ async function ownerScopeFor(
   };
 }
 
+/*
+ * Phase 9G-R Task R2. A routine assumption is never actionable. The trusted
+ * routines already require a persisted severity of exactly `yellow` to affirm
+ * and exactly `red` to resolve, so an assumed item is rejected inside the same
+ * transaction, before any state, lock version or audit event can move. It
+ * surfaces here as the neutral "not available" copy below.
+ */
+
 /** Database detail never reaches the browser; only settled copy does. */
 function safeStoreError(error: unknown): Error {
   const code = (error as { code?: unknown } | null)?.code;

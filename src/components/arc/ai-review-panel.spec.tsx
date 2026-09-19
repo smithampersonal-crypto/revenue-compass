@@ -63,6 +63,8 @@ function workspace(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceSta
     sourceSetFingerprint: "fp",
     reviewIssueCount: 0,
     reviewItems: [],
+    assumptionItems: [],
+    assumptionCount: 0,
     reviewPayloadMalformed: false,
     fieldProvenance: {},
     objectProvenance: {},
