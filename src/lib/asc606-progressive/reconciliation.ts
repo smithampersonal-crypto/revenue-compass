@@ -170,7 +170,11 @@ export function reconcileProgressive(
         );
         rowReconciled = false;
       }
-      if (recognizedCents > row.allocatedCents) {
+      // An unresolved DECREASE has already reduced the allocated amount while
+      // the revenue it will reverse is still recognized, so the ceiling is the
+      // allocation before that pending reduction.
+      const recognitionCeiling = row.allocatedCents - Math.min(pendingCents, 0);
+      if (recognizedCents > recognitionCeiling) {
         failures.push(`"${row.name}": recognized revenue exceeds its allocated amount.`);
         rowReconciled = false;
       }
