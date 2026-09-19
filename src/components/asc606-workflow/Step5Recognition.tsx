@@ -50,43 +50,113 @@ export function Step5Recognition({
       </AiReviewTarget>
 
       {po.recognitionMethod === "over_time_ratable" ? (
-        <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <AiReviewTarget targetKey={`po:${po.id}.serviceStart`}>
-              <Field label="Service start date (inclusive)">
+        <>
+          <AiReviewTarget targetKey={`po:${po.id}.overTimeMeasure`}>
+            <Field label="Measure of progress">
+              <select
+                className={inputClass}
+                value={po.overTimeMeasure ?? "time_based"}
+                onChange={(e) =>
+                  patch(po.id, {
+                    overTimeMeasure: e.target.value as "time_based" | "input_measure",
+                  })
+                }
+              >
+                <option value="time_based">Time based — daily ratable</option>
+                <option value="input_measure">Input measure — units incurred</option>
+              </select>
+            </Field>
+          </AiReviewTarget>
+
+          {po.overTimeMeasure === "input_measure" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AiReviewTarget targetKey={`po:${po.id}.totalExpectedUnits`}>
+                <Field label="Total contracted units">
+                  <input
+                    className={inputClass}
+                    inputMode="decimal"
+                    value={po.totalExpectedUnitsInput ?? ""}
+                    onChange={(e) => patch(po.id, { totalExpectedUnitsInput: e.target.value })}
+                  />
+                </Field>
+              </AiReviewTarget>
+              <Field label="Unit label">
                 <input
-                  type="date"
                   className={inputClass}
-                  value={po.serviceStart}
-                  onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
+                  value={po.unitLabel ?? ""}
+                  placeholder="hours"
+                  onChange={(e) => patch(po.id, { unitLabel: e.target.value })}
                 />
               </Field>
+            </div>
+          ) : (
+            <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AiReviewTarget targetKey={`po:${po.id}.serviceStart`}>
+                  <Field label="Service start date (inclusive)">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={po.serviceStart}
+                      onChange={(e) => patch(po.id, { serviceStart: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`po:${po.id}.serviceEnd`}>
+                  <Field label="Service end date (inclusive)">
+                    <input
+                      type="date"
+                      className={inputClass}
+                      value={po.serviceEnd}
+                      onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+              </div>
             </AiReviewTarget>
-            <AiReviewTarget targetKey={`po:${po.id}.serviceEnd`}>
-              <Field label="Service end date (inclusive)">
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={po.serviceEnd}
-                  onChange={(e) => patch(po.id, { serviceEnd: e.target.value })}
-                />
-              </Field>
-            </AiReviewTarget>
-          </div>
-        </AiReviewTarget>
+          )}
+        </>
       ) : null}
 
       {po.recognitionMethod === "point_in_time" ? (
-        <AiReviewTarget targetKey={`po:${po.id}.recognitionDate`}>
-          <Field label="Recognition date">
-            <input
-              type="date"
-              className={inputClass}
-              value={po.recognitionDate}
-              onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
-            />
-          </Field>
-        </AiReviewTarget>
+        <>
+          <AiReviewTarget targetKey={`po:${po.id}.transferStatus`}>
+            <Field label="Transfer of control">
+              <select
+                className={inputClass}
+                value={po.transferStatus ?? ""}
+                onChange={(e) =>
+                  patch(po.id, {
+                    transferStatus:
+                      (e.target.value || undefined) as PoDraft["transferStatus"],
+                  })
+                }
+              >
+                <option value="">Select…</option>
+                <option value="transferred">Transferred — date known</option>
+                <option value="not_yet_transferred">Not yet transferred — date not yet known</option>
+              </select>
+            </Field>
+          </AiReviewTarget>
+
+          {po.transferStatus === "not_yet_transferred" ? (
+            <Notice>
+              Transfer has not happened yet, so the amount allocated to this obligation stays
+              unrecognized and is reported as awaiting a transfer date. No date is assumed.
+            </Notice>
+          ) : (
+            <AiReviewTarget targetKey={`po:${po.id}.recognitionDate`}>
+              <Field label="Recognition date">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={po.recognitionDate}
+                  onChange={(e) => patch(po.id, { recognitionDate: e.target.value })}
+                />
+              </Field>
+            </AiReviewTarget>
+          )}
+        </>
       ) : null}
 
       <AiReviewTarget targetKey={`po:${po.id}.recognitionRationale`}>
