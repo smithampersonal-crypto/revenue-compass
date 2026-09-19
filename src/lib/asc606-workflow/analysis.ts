@@ -195,6 +195,7 @@ export function analyzeWorkflow(
     const unresolved = progressive.recognition
       ? sumSignedPendingCents(progressive.recognition.pending)
       : 0;
+    const progressiveGate = buildProgressiveGate(progressive, built.blocked);
     return {
       workflowValidation,
       step1Conclusion,
