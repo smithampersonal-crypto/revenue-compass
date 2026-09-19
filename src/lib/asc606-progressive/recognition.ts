@@ -14,6 +14,7 @@
  */
 
 import {
+  isValidCents,
   isValidIsoDate,
   monthKeyOf,
   proportionOfCents,
@@ -263,6 +264,31 @@ export function generateProgressiveRevenueSchedule(
   const blocked: BlockedComponent[] = [];
 
   for (const { po, allocatedCents } of ordered) {
+    // R3 Part 1 hardening: an invalid allocation is category A at the boundary.
+    // It is never carried into a pending bucket, and it blocks ONLY this PO.
+    if (!isValidCents(allocatedCents) || allocatedCents < 0) {
+      blocked.push({
+        poId: po.id,
+        poName: po.name,
+        amountCents: 0,
+        code: "allocation.invalid",
+        message: `Performance obligation "${po.name}" has an invalid allocated amount.`,
+      });
+      byPo.push({
+        poId: po.id,
+        poName: po.name,
+        method: po.recognitionMethod,
+        allocatedCents: 0,
+        progress: null,
+        scheduledCents: 0,
+        pendingCents: 0,
+        blockedCents: 0,
+        state: "blocked",
+        reason: null,
+      });
+      continue;
+    }
+
     const base = {
       poId: po.id,
       poName: po.name,
@@ -337,13 +363,29 @@ export function generateProgressiveRevenueSchedule(
 
       case "point_in_time": {
         const date = po.recognitionDate;
-        const unknown =
-          po.transferDateUnknown === true || date === undefined || date === null || date === "";
-        if (unknown) {
+        const hasDate = date !== undefined && date !== null && date !== "";
+        const markedUnknown = po.transferDateUnknown === true;
+        if (markedUnknown && hasDate) {
+          // Contradictory input: cannot be both "not yet transferred" and dated.
+          block(
+            "recognition.point_in_time.contradictory",
+            `Performance obligation "${po.name}" is marked as having no known transfer date but also carries one.`,
+          );
+          break;
+        }
+        if (markedUnknown) {
           // Category C: the treatment is known, the transfer has not happened.
           // The allocated amount is RETAINED as pending, never recognized and
           // never dropped, and no date is fabricated.
           pend("awaiting_transfer_date");
+          break;
+        }
+        if (!hasDate) {
+          // An ordinary missing input is NOT a future-event assumption.
+          block(
+            "recognition.point_in_time.date_missing",
+            `Performance obligation "${po.name}" needs a transfer date, or must be marked as not yet transferred.`,
+          );
           break;
         }
         if (!isValidIsoDate(date)) {

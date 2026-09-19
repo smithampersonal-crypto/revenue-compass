@@ -74,7 +74,11 @@ function genomixSchedule(
         seq: 2,
         name: "Validation package",
         recognitionMethod: "point_in_time",
-        ...(overrides.transferDate ? { recognitionDate: overrides.transferDate } : {}),
+        // R3 Part 1: "not yet transferred" must be explicit. An absent date on
+        // its own is an ordinary missing input, not a future-event assumption.
+        ...(overrides.transferDate
+          ? { recognitionDate: overrides.transferDate }
+          : { transferDateUnknown: true }),
       },
       allocatedCents: VALIDATION,
     },

@@ -20,7 +20,7 @@
  * and no mutable global state. Money is integer cents everywhere.
  */
 
-import type { Cents } from "@/lib/asc606";
+import { sumCents, type Cents } from "@/lib/asc606";
 
 /**
  * Readiness of one deterministic calculation.
@@ -115,16 +115,18 @@ export function isCalculable(state: CalculationState): boolean {
   return state !== "blocked";
 }
 
+/**
+ * Both sums route through the canonical `sumCents` helper so every element is
+ * asserted to be valid integer cents and the aggregate is range-checked. A
+ * BigInt total outside ARC's supported range throws instead of degrading into
+ * an imprecise JavaScript number.
+ */
 export function sumPendingCents(components: readonly PendingComponent[]): Cents {
-  let total = 0n;
-  for (const component of components) total += BigInt(component.amountCents);
-  return Number(total);
+  return sumCents(components.map((component) => component.amountCents));
 }
 
 export function sumBlockedCents(components: readonly BlockedComponent[]): Cents {
-  let total = 0n;
-  for (const component of components) total += BigInt(component.amountCents);
-  return Number(total);
+  return sumCents(components.map((component) => component.amountCents));
 }
 
 export class ProgressiveAccountingError extends Error {
