@@ -391,16 +391,30 @@ describe("R2 — version pins", () => {
 
 describe("R2 — an assumption is never an action or an approval", () => {
   it("offers no resolution path for an assumed severity", () => {
-    expect(resolutionAllowedForSeverity("assumed", null)).toBe(false);
-    expect(resolutionAllowedForSeverity("yellow", null)).toBe(true);
-    expect(resolutionAllowedForSeverity("red", null)).toBe(true);
+    const affirmed = {
+      kind: "affirmed",
+      at: "2027-02-01T00:00:00.000Z",
+      method: "individual",
+      reviewFingerprint: "f",
+    } as const;
+    const manual = {
+      kind: "manual_red",
+      at: "2027-02-01T00:00:00.000Z",
+      reason: "not_applicable",
+      note: null,
+      reviewFingerprint: "f",
+    } as const;
+    expect(resolutionAllowedForSeverity("assumed", affirmed)).toBe(false);
+    expect(resolutionAllowedForSeverity("assumed", manual)).toBe(false);
+    expect(resolutionAllowedForSeverity("yellow", affirmed)).toBe(true);
+    expect(resolutionAllowedForSeverity("red", manual)).toBe(true);
   });
 
   it("drops the assumption when the accountant edits the underlying accounting", () => {
     const first = merge(fixtureAAnalysis());
     const assumption = first.issues.find((item) => item.state === "assumed")!;
     const edited = structuredClone(first.draft);
-    edited.contractCriteria.collectibilityProbable.answer = false;
+    edited.contract.criteria.collectibility_probable.answer = false;
     const reconciled = reconcileAiEdits({
       previousDraft: first.draft,
       nextDraft: edited,
