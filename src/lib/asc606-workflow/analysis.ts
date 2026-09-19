@@ -190,11 +190,13 @@ export function analyzeWorkflow(
       workflowValidation,
       step1Conclusion,
       // A contract awaiting a future operational fact is not finalizable, but
-      // its known accounting is fully available.
-      finalized: progressive.state === "complete",
+      // its known accounting is fully available. An adapter-level fact that
+      // could not be used also keeps the analysis unfinalizable: a fact never
+      // disappears merely because the calculation could proceed without it.
+      finalized: progressive.state === "complete" && built.blocked.length === 0,
       blockedReason:
-        progressive.state === "blocked"
-          ? "Some facts this contract depends on cannot be used yet."
+        progressive.state === "blocked" || built.blocked.length > 0
+          ? (built.blocked[0]?.message ?? "Some facts this contract depends on cannot be used yet.")
           : null,
       adapterErrors: [],
       engineValidation: null,
@@ -450,6 +452,30 @@ export function previewAllocation(draft: WorkflowDraft): AllocationPreview {
   // A contract with variable consideration is allocated by the Phase 5B
   // engine through its allocation-only path: Step 4 never depends on Step 5
   // recognition information, and this layer never re-derives the allocation.
+  // Phase 9G-R3: one authority. A progressive contract's Step 4 allocation IS
+  // the allocation the rest of the workpaper uses; the legacy preview below is
+  // never consulted for it, so a treatment the progressive engine supports can
+  // never be rejected here.
+  if (draftRequiresProgressive(draft)) {
+    const workflow = analyzeWorkflow(draft);
+    const rows = workflow.allocation;
+    if (rows === null) {
+      if (workflow.blockedReason) issues.push(workflow.blockedReason);
+      for (const fact of workflow.progressiveBlocked) issues.push(fact.message);
+      if (issues.length === 0) issues.push("Allocation is not yet calculable.");
+      return empty();
+    }
+    let total = 0n;
+    for (const row of rows) total += BigInt(row.allocatedCents);
+    return {
+      rows,
+      totalSspCents: rows[0]?.totalSspCents ?? null,
+      totalAllocatedCents: Number(total),
+      variable: null,
+      issues,
+    };
+  }
+
   if (draft.hasVariableConsideration) {
     const built = buildVariableConsiderationAllocationInput(draft);
     if (!built.ok) {

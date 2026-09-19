@@ -147,6 +147,9 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
           code: "progress_event.incomplete",
           message: `A progress entry for "${name}" needs both a date and a quantity.`,
         });
+        // FAIL CLOSED: the unusable entry is retained as unusable, so this
+        // obligation's recognition blocks. It is never silently omitted.
+        events.push({ id: event.id, date: event.date, units: units ?? UNUSABLE });
         continue;
       }
       events.push({ id: event.id, date: event.date, units });
@@ -166,8 +169,15 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
   return base;
 }
 
-function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): VcSeriesPeriod[] {
+interface SeriesPeriodFacts {
+  periods: VcSeriesPeriod[];
+  /** True when at least one declared period could not be used. */
+  invalid: boolean;
+}
+
+function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): SeriesPeriodFacts {
   const periods: VcSeriesPeriod[] = [];
+  let invalid = false;
   for (const period of [...(component.seriesPeriods ?? [])].sort((a, b) => a.seq - b.seq)) {
     if (period.startDate === "" || period.endDate === "") {
       blocked.push({
@@ -177,6 +187,9 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): VcS
         code: "series_period.incomplete",
         message: "A service period needs both a start date and an end date.",
       });
+      // FAIL CLOSED: an unusable period is not dropped; it makes every amount
+      // that depends on this component's service periods unusable too.
+      invalid = true;
       continue;
     }
     periods.push({
@@ -186,7 +199,7 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): VcS
       endDate: period.endDate,
     });
   }
-  return periods;
+  return { periods, invalid };
 }
 
 function toProgressiveVcComponent(
@@ -194,7 +207,10 @@ function toProgressiveVcComponent(
   blocked: BlockedFact[],
 ): ProgressiveVcComponent {
   const name = component.description || component.id;
-  const periods = seriesPeriods(component, blocked);
+  const { periods, invalid: periodsInvalid } = seriesPeriods(component, blocked);
+  // Any unusable dependent fact makes this component's amounts unusable, so the
+  // layer it feeds blocks instead of quietly calculating without it.
+  let unusable = periodsInvalid;
 
   if (component.treatment === "usage_as_incurred") {
     // Usage is expressed as its own rule plus the accountant's actuals; its
@@ -207,8 +223,8 @@ function toProgressiveVcComponent(
       treatment: "specific_series_period",
       ...(component.targetPoId ? { targetPoId: component.targetPoId } : {}),
       seriesPeriods: periods,
-      estimateCents: 0,
-      includedCents: 0,
+      estimateCents: unusable ? UNUSABLE : 0,
+      includedCents: unusable ? UNUSABLE : 0,
     };
   }
 
@@ -255,6 +271,17 @@ function toProgressiveVcComponent(
         code: "vc.realized_event.incomplete",
         message: `A realized amount for "${name}" needs both a date and an amount.`,
       });
+      // FAIL CLOSED: the unusable realized amount blocks this component rather
+      // than disappearing from the accounting conclusion.
+      unusable = true;
+      realized.push({
+        id: event.id,
+        date: event.date,
+        amountCents: amount ?? UNUSABLE,
+        ...(event.seriesPeriodId ? { seriesPeriodId: event.seriesPeriodId } : {}),
+        billable: component.billOnRealization === true,
+        description: event.description,
+      });
       continue;
     }
     realized.push({
@@ -296,6 +323,7 @@ function toProgressiveVcComponent(
         code: "vc.resolution.incomplete",
         message: `The resolution of "${name}" needs both a date and an amount.`,
       });
+      unusable = true;
     } else {
       realized.push({
         id: resolutionEventId(component),
@@ -317,8 +345,8 @@ function toProgressiveVcComponent(
     seriesPeriods: periods,
     // Distinct facts: the unconstrained estimate and the amount included after
     // the constraint are never collapsed into one another.
-    estimateCents: estimateNow,
-    includedCents: includedNow ?? UNUSABLE,
+    estimateCents: unusable ? UNUSABLE : estimateNow,
+    includedCents: unusable ? UNUSABLE : (includedNow ?? UNUSABLE),
     realizedEvents: realized,
   };
 }
@@ -359,6 +387,16 @@ function toUsageInput(
         code: "usage.meter.rate",
         message: `Meter "${meterName}" needs a rate amount and a quantity greater than zero.`,
       });
+      // FAIL CLOSED: the meter is retained as unusable so nothing is priced
+      // under a rule that is only partly readable.
+      meters.push({
+        id: meter.id,
+        seq: meter.seq,
+        name: meter.name,
+        rateAmountCents: rate ?? UNUSABLE,
+        rateQuantity: denominator !== null && denominator > 0 ? denominator : UNUSABLE,
+        unit: meter.unit,
+      });
       continue;
     }
     if (meter.includedQuantityInput !== undefined && meter.includedQuantityInput.trim() !== "") {
@@ -369,6 +407,14 @@ function toUsageInput(
           ownerName: meterName,
           code: "usage.meter.included_quantity",
           message: `The included quantity for meter "${meterName}" must be a quantity of zero or more.`,
+        });
+        meters.push({
+          id: meter.id,
+          seq: meter.seq,
+          name: meter.name,
+          rateAmountCents: UNUSABLE,
+          rateQuantity: denominator,
+          unit: meter.unit,
         });
         continue;
       }
@@ -384,7 +430,7 @@ function toUsageInput(
     });
   }
 
-  const periods = seriesPeriods(component, blocked);
+  const { periods, invalid: periodsInvalid } = seriesPeriods(component, blocked);
   const actuals = [];
   for (const period of component.usagePeriods) {
     const quantities: Record<string, number> = {};
@@ -401,6 +447,9 @@ function toUsageInput(
           code: "usage.actual.quantity",
           message: `Usage reported for ${period.month} is not a valid quantity.`,
         });
+        // FAIL CLOSED: an unreadable quantity is kept as unusable, so this
+        // month's usage blocks instead of being priced as if it were blank.
+        quantities[meterId] = UNUSABLE;
         continue;
       }
       quantities[meterId] = value;
@@ -417,12 +466,13 @@ function toUsageInput(
         code: "usage.actual.period",
         message: `Usage reported for ${period.month} does not fall inside a declared service period.`,
       });
-      continue;
     }
     actuals.push({
       id: period.id,
       month: period.month,
-      seriesPeriodId: owning.id,
+      // An unmapped month keeps an unmappable reference: the usage engine then
+      // blocks this rule rather than silently dropping real usage.
+      seriesPeriodId: owning ? owning.id : `unmapped:${period.month}`,
       date: monthEnd(period.month),
       quantitiesByMeterId: quantities,
     });
@@ -434,7 +484,7 @@ function toUsageInput(
       targetPoId: component.targetPoId,
       meters,
       billing: { billOnRealization: component.billOnRealization === true },
-      seriesPeriods: periods,
+      seriesPeriods: periodsInvalid ? [] : periods,
     },
     actuals,
   };
@@ -507,6 +557,17 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
         code: "billing.incomplete",
         message: "A billing event needs both an amount and an unconditional-right date.",
       });
+      // FAIL CLOSED: the unusable billing event is retained as unusable, so the
+      // billing schedule, balances and journals block instead of presenting a
+      // schedule that quietly omits a real billing event.
+      fixedBilling.push({
+        id: event.id,
+        seq: event.seq,
+        amountCents: amount ?? UNUSABLE,
+        unconditionalRightDate: event.unconditionalRightDate,
+        ...(event.invoiceDate ? { invoiceDate: event.invoiceDate } : {}),
+        description: "Contractual billing",
+      });
       continue;
     }
     fixedBilling.push({
@@ -559,6 +620,17 @@ function cashCollections(
         code: "cash_collection.incomplete",
         message: "A cash collection needs an amount, a date and the billing event it settles.",
       });
+      // FAIL CLOSED: a receipt whose billing event is known stays in the input
+      // as unusable, so Phase 3 blocks the balances that depend on it.
+      if (collection.considerationEventId) {
+        rows.push({
+          id: collection.id,
+          seq: collection.seq,
+          billingEventId: collection.considerationEventId,
+          amountCents: amount ?? UNUSABLE,
+          collectionDate: collection.collectionDate,
+        });
+      }
       continue;
     }
     rows.push({
@@ -580,9 +652,17 @@ export function draftRequiresProgressive(draft: WorkflowDraft): boolean {
   }
   if (draft.hasVariableConsideration) {
     for (const component of draft.variableConsiderationComponents) {
-      // Usage and ordinary estimated variable consideration keep their accepted
-      // Phase 5B treatment; only the R3-specific facts route here.
-      if (component.treatment === "usage_as_incurred") continue;
+      if (component.treatment === "usage_as_incurred") {
+        // Usage facts whose meaning is owned ONLY by the R3 engine must route
+        // here; a usage contract can never silently stay on a legacy path that
+        // ignores them. Ordinary usage keeps its accepted Phase 5B treatment.
+        if ((component.seriesPeriods?.length ?? 0) > 0) return true;
+        if (component.billOnRealization === true) return true;
+        if (component.meters.some((meter) => (meter.includedQuantityInput ?? "").trim() !== "")) {
+          return true;
+        }
+        continue;
+      }
       if (component.allocationTreatment === "specific_series_period") return true;
       if ((component.realizedEvents?.length ?? 0) > 0) return true;
     }

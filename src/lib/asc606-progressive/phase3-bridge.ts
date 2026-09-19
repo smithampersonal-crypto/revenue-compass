@@ -78,6 +78,10 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
       considerationEvents,
       cashCollections,
       unscheduledRevenueCents: unresolvedSignedCents,
+      // A realized reduction in consideration is billed as a credit memo on the
+      // progressive path. That permission is a property of the contract, not of
+      // whether the workpaper happens to be partial today.
+      signedConsiderationEvents: true,
       ...(partial ? { billingCompleteness: "partial" as const } : {}),
     },
     unresolvedSignedCents,

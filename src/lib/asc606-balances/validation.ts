@@ -67,18 +67,25 @@ export function validateContractBalanceInput(
   if (new Set(validSeqs).size !== validSeqs.length) {
     fail("consideration.seq.unique", "consideration", "Billing event sequences must be unique.");
   }
-  // A progressive contract can bill a realized decrease as a credit memo, so a
-  // negative amount is legitimate there. A complete contract still may not.
+  // A contract that permits signed consideration events can bill a realized
+  // decrease as a credit memo, so a negative amount is legitimate there. That
+  // permission is independent of whether the workpaper is partial.
+  const allowSigned = input.signedConsiderationEvents === true;
+  /** Positive whole-cent amount: transaction price and every cash receipt. */
+  const positiveAmountValid = (value: unknown): value is number =>
+    typeof value === "number" && Number.isInteger(value) && value > 0 && value <= MAX_CENTS;
   const amountValid = (value: unknown): value is number =>
-    typeof value === "number" &&
-    Number.isInteger(value) &&
-    (partial ? value !== 0 : value > 0) &&
-    Math.abs(value) <= MAX_CENTS;
+    allowSigned
+      ? typeof value === "number" &&
+        Number.isInteger(value) &&
+        value !== 0 &&
+        Math.abs(value) <= MAX_CENTS
+      : positiveAmountValid(value);
   if (events.some((e) => !amountValid(e.amountCents))) {
     fail(
       "consideration.amount.valid",
       "consideration",
-      partial
+      allowSigned
         ? "Every billing event amount must be a supported non-zero whole-cent amount."
         : "Every billing event amount must be a supported whole-cent amount greater than zero.",
     );
@@ -117,7 +124,8 @@ export function validateContractBalanceInput(
       billingSeverity,
     );
   }
-  const priceValid = amountValid(input.transactionPriceCents);
+  // Transaction-price validity is independent of the signed-billing permission.
+  const priceValid = positiveAmountValid(input.transactionPriceCents);
   if (!priceValid) {
     fail(
       "consideration.transaction_price.valid",
@@ -154,7 +162,9 @@ export function validateContractBalanceInput(
   if (new Set(validCashSeqs).size !== validCashSeqs.length) {
     fail("cash.seq.unique", "cash", "Cash collection sequences must be unique.");
   }
-  if (cash.some((c) => !amountValid(c.amountCents))) {
+  // Cash is always a positive receipt: the signed-billing permission never
+  // applies to a cash collection, so a negative receipt fails closed here.
+  if (cash.some((c) => !positiveAmountValid(c.amountCents))) {
     fail(
       "cash.amount.valid",
       "cash",
@@ -198,7 +208,7 @@ export function validateContractBalanceInput(
     ) {
       cashBeforeRight = true;
     }
-    if (amountValid(c.amountCents)) {
+    if (positiveAmountValid(c.amountCents)) {
       appliedByEvent.set(event.id, (appliedByEvent.get(event.id) ?? 0n) + BigInt(c.amountCents));
     }
   }
@@ -218,7 +228,7 @@ export function validateContractBalanceInput(
   }
   for (const [eventId, applied] of appliedByEvent) {
     const event = byId.get(eventId)!;
-    if (amountValid(event.amountCents) && applied > BigInt(event.amountCents)) {
+    if (positiveAmountValid(event.amountCents) && applied > BigInt(event.amountCents)) {
       fail(
         "cash.exceeds_event_amount",
         "cash",
