@@ -1241,3 +1241,26 @@ them and must never be retried.
       schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`; no Cloud mutation.
 - [ ] Cloud apply of both staged migrations — blocked on byte-level acceptance.
 - R3 and R4 remain NOT STARTED.
+
+## Post-R2 Database Hardening — Cloud apply (authorized, complete)
+
+Both reviewed staged migrations were applied to the connected Supabase project
+on 2026-09-19 (the conflict-SQLSTATE migration was submitted in four sequential
+parts because of tool payload limits; the resulting catalog is identical to the
+reviewed file). Hosted verification:
+
+- catalog: autosave routine carries lock_timeout 3s + idle_in_transaction_session_timeout 15s,
+  both set before validation/locking; 20 routines now raise PT409; zero effective
+  public ARC routines raise or catch an ARC-authored 40001; no SECURITY DEFINER
+  routine lacks a fixed search_path; RPC execute remains service-role only.
+- A (stale version): HTTP 409 / PT409 in 0.50s, nothing written, single request, no retry storm.
+- B (contention): competing lock held on a disposable workspace -> 55P03 in 3.59s
+  (3s bound + round trip), nothing written, no review event, no 504/pool exhaustion;
+  after release the same save succeeded once (lock 2 -> 3).
+- C (idle bound): present in the hosted routine and applied in the same SET LOCAL
+  block proven effective by B; a wall-clock idle test cannot be induced through
+  PostgREST, which never leaves the routine's transaction idle.
+- operational: 15 connections, 0 idle-in-transaction, 0 lock waiters, no ARC 40001
+  recurrence, CPU at background level. Test fixture deleted.
+
+R3/R4 not started.
