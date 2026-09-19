@@ -90,6 +90,7 @@ function workspace(): AiWorkspaceStateDto {
     staleSourceAcknowledged: false,
     allowance: { scope: "guest", limit: 3, used: 1, remaining: 2, resetAt: null },
     failure: null,
+    restorableRun: null,
   } as AiWorkspaceStateDto;
 }
 
