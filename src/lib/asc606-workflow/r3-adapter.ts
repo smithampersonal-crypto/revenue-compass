@@ -548,10 +548,13 @@ function owningPeriod(
   periods: readonly VcSeriesPeriod[],
   month: string,
 ): VcSeriesPeriod | undefined {
-  return periods.find(
+  const matches = periods.filter(
     (candidate) =>
       month >= candidate.startDate.slice(0, 7) && month <= candidate.endDate.slice(0, 7),
   );
+  // Ambiguous ownership FAILS CLOSED: if two declared periods both cover the
+  // month, no period is selected and the usage rule blocks.
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 /** Last calendar day of an accounting month, "YYYY-MM". */
