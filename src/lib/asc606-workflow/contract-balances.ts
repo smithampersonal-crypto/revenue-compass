@@ -192,6 +192,63 @@ export interface ContractBalanceDeps {
   analyzeBalances?: typeof analyzeContractBalances;
 }
 
+/**
+ * Phase 9G-R3 presentation of the progressive authority's Phase 3 result.
+ *
+ * Nothing is recalculated: the analysis, its validation and the exact engine
+ * input all come from the single progressive run. A partial workpaper is
+ * PRESENTABLE (analysis and engine input are returned) but never finalizable.
+ */
+function progressiveBalanceWorkflow(
+  progressive: NonNullable<ReturnType<typeof analyzeWorkflow>["progressive"]>,
+  draftValidation: ContractBalanceValidationOutcome,
+): ContractBalanceWorkflowResult {
+  const balances = progressive.balances;
+  if (!balances) {
+    return {
+      validation: draftValidation,
+      finalized: false,
+      blockedReason:
+        "The facts this contract depends on cannot be used yet, so no billing and contract-balance workpaper is produced.",
+      engineValidation: null,
+      analysis: null,
+      engineInput: null,
+      groupInputs: [],
+      grouped: null,
+    };
+  }
+
+  const engineIssues: ContractBalanceIssue[] = balances.analysis.validation.results
+    .filter((r) => !r.passed)
+    .map((r) => ({ id: r.id, severity: r.severity, message: r.message }));
+  const validation = outcome(engineIssues);
+
+  const complete =
+    progressive.state === "complete" &&
+    !balances.partial &&
+    balances.analysis.validation.blockingFailures.length === 0 &&
+    balances.analysis.monthly !== null &&
+    balances.analysis.billingSchedule !== null &&
+    balances.analysis.reconciliation.reconciled === true;
+
+  return {
+    validation,
+    finalized: complete,
+    blockedReason: complete
+      ? null
+      : balances.state === "blocked"
+        ? "Some billing or cash facts cannot be used yet, so the contract balances are incomplete."
+        : "This contract is still awaiting a future fact, so the contract-balance workpaper is partial.",
+    engineValidation: balances.analysis.validation,
+    analysis: balances.analysis,
+    engineInput: balances.contractBalanceInput,
+    groupInputs: [
+      { groupId: ORIGINAL_GROUP_ID, label: "Contract", input: balances.contractBalanceInput },
+    ],
+    grouped: null,
+  };
+}
+
 export function analyzeContractBalanceWorkflow(
   draft: WorkflowDraft,
   deps: ContractBalanceDeps = {},
@@ -215,6 +272,15 @@ export function analyzeContractBalanceWorkflow(
   });
 
   const revenue = analyzeWorkflow(draft);
+
+  // ---- Phase 9G-R3: one authority ----------------------------------------
+  // A progressive contract's balances ARE the accepted Phase 3 analysis the
+  // progressive authority already produced. This layer presents that result; it
+  // never rebuilds a second billing or balance interpretation from the draft.
+  if (revenue.progressive) {
+    return progressiveBalanceWorkflow(revenue.progressive, draftValidation);
+  }
+
   if (
     !revenue.finalized ||
     !revenue.revenueSchedule ||

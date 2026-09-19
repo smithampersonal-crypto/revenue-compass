@@ -59,6 +59,15 @@ export interface ContractBalanceInput {
    * No other rule, arithmetic or invariant is relaxed.
    */
   billingCompleteness?: "complete" | "partial";
+  /**
+   * Phase 9G-R3 narrow extension, deliberately INDEPENDENT of
+   * `billingCompleteness`. When true, a consideration event may carry a
+   * negative amount because the contract permits a credit memo for a realized
+   * reduction in consideration. It never relaxes any other rule: the
+   * transaction price must still be positive, cash collections must still be
+   * positive receipts, and every journal line stays nonnegative.
+   */
+  signedConsiderationEvents?: boolean;
 }
 
 export type BalanceCheckSeverity = "blocking" | "warning";

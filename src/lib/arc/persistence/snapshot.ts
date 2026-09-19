@@ -109,7 +109,12 @@ export function buildWorkpaper(draft: WorkflowDraft): ArcWorkpaper {
   let journals: ArcJournalSnapshot | null = null;
   if (balances.finalized && balances.grouped) {
     journals = { kind: "grouped", analysis: analyzeGroupedJournalEntries(balances.groupInputs) };
-  } else if (balances.finalized && balances.engineInput) {
+  } else if (balances.engineInput) {
+    // The Phase 4 engine runs on exactly the Phase 3 input the balance
+    // workpaper used. On the progressive path that input exists while the
+    // contract is still partial, so known-event journals are PRESENTABLE
+    // before the workpaper is complete. Finalization still requires
+    // `balances.finalized`, which stays false while anything is pending.
     journals = { kind: "ordinary", analysis: analyzeJournalEntries(balances.engineInput) };
   }
 
