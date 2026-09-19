@@ -429,10 +429,17 @@ describe("R3: duplicate and orphan identities cannot reach the accounting", () =
   it("rejects a realized amount pointing at a service period that does not exist", () => {
     const draft = withRealizedCredit(resolvedGenomix(), "1,000.00", "q9", "2027-06-30");
     const workflow = analyzeWorkflow(draft);
-    expect(workflow.progressive).toBeNull();
+    const progressive = workflow.progressive!;
+
+    // The orphan amount is reported and enters NO layer of the accounting.
+    expect(progressive.vc.blocked.map((row) => row.code)).toContain(
+      "variable_consideration.series.period_unmappable",
+    );
+    expect(progressive.vc.seriesPeriod).toEqual([]);
+    expect(progressive.transactionPriceCents).toBe(GENOMIX_FIXED_CENTS);
+    expect(progressive.state).toBe("blocked");
     expect(workflow.finalized).toBe(false);
-    expect(workflow.blockedReason).not.toBeNull();
-    expect(buildWorkpaper(draft).journals).toBeNull();
+    expect(buildWorkpaper(draft).balances.finalized).toBe(false);
     expect(buildFinalizationSnapshot(draft).ok).toBe(false);
   });
 
