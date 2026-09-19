@@ -202,12 +202,6 @@ begin
            where g.id = v_guest) = '140000'
      and (select g.lock_version from public.guest_workspaces g where g.id = v_guest) = 2;
 
-  -- Remove the committed fixture over the side connection.
-  perform dblink_exec(v_conn, format($f$
-    delete from public.ai_analysis_state where guest_workspace_id = %L;
-    delete from public.ai_runs where guest_workspace_id = %L;
-    delete from public.guest_workspaces where id = %L;
-  $f$, v_guest, v_guest, v_guest));
   perform dblink_disconnect(v_conn);
 end $contention$;
 
@@ -227,3 +221,16 @@ begin
 end $gate$;
 
 rollback;
+
+-- The fixture rows were committed over the side connection, so they are
+-- removed here, after this session's transaction has released them.
+delete from public.ai_analysis_state s
+ using public.guest_workspaces g
+ where g.id = s.guest_workspace_id and g.token_hash = repeat('b', 64);
+delete from public.ai_review_events e
+ using public.guest_workspaces g
+ where g.id = e.guest_workspace_id and g.token_hash = repeat('b', 64);
+delete from public.ai_runs r
+ using public.guest_workspaces g
+ where g.id = r.guest_workspace_id and g.token_hash = repeat('b', 64);
+delete from public.guest_workspaces where token_hash = repeat('b', 64);
