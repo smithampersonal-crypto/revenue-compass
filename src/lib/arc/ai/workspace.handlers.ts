@@ -360,7 +360,13 @@ export async function aiWorkspaceStateHandler(
     sourceState: snapshot.sourceState,
     hasIncludedSources: snapshot.hasIncludedSources,
     sourceSetFingerprint: snapshot.currentSourceSetFingerprint,
-    reviewIssueCount: snapshot.outstandingReviewIssueCount,
+    // One semantic definition only: the trusted partition decides what counts
+    // as outstanding accountant work. A malformed payload keeps the persisted
+    // count so a partially readable sidecar can never look like "nothing left".
+    reviewIssueCount:
+      snapshot.reviewPayloadMalformed === true
+        ? snapshot.outstandingReviewIssueCount
+        : partitioned.outstandingActionableCount,
     reviewItems: partitioned.reviewItems,
     assumptionItems: partitioned.assumptionItems,
     assumptionCount: partitioned.assumptionItems.length,

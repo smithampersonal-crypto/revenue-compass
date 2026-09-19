@@ -149,8 +149,11 @@ export async function createAiWorkspaceStore(): Promise<AiWorkspaceStore> {
         hasIncludedSources,
         acknowledgedSourceFingerprint:
           (raw?.["acknowledged_source_fingerprint"] as string | null) ?? null,
-        outstandingReviewIssueCount: review.items.filter((item) => item.state !== "resolved")
-          .length,
+        // R2: only actionable states count. Routine assumptions are never
+        // outstanding work, and a resolved item never was.
+        outstandingReviewIssueCount: review.items.filter(
+          (item) => item.state === "yellow" || item.state === "red",
+        ).length,
         reviewItems: review.items,
         reviewPayloadMalformed: review.malformed,
         // Raw persisted JSON. The handler validates it before anything is

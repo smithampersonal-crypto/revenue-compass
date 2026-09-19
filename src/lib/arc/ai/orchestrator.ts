@@ -493,8 +493,13 @@ export async function executeAiRunHandler(
 }
 
 /** Only unresolved review items count as outstanding issues. */
+/**
+ * Phase 9G-R Task R2. An outstanding issue is work the accountant must act on:
+ * only `yellow` and `red` qualify. A routine assumption is deliberately not
+ * counted — it is visible and evidenced, but it asks for nothing.
+ */
 export function outstandingIssueCount(items: readonly { state: string }[]): number {
-  return items.filter((item) => item.state !== "resolved").length;
+  return items.filter((item) => item.state === "yellow" || item.state === "red").length;
 }
 
 /** Re-derives the run fingerprint from the packaged, verified sources. */

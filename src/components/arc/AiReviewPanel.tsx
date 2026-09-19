@@ -28,6 +28,8 @@ import type { AiGuidanceCardDto } from "@/lib/arc/ai/guidance-dto";
 import {
   MANUAL_RED_REASON_OPTIONS,
   REVIEW_NOTE_MAX_LENGTH,
+  ASSUMPTIONS_GROUP_DESCRIPTION,
+  ASSUMPTIONS_GROUP_LABEL,
   citationLabel,
   citationOpenLabel,
   describeReviewTarget,
@@ -394,6 +396,9 @@ export function AiReviewPanel({
   const malformed = workspace.reviewPayloadMalformed;
   const outstanding = workspace.reviewItems.filter((item) => item.state !== "resolved");
   const resolved = workspace.reviewItems.filter((item) => item.state === "resolved");
+  // R2: routine assumptions arrive already separated by the server boundary.
+  // They are read-only here: no confirm, no resolve, no queue participation.
+  const assumptions = workspace.assumptionItems;
   // A run in flight is about to replace this review state, so no action is
   // offered against a queue that is being rewritten.
   const busy = ai.active || ai.actionState !== "idle";
@@ -426,6 +431,43 @@ export function AiReviewPanel({
             ))}
           </ul>
         )}
+
+        {!malformed && assumptions.length > 0 ? (
+          <div
+            role="group"
+            aria-label={ASSUMPTIONS_GROUP_LABEL}
+            className="mt-4 space-y-2 rounded-md border border-dashed border-border/70 bg-muted/30 p-3"
+          >
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {ASSUMPTIONS_GROUP_LABEL}
+            </h3>
+            <p className="text-xs text-muted-foreground">{ASSUMPTIONS_GROUP_DESCRIPTION}</p>
+            <ul className="space-y-2">
+              {assumptions.map((item) => (
+                <li key={item.id} className="rounded-md border border-border/50 p-3 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {reviewSectionLabel(item.section)}
+                  </p>
+                  <p className="mt-1">{item.reason}</p>
+                  <Citations item={item} ai={ai} />
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <GuidanceDialog item={item} ai={ai} />
+                    {onOpenTarget ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onOpenTarget(item.id)}
+                      >
+                        Go to {describeReviewTarget(item.targetKey, item.section).label}
+                      </Button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {!malformed && resolved.length > 0 ? (
           <div role="group" aria-label="Resolved AI review items" className="mt-4 space-y-2">
