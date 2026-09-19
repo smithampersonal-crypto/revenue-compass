@@ -53,7 +53,15 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
     );
   }
 
-  const { allocation, vc, recognition, billing, balances, journals, provisional } = analysis;
+  const { allocation, vc, recognition, billing, provisional } = analysis;
+  // ONE workflow-owned determination of what may be presented. This component
+  // never decides availability for itself, so it can never disagree with the
+  // balance or journal workpaper.
+  const gate = workflow.progressiveGate;
+  const balances = gate?.balancesPresentable === true ? analysis.balances : null;
+  const journals = gate?.journalsPresentable === true ? analysis.journals : null;
+  const overallState = gate?.state ?? analysis.state;
+  const gateBlocker = gate?.blockedReason ?? null;
 
   return (
     <Section
@@ -63,8 +71,14 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
       <div className="space-y-4" data-testid="progressive-outputs">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">Overall</span>
-          <StateBadge state={analysis.state} />
+          <StateBadge state={overallState} />
         </div>
+
+        {gateBlocker !== null ? (
+          <Notice tone="warning" data-testid="progressive-outputs-dependency-blocked">
+            {gateBlocker}
+          </Notice>
+        ) : null}
 
         {/* ---- Step 4 allocation, including provisional SSPs -------------- */}
         <div className="rounded-md border border-border p-3">
@@ -162,6 +176,30 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
               Billed {formatCents(balances.totalBilledCents)} · revenue{" "}
               {formatCents(balances.totalRevenueCents)} · unresolved{" "}
               {formatCents(balances.pendingCents)}
+            </p>
+          </div>
+        ) : null}
+
+        {balances === null && analysis.balances !== null ? (
+          <div className="rounded-md border border-border p-3">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">Contract balances</p>
+              <StateBadge state="blocked" />
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              A fact these balances depend on cannot be used yet, so no balances are presented.
+            </p>
+          </div>
+        ) : null}
+
+        {journals === null && analysis.journals !== null ? (
+          <div className="rounded-md border border-border p-3">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold">Journal entries</p>
+              <StateBadge state="blocked" />
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              A fact these entries depend on cannot be used yet, so no entries are presented.
             </p>
           </div>
         ) : null}
