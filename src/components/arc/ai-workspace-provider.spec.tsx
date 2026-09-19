@@ -26,6 +26,8 @@ const idle: AiWorkspaceStateDto = {
   sourceSetFingerprint: null,
   reviewIssueCount: 0,
   reviewItems: [],
+  assumptionItems: [],
+  assumptionCount: 0,
   reviewPayloadMalformed: false,
   fieldProvenance: {},
   objectProvenance: {},

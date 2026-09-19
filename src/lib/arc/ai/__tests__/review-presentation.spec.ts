@@ -233,6 +233,8 @@ describe("Task 7 provenance badges", () => {
 describe("aiReviewFinalizeBlock", () => {
   const base = {
     hasAnalysis: true,
+    assumptionItems: [],
+    assumptionCount: 0,
     reviewPayloadMalformed: false,
     reviewItems: [] as { state: string }[],
   };

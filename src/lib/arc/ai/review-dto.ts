@@ -114,6 +114,30 @@ export function toAiReviewItemDtos(items: readonly AiReviewItem[]): AiReviewItem
   return items.map(toAiReviewItemDto);
 }
 
+/**
+ * Phase 9G-R Task R2. The two lists are kept apart at the boundary itself, so
+ * no caller can accidentally present a routine assumption as something the
+ * accountant must act on, or count one towards finalization.
+ */
+export function partitionAiReviewItems(items: readonly AiReviewItem[]): {
+  reviewItems: AiReviewItemDto[];
+  assumptionItems: AiReviewItemDto[];
+  outstandingActionableCount: number;
+} {
+  const reviewItems: AiReviewItemDto[] = [];
+  const assumptionItems: AiReviewItemDto[] = [];
+  let outstandingActionableCount = 0;
+  for (const item of items) {
+    if (item.state === "assumed") {
+      assumptionItems.push(toAiReviewItemDto(item));
+      continue;
+    }
+    if (item.state === "yellow" || item.state === "red") outstandingActionableCount += 1;
+    reviewItems.push(toAiReviewItemDto(item));
+  }
+  return { reviewItems, assumptionItems, outstandingActionableCount };
+}
+
 /* ----------------------------------------------------- provenance safety */
 
 const PROVENANCE_STATES: readonly AiProvenanceState[] = [

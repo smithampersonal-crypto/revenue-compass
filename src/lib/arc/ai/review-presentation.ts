@@ -15,7 +15,7 @@
 
 import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
-import { stableHash } from "./identity";
+import { PROVISIONAL_SSP_TARGET_KEY, stableHash } from "./identity";
 import type { AiProvenanceState } from "./merge";
 import type { AiReviewCitationDto, AiReviewResolutionDto } from "./review-dto";
 import type { AiReviewItemState, AiReviewSeverity, ManualRedReason } from "./review-state";
@@ -53,6 +53,7 @@ const SECTION_ELEMENT_IDS: Record<GuidanceReviewSection, string> = {
 /* ------------------------------------------------------------ state copy */
 
 export const REVIEW_STATE_LABELS = {
+  assumed: "Assumed",
   yellow: "Needs confirmation",
   red: "Needs resolution",
   resolved: "Resolved",
@@ -68,8 +69,18 @@ export function reviewStateLabel(item: {
     : REVIEW_STATE_LABELS[item.severity];
 }
 
-/** The restrained inline marker beside an accounting control. */
-export function reviewMarkerLabel(severity: AiReviewSeverity): string {
+/** The accountant-facing heading of the read-only routine-assumption group. */
+export const ASSUMPTIONS_GROUP_LABEL = "Routine assumptions";
+
+export const ASSUMPTIONS_GROUP_DESCRIPTION =
+  "ARC made these routine draft assumptions from the contract. They need no action — edit the underlying accounting if you disagree.";
+
+/**
+ * The restrained inline marker beside an accounting control. A routine
+ * assumption gets none: there is nothing to confirm or resolve.
+ */
+export function reviewMarkerLabel(severity: AiReviewSeverity): string | null {
+  if (severity === "assumed") return null;
   return severity === "red" ? "Resolve" : "Review";
 }
 
@@ -278,6 +289,17 @@ export function describeReviewTarget(
       : fallback();
   }
 
+  // The consolidated provisional SSP judgment covers several controls at once,
+  // so it honestly opens the Step 4 workpaper rather than promising one anchor.
+  if (targetKey === PROVISIONAL_SSP_TARGET_KEY) {
+    return {
+      kind: "section",
+      label: "Provisional standalone selling prices",
+      anchorId: null,
+      sectionElementId: SECTION_ELEMENT_IDS.step_4,
+    };
+  }
+
   if (/^billing:/.test(targetKey) || /^cash:/.test(targetKey)) return fallback();
 
   return fallback();
@@ -401,7 +423,11 @@ export function aiReviewFinalizeBlock(
   if (workspace.reviewPayloadMalformed) {
     return "The saved AI review state could not be read, so this revision cannot be finalized. Run the analysis again to rebuild it.";
   }
-  const outstanding = workspace.reviewItems.filter((item) => item.state !== "resolved").length;
+  // Routine assumptions are nonblocking by construction: only outstanding
+  // actionable items can hold up finalization.
+  const outstanding = workspace.reviewItems.filter(
+    (item) => item.state === "yellow" || item.state === "red",
+  ).length;
   if (outstanding === 0) return null;
   return `${outstanding} AI review item${outstanding === 1 ? "" : "s"} still need${
     outstanding === 1 ? "s" : ""

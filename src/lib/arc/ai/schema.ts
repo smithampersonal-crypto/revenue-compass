@@ -14,7 +14,7 @@
 import { z } from "zod";
 
 /** Single source of truth for the output-schema version (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v4";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -271,6 +271,20 @@ const variableComponentSchema = z
     ]),
     constraintAssessment: longText,
     /**
+     * Phase 9G-R Task R2. A deliberately narrow structured inception proposal.
+     * It is NOT a general expected-value outcome tree: it says only whether an
+     * initial estimate is inapplicable (usage as incurred), reasonably zero
+     * because no trigger is expected, or genuinely unanswerable.
+     */
+    initialEstimateBasis: z.enum([
+      "not_applicable_usage_as_incurred",
+      "zero_no_expected_trigger",
+      "needs_user_input",
+    ]),
+    initialEstimatedAmountInput: decimalInput,
+    initialIncludedAmountInput: decimalInput,
+    initialEstimateRationale: longText,
+    /**
      * Structural allocation proposal. ARC maps the semantic target to its own
      * canonical performance obligation; an unmappable target fails closed.
      */
@@ -325,8 +339,16 @@ const sspItemSchema = z
       "adjusted_market_assessment",
       "expected_cost_plus_margin",
       "residual",
+      // Phase 9G-R Task R2. A separately stated contract price used
+      // PROVISIONALLY as a standalone selling price. Never observable SSP.
+      "stated_contract_price_assumption",
       "insufficient_information",
     ]),
+    /**
+     * The provisional full-term standalone selling price for the whole
+     * performance obligation ARC represents. Never a monthly or annual slice.
+     */
+    proposedSspAmountInput: decimalInput,
     methodRationale: longText,
     missingInformation: longText,
     citations,
@@ -558,7 +580,42 @@ export const aiContractAnalysisSchema = aiContractAnalysisObjectSchema.superRefi
       });
     }
   }
+
+  // Phase 9G-R Task R2. The narrow initial-estimate proposal is only ever
+  // accepted in one of its three exact shapes. A "no expected trigger"
+  // conclusion carrying a non-zero amount is a contradiction, not a draft.
+  value.transactionPrice.variableConsiderationComponents.forEach((component, index) => {
+    const path = ["transactionPrice", "variableConsiderationComponents", index] as const;
+    const estimated = component.initialEstimatedAmountInput;
+    const included = component.initialIncludedAmountInput;
+    const bothNull = estimated === null && included === null;
+
+    if (component.initialEstimateBasis === "zero_no_expected_trigger") {
+      if (!isZeroDecimal(estimated) || !isZeroDecimal(included)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...path, "initialEstimatedAmountInput"],
+          message:
+            "zero_no_expected_trigger requires an initial estimated and included amount of 0",
+        });
+      }
+      return;
+    }
+
+    if (!bothNull) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...path, "initialEstimatedAmountInput"],
+        message: `${component.initialEstimateBasis} requires null initial estimate amounts`,
+      });
+    }
+  });
 });
+
+/** Exactly zero, however the model spelled the decimal. */
+export function isZeroDecimal(value: string | null): boolean {
+  return typeof value === "string" && /^-?0(\.0+)?$/.test(value);
+}
 
 const DECIMAL_FIELD_NAMES = new Set([
   "fixedConsiderationInput",
@@ -566,6 +623,9 @@ const DECIMAL_FIELD_NAMES = new Set([
   "observedAmountInput",
   "amountOrRateInput",
   "priceIncreaseInput",
+  "initialEstimatedAmountInput",
+  "initialIncludedAmountInput",
+  "proposedSspAmountInput",
 ]);
 
 function collectDecimalInputs(value: unknown, found: string[] = []): string[] {

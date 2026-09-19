@@ -148,6 +148,7 @@ export function fixtureAAnalysis(): AiContractAnalysis {
           observableSspEvidence: "observable",
           observedAmountInput: "120000",
           proposedMethod: "observable_price",
+          proposedSspAmountInput: null,
           methodRationale: "Observable standalone renewal pricing.",
           missingInformation: "None.",
           citations: [cite(1, "120,000")],

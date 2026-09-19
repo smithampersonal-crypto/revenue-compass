@@ -285,6 +285,8 @@ class Server {
             (item) => item.state !== "resolved",
           ).length,
           reviewItems: options.malformedReview ? [] : (sidecar?.reviewItems ?? []),
+          assumptionItems: [],
+          assumptionCount: 0,
           reviewPayloadMalformed: options.malformedReview === true,
           fieldProvenance: sidecar?.fieldProvenance ?? {},
           objectProvenance: {},

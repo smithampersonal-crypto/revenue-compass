@@ -142,6 +142,8 @@ function state(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceStateDt
     sourceSetFingerprint: FINGERPRINT,
     reviewIssueCount: 0,
     reviewItems: [],
+    assumptionItems: [],
+    assumptionCount: 0,
     reviewPayloadMalformed: false,
     fieldProvenance: {},
     objectProvenance: {},

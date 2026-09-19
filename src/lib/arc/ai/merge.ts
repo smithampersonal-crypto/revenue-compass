@@ -54,6 +54,7 @@ import {
 import {
   deriveCanonicalId,
   fieldKeys,
+  PROVISIONAL_SSP_TARGET_KEY,
   resolveUniqueId,
   valueFingerprint,
   type AiObjectKind,
@@ -346,6 +347,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     observableSspEvidence: item.observableSspEvidence,
     observedAmountInput: item.observedAmountInput,
     proposedMethod: item.proposedMethod,
+    proposedSspAmountInput: item.proposedSspAmountInput,
     methodRationale: item.methodRationale,
     missingInformation: item.missingInformation,
   });
@@ -361,6 +363,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     billingFrequency: component.billingFrequency,
     trigger: component.trigger,
     estimationMethodProposal: component.estimationMethodProposal,
+    initialEstimateBasis: component.initialEstimateBasis,
+    initialEstimatedAmountInput: component.initialEstimatedAmountInput,
+    initialIncludedAmountInput: component.initialIncludedAmountInput,
+    initialEstimateRationale: component.initialEstimateRationale,
     constraintAssessment: component.constraintAssessment,
   });
 
@@ -703,14 +709,30 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     }
 
+    // Phase 9G-R Task R2. A positive Step 1 criterion the contract's own terms
+    // support is a routine drafting assumption, not a queue item: it is stated
+    // and evidenced, but the accountant is not asked to click through five
+    // confirmations to get to real work. Anything unsupported, conflicting or
+    // negative keeps its existing actionable treatment.
+    const routineStep1 =
+      answer === true &&
+      (entry.judgment.reviewState === "supported" || entry.judgment.reviewState === "inference");
+
     raise({
       targetKey: key,
       section,
-      reasonCode: answer === null ? "missing_required_input" : "accountant_affirmation_required",
+      reasonCode:
+        answer === null
+          ? "missing_required_input"
+          : routineStep1
+            ? "routine_assumption"
+            : "accountant_affirmation_required",
       reason:
         answer === null
           ? `${entry.label}: the contract does not establish this criterion. An accountant judgment is required.`
-          : `${entry.label}: affirm the AI conclusion.`,
+          : routineStep1
+            ? `${entry.label}: ARC concluded this from the contract's own terms.`
+            : `${entry.label}: affirm the AI conclusion.`,
       guidanceIds: entry.judgment.guidanceIds,
       citations: entry.judgment.citations,
       value: draft.contract.criteria[entry.criterion]?.answer ?? null,
@@ -1273,6 +1295,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* ------------------------------------------------------------------- SSP */
 
+  /** Phase 9G-R Task R2. Every provisionally priced obligation, in one group. */
+  const provisionalSsp: Array<{
+    item: (typeof analysis.sspAndAllocation.items)[number];
+    canonicalId: string;
+    amount: string;
+  }> = [];
+
   for (const item of analysis.sspAndAllocation.items) {
     const canonicalId = poIdBySemanticKey.get(item.appliesToKey);
     const section = sectionFor(item.guidanceIds, "step_4");
@@ -1300,6 +1329,17 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const current = () => draft.performanceObligations.find((po) => po.id === canonicalId)!;
 
     const amount = usableAmount(item.observedAmountInput);
+    const provisionalAmount = usableAmount(item.proposedSspAmountInput);
+    // Phase 9G-R Task R2. A separately stated contract price may be used as a
+    // PROVISIONAL standalone selling price so the workpaper can be drafted and
+    // allocated — it is never observable evidence and never silently accepted:
+    // one consolidated yellow item below asks the accountant to confirm it.
+    const provisional =
+      !(item.observableSspEvidence === "observable" && amount !== null) &&
+      item.proposedMethod === "stated_contract_price_assumption" &&
+      provisionalAmount !== null &&
+      isUnclaimedString(current().sspInput);
+
     // ARC never assumes the contract price is the standalone selling price.
     if (item.observableSspEvidence === "observable" && amount !== null) {
       mergeText({
@@ -1331,6 +1371,36 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           label: "Standalone selling price basis",
         });
       }
+    } else if (provisional) {
+      mergeText({
+        key: fieldKeys.po(canonicalId, "sspInput"),
+        semanticKey: item.semanticKey,
+        current: current().sspInput,
+        proposed: provisionalAmount!,
+        apply: (value) => update({ sspInput: value }),
+        section,
+        guidanceIds: item.guidanceIds,
+        citations: item.citations,
+        aiReviewState: item.reviewState,
+        label: "Standalone selling price",
+      });
+      if (
+        fieldProvenance[fieldKeys.po(canonicalId, "sspInput")]?.state === "ai_generated_untouched"
+      ) {
+        mergeText({
+          key: fieldKeys.po(canonicalId, "sspBasis"),
+          semanticKey: item.semanticKey,
+          current: current().sspBasis,
+          proposed: item.methodRationale,
+          apply: (value) => update({ sspBasis: value }),
+          section,
+          guidanceIds: item.guidanceIds,
+          citations: item.citations,
+          aiReviewState: item.reviewState,
+          label: "Standalone selling price basis",
+        });
+      }
+      provisionalSsp.push({ item, canonicalId, amount: provisionalAmount! });
     } else if (isUnclaimedString(current().sspInput)) {
       raise({
         targetKey: fieldKeys.po(canonicalId, "sspInput"),
@@ -1345,6 +1415,37 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
     }
+  }
+
+  // One consolidated judgment for the whole provisional-SSP basis. Not one
+  // item per obligation: the accountant confirms the basis once, against a
+  // real canonical fingerprint of the entire Step 4 SSP workpaper.
+  if (provisionalSsp.length > 0) {
+    const names = provisionalSsp
+      .map(({ canonicalId }) => draft.performanceObligations.find((po) => po.id === canonicalId))
+      .map((po, index) => po?.name?.trim() || `Performance obligation ${index + 1}`);
+    raise({
+      targetKey: PROVISIONAL_SSP_TARGET_KEY,
+      section: "step_4",
+      reasonCode: "provisional_ssp_basis",
+      reason: `ARC used the separately stated contract price as a provisional standalone selling price for ${names.join(", ")}. The contract evidences no observable standalone selling price, so confirm this basis or enter your own.`,
+      guidanceIds: [...new Set(provisionalSsp.flatMap(({ item }) => item.guidanceIds))].sort(
+        (a, b) => a - b,
+      ),
+      citations: provisionalSsp.flatMap(({ item }) => item.citations),
+      value: provisionalSsp.map(({ amount }) => amount).join("|"),
+      material: {
+        provisionalSsp: provisionalSsp
+          .map(({ canonicalId, amount, item }) => ({
+            id: canonicalId,
+            amount,
+            method: item.proposedMethod,
+          }))
+          .sort((a, b) => a.id.localeCompare(b.id)),
+      },
+      aiReviewState: "inference",
+      blocking: false,
+    });
   }
 
   /* ------------------------------------------------------- transaction price */
@@ -1450,11 +1551,19 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       label: "Consideration payable to the customer",
     },
   ]) {
+    // Phase 9G-R Task R2. A confident "this does not arise here" — no
+    // financing component, monetary consideration, nothing payable to the
+    // customer — is a routine assumption, not a queue item. Anything the model
+    // answered "yes" or could not determine stays advisory and visible.
+    const routine =
+      judgment.value.outcome === "no" &&
+      (judgment.value.reviewState === "supported" || judgment.value.reviewState === "inference");
+
     // ARC has no canonical field for these; they are advisory review state only.
     raise({
       targetKey: fieldKeys.transactionPrice(judgment.key),
       section: sectionFor(judgment.value.guidanceIds, "step_3"),
-      reasonCode: "advisory_topic",
+      reasonCode: routine ? "routine_assumption" : "advisory_topic",
       reason: `${judgment.label}: ${judgment.value.rationale}`,
       guidanceIds: judgment.value.guidanceIds,
       citations: judgment.value.citations,
@@ -1871,21 +1980,74 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           label: "Estimation method",
         });
       }
-      // Outcome probabilities, the constrained included amount and any
-      // resolution amount are deliberately left blank rather than invented.
-      raise({
-        targetKey: fieldKeys.vc(canonicalId, "inception"),
-        section,
-        reasonCode: "missing_required_input",
-        reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
-        guidanceIds: component.guidanceIds,
-        citations: component.citations,
-        value: null,
-        material: vcMaterial(component),
-        aiReviewState:
-          component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
-        blocking: true,
-      });
+      // Phase 9G-R Task R2. Where the evidence gives no indication a trigger
+      // is expected — the ordinary service-level-credit case — the honest
+      // initial estimate is zero, and ARC drafts it as a stated assumption
+      // instead of blocking the whole workpaper. Zero is never invented: the
+      // model must have concluded it explicitly, with both amounts exactly 0.
+      const assessment = current().inception;
+      const inceptionUnclaimed =
+        isUnclaimedString(assessment.includedInput) &&
+        assessment.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
+      const zeroAtInception =
+        component.initialEstimateBasis === "zero_no_expected_trigger" && inceptionUnclaimed;
+
+      if (zeroAtInception) {
+        mergeScalar<string>({
+          key: fieldKeys.vc(canonicalId, "inception"),
+          semanticKey: component.semanticKey,
+          current: assessment.includedInput,
+          proposed: "0",
+          unclaimed: true,
+          apply: (value) =>
+            update({
+              inception: {
+                ...current().inception,
+                includedInput: value,
+                outcomes: current().inception.outcomes.map((outcome, index) =>
+                  index === 0
+                    ? { ...outcome, amountInput: value, isMostLikely: true }
+                    : { ...outcome, isMostLikely: false },
+                ),
+                constraintRationale: component.initialEstimateRationale,
+              },
+            }),
+          section,
+          guidanceIds: component.guidanceIds,
+          citations: component.citations,
+          aiReviewState: component.reviewState,
+          label: "Initial variable-consideration estimate",
+        });
+        raise({
+          targetKey: fieldKeys.vc(canonicalId, "inception"),
+          section,
+          reasonCode: "routine_assumption",
+          reason: `Initial estimate of nil for "${component.description.slice(0, 80)}": the contract gives no indication of an expected trigger. ${component.initialEstimateRationale}`,
+          guidanceIds: component.guidanceIds,
+          citations: component.citations,
+          value: "0",
+          material: vcMaterial(component),
+          aiReviewState:
+            component.reviewState === "source_conflict" ? component.reviewState : "inference",
+          blocking: false,
+        });
+      } else {
+        // Outcome probabilities, the constrained included amount and any
+        // resolution amount are deliberately left blank rather than invented.
+        raise({
+          targetKey: fieldKeys.vc(canonicalId, "inception"),
+          section,
+          reasonCode: "missing_required_input",
+          reason: `Estimate the variable amount and the constrained amount to include for "${component.description.slice(0, 80)}". ${component.constraintAssessment}`,
+          guidanceIds: component.guidanceIds,
+          citations: component.citations,
+          value: null,
+          material: vcMaterial(component),
+          aiReviewState:
+            component.reviewState === "supported" ? "needs_user_input" : component.reviewState,
+          blocking: true,
+        });
+      }
     }
 
     claimObject(component.semanticKey, canonicalId);
@@ -2202,8 +2364,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* ------------------------------------------------------- additional topics */
 
+  // Phase 9G-R Task R2. A deterministic defence, not a matter of trust: the
+  // same topic reported twice, however differently worded, is raised once.
+  const seenTopics = new Set<string>();
+
   for (const topic of analysis.additionalTopics) {
     if (topic.applicable === "no") continue;
+    if (seenTopics.has(topic.topic)) continue;
+    seenTopics.add(topic.topic);
     // There is no canonical WorkflowDraft field for these conclusions, so they
     // live entirely in review state — never as invented draft properties.
     raise({
@@ -2239,7 +2407,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     additional_topics: "additional_topics",
   };
 
+  const seenIssues = new Set<string>();
+
   for (const issue of analysis.issues) {
+    // The same underlying issue is one item, whatever the model repeated.
+    const issueIdentity = `${issue.section}\u0000${issue.semanticKey}`;
+    if (seenIssues.has(issueIdentity)) continue;
+    seenIssues.add(issueIdentity);
     raise({
       targetKey: fieldKeys.issue(issue.semanticKey),
       section: ISSUE_SECTIONS[issue.section] ?? "additional_topics",

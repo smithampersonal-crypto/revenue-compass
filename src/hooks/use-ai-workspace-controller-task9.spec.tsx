@@ -30,6 +30,8 @@ function state(overrides: Partial<AiWorkspaceStateDto> = {}): AiWorkspaceStateDt
     sourceSetFingerprint: "fp-current",
     reviewIssueCount: 0,
     reviewItems: [],
+    assumptionItems: [],
+    assumptionCount: 0,
     reviewPayloadMalformed: false,
     fieldProvenance: {},
     objectProvenance: {},
