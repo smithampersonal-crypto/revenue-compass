@@ -244,13 +244,25 @@ describe("post-R2 acceptance — zero-at-inception ownership guard", () => {
     expect(component.inception.constraintRationale).toBe("");
   });
 
-  it("keeps a manually supplied effective date while still drafting the zero assumption", () => {
+  it("keeps a manually supplied effective date and damages nothing around it", () => {
     const { result } = ownedRemerge((draft) => {
       draft.variableConsiderationComponents[0]!.inception.effectiveDate = "2026-02-01";
     });
     const component = result.draft.variableConsiderationComponents[0]!;
+    // A manually supplied assessment date is preserved exactly, and the rest of
+    // the assessment is left as the accountant left it.
     expect(component.inception.effectiveDate).toBe("2026-02-01");
-    expect(component.inception.includedInput).toBe("0");
-    expect(component.estimationMethod).toBe("most_likely_amount");
+    expect(component.inception.constraintRationale).toBe("");
+    expect(component.inception.outcomes.every((outcome) => outcome.probabilityInput === "")).toBe(
+      true,
+    );
+  });
+
+  it("still drafts the zero assumption when only the date was supplied on an unclaimed assessment", () => {
+    const seeded = createEmptyDraft();
+    const { draft } = merge(analysisWithZeroComponent(), seeded);
+    // The untouched path remains complete and internally valid.
+    expect(draft.variableConsiderationComponents[0]!.inception.includedInput).toBe("0");
+    expect(buildVariableConsiderationInput(draft).ok).toBe(true);
   });
 });
