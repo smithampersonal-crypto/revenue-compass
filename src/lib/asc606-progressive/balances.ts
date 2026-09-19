@@ -75,8 +75,15 @@ export interface ProgressiveBalancesInput {
   pending: readonly PendingComponent[];
 }
 
-export function buildProgressiveBalances(input: ProgressiveBalancesInput): ProgressiveBalances {
+/**
+ * Null when a billing fact the rollforward depends on cannot be used. No
+ * balance is presented from manufactured invoice timing.
+ */
+export function buildProgressiveBalances(
+  input: ProgressiveBalancesInput,
+): ProgressiveBalances | null {
   const bridge = buildProgressiveBalanceInput(input);
+  if (bridge.unusable) return null;
   const analysis = analyzeContractBalances(bridge.input);
 
   const monthly = analysis.monthly;
