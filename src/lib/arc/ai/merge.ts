@@ -1349,30 +1349,19 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   /* ------------------------------------------------------- transaction price */
 
-  // A stated periodic fee is not the contract's fixed consideration. When the
-  // contract's own billing schedule unambiguously determines the full-term
-  // total, ARC's deterministic total is authoritative over the model's amount.
+  // Model arithmetic is never authoritative. When the contract's own billing
+  // schedule unambiguously determines the full-term fixed total, ARC's
+  // deterministic total is the canonical amount whatever the model reported —
+  // a period fee, the correct total, a wrong total or nothing at all. The
+  // model's validated full-term conclusion is used only when no unambiguous
+  // schedule exists, and neither ever overwrites the accountant's own amount.
   const fixedDerivation = deriveUnambiguousFixedBillingTotal({
     billingTerms: analysis.billingTerms,
     servicePeriod: deriveContractServicePeriod(draft),
   });
   const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
   const derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null;
-  const proposedCents = proposedFixed === null ? null : exactCents(proposedFixed);
-  // ARC only corrects the one unambiguous defect: the model reported a single
-  // PERIOD's fee as the contract total. Any other disagreement between the
-  // model's amount and a derived schedule is left to the accountant, because a
-  // schedule may legitimately cover only part of the consideration.
-  const reportedOnePeriod =
-    fixedDerivation.ok &&
-    fixedDerivation.eventCount > 1 &&
-    proposedCents !== null &&
-    exactCents(fixedDerivation.amountInput) === proposedCents;
-  const derivedOverride =
-    reportedOnePeriod && derivedTotal !== null && exactCents(derivedTotal) !== proposedCents
-      ? derivedTotal
-      : null;
-  const fixed = derivedOverride ?? proposedFixed;
+  const fixed = derivedTotal ?? proposedFixed;
   if (fixed !== null) {
     mergeText({
       key: fieldKeys.transactionPrice("input"),
@@ -1403,8 +1392,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         // derivation. Keeping the model's wording beside a different number
         // would make the audit trail self-contradictory.
         proposed:
-          derivedOverride !== null && fixedDerivation.ok
-            ? `ARC derived the full-term fixed consideration of ${derivedOverride} from the contract's ${fixedDerivation.frequency.replace(/_/g, " ")} billing schedule of ${fixedDerivation.amountInput} across ${fixedDerivation.eventCount} billing periods in the contract service period.`
+          derivedTotal !== null && fixedDerivation.ok
+            ? `ARC derived the full-term fixed consideration of ${derivedTotal} from the contract's ${fixedDerivation.frequency.replace(/_/g, " ")} billing schedule of ${fixedDerivation.amountInput} across ${fixedDerivation.eventCount} billing periods in the contract service period.`
             : `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
         apply: (value) => {
           draft.transactionPriceNotes = value;
@@ -1645,42 +1634,163 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
     } else if (allocationProposal !== "unknown") {
-      // An allocation the accountant has already reasoned about is theirs.
+      // The allocation of a variable-consideration component is ONE accounting
+      // judgment: its treatment, its specific target, the two ASC 606-85
+      // conclusions and the supporting rationale stand or fall together. Every
+      // value AI writes carries its own field provenance so a later run can
+      // tell whether the accountant changed it, and an edit to any material
+      // field makes the whole judgment theirs — surfaced as a single
+      // difference, never five, and never silently overwritten.
       const allocationUnclaimed =
-        current().targetPoId === null && isUnclaimedString(current().allocationRationale);
-      mergeScalar<VcComponentDraft["allocationTreatment"]>({
-        key: fieldKeys.vc(canonicalId, "allocationTreatment"),
-        semanticKey: component.semanticKey,
-        current: current().allocationTreatment,
-        proposed: allocationProposal,
-        unclaimed: allocationUnclaimed,
-        apply: (value) =>
-          update({
-            allocationTreatment: value,
+        current().targetPoId === null &&
+        current().relatesSpecifically === null &&
+        current().consistentWithAllocationObjective === null &&
+        isUnclaimedString(current().allocationRationale);
+
+      const allocationSpecs = [
+        {
+          key: fieldKeys.vc(canonicalId, "allocationTreatment"),
+          label: "Allocation treatment",
+          current: current().allocationTreatment as unknown,
+          proposed: allocationProposal as unknown,
+          apply: () => update({ allocationTreatment: allocationProposal }),
+        },
+        {
+          key: fieldKeys.vc(canonicalId, "allocationTargetPoId"),
+          label: "Allocation target performance obligation",
+          current: current().targetPoId as unknown,
+          proposed: (needsTarget ? mappedTargetPoId : null) as unknown,
+          apply: () => update({ targetPoId: needsTarget ? mappedTargetPoId : null }),
+        },
+        {
+          key: fieldKeys.vc(canonicalId, "allocationRelatesSpecifically"),
+          label: "Relates specifically to the performance obligation",
+          current: current().relatesSpecifically as unknown,
+          proposed: mapOutcome(component.relatesSpecifically) as unknown,
+          apply: () => update({ relatesSpecifically: mapOutcome(component.relatesSpecifically) }),
+        },
+        {
+          key: fieldKeys.vc(canonicalId, "allocationConsistentWithObjective"),
+          label: "Consistent with the allocation objective",
+          current: current().consistentWithAllocationObjective as unknown,
+          proposed: mapOutcome(component.consistentWithAllocationObjective) as unknown,
+          apply: () =>
+            update({
+              consistentWithAllocationObjective: mapOutcome(
+                component.consistentWithAllocationObjective,
+              ),
+            }),
+        },
+        {
+          key: fieldKeys.vc(canonicalId, "allocationRationale"),
+          label: "Allocation rationale",
+          current: current().allocationRationale as unknown,
+          proposed: component.allocationRationale as unknown,
+          apply: () => update({ allocationRationale: component.allocationRationale }),
+        },
+      ];
+
+      type AllocationOwnership = "prior_finalized" | "manual_from_start" | "user_edited" | null;
+      let ownership: AllocationOwnership = null;
+      for (const spec of allocationSpecs) {
+        const prior = fieldProvenance[spec.key];
+        if (prior?.state === "prior_finalized") {
+          ownership = "prior_finalized";
+          break;
+        }
+        if (prior === undefined) {
+          if (!allocationUnclaimed && ownership === null) ownership = "manual_from_start";
+        } else if (prior.state === "manual_from_start") {
+          if (ownership === null) ownership = "manual_from_start";
+        } else if (valueFingerprint(spec.current) !== prior.valueFingerprint) {
+          if (ownership === null) ownership = "user_edited";
+        }
+      }
+
+      const anyDiffers = allocationSpecs.some(
+        (spec) => valueFingerprint(spec.current) !== valueFingerprint(spec.proposed),
+      );
+
+      if (ownership === null) {
+        for (const spec of allocationSpecs) {
+          spec.apply();
+          fieldProvenance[spec.key] = {
+            state: "ai_generated_untouched",
+            semanticKey: component.semanticKey,
+            lastAiRunId: runId,
+            valueFingerprint: valueFingerprint(spec.proposed),
+          };
+        }
+      } else {
+        for (const spec of allocationSpecs) {
+          const prior = fieldProvenance[spec.key];
+          const differsField = valueFingerprint(spec.current) !== valueFingerprint(spec.proposed);
+          if (prior === undefined) {
+            fieldProvenance[spec.key] = {
+              state: "manual_from_start",
+              semanticKey: component.semanticKey,
+              lastAiRunId: null,
+              valueFingerprint: valueFingerprint(spec.current),
+            };
+          } else if (prior.state === "manual_from_start" || prior.state === "prior_finalized") {
+            fieldProvenance[spec.key] = { ...prior, semanticKey: component.semanticKey };
+          } else {
+            fieldProvenance[spec.key] = {
+              state: differsField
+                ? "ai_difference_preserved_user_override"
+                : "ai_generated_user_edited",
+              semanticKey: component.semanticKey,
+              lastAiRunId: prior.lastAiRunId,
+              valueFingerprint: prior.valueFingerprint,
+            };
+          }
+        }
+        if (anyDiffers) {
+          const preservedAllocation = {
+            allocationTreatment: current().allocationTreatment,
+            targetPoId: current().targetPoId,
+            relatesSpecifically: current().relatesSpecifically,
+            consistentWithAllocationObjective: current().consistentWithAllocationObjective,
+            allocationRationale: current().allocationRationale,
+          };
+          const proposedAllocation = {
+            allocationTreatment: allocationProposal,
             targetPoId: needsTarget ? mappedTargetPoId : null,
+            targetKey,
             relatesSpecifically: mapOutcome(component.relatesSpecifically),
             consistentWithAllocationObjective: mapOutcome(
               component.consistentWithAllocationObjective,
             ),
-          }),
-        section,
-        guidanceIds: component.guidanceIds,
-        citations: component.citations,
-        aiReviewState: component.reviewState,
-        label: "Variable-consideration allocation",
-      });
-      mergeText({
-        key: fieldKeys.vc(canonicalId, "allocationRationale"),
-        semanticKey: component.semanticKey,
-        current: current().allocationRationale,
-        proposed: component.allocationRationale,
-        apply: (value) => update({ allocationRationale: value }),
-        section,
-        guidanceIds: component.guidanceIds,
-        citations: component.citations,
-        aiReviewState: component.reviewState,
-        label: "Variable-consideration allocation rationale",
-      });
+            allocationRationale: component.allocationRationale,
+          };
+          raise({
+            targetKey: fieldKeys.vc(canonicalId, "allocation"),
+            section,
+            reasonCode:
+              ownership === "prior_finalized"
+                ? "prior_finalized_conflict"
+                : "manual_value_preserved",
+            reason:
+              "Variable-consideration allocation: your recorded allocation judgment was kept; the AI analysis proposed a different allocation.",
+            guidanceIds: component.guidanceIds,
+            citations: component.citations,
+            value: {
+              preservedValue: preservedAllocation,
+              proposedValue: proposedAllocation,
+            },
+            // The whole allocation judgment is the material: a change to the
+            // target, either ASC 606-85 conclusion, the treatment or the
+            // rationale must reopen the item rather than inherit a resolution.
+            material: {
+              preserved: preservedAllocation,
+              proposed: proposedAllocation,
+              ...vcMaterial(component),
+            },
+            aiReviewState: component.reviewState,
+            blocking: ownership === "prior_finalized",
+          });
+        }
+      }
     }
 
     if (isUsage) {

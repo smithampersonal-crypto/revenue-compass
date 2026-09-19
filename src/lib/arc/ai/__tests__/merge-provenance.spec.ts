@@ -221,7 +221,10 @@ describe("a historical affirmation can never clear a blocking issue", () => {
     const manual: WorkflowDraft = { ...createEmptyDraft(), transactionPriceInput: "125000" };
     const proposeAmount = (amount: string) => {
       const analysis = fixtureAAnalysis();
+      // ARC's deterministic total is authoritative, so the model's amount only
+      // matters when the contract's own billing schedule says the same thing.
       analysis.transactionPrice.fixedConsiderationInput = amount;
+      analysis.billingTerms[0]!.amountOrRateInput = amount;
       return analysis;
     };
 

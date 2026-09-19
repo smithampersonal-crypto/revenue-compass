@@ -65,9 +65,11 @@ function manualEquivalent(): WorkflowDraft {
       executionDate: "2027-01-01",
       criteria,
     },
-    transactionPriceInput: "120000",
+    // ARC derives the full-term fixed consideration from the contract's own
+    // billing schedule; model arithmetic is never authoritative.
+    transactionPriceInput: "120000.00",
     transactionPriceNotes:
-      "Annual fee stated in the order form.\n\nThe transaction price is the fixed annual fee.",
+      "ARC derived the full-term fixed consideration of 120000.00 from the contract's annual billing schedule of 120000 across 1 billing periods in the contract service period.",
     promises: [
       {
         ...createPromiseDraft(1, PROMISE_ID),
