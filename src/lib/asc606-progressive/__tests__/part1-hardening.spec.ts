@@ -12,10 +12,7 @@ import { MoneyError, type AllocationRow } from "@/lib/asc606";
 
 import { allocateProgressively } from "../allocation";
 
-import {
-  generateProgressiveRevenueSchedule,
-  type ProgressiveScheduleInput,
-} from "../recognition";
+import { generateProgressiveRevenueSchedule, type ProgressiveScheduleInput } from "../recognition";
 import { reconcileProgressive } from "../reconciliation";
 import { sumBlockedCents, sumPendingCents } from "../types";
 
@@ -37,7 +34,11 @@ function hosted(): ProgressiveScheduleInput {
 }
 
 function pointInTime(
-  overrides: { allocatedCents?: number; recognitionDate?: string; transferDateUnknown?: boolean } = {},
+  overrides: {
+    allocatedCents?: number;
+    recognitionDate?: string;
+    transferDateUnknown?: boolean;
+  } = {},
 ): ProgressiveScheduleInput {
   const { allocatedCents = VALIDATION, ...po } = overrides;
   return {
@@ -62,7 +63,7 @@ describe("1. allocation validity at the recognition boundary", () => {
     ["fractional", 100.5],
     ["non-finite", Number.POSITIVE_INFINITY],
     ["not a number", Number.NaN],
-    ["out of supported range", 9_007_199_254_740_999],
+    ["out of supported range", Number.MAX_SAFE_INTEGER],
   ];
 
   for (const [label, allocatedCents] of invalid) {
@@ -140,10 +141,7 @@ const allocation: readonly AllocationRow[] = allocateProgressively({
 }).value!;
 
 function recognition() {
-  return generateProgressiveRevenueSchedule([
-    hosted(),
-    pointInTime({ transferDateUnknown: true }),
-  ]);
+  return generateProgressiveRevenueSchedule([hosted(), pointInTime({ transferDateUnknown: true })]);
 }
 
 describe("3. every allocated obligation needs exactly one recognition result", () => {
@@ -234,7 +232,13 @@ describe("4. detail arrays reconcile to the per-obligation monetary buckets", ()
       recognition: {
         ...base,
         blocked: [
-          { poId: "po-validation", poName: "Validation package", amountCents: 100, code: "x", message: "x" },
+          {
+            poId: "po-validation",
+            poName: "Validation package",
+            amountCents: 100,
+            code: "x",
+            message: "x",
+          },
         ],
       },
     });
@@ -265,17 +269,25 @@ describe("5. exact money range guarantees", () => {
   it("rejects a pending aggregate outside the supported cent range", () => {
     expect(() =>
       sumPendingCents([
-        { poId: "a", poName: "A", amountCents: 9_007_199_254_740_990, reason: "awaiting_transfer_date" },
-        { poId: "b", poName: "B", amountCents: 9_007_199_254_740_990, reason: "awaiting_transfer_date" },
+        {
+          poId: "a",
+          poName: "A",
+          amountCents: 9_007_199_254_740_990,
+          reason: "awaiting_transfer_date",
+        },
+        {
+          poId: "b",
+          poName: "B",
+          amountCents: 9_007_199_254_740_990,
+          reason: "awaiting_transfer_date",
+        },
       ]),
     ).toThrow(MoneyError);
   });
 
   it("rejects an invalid blocked component amount instead of coercing it", () => {
     expect(() =>
-      sumBlockedCents([
-        { poId: "a", poName: "A", amountCents: 0.5, code: "x", message: "x" },
-      ]),
+      sumBlockedCents([{ poId: "a", poName: "A", amountCents: 0.5, code: "x", message: "x" }]),
     ).toThrow(MoneyError);
   });
 });
