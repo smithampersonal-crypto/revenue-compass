@@ -20,7 +20,7 @@ export function reviewRow(
     section: "step_1",
     state,
     severity: assumed ? "assumed" : state === "red" ? "red" : "yellow",
-    reasonCode: assumed ? "routine_assumption" : "needs_review",
+    reasonCode: assumed ? "routine_assumption" : "accountant_affirmation_required",
     reason: assumed ? "ARC assumed the ordinary reading." : "Confirm this conclusion.",
     guidanceIds: [],
     citations: [],

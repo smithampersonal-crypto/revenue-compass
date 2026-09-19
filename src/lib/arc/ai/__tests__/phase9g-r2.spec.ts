@@ -106,7 +106,7 @@ describe("R2 — assumed classification", () => {
 
   it("never treats an ordinary reason code as assumed", () => {
     expect(
-      classifyReviewState({ ...base, reasonCode: "needs_review", aiReviewState: "inference" }),
+      classifyReviewState({ ...base, reasonCode: "accountant_affirmation_required", aiReviewState: "inference" }),
     ).toBe("yellow");
   });
 
@@ -155,7 +155,7 @@ describe("R2 — assumed classification", () => {
     const item = reviewRow("a", "assumed");
     expect(isAssumptionItem(item)).toBe(true);
     expect(isActionableReviewItem(item)).toBe(false);
-    expect(reviewMarkerLabel(item.state)).toBeNull();
+    expect(reviewMarkerLabel(item.severity)).toBeNull();
     expect(reviewStateLabel(item)).toBeTruthy();
   });
 });
@@ -363,17 +363,19 @@ describe("R2 — duplicate output never becomes duplicate accountant work", () =
     const analysis = fixtureAAnalysis();
     analysis.additionalTopics = [
       {
-        topic: "Renewal options",
-        relevance: "relevant",
-        summary: "The contract is silent on renewal.",
+        topic: "material_rights",
+        applicable: "no",
+        conclusion: "No material right arises from the renewal terms.",
+        rationale: "Renewal pricing is not stated at a discount.",
         citations: [],
         guidanceIds: [],
         reviewState: "inference",
       },
       {
-        topic: "Renewal options",
-        relevance: "relevant",
-        summary: "The contract is silent on renewal.",
+        topic: "material_rights",
+        applicable: "no",
+        conclusion: "No material right arises from the renewal terms.",
+        rationale: "Renewal pricing is not stated at a discount.",
         citations: [],
         guidanceIds: [],
         reviewState: "inference",
