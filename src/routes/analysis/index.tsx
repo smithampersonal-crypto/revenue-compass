@@ -76,10 +76,17 @@ export function Asc606AnalysisArea() {
   // removes only itself from the URL so the same click can be repeated later.
   const consumedReviewRef = useRef<string | null>(null);
   const requestedReview = search["review"] ?? null;
+  // An explicit navigation request may name an actionable review item OR a
+  // Phase 9G-R Task R2 routine assumption. Resolution for THIS one-shot intent
+  // is the only place the two queues are read together; assumptions stay out of
+  // every count, action, "next issue" and finalization path.
   const reviewItem =
     requestedReview === null
       ? null
-      : (ai.workspace?.reviewItems.find((item) => item.id === requestedReview) ?? null);
+      : (ai.workspace?.reviewItems.find((item) => item.id === requestedReview) ??
+        ai.workspace?.assumptionItems.find((item) => item.id === requestedReview) ??
+        null);
+
   useEffect(() => {
     if (requestedReview === null) {
       consumedReviewRef.current = null;
