@@ -106,7 +106,11 @@ describe("R2 — assumed classification", () => {
 
   it("never treats an ordinary reason code as assumed", () => {
     expect(
-      classifyReviewState({ ...base, reasonCode: "accountant_affirmation_required", aiReviewState: "inference" }),
+      classifyReviewState({
+        ...base,
+        reasonCode: "accountant_affirmation_required",
+        aiReviewState: "inference",
+      }),
     ).toBe("yellow");
   });
 
