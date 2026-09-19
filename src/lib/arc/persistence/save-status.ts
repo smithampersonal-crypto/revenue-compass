@@ -111,6 +111,13 @@ export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
         tone: "warning",
         action: "reload",
       };
+    case "contention":
+      return {
+        label: "Still saving elsewhere",
+        detail: "Another save is still finishing. Your edits are still here — try saving again.",
+        tone: "pending",
+        action: "retry",
+      };
     case "guest-expired":
       return {
         label: "Temporary workspace expired",
