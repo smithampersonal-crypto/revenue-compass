@@ -16,7 +16,11 @@
 
 import { sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
 
-import { allocateProgressively, type ProvisionalAllocatablePo, type SspConfidence } from "./allocation";
+import {
+  allocateProgressively,
+  type ProvisionalAllocatablePo,
+  type SspConfidence,
+} from "./allocation";
 import {
   buildProgressiveBillingSchedule,
   type FixedBillingFact,
@@ -36,8 +40,19 @@ import {
   type ProgressiveRevenueResult,
 } from "./recognition";
 import { reconcileProgressive, type ProgressiveReconciliation } from "./reconciliation";
-import { mergeCalculationState, type BlockedComponent, type CalculationState, type ProvisionalNote } from "./types";
-import { priceUsageActuals, usageAsRealizedEvents, type UsageActualAmount, type UsageActualEvent, type UsageRule } from "./usage";
+import {
+  mergeCalculationState,
+  type BlockedComponent,
+  type CalculationState,
+  type ProvisionalNote,
+} from "./types";
+import {
+  priceUsageActuals,
+  usageAsRealizedEvents,
+  type UsageActualAmount,
+  type UsageActualEvent,
+  type UsageRule,
+} from "./usage";
 import {
   buildVcLayers,
   type ProgressiveVcComponent,

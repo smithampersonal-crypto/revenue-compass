@@ -147,9 +147,7 @@ export function withValidationTransfer(
   return {
     ...input,
     performanceObligations: input.performanceObligations.map((po) =>
-      po.id === "po-validation"
-        ? { ...po, transferDateUnknown: false, recognitionDate: date }
-        : po,
+      po.id === "po-validation" ? { ...po, transferDateUnknown: false, recognitionDate: date } : po,
     ),
   };
 }
@@ -163,9 +161,7 @@ export function withSupportHours(
   return {
     ...input,
     performanceObligations: input.performanceObligations.map((po) =>
-      po.id === "po-support"
-        ? { ...po, progressEvents: [{ id: "ph-1", date, units }] }
-        : po,
+      po.id === "po-support" ? { ...po, progressEvents: [{ id: "ph-1", date, units }] } : po,
     ),
   };
 }

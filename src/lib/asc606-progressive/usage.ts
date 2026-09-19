@@ -160,7 +160,9 @@ export function priceUsageActuals(
         amountCents,
       });
     }
-    rows.sort((a, b) => (meterById.get(a.meterId)!.seq ?? 0) - (meterById.get(b.meterId)!.seq ?? 0));
+    rows.sort(
+      (a, b) => (meterById.get(a.meterId)!.seq ?? 0) - (meterById.get(b.meterId)!.seq ?? 0),
+    );
 
     return {
       id: `usage:${rule.componentId}:${event.id}`,
@@ -181,9 +183,7 @@ export function priceUsageActuals(
  * flows through exactly one deterministic allocation path: the accepted
  * specific-series-period exception.
  */
-export function usageAsRealizedEvents(
-  amounts: readonly UsageActualAmount[],
-): VcRealizedEvent[] {
+export function usageAsRealizedEvents(amounts: readonly UsageActualAmount[]): VcRealizedEvent[] {
   return amounts
     .filter((amount) => amount.totalCents > 0)
     .map((amount) => ({

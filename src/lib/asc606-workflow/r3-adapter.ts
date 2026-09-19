@@ -16,17 +16,10 @@ import type {
   ProgressiveContractPo,
   ProgressiveUsageInput,
 } from "@/lib/asc606-progressive";
-import type {
-  ProgressiveVcComponent,
-  VcSeriesPeriod,
-} from "@/lib/asc606-progressive";
+import type { ProgressiveVcComponent, VcSeriesPeriod } from "@/lib/asc606-progressive";
 
 import { parseUsageQuantity, parseUsdToCents } from "./money-input";
-import type {
-  PoDraft,
-  VcComponentDraft,
-  WorkflowDraft,
-} from "./types";
+import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
 function cents(raw: string | undefined): Cents | null {
   if (raw === undefined || raw.trim() === "") return null;
@@ -45,9 +38,7 @@ export function progressiveRecognitionMethod(
   po: PoDraft,
 ): ProgressiveContractPo["recognitionMethod"] | null {
   if (po.recognitionMethod === "over_time_ratable") {
-    return po.overTimeMeasure === "input_measure"
-      ? "over_time_input_measure"
-      : "over_time_ratable";
+    return po.overTimeMeasure === "input_measure" ? "over_time_input_measure" : "over_time_ratable";
   }
   return po.recognitionMethod;
 }
@@ -108,9 +99,7 @@ function seriesPeriods(component: VcComponentDraft): VcSeriesPeriod[] {
     }));
 }
 
-function toProgressiveVcComponent(
-  component: VcComponentDraft,
-): ProgressiveVcComponent | null {
+function toProgressiveVcComponent(component: VcComponentDraft): ProgressiveVcComponent | null {
   if (component.treatment === "usage_as_incurred") {
     // Usage is expressed as its own rule plus the accountant's actuals; its
     // contractual estimate is zero until real usage arises.

@@ -93,7 +93,8 @@ export function applyVariableLayers(
           : row.state === "pending" && row.pendingCents === 0
             ? "complete"
             : row.state,
-      reason: pendingCents > 0 ? (row.reason ?? "awaiting_variable_consideration_event") : row.reason,
+      reason:
+        pendingCents > 0 ? (row.reason ?? "awaiting_variable_consideration_event") : row.reason,
     };
   });
 
@@ -108,11 +109,7 @@ export function applyVariableLayers(
   const pending: PendingComponent[] = [...base.pending, ...layers.pending];
 
   return {
-    state: mergeCalculationState(
-      base.state,
-      layers.state,
-      ...byPo.map((row) => row.state),
-    ),
+    state: mergeCalculationState(base.state, layers.state, ...byPo.map((row) => row.state)),
     schedule: rebuildSchedule(scheduleRows),
     byPo,
     pending,
@@ -138,7 +135,9 @@ function rebuildSchedule(rows: RevenueSchedule["byPo"]): RevenueSchedule {
     return { month, perPo, totalCents, cumulativeCents: cumulative };
   });
   return {
-    byPo: [...rows].sort((a, b) => (a.month === b.month ? a.poId.localeCompare(b.poId) : a.month < b.month ? -1 : 1)),
+    byPo: [...rows].sort((a, b) =>
+      a.month === b.month ? a.poId.localeCompare(b.poId) : a.month < b.month ? -1 : 1,
+    ),
     byMonth,
     totalCents: cumulative,
     firstMonth: months[0] ?? null,

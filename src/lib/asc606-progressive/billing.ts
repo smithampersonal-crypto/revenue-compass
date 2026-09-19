@@ -10,7 +10,15 @@
  * a $0 inception estimate never requires a billing event.
  */
 
-import { isValidCents, isValidIsoDate, monthKeyOf, sumCents, type Cents, type IsoDate, type MonthKey } from "@/lib/asc606";
+import {
+  isValidCents,
+  isValidIsoDate,
+  monthKeyOf,
+  sumCents,
+  type Cents,
+  type IsoDate,
+  type MonthKey,
+} from "@/lib/asc606";
 
 import { mergeCalculationState, type BlockedComponent, type CalculationState } from "./types";
 import type { VcSeriesPeriodAllocation } from "./variable-consideration";

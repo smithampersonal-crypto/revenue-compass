@@ -140,7 +140,6 @@ export interface PoDraft {
   /** Input measure only: accountant-owned actual progress. */
   progressEvents?: ProgressEventDraft[];
 
-
   // ---- Material-right fields (kind === "material_right" only) -------------
   /** The good or service the customer would obtain on exercise. */
   underlyingGoodOrServiceName: string;

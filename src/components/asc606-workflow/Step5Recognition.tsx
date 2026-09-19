@@ -139,7 +139,9 @@ export function Step5Recognition({
               >
                 <option value="">Select…</option>
                 <option value="transferred">Transferred — date known</option>
-                <option value="not_yet_transferred">Not yet transferred — date not yet known</option>
+                <option value="not_yet_transferred">
+                  Not yet transferred — date not yet known
+                </option>
               </select>
             </Field>
           </AiReviewTarget>

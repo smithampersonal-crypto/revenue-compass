@@ -17,9 +17,7 @@
 import type { CalculationState } from "./types";
 
 export type FinancingConclusion =
-  | "no_adjustment_practical_expedient"
-  | "policy_not_confirmed"
-  | "outside_narrow_treatment";
+  "no_adjustment_practical_expedient" | "policy_not_confirmed" | "outside_narrow_treatment";
 
 export interface FinancingInterval {
   id: string;

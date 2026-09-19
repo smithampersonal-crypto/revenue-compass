@@ -290,7 +290,9 @@ describe("C — usage rule versus actual activity", () => {
     const amount = 500 * 1_200;
     expect(analysis.usageAmounts[0]!.totalCents).toBe(amount);
     const feb = analysis.recognition!.schedule.byPo.filter(
-      (row) => row.month === "2027-02" && row.explanation.template === "variable_consideration_series_period",
+      (row) =>
+        row.month === "2027-02" &&
+        row.explanation.template === "variable_consideration_series_period",
     );
     expect(feb).toHaveLength(1);
     expect(feb[0]!.revenueCents).toBe(amount);
@@ -325,9 +327,7 @@ describe("F/G — progressive downstream output and reconciliation", () => {
 
   it("F37 exposes known balance components plus the explicit pending amount", () => {
     expect(analysis.balances!.totalBilledCents).toBe(GENOMIX_FIXED_CENTS);
-    expect(analysis.balances!.pendingCents).toBe(
-      GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS,
-    );
+    expect(analysis.balances!.pendingCents).toBe(GENOMIX_VALIDATION_CENTS + GENOMIX_SUPPORT_CENTS);
     expect(analysis.balances!.periods.every((period) => period.state === "pending")).toBe(true);
   });
 
@@ -432,11 +432,17 @@ describe("H — material facts, review carry-forward and identity", () => {
   });
 
   it("H47 reopens only the affected conclusion for progress, method and VC facts", () => {
-    const hours = diffMaterialFacts(before, materialFacts(withSupportHours(genomixR3Input()) as never));
+    const hours = diffMaterialFacts(
+      before,
+      materialFacts(withSupportHours(genomixR3Input()) as never),
+    );
     expect(hours.changedKeys).toEqual([]);
     expect(hours.addedKeys).toEqual(["po:po-support:progress:ph-1"]);
 
-    const sla = diffMaterialFacts(before, materialFacts(withRealizedSlaCredit(genomixR3Input()) as never));
+    const sla = diffMaterialFacts(
+      before,
+      materialFacts(withRealizedSlaCredit(genomixR3Input()) as never),
+    );
     expect(sla.changedKeys).toEqual(["vc:vc-sla:treatment"]);
     expect(sla.addedKeys).toEqual(["vc:vc-sla:realized:sla-2027-04"]);
 

@@ -59,9 +59,7 @@ export interface ProgressiveJournalsInput {
   pending: readonly PendingComponent[];
 }
 
-export function buildProgressiveJournals(
-  input: ProgressiveJournalsInput,
-): ProgressiveJournals {
+export function buildProgressiveJournals(input: ProgressiveJournalsInput): ProgressiveJournals {
   const entries: ProgressiveJournalEntry[] = [];
 
   for (const event of input.billing) {
@@ -92,7 +90,9 @@ export function buildProgressiveJournals(
     });
   }
 
-  entries.sort((a, b) => (a.month === b.month ? a.id.localeCompare(b.id) : a.month < b.month ? -1 : 1));
+  entries.sort((a, b) =>
+    a.month === b.month ? a.id.localeCompare(b.id) : a.month < b.month ? -1 : 1,
+  );
 
   const pendingEvents: PendingAccountingEvent[] = input.pending.map((component) => ({
     id:
