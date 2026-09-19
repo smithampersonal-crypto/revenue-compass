@@ -1163,3 +1163,71 @@ stays `arc.ai.prompt.v6`. R3 and R4 remain NOT STARTED.
       not authorized to make. Manual steps are recorded under Defect 1.
 - [ ] Cloud apply of the staged migration — blocked on byte-level acceptance.
 - R3 and R4 remain NOT STARTED.
+
+### Post-R2 Database Hardening — non-retryable conflict SQLSTATE (staged, awaiting byte-level review)
+
+Incident: a PostgREST backend retried ARC-authored SQLSTATE `40001` exceptions,
+producing hundreds of thousands of "the analysis changed since it was loaded"
+errors and driving database CPU from ~1–2% to sustained high usage. `40001`
+means "the database could not serialize this transaction, retry"; ARC's own
+optimistic-lock and business conflicts are permanent for the request that hit
+them and must never be retried.
+
+- [x] RPC audit against the effective catalog (not source history): 20 public
+      routines raised an ARC-authored `40001`, and one of them
+      (`arc_commit_source_document_upload`) also caught it from a callee. Every
+      one is an ARC optimistic-lock / business conflict; none is a genuine
+      PostgreSQL serialization failure. Routines: `arc_acknowledge_ai_stale_sources`,
+      `arc_affirm_ai_review_item`, `arc_apply_ai_run`, `arc_attach_guest_source_document`,
+      `arc_attach_source_document`, `arc_commit_source_document_upload`,
+      `arc_discard_amendment_draft`, `arc_finalize_revision`,
+      `arc_migrate_guest_workspace_by_token`(+`_v2`,`_v3`),
+      `arc_protect_revision_immutability`, `arc_remove_guest_source_document`,
+      `arc_remove_source_document`, `arc_reset_amendment_draft`,
+      `arc_resolve_ai_review_issue`, `arc_restore_pre_ai_run`,
+      `arc_save_draft_with_ai_reconciliation`, `arc_stage_source_document_deletion`,
+      `arc_start_amendment_revision`.
+- [x] Staged migration `supabase/pending/20260919060000_post_r2_conflict_sqlstate.sql`:
+      `CREATE OR REPLACE` of exactly those 20 routines, generated from their
+      current effective definitions, with `'40001'` → `'PT409'` and nothing else
+      changed. Signatures, return shapes, SECURITY DEFINER, `search_path`,
+      ownership validation, scope locking, actor derivation, lock ordering,
+      optimistic-lock behaviour, canonical/sidecar writes, review-event append
+      semantics and privileges are identical; no table, schema, RLS, grant,
+      trigger, index or data change. The approved autosave timeout hardening
+      (`lock_timeout` 3s, `idle_in_transaction_session_timeout` 15s) is retained
+      verbatim, and `supabase/pending/20260919043000_post_r2_autosave_lock_timeout.sql`
+      is left byte-identical.
+- [x] Mapping for `arc_save_draft_with_ai_reconciliation`: `PT409` → stale
+      optimistic lock / reload conflict; `55P03` → transient contention, exactly
+      one bounded retry; genuine `40001` → ordinary save failure; anything else →
+      ordinary save failure. `55P03` is never mapped to a stale-version conflict.
+- [x] Application boundary: `classifyAutosaveSaveError()` in
+      `src/lib/arc/ai/autosave.store.server.ts`, plus `PT409` in
+      `revisions.handlers.ts`, `guest.handlers.ts`, `review-actions.handlers.ts`,
+      `runs.store.server.ts`, `workspace.store.server.ts` and
+      `guest-workspace.store.server.ts`. Raw database codes and messages stay in
+      server logs only.
+- [x] New suites: `supabase/tests/post_r2_conflict_sqlstate.sql` (8 assertions,
+      catalog-level plus two behavioural stale-lock proofs) and updated
+      `phase8b`, `phase8e_guest_documents`, `phase9f_ai_lifecycle`,
+      `phase9g_autosave_reconciliation`, `post_r2_autosave_lock_timeout`.
+      New application spec `src/lib/arc/ai/__tests__/post-r2-conflict-sqlstate.spec.ts`
+      plus genuine-`40001`-is-not-a-conflict regressions in the finalize and
+      amendment-reset handler suites.
+- [x] RED proof: without the staged conflict migration the new SQL suite fails 5
+      of 8 assertions and `phase8b_document_lifecycle.sql` aborts on an
+      uncaught `40001`; with it applied, all 23 SQL suites pass.
+- [x] CI harness fixed: `scripts/run-sql-suites.sh` now applies every
+      `supabase/pending/*.sql` to the fresh disposable CI database, in filename
+      order, before the suites run. The contention test keeps its genuinely
+      authenticated second PostgreSQL connection over `dblink` and is not
+      weakened to source inspection. No credential is embedded anywhere.
+- [x] Gate: 163 test files / 2,009 tests green, clean typecheck and production
+      build, `audit:bundle` clean; `guidance:check` 116 cards, hash
+      `352bcf79e7cff1753f353451d9b12bf7f7cb7840eae6fe7699fdcbace6425d56`;
+      23 SQL suites green; frozen Phase 9G Task 9 migration unchanged at
+      `3013e5370b7a12e8d266ddf4332034968bc5cc3cefb66dcb307ac04db261c251`;
+      schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`; no Cloud mutation.
+- [ ] Cloud apply of both staged migrations — blocked on byte-level acceptance.
+- R3 and R4 remain NOT STARTED.
