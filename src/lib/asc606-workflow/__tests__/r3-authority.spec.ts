@@ -156,6 +156,7 @@ describe("D — variable-consideration source of truth", () => {
           ...component,
           allocationTreatment: "specific_po" as const,
           effect: "increase" as const,
+          estimationMethod: "expected_value" as const,
           inception: {
             ...component.inception,
             includedInput: "10,000.00",
@@ -186,7 +187,7 @@ describe("D — variable-consideration source of truth", () => {
     // The included-after-constraint amount drives the transaction price; the
     // unconstrained estimate is preserved separately as provenance.
     expect(vc.includedCents).toBe(1_000_000);
-    expect(vc.estimateCents).not.toBe(vc.includedCents);
+    expect(vc.estimateCents).toBe(2_400_000);
   });
 
   it("maps the accepted resolution facts into a single realized event", () => {
