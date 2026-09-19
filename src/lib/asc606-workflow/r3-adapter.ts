@@ -276,8 +276,10 @@ function toProgressiveVcComponent(
   // A later remeasurement replaces the included amount; the original estimate
   // stays visible as provenance.
   const includedNow = current;
-  const estimateNow =
-    unconstrained !== null && latestIncluded === null ? unconstrained : (includedNow ?? UNUSABLE);
+  // The unconstrained estimate is never replaced by the constrained amount:
+  // only when the measurement engine produces no estimate at all does the
+  // included amount stand in for it.
+  const estimateNow = unconstrained ?? includedNow ?? UNUSABLE;
 
   // The accepted resolution model is the SAME realization fact the progressive
   // layer needs; it is mapped here rather than modelled a second time.
