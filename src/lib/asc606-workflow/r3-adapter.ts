@@ -71,6 +71,13 @@ function quantity(raw: string | undefined): number | null {
   return parsed.ok ? parsed.value : null;
 }
 
+/** A calendar date the accountant actually entered, in ISO form. */
+function isUsableDate(raw: string | undefined): boolean {
+  if (raw === undefined || raw.trim() === "") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  return !Number.isNaN(Date.parse(`${raw}T00:00:00Z`));
+}
+
 /** The R3 recognition method implied by the accepted workflow facts. */
 export function progressiveRecognitionMethod(
   po: PoDraft,
