@@ -11,7 +11,7 @@ import {
   PENDING_REASON_LABELS,
   type CalculationState,
 } from "@/lib/asc606-progressive";
-import { toProgressiveContractInput, type WorkflowDraft } from "@/lib/asc606-workflow";
+import { buildProgressiveInput, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { Notice, Section } from "./fields";
 
