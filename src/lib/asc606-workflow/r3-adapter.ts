@@ -235,7 +235,11 @@ function toProgressiveVcComponent(
     };
   }
 
-  const included = cents(component.inception.includedInput);
+  const includedRaw = cents(component.inception.includedInput);
+  // The accepted VC path expresses an included amount as a MAGNITUDE; its sign
+  // is carried by the component's effect. A negative entry is rejected rather
+  // than quietly reinterpreted here.
+  const included = includedRaw !== null && includedRaw < 0 ? null : includedRaw;
   if (included === null) {
     blocked.push({
       ownerKind: "variable_component",
@@ -244,9 +248,11 @@ function toProgressiveVcComponent(
       code: "vc.included.unusable",
       message: `"${name}" needs a usable included amount after the constraint.`,
     });
+    unusable = true;
   }
   const latest = [...component.remeasurements].sort((a, b) => b.seq - a.seq)[0];
-  const latestIncluded = latest ? cents(latest.includedInput) : null;
+  const latestRaw = latest ? cents(latest.includedInput) : null;
+  const latestIncluded = latestRaw !== null && latestRaw < 0 ? null : latestRaw;
   if (latest && latestIncluded === null && latest.includedInput.trim() !== "") {
     blocked.push({
       ownerKind: "variable_component",
@@ -255,6 +261,7 @@ function toProgressiveVcComponent(
       code: "vc.remeasurement.unusable",
       message: `The latest remeasurement of "${name}" has an unusable included amount.`,
     });
+    unusable = true;
   }
   const current = latestIncluded ?? included;
 
