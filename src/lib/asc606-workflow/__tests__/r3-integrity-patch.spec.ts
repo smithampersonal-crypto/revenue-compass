@@ -214,14 +214,17 @@ describe("R3: an unusable billing or cash fact blocks its dependent output", () 
     });
   }
 
-  it("never manufactures an invoice date from the unconditional-right date", () => {
+  it("never presents an invoice date manufactured from the unconditional-right date", () => {
     const base = resolvedGenomix();
     const draft = withBilling(
       base,
       base.contractBalances.considerationEvents.map((event) => ({ ...event, invoiceDate: "" })),
     );
-    const input = analyzeWorkflow(draft).progressive?.balances?.contractBalanceInput ?? null;
-    expect(input).toBeNull();
+    const workpaper = buildWorkpaper(draft);
+    expect(workpaper.balances.engineInput).toBeNull();
+    expect(workpaper.balances.analysis).toBeNull();
+    expect(workpaper.journals).toBeNull();
+    expect(workpaper.balances.blockedReason).toContain("invoice");
   });
 
   it("keeps a variable amount billed on realization on its own same-day rule", () => {
