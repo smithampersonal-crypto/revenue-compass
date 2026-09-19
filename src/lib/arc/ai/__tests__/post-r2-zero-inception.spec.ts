@@ -101,11 +101,16 @@ describe("post-R2 — zero-at-inception assumptions are deterministically comple
 
   it("fails closed on the missing date when no canonical date exists", () => {
     const analysis = analysisWithZeroComponent() as unknown as {
-      contract: { executionDate: string | null };
-      performanceObligations: { serviceStart: string | null }[];
+      contractAssessment: { contractEffectiveDate: { value: string | null } };
+      logicalDocuments: { effectiveDate: string | null }[];
+      recognitionProposals: { serviceStartDate: string | null; serviceEndDate: string | null }[];
     };
-    analysis.contract.executionDate = null;
-    for (const po of analysis.performanceObligations) po.serviceStart = null;
+    analysis.contractAssessment.contractEffectiveDate.value = null;
+    for (const document of analysis.logicalDocuments) document.effectiveDate = null;
+    for (const proposal of analysis.recognitionProposals) {
+      proposal.serviceStartDate = null;
+      proposal.serviceEndDate = null;
+    }
 
     const { draft, issues } = merge(analysis as unknown as AiContractAnalysis);
     const vcItems = issues.filter((item) => item.targetKey.startsWith("vc:"));
