@@ -30,6 +30,8 @@ PSQL+=(-d arc)
 "${PSQL[@]}" -f scripts/sql-harness-bootstrap.sql
 for migration in supabase/migrations/*.sql; do "${PSQL[@]}" -f "$migration"; done
 for extra in "$@"; do echo "== staged $extra"; "${PSQL[@]}" -f "$extra"; done
-for suite in supabase/tests/*.sql; do echo "== $suite"; "${PSQL[@]}" -f "$suite" >/dev/null; done
+# Same authenticated second-connection handover as scripts/run-sql-suites.sh.
+LOCAL_DSN="host=$DIR port=$PORT user=postgres dbname=arc"
+for suite in supabase/tests/*.sql; do echo "== $suite"; "${PSQL[@]}" -v arc_dsn="$LOCAL_DSN" -f "$suite" >/dev/null; done
 
 echo "local SQL harness — all suites passed."

@@ -13,6 +13,24 @@
 -- source rather than by sleeping 15s in the harness: a wall-clock idle test is
 -- inherently flaky here. It is exercised by the controlled hosted verification
 -- recorded in roadmap.md.
+-- The second session must be genuinely authenticated: local Supabase (and CI)
+-- require a password, so a DSN reconstructed from catalog settings cannot
+-- connect. The runner hands this suite the authenticated connection string it
+-- already resolved, as the psql variable :arc_dsn. It is stashed in a custom
+-- session setting with all output redirected to /dev/null, so the value is
+-- never echoed into CI output, and it is cleared at the end of the file; it
+-- exists only inside this disposable psql session. Trust-auth harnesses that
+-- pass no variable fall back to the reconstructed local socket DSN.
+\set QUIET on
+\o /dev/null
+\if :{?arc_dsn}
+select set_config('arc.test_dsn', :'arc_dsn', false);
+\else
+select set_config('arc.test_dsn', '', false);
+\endif
+\o
+\set QUIET off
+
 begin;
 
 create extension if not exists dblink;
@@ -77,11 +95,22 @@ declare
   v_elapsed numeric;
   v_code text;
 begin
-  v_dsn := format('dbname=%s port=%s host=%s user=%s',
-                  current_database(), current_setting('port'),
-                  split_part(current_setting('unix_socket_directories'), ',', 1),
-                  current_user);
-  perform dblink_connect(v_conn, v_dsn);
+  -- Authenticated connection string handed over by the runner for this
+  -- disposable session only; falls back to the local socket DSN on trust-auth
+  -- harnesses. The connect is wrapped so a libpq failure can never echo the
+  -- connection string into test output.
+  v_dsn := nullif(current_setting('arc.test_dsn', true), '');
+  if v_dsn is null then
+    v_dsn := format('dbname=%s port=%s host=%s user=%s',
+                    current_database(), current_setting('port'),
+                    split_part(current_setting('unix_socket_directories'), ',', 1),
+                    current_user);
+  end if;
+  begin
+    perform dblink_connect(v_conn, v_dsn);
+  exception when others then
+    raise exception 'ARC SQL suite: could not open the second test connection (%)', sqlstate;
+  end;
 
   -- Committed fixture: one temporary workspace with an AI sidecar, the exact
   -- production shape a guest autosave reconciles.
@@ -234,3 +263,11 @@ delete from public.ai_runs r
  using public.guest_workspaces g
  where g.id = r.guest_workspace_id and g.token_hash = repeat('b', 64);
 delete from public.guest_workspaces where token_hash = repeat('b', 64);
+
+-- The handed-over connection string is cleared from the session before this
+-- disposable psql session ends. Output is redirected so it is never echoed.
+\set QUIET on
+\o /dev/null
+select set_config('arc.test_dsn', '', false);
+\o
+\set QUIET off
