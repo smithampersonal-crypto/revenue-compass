@@ -317,10 +317,30 @@ function toProgressiveVcComponent(
   // A later remeasurement replaces the included amount; the original estimate
   // stays visible as provenance.
   const includedNow = current;
-  // The unconstrained estimate is never replaced by the constrained amount:
-  // only when the measurement engine produces no estimate at all does the
-  // included amount stand in for it.
-  const estimateNow = unconstrained ?? includedNow ?? UNUSABLE;
+
+  let estimateNow: Cents;
+  if (component.treatment === "estimated") {
+    // FAIL CLOSED. For an estimated component the measurement engine OWNS the
+    // unconstrained estimate. If it reports issues, or cannot produce an
+    // estimate at all, the component is unusable: the constrained included
+    // amount is NEVER promoted into the estimate merely because it parses.
+    if (measurement.issues.length > 0) {
+      blocked.push({
+        ownerKind: "variable_component",
+        ownerId: component.id,
+        ownerName: name,
+        code: "vc.measurement.unusable",
+        message:
+          measurement.issues[0] ??
+          `The estimate for "${name}" cannot be measured from the facts entered.`,
+      });
+      unusable = true;
+    }
+    if (unconstrained === null) unusable = true;
+    estimateNow = unconstrained ?? UNUSABLE;
+  } else {
+    estimateNow = includedNow ?? UNUSABLE;
+  }
 
   // The accepted resolution model is the SAME realization fact the progressive
   // layer needs; it is mapped here rather than modelled a second time.
