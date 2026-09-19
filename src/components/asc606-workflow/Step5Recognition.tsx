@@ -126,12 +126,15 @@ export function Step5Recognition({
               <select
                 className={inputClass}
                 value={po.transferStatus ?? ""}
-                onChange={(e) =>
-                  patch(po.id, {
-                    transferStatus:
-                      (e.target.value || undefined) as PoDraft["transferStatus"],
-                  })
-                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  patch(
+                    po.id,
+                    value === ""
+                      ? ({ transferStatus: undefined } as Partial<PoDraft>)
+                      : { transferStatus: value as "transferred" | "not_yet_transferred" },
+                  );
+                }}
               >
                 <option value="">Select…</option>
                 <option value="transferred">Transferred — date known</option>
