@@ -109,16 +109,28 @@ export function Asc606AnalysisArea() {
 
     const target = describeReviewTarget(reviewItem.targetKey, reviewItem.section);
     const sectionId = target.sectionElementId;
+    // The destination section is expanded FIRST; the scroll then waits for the
+    // real destination element to exist.
     setOpen((prev) => ({ ...prev, [sectionId]: true }));
-    if (typeof document !== "undefined") {
-      const anchor = target.anchorId === null ? null : document.getElementById(target.anchorId);
-      (anchor ?? document.getElementById(sectionId))?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
 
-    void navigate({ to: "/analysis", search: withoutReview, replace: true });
+    // Removing the one-shot parameter is a router navigation, and the router
+    // restores/resets scroll on navigation. `resetScroll: false` is the router's
+    // own mechanism for suppressing that, so tidying the URL can never throw
+    // the accountant back to the top of Step 1.
+    void navigate({ to: "/analysis", search: withoutReview, replace: true, resetScroll: false });
+
+    scrollToReviewTarget({
+      sectionId,
+      anchorId: target.anchorId,
+      // Assumptions are never turned into actionable review merely to
+      // highlight the accounting they explain.
+      focusLabel:
+        reviewItem.severity === "red"
+          ? "Resolve this item"
+          : reviewItem.severity === "yellow"
+            ? "Review this item"
+            : null,
+    });
   }, [requestedReview, reviewItem, navigate, search, ai.loadState]);
 
   return (
