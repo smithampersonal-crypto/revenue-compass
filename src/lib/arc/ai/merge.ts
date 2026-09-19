@@ -1970,10 +1970,36 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // the estimation method is merged, because a nil assumption is a most
       // likely amount of $0 — never an expected-value distribution that would
       // then demand probabilities the contract cannot supply.
+      // Post-R2 acceptance patch. Blank amount fields alone do NOT prove the
+      // inception judgment is unclaimed: an accountant may own the estimation
+      // method, an outcome probability, a most-likely designation or the
+      // constraint rationale while the amounts are still empty. Rewriting over
+      // that would destroy their work and could leave an internally
+      // inconsistent assessment, so every material part of the judgment must be
+      // either genuinely empty or ARC's own untouched draft (which keeps
+      // re-analysis deterministic).
+      const inceptionKey = fieldKeys.vc(canonicalId, "inception");
+      const methodKey = fieldKeys.vc(canonicalId, "estimationMethod");
+      const inceptionAiOwned =
+        fieldProvenance[inceptionKey]?.state === "ai_generated_untouched";
+      const inceptionEmpty =
+        isUnclaimedString(current().inception.includedInput) &&
+        isUnclaimedString(current().inception.constraintRationale) &&
+        current().inception.outcomes.every(
+          (outcome) =>
+            isUnclaimedString(outcome.amountInput) &&
+            isUnclaimedString(outcome.probabilityInput) &&
+            outcome.isMostLikely !== true,
+        );
+      // The effective date is exempt: a manually supplied assessment date is
+      // preserved, not treated as ownership of the estimation judgment.
+      const methodUnclaimed =
+        current().estimationMethod === null ||
+        fieldProvenance[methodKey]?.state === "ai_generated_untouched";
       const zeroCandidate =
         component.initialEstimateBasis === "zero_no_expected_trigger" &&
-        isUnclaimedString(current().inception.includedInput) &&
-        current().inception.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
+        methodUnclaimed &&
+        (inceptionAiOwned || inceptionEmpty);
       // The inception date is taken from an authoritative canonical date ARC
       // already holds. If there is none, the assumption fails closed on the
       // missing date rather than inventing one.
