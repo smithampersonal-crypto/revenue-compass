@@ -1013,3 +1013,23 @@ change is planned.
 
 R3 (variable-consideration schedules and usage engine work) and R4 (UX
 compression) have not begun.
+
+#### R2 acceptance patch — assumption-target navigation
+
+- [x] `src/routes/analysis/index.tsx`: the one-shot `review=<id>` intent now
+      resolves against `reviewItems` AND `assumptionItems`, so a "Go to …"
+      action in the Routine assumptions group opens the right section and
+      scrolls to the exact anchor instead of being discarded as stale. This is
+      the only place the two queues are read together: assumptions stay out of
+      actionable counts, accordion "AI review" counts, next-issue, finalization
+      blocking, Confirm/Resolve and review events.
+- [x] New regressions: `src/components/arc/phase9g-r2-assumptions-panel.spec.tsx`
+      (5) and `src/routes/analysis/phase9g-r2-assumption-navigation.spec.tsx`
+      (4). RED proof: reverting the resolver failed the assumption navigation
+      test; restoring it returned green.
+- [x] Full `bun run verify` green: 157 files / 1,976 tests, clean typecheck and
+      build, `audit:bundle` clean, 11 pre-existing shadcn lint warnings only.
+      All 21 SQL suites replayed green; no SQL, RLS, grant, RPC or migration
+      change; frozen Phase 9G migration unchanged; schema v5 / prompt v6
+      unchanged; no OpenAI call. R3 and R4 remain NOT STARTED. R2 remains
+      awaiting acceptance.
