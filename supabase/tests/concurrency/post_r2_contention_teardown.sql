@@ -18,3 +18,5 @@ delete from public.ai_runs r
  using public.guest_workspaces g
  where g.id = r.guest_workspace_id and g.token_hash = repeat('b', 64);
 delete from public.guest_workspaces where token_hash = repeat('b', 64);
+
+reset session_replication_role;
