@@ -13,7 +13,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { reconcileAiEdits } from "../edit-reconciliation";
+import {
+  canonicalReviewTargetFingerprint,
+  classifyReviewTarget,
+  reconcileAiEdits,
+} from "../edit-reconciliation";
 import { deriveCanonicalId, fieldKeys } from "../identity";
 import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import type { AiContractAnalysis } from "../schema";
@@ -385,6 +389,138 @@ describe("R1 acceptance — the Phase 9G stores keep their Supabase receiver", (
       const source = readFileSync(path, "utf8");
       expect(source).toContain("supabaseAdmin.rpc.bind(supabaseAdmin)");
       expect(/=\s*supabaseAdmin\.rpc\s*as/.test(source)).toBe(false);
+    }
+  });
+});
+
+/* ============================== Task 4 integration — allocation targets */
+
+const ALLOCATION_TARGET = fieldKeys.vc(SLA_VC_ID, "allocation");
+
+const FIELD_EDITS: Array<{ name: string; key: string; patch: Record<string, unknown> }> = [
+  {
+    name: "allocationTreatment",
+    key: ALLOCATION_KEYS.treatment,
+    patch: { allocationTreatment: "general" },
+  },
+  {
+    name: "targetPoId",
+    key: ALLOCATION_KEYS.target,
+    patch: { targetPoId: deriveCanonicalId("performance_obligation", "po:other") },
+  },
+  {
+    name: "relatesSpecifically",
+    key: ALLOCATION_KEYS.relates,
+    patch: { relatesSpecifically: false },
+  },
+  {
+    name: "consistentWithAllocationObjective",
+    key: ALLOCATION_KEYS.objective,
+    patch: { consistentWithAllocationObjective: false },
+  },
+  {
+    name: "allocationRationale",
+    key: ALLOCATION_KEYS.rationale,
+    patch: { allocationRationale: "My own allocation reasoning." },
+  },
+];
+
+describe("R1 acceptance — Task 4 sees an allocation edit immediately", () => {
+  for (const spec of FIELD_EDITS) {
+    it(`marks ${spec.name} as user-edited at autosave reconciliation`, () => {
+      const first = run({ analysis: genomixR1Analysis() });
+      expect(first.aiState.fieldProvenance[spec.key]!.state).toBe("ai_generated_untouched");
+
+      const reconciled = reconcileAiEdits({
+        previousDraft: first.draft,
+        nextDraft: editComponent(first.draft, spec.patch),
+        currentAiState: first.aiState,
+      });
+
+      expect(reconciled.aiState.fieldProvenance[spec.key]!.state).toBe("ai_generated_user_edited");
+    });
+  }
+});
+
+function resolvedAllocationState(state: AiAnalysisState, draft: WorkflowDraft): AiAnalysisState {
+  const item = {
+    id: "item-allocation",
+    targetKey: ALLOCATION_TARGET,
+    section: "step_3" as const,
+    state: "resolved" as const,
+    severity: "yellow" as const,
+    reasonCode: "manual_value_preserved" as const,
+    reason: "The allocation judgment differs from the AI proposal.",
+    guidanceIds: [],
+    citations: [],
+    valueFingerprint: "v",
+    reviewFingerprint: "f",
+    resolution: {
+      kind: "affirmation" as const,
+      at: "2027-02-01T00:00:00.000Z",
+      method: "explicit" as const,
+      reviewFingerprint: "f",
+    },
+    affirmedAt: "2027-02-01T00:00:00.000Z",
+    affirmedMethod: "explicit" as const,
+  };
+  const unrelated = {
+    ...item,
+    id: "item-description",
+    targetKey: fieldKeys.vc(SLA_VC_ID, "description"),
+  };
+  void draft;
+  return { ...state, reviewItems: [item as never, unrelated as never] };
+}
+
+describe("R1 acceptance — a resolved allocation review reopens on a material edit", () => {
+  for (const spec of FIELD_EDITS) {
+    it(`reopens when ${spec.name} materially changes`, () => {
+      const first = run({ analysis: genomixR1Analysis() });
+      const state = resolvedAllocationState(first.aiState, first.draft);
+      const next = editComponent(first.draft, spec.patch);
+
+      expect(canonicalReviewTargetFingerprint(first.draft, ALLOCATION_TARGET)).not.toBe(
+        canonicalReviewTargetFingerprint(next, ALLOCATION_TARGET),
+      );
+
+      const reconciled = reconcileAiEdits({
+        previousDraft: first.draft,
+        nextDraft: next,
+        currentAiState: state,
+      });
+      const item = reconciled.aiState.reviewItems.find((row) => row.id === "item-allocation")!;
+      expect(item.state).toBe("yellow");
+      expect(item.resolution).toBeNull();
+      expect(
+        reconciled.reviewEvents.filter((event) => event.reviewItemId === "item-allocation"),
+      ).toHaveLength(1);
+      expect(reconciled.reviewEvents[0]!.type).toBe("review_item_reopened");
+      // The unrelated description review is untouched.
+      expect(
+        reconciled.aiState.reviewItems.find((row) => row.id === "item-description")!.state,
+      ).toBe("resolved");
+    });
+  }
+});
+
+describe("R1 acceptance — the allocation target is a material group", () => {
+  it("classifies through the allocation group rather than as an exact scalar", () => {
+    const { draft } = run({ analysis: genomixR1Analysis() });
+    expect(classifyReviewTarget(draft, ALLOCATION_TARGET)).toBe("composite");
+  });
+
+  it("ignores unrelated variable-consideration edits", () => {
+    const { draft } = run({ analysis: genomixR1Analysis() });
+    const base = canonicalReviewTargetFingerprint(draft, ALLOCATION_TARGET);
+    for (const patch of [
+      { description: "Availability service credit (restated)" },
+      { estimationMethod: "most_likely_amount" },
+      { usagePeriods: [] },
+    ]) {
+      expect(canonicalReviewTargetFingerprint(editComponent(draft, patch), ALLOCATION_TARGET)).toBe(
+        base,
+      );
     }
   });
 });
