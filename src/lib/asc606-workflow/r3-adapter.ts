@@ -148,7 +148,7 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
       const units = quantity(event.unitsInput);
       const entered = event.date !== "" || event.unitsInput.trim() !== "";
       if (!entered) continue;
-      if (event.date === "" || units === null) {
+      if (!isUsableDate(event.date) || units === null) {
         blocked.push({
           ownerKind: "progress_event",
           ownerId: event.id,
@@ -171,6 +171,15 @@ function toProgressivePo(po: PoDraft, blocked: BlockedFact[]): ProgressiveContra
     if (po.transferStatus === "not_yet_transferred") {
       base.transferDateUnknown = true;
     } else if (po.recognitionDate !== "") {
+      if (!isUsableDate(po.recognitionDate)) {
+        blocked.push({
+          ownerKind: "performance_obligation",
+          ownerId: po.id,
+          ownerName: name,
+          code: "transfer_date.unusable",
+          message: `The transfer date entered for "${name}" is not a valid calendar date.`,
+        });
+      }
       base.recognitionDate = po.recognitionDate;
     }
   }
@@ -188,13 +197,20 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): Ser
   const periods: VcSeriesPeriod[] = [];
   let invalid = false;
   for (const period of [...(component.seriesPeriods ?? [])].sort((a, b) => a.seq - b.seq)) {
-    if (period.startDate === "" || period.endDate === "") {
+    // Strict calendar validity AND a coherent ordering: an impossible date or
+    // an end before its start makes the period unusable.
+    if (
+      !isUsableDate(period.startDate) ||
+      !isUsableDate(period.endDate) ||
+      period.startDate > period.endDate
+    ) {
       blocked.push({
         ownerKind: "series_period",
         ownerId: period.id,
         ownerName: period.label || component.description || component.id,
         code: "series_period.incomplete",
-        message: "A service period needs both a start date and an end date.",
+        message:
+          "A service period needs a valid start date and a valid end date that does not precede it.",
       });
       // FAIL CLOSED: an unusable period is not dropped; it makes every amount
       // that depends on this component's service periods unusable too.
