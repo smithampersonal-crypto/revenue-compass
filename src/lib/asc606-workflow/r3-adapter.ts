@@ -259,7 +259,6 @@ function toProgressiveVcComponent(
   // raw included amount for an estimated component.
   const measurement = previewVcCurrentMeasurement(component);
 
-
   const realized: {
     id: string;
     date: string;
