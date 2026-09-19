@@ -41,8 +41,7 @@ export function buildProgressiveGate(
 ): ProgressiveGate {
   // Billing events and cash collections share the "billing_event" owner kind:
   // they are exactly the facts the Phase 3 rollforward depends on.
-  const dependencyBlockers: BlockedFact[] = [];
-  const _unusedDependencyBlockers = adapterBlocked.filter((fact) => fact.ownerKind === "billing_event");
+  const dependencyBlockers = adapterBlocked.filter((fact) => fact.ownerKind === "billing_event");
   const engineBlocked = progressive.blocked.length > 0;
 
   const balancesPresentable =
