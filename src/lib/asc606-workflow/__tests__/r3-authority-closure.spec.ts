@@ -126,9 +126,9 @@ describe("R3: one workflow-owned determination of presentable accounting", () =>
       const workflow = analyzeWorkflow(broken);
 
       // The source fact stays visible.
-      expect(
-        workflow.progressiveBlocked.some((fact) => fact.code.startsWith(testCase.code)),
-      ).toBe(true);
+      expect(workflow.progressiveBlocked.some((fact) => fact.code.startsWith(testCase.code))).toBe(
+        true,
+      );
 
       // Allocation and determinable revenue are untouched.
       const hosted = workflow.allocation!.find((row) => row.poId === "po-hosted")!;
@@ -280,8 +280,7 @@ describe("R3: the accepted measurement path owns every dated assessment", () => 
     },
     {
       name: "an included amount above the estimate",
-      component: () =>
-        estimatedComponent([{ ...VALID_REMEASUREMENT, includedInput: "25,000.00" }]),
+      component: () => estimatedComponent([{ ...VALID_REMEASUREMENT, includedInput: "25,000.00" }]),
     },
     {
       name: "an unusable effective date",
@@ -403,9 +402,9 @@ describe("R3: canonical source-data validation is never discarded", () => {
       ),
     );
     const workpaper = analyzeContractBalanceWorkflow(draft);
-    expect(workpaper.validation.blocking.some((issue) => issue.id.startsWith("billing.event"))).toBe(
-      true,
-    );
+    expect(
+      workpaper.validation.blocking.some((issue) => issue.id.startsWith("billing.event")),
+    ).toBe(true);
     expect(workpaper.finalized).toBe(false);
   });
 
