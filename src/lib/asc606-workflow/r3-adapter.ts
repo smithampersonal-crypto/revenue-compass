@@ -565,17 +565,34 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
         seq: event.seq,
         amountCents: amount ?? UNUSABLE,
         unconditionalRightDate: event.unconditionalRightDate,
-        ...(event.invoiceDate ? { invoiceDate: event.invoiceDate } : {}),
+        ...(isUsableDate(event.invoiceDate) ? { invoiceDate: event.invoiceDate! } : {}),
         description: "Contractual billing",
       });
       continue;
+    }
+    // The invoice date of an ENTERED fixed billing event is an accountant-owned
+    // fact. It is never manufactured from the unconditional-right date: billed
+    // versus unbilled receivable timing depends on it. A missing or unreadable
+    // invoice date blocks the billing, balance and journal output that depends
+    // on that timing, while allocation and determinable revenue stay available.
+    // (A variable amount billed on realization is a separate, genuinely
+    // deterministic same-day rule and is unaffected.)
+    if (!isUsableDate(event.invoiceDate)) {
+      blocked.push({
+        ownerKind: "billing_event",
+        ownerId: event.id,
+        ownerName: "Contractual billing",
+        code: "billing.invoice_date",
+        message:
+          "A contractual billing event needs the date the invoice was issued before billed and unbilled receivables can be presented.",
+      });
     }
     fixedBilling.push({
       id: event.id,
       seq: event.seq,
       amountCents: amount,
       unconditionalRightDate: event.unconditionalRightDate,
-      ...(event.invoiceDate ? { invoiceDate: event.invoiceDate } : {}),
+      ...(isUsableDate(event.invoiceDate) ? { invoiceDate: event.invoiceDate! } : {}),
       description: "Contractual billing",
     });
   }
