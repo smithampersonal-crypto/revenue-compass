@@ -194,7 +194,9 @@ describe("post-R2 — review navigation lands on the item", () => {
     search = { review: RED.id };
     const { container } = renderArea();
     const anchor = await anchorFor(container, RED);
-    await waitFor(() => expect(anchor.getAttribute("data-arc-focus-label")).toBe("Resolve this item"));
+    await waitFor(() =>
+      expect(anchor.getAttribute("data-arc-focus-label")).toBe("Resolve this item"),
+    );
   });
 
   it("highlights an assumption target without giving it an actionable label", async () => {

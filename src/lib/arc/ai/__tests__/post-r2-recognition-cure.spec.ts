@@ -17,7 +17,9 @@ import type { AiReviewItem } from "../review-state";
 
 const PO_ID = "po-support";
 
-function draftWithMethod(method: WorkflowDraft["performanceObligations"][number]["recognitionMethod"]) {
+function draftWithMethod(
+  method: WorkflowDraft["performanceObligations"][number]["recognitionMethod"],
+) {
   const empty = createEmptyDraft();
   return {
     ...empty,

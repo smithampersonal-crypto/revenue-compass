@@ -2024,12 +2024,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
                 ...current().inception,
                 effectiveDate: current().inception.effectiveDate || inceptionDate!,
                 includedInput: value,
-                outcomes: current().inception.outcomes.slice(0, 1).map((outcome) => ({
-                  ...outcome,
-                  amountInput: value,
-                  probabilityInput: "",
-                  isMostLikely: true,
-                })),
+                outcomes: current()
+                  .inception.outcomes.slice(0, 1)
+                  .map((outcome) => ({
+                    ...outcome,
+                    amountInput: value,
+                    probabilityInput: "",
+                    isMostLikely: true,
+                  })),
                 constraintRationale: component.initialEstimateRationale,
               },
             }),
