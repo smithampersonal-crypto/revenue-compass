@@ -354,7 +354,7 @@ function toProgressiveVcComponent(
     !realized.some((event) => event.id === resolutionEventId(component))
   ) {
     const resolved = cents(component.resolutionAmountInput);
-    if (component.resolutionDate === "" || resolved === null) {
+    if (!isUsableDate(component.resolutionDate) || resolved === null) {
       blocked.push({
         ownerKind: "realized_event",
         ownerId: resolutionEventId(component),
