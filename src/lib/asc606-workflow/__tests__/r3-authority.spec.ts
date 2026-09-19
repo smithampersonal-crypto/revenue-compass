@@ -469,7 +469,7 @@ describe("J — orchestration fails closed on identity defects", () => {
 
   it("rejects duplicate billing-event identities", () => {
     expectBlocked((input) => {
-      input.fixedBillingEvents.push({ ...input.fixedBillingEvents[0] });
+      input.fixedBilling.push({ ...input.fixedBilling[0] });
     });
   });
 
