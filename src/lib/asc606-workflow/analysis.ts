@@ -49,6 +49,28 @@ import {
   type WorkflowDraft,
 } from "./types";
 import { validateWorkflow, type WorkflowValidationOutcome } from "./validation";
+import {
+  analyzeProgressiveContract,
+  sumSignedPendingCents,
+  type BlockedComponent,
+  type ProgressiveContractAnalysis,
+} from "@/lib/asc606-progressive";
+import {
+  buildProgressiveInput,
+  draftRequiresProgressive,
+  type BlockedFact,
+} from "./r3-adapter";
+
+/** An engine-level blocked amount described with its owning obligation. */
+function toBlockedFact(component: BlockedComponent): BlockedFact {
+  return {
+    ownerKind: "performance_obligation",
+    ownerId: component.poId,
+    ownerName: component.poName,
+    code: component.code,
+    message: component.message,
+  };
+}
 
 export interface WorkflowAnalysisResult {
   workflowValidation: WorkflowValidationOutcome;
@@ -82,6 +104,15 @@ export interface WorkflowAnalysisResult {
   modification: ContractModificationAnalysis | null;
   /** Presentation groups; a separate-contract modification produces two. */
   contractGroups: ContractPresentationGroup[];
+  /**
+   * Phase 9G-R3. The authoritative progressive result when the contract carries
+   * progressive facts. Every downstream surface (Step 4 allocation, revenue
+   * schedule, billing, contract balances, journal entries, finalization) reads
+   * THIS result; nothing recalculates it independently.
+   */
+  progressive: ProgressiveContractAnalysis | null;
+  /** Facts that cannot be used yet, with the owner they belong to. */
+  progressiveBlocked: BlockedFact[];
 }
 
 export interface AnalyzeWorkflowDeps {
@@ -119,6 +150,8 @@ export function analyzeWorkflow(
     variableConsideration: null,
     modification: null,
     contractGroups: [],
+    progressive: null,
+    progressiveBlocked: [],
   });
 
   if (step1Conclusion === "not_qualified") {
@@ -131,6 +164,57 @@ export function analyzeWorkflow(
   }
   if (workflowValidation.blocking.length > 0) {
     return blocked("The workflow has unresolved blocking items.");
+  }
+
+  // ---- Phase 9G-R3 authoritative progressive path --------------------------
+  if (draftRequiresProgressive(draft)) {
+    const built = buildProgressiveInput(draft);
+    if (!built.ok) {
+      return {
+        ...blocked(
+          built.blocked[0]?.message ??
+            "This contract cannot be calculated until the missing facts are supplied.",
+        ),
+        progressiveBlocked: built.blocked,
+      };
+    }
+    let progressive: ProgressiveContractAnalysis;
+    try {
+      progressive = analyzeProgressiveContract(built.input);
+    } catch (error) {
+      return {
+        ...blocked((error as Error).message),
+        progressiveBlocked: built.blocked,
+      };
+    }
+    const unresolved = progressive.recognition
+      ? sumSignedPendingCents(progressive.recognition.pending)
+      : 0;
+    return {
+      workflowValidation,
+      step1Conclusion,
+      // A contract awaiting a future operational fact is not finalizable, but
+      // its known accounting is fully available.
+      finalized: progressive.state === "complete",
+      blockedReason:
+        progressive.state === "blocked"
+          ? "Some facts this contract depends on cannot be used yet."
+          : null,
+      adapterErrors: [],
+      engineValidation: null,
+      analysis: null,
+      lifecycle: null,
+      allocation: progressive.allocation,
+      revenueSchedule: progressive.recognition?.schedule ?? null,
+      revenueSources: [],
+      unscheduledRevenueCents: unresolved,
+      lifecycleConsiderationCents: null,
+      variableConsideration: null,
+      modification: null,
+      contractGroups: [],
+      progressive,
+      progressiveBlocked: [...built.blocked, ...progressive.blocked.map(toBlockedFact)],
+    };
   }
 
   if (draftHasVariableConsideration(draft)) {
@@ -181,6 +265,8 @@ export function analyzeWorkflow(
       variableConsideration: vc,
       modification: null,
       contractGroups: [],
+      progressive: null,
+      progressiveBlocked: [],
     };
   }
 
@@ -224,6 +310,8 @@ export function analyzeWorkflow(
       variableConsideration: null,
       modification: null,
       contractGroups: [],
+      progressive: null,
+      progressiveBlocked: [],
     };
   }
 
@@ -293,6 +381,8 @@ export function analyzeWorkflow(
       variableConsideration: null,
       modification,
       contractGroups: modification.groups,
+      progressive: null,
+      progressiveBlocked: [],
     };
   }
 
@@ -318,6 +408,8 @@ export function analyzeWorkflow(
     variableConsideration: null,
     modification: null,
     contractGroups: [],
+    progressive: null,
+    progressiveBlocked: [],
   };
 }
 

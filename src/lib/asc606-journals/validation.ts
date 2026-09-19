@@ -32,7 +32,11 @@ export function validateJournalInput(
       "The approved contract-balance engine produced no authoritative billing schedule or rollforward.",
     );
   }
-  if (balances.reconciliation.reconciled !== true) {
+  // Phase 9G-R3: under partial billing the Phase 3 reconciled flag is false by
+  // construction (billings do not yet equal the price). The revenue side must
+  // still tie, which the Phase 3 engine proves before returning any output.
+  const partial = input.billingCompleteness === "partial";
+  if (!partial && balances.reconciliation.reconciled !== true) {
     fail(
       "phase3.reconciliation.reconciled",
       "phase3",

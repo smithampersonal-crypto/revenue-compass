@@ -77,7 +77,14 @@ export interface ProgressivePoRecognition {
   method: ProgressiveRecognitionMethod;
   allocatedCents: Cents;
   scheduledCents: Cents;
+  /** Nonnegative magnitude of consideration awaiting a future fact. */
   pendingCents: Cents;
+  /**
+   * Signed unresolved amount. Equal to `pendingCents` for an ordinary pending
+   * obligation; negative when an unresolved variable amount will REDUCE the
+   * allocated consideration. Conservation uses this value.
+   */
+  pendingSignedCents: Cents;
   blockedCents: Cents;
   state: CalculationState;
   reason: PendingReason | null;
@@ -282,6 +289,7 @@ export function generateProgressiveRevenueSchedule(
         progress: null,
         scheduledCents: 0,
         pendingCents: 0,
+        pendingSignedCents: 0,
         blockedCents: 0,
         state: "blocked",
         reason: null,
@@ -317,6 +325,7 @@ export function generateProgressiveRevenueSchedule(
         ...base,
         scheduledCents: 0,
         pendingCents: 0,
+        pendingSignedCents: 0,
         blockedCents: allocatedCents,
         state: "blocked",
         reason: null,
@@ -335,6 +344,7 @@ export function generateProgressiveRevenueSchedule(
         ...base,
         scheduledCents: 0,
         pendingCents: allocatedCents,
+        pendingSignedCents: allocatedCents,
         blockedCents: 0,
         state: "pending",
         reason,
@@ -351,6 +361,7 @@ export function generateProgressiveRevenueSchedule(
             ...base,
             scheduledCents: scheduled,
             pendingCents: 0,
+            pendingSignedCents: 0,
             blockedCents: 0,
             state: "complete",
             reason: null,
@@ -402,6 +413,7 @@ export function generateProgressiveRevenueSchedule(
           ...base,
           scheduledCents: scheduled,
           pendingCents: 0,
+          pendingSignedCents: 0,
           blockedCents: 0,
           state: "complete",
           reason: null,
@@ -445,6 +457,7 @@ export function generateProgressiveRevenueSchedule(
           progress,
           scheduledCents: scheduled,
           pendingCents: remaining,
+          pendingSignedCents: remaining,
           blockedCents: 0,
           state: remaining > 0 ? "pending" : "complete",
           reason: remaining > 0 ? "awaiting_progress_actuals" : null,
@@ -463,9 +476,9 @@ export function generateProgressiveRevenueSchedule(
 
   // Per-PO conservation: allocated = scheduled + pending + blocked, always.
   for (const row of byPo) {
-    if (row.scheduledCents + row.pendingCents + row.blockedCents !== row.allocatedCents) {
+    if (row.scheduledCents + row.pendingSignedCents + row.blockedCents !== row.allocatedCents) {
       throw new ProgressiveAccountingError(
-        `progressive conservation violated for "${row.poName}": ${row.scheduledCents} + ${row.pendingCents} + ${row.blockedCents} != ${row.allocatedCents}`,
+        `progressive conservation violated for "${row.poName}": ${row.scheduledCents} + ${row.pendingSignedCents} + ${row.blockedCents} != ${row.allocatedCents}`,
       );
     }
   }

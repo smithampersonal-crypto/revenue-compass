@@ -1,25 +1,38 @@
 /**
  * Phase 9G-R3 Part 2, Stage C — progressive contract balances.
  *
- * One unresolved revenue component no longer erases every determinable
- * balance. Four things stay distinct and are never conflated:
+ * The ACCEPTED Phase 3 engine remains the accounting authority: this module
+ * feeds it the progressive facts and adds partial/unresolved metadata around
+ * its output. It never recalculates contract asset, contract liability, billed
+ * or unbilled receivables itself.
+ *
+ * Four things stay distinct and are never conflated:
  *
  *   known billings
  *   known recognized revenue
  *   allocated consideration not yet scheduled because an operational fact is
  *     pending (explicitly surfaced, never treated as permanent zero revenue)
  *   whether the period is complete or partial
- *
- * A period whose required actuals are all known calculates normally. A period
- * that would be misleading because material revenue is still unscheduled is
- * marked partial and carries the unresolved amount with it.
  */
 
-import { sumCents, type Cents, type MonthKey, type RevenueSchedule } from "@/lib/asc606";
+import type { Cents, MonthKey, RevenueSchedule } from "@/lib/asc606";
+import {
+  analyzeContractBalances,
+  type BalanceValidationOutcome,
+  type BillingScheduleRow,
+  type ContractBalanceAnalysis,
+  type ContractBalanceInput,
+  type MonthlyContractBalanceRow,
+} from "@/lib/asc606-balances";
 
-import type { CalculationState, PendingComponent } from "./types";
-import { sumPendingCents } from "./types";
 import type { ProgressiveBillingEvent } from "./billing";
+import {
+  buildProgressiveBalanceInput,
+  type ProgressiveCashCollection,
+} from "./phase3-bridge";
+import type { CalculationState, PendingComponent } from "./types";
+
+export type { ProgressiveCashCollection } from "./phase3-bridge";
 
 export interface ProgressiveBalancePeriod {
   month: MonthKey;
@@ -31,7 +44,10 @@ export interface ProgressiveBalancePeriod {
   contractLiabilityCents: Cents;
   /** Positive when revenue exceeds billings: a contract asset. */
   contractAssetCents: Cents;
-  /** Allocated consideration still unscheduled as at the end of this period. */
+  billedArCents: Cents;
+  unbilledArCents: Cents;
+  cashCollectedCents: Cents;
+  /** Signed allocated consideration still unresolved at this period end. */
   pendingCents: Cents;
   state: CalculationState;
 }
@@ -41,59 +57,68 @@ export interface ProgressiveBalances {
   periods: ProgressiveBalancePeriod[];
   totalBilledCents: Cents;
   totalRevenueCents: Cents;
-  /** Explicit unresolved amount; never silently zero. */
+  /** Explicit signed unresolved amount; never silently zero. */
   pendingCents: Cents;
   pending: PendingComponent[];
+  /** True when a future operational fact keeps the contract incomplete. */
+  partial: boolean;
+  /** Accepted Phase 3 output, unmodified. */
+  monthly: MonthlyContractBalanceRow[] | null;
+  billingSchedule: BillingScheduleRow[] | null;
+  validation: BalanceValidationOutcome;
+  analysis: ContractBalanceAnalysis;
+  /** The Phase 3 input actually used, reused by the journal layer. */
+  contractBalanceInput: ContractBalanceInput;
 }
 
 export interface ProgressiveBalancesInput {
   billing: readonly ProgressiveBillingEvent[];
+  cashCollections?: readonly ProgressiveCashCollection[];
   schedule: RevenueSchedule;
   pending: readonly PendingComponent[];
 }
 
 export function buildProgressiveBalances(input: ProgressiveBalancesInput): ProgressiveBalances {
-  const months = [
-    ...new Set([
-      ...input.billing.map((event) => event.month),
-      ...input.schedule.byMonth.map((row) => row.month),
-    ]),
-  ].sort();
+  const bridge = buildProgressiveBalanceInput(input);
+  const analysis = analyzeContractBalances(bridge.input);
 
-  const pendingCents = sumPendingCents(input.pending);
+  const monthly = analysis.monthly;
+  const periods: ProgressiveBalancePeriod[] = (monthly ?? []).map((row) => ({
+    month: row.month,
+    billedCents: row.unconditionalRightsCents,
+    revenueCents: row.revenueCents,
+    cumulativeBilledCents: row.cumulativeUnconditionalRightsCents,
+    cumulativeRevenueCents: row.cumulativeRevenueCents,
+    contractLiabilityCents: row.contractLiabilityCents,
+    contractAssetCents: row.contractAssetCents,
+    billedArCents: row.billedArCents,
+    unbilledArCents: row.unbilledArCents,
+    cashCollectedCents: row.cashCollectedCents,
+    pendingCents: bridge.unresolvedSignedCents,
+    // A period is only "complete" when nothing material remains unresolved.
+    state: bridge.partial ? "pending" : "complete",
+  }));
 
-  let cumulativeBilled = 0;
-  let cumulativeRevenue = 0;
-  const periods: ProgressiveBalancePeriod[] = months.map((month) => {
-    const billedCents = sumCents(
-      input.billing.filter((event) => event.month === month).map((event) => event.amountCents),
-    );
-    const revenueCents = sumCents(
-      input.schedule.byMonth.filter((row) => row.month === month).map((row) => row.totalCents),
-    );
-    cumulativeBilled = sumCents([cumulativeBilled, billedCents]);
-    cumulativeRevenue = sumCents([cumulativeRevenue, revenueCents]);
-    const net = cumulativeBilled - cumulativeRevenue;
-    return {
-      month,
-      billedCents,
-      revenueCents,
-      cumulativeBilledCents: cumulativeBilled,
-      cumulativeRevenueCents: cumulativeRevenue,
-      contractLiabilityCents: net > 0 ? net : 0,
-      contractAssetCents: net < 0 ? -net : 0,
-      // A period is only "complete" when nothing material remains unscheduled.
-      state: pendingCents > 0 ? "pending" : "complete",
-      pendingCents,
-    };
-  });
+  const last = periods[periods.length - 1];
+  const state: CalculationState =
+    analysis.validation.blockingFailures.length > 0
+      ? "blocked"
+      : bridge.partial
+        ? "pending"
+        : "complete";
 
   return {
-    state: pendingCents > 0 ? "pending" : "complete",
+    state,
     periods,
-    totalBilledCents: cumulativeBilled,
-    totalRevenueCents: cumulativeRevenue,
-    pendingCents,
+    totalBilledCents: last?.cumulativeBilledCents ?? 0,
+    totalRevenueCents: last?.cumulativeRevenueCents ?? 0,
+    pendingCents: bridge.unresolvedSignedCents,
     pending: [...input.pending],
+    partial: bridge.partial,
+    monthly,
+    billingSchedule: analysis.billingSchedule,
+    validation: analysis.validation,
+    analysis,
+    contractBalanceInput: bridge.input,
   };
 }

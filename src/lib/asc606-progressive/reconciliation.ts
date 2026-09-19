@@ -24,7 +24,8 @@ import { bigIntToCents, sumCents, type AllocationRow, type Cents } from "@/lib/a
 import type { ProgressiveRevenueResult } from "./recognition";
 import {
   mergeCalculationState,
-  sumPendingCents,
+  signedPendingCents,
+  sumSignedPendingCents,
   type CalculationState,
   type PendingComponent,
 } from "./types";
@@ -89,7 +90,12 @@ export function reconcileProgressive(
   const pendingByPo = new Map<string, Cents>();
   const pendingIdentities = new Set<string>();
   for (const component of input.recognition.pending) {
-    const identity = `${component.poId}::${component.reason}`;
+    // Stable identity when the producer supplied one: two distinct variable
+    // components against the same obligation are not a duplicate.
+    const identity =
+      typeof component.detail?.["identity"] === "string"
+        ? (component.detail["identity"] as string)
+        : `${component.poId}::${component.reason}`;
     if (pendingIdentities.has(identity)) {
       failures.push(
         `"${component.poName}" has a duplicate pending component for the same reason; an amount may not be counted twice.`,
@@ -98,7 +104,7 @@ export function reconcileProgressive(
     pendingIdentities.add(identity);
     pendingByPo.set(
       component.poId,
-      sumCents([pendingByPo.get(component.poId) ?? 0, component.amountCents]),
+      sumCents([pendingByPo.get(component.poId) ?? 0, signedPendingCents(component)]),
     );
   }
 
@@ -143,8 +149,17 @@ export function reconcileProgressive(
     }
 
     const recognizedCents = recognized?.scheduledCents ?? 0;
-    const pendingCents = recognized?.pendingCents ?? 0;
+    // Signed: an unresolved decrease reduces the allocated amount.
+    const pendingCents = recognized?.pendingSignedCents ?? 0;
     const blockedCents = recognized?.blockedCents ?? 0;
+    // The nonnegative magnitude and the signed amount must describe the same
+    // unresolved money; a mismatch means an amount was lost or rewritten.
+    if (recognized && Math.abs(pendingCents) !== recognized.pendingCents) {
+      failures.push(
+        `"${row.name}": pending magnitude ${recognized.pendingCents} does not match its signed amount ${pendingCents}.`,
+      );
+      rowReconciled = false;
+    }
     const accounted = sumCents([recognizedCents, pendingCents, blockedCents]);
     const unresolvedCents = recognized ? row.allocatedCents - accounted : row.allocatedCents;
 
@@ -155,7 +170,11 @@ export function reconcileProgressive(
         );
         rowReconciled = false;
       }
-      if (recognizedCents > row.allocatedCents) {
+      // An unresolved DECREASE has already reduced the allocated amount while
+      // the revenue it will reverse is still recognized, so the ceiling is the
+      // allocation before that pending reduction.
+      const recognitionCeiling = row.allocatedCents - Math.min(pendingCents, 0);
+      if (recognizedCents > recognitionCeiling) {
         failures.push(`"${row.name}": recognized revenue exceeds its allocated amount.`);
         rowReconciled = false;
       }
@@ -213,7 +232,7 @@ export function reconcileProgressive(
   }
 
   const external = input.externalPending ?? [];
-  const externalPendingCents = sumPendingCents(external);
+  const externalPendingCents = sumSignedPendingCents(external);
   const scheduledPoIds = new Set(
     input.recognition.byPo.filter((row) => row.scheduledCents > 0).map((row) => row.poId),
   );

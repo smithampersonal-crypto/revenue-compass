@@ -208,6 +208,34 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
       const amount = BigInt(event.amountCents);
       const receivable =
         event.invoiceDate <= event.unconditionalRightDate ? "billed_ar" : "unbilled_ar";
+      if (amount < 0n) {
+        // Credit memo: the receivable is reduced, and the credit given back to
+        // the customer first unwinds contract liability, then creates contract
+        // asset. Every line stays a non-negative debit or credit.
+        const magnitude = -amount;
+        const liabilityReduced = magnitude < contractLiability ? magnitude : contractLiability;
+        const assetIncrease = magnitude - liabilityReduced;
+        const creditLines: JournalLine[] = [];
+        if (liabilityReduced > 0n) {
+          creditLines.push({
+            account: "contract_liability",
+            debitCents: Number(liabilityReduced),
+            creditCents: 0,
+          });
+        }
+        if (assetIncrease > 0n) {
+          creditLines.push({
+            account: "contract_asset",
+            debitCents: Number(assetIncrease),
+            creditCents: 0,
+          });
+        }
+        creditLines.push({ account: receivable, debitCents: 0, creditCents: Number(magnitude) });
+        contractLiability -= liabilityReduced;
+        contractAsset += assetIncrease;
+        entries.push(finalize(op, `Credit memo issued (${event.id})`, creditLines));
+        continue;
+      }
       const assetCleared = amount < contractAsset ? amount : contractAsset;
       const liabilityIncrease = amount - assetCleared;
       const lines: JournalLine[] = [
@@ -234,10 +262,19 @@ export function generateJournalEntries(input: ContractBalanceInput): JournalEntr
     if (op.eventType === "invoice_reclassification") {
       const event = eventById.get(op.sourceId!)!;
       entries.push(
-        finalize(op, `Invoice issued (${event.id})`, [
-          { account: "billed_ar", debitCents: event.amountCents, creditCents: 0 },
-          { account: "unbilled_ar", debitCents: 0, creditCents: event.amountCents },
-        ]),
+        finalize(
+          op,
+          `Invoice issued (${event.id})`,
+          event.amountCents >= 0
+            ? [
+                { account: "billed_ar", debitCents: event.amountCents, creditCents: 0 },
+                { account: "unbilled_ar", debitCents: 0, creditCents: event.amountCents },
+              ]
+            : [
+                { account: "unbilled_ar", debitCents: -event.amountCents, creditCents: 0 },
+                { account: "billed_ar", debitCents: 0, creditCents: -event.amountCents },
+              ],
+        ),
       );
       continue;
     }

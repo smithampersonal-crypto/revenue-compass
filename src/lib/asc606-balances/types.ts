@@ -42,8 +42,23 @@ export interface ContractBalanceInput {
    * Phase 5A: allocated consideration that has no determinable revenue date
    * yet (an outstanding material right). Defaults to 0. Scheduled revenue plus
    * this amount must equal the transaction price.
+   *
+   * Phase 9G-R3: under `billingCompleteness: "partial"` this amount may also be
+   * negative, because an unresolved variable amount can REDUCE the price.
    */
   unscheduledRevenueCents?: Cents;
+  /**
+   * Phase 9G-R3 narrow extension. "complete" (the default) keeps every accepted
+   * Phase 3 rule unchanged. "partial" says only that billing for future
+   * operational facts has not arisen yet, so:
+   *
+   *  - a contract with no billing event yet is a warning, not a blocking item;
+   *  - total billings need not yet equal the transaction price; and
+   *  - unresolved consideration may be negative.
+   *
+   * No other rule, arithmetic or invariant is relaxed.
+   */
+  billingCompleteness?: "complete" | "partial";
 }
 
 export type BalanceCheckSeverity = "blocking" | "warning";

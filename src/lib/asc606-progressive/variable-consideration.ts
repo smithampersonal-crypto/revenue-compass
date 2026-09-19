@@ -127,6 +127,21 @@ export interface VcComponentState {
   pendingSignedCents: Cents;
 }
 
+/**
+ * The SIGNED unresolved effect of one component on one obligation.
+ *
+ * `PendingComponent.amountCents` is a nonnegative magnitude by contract, so the
+ * economic sign of an unrealized decrease lives here (and in the component's
+ * `direction`), never inside the magnitude.
+ */
+export interface VcPendingAllocation {
+  /** Stable identity: `vc:<componentId>:unrealized`. */
+  id: string;
+  componentId: string;
+  poId: string;
+  signedCents: Cents;
+}
+
 export interface ProgressiveVcLayers {
   state: CalculationState;
   /** Signed general pool allocated across obligations on a relative SSP basis. */
@@ -135,6 +150,8 @@ export interface ProgressiveVcLayers {
   seriesPeriod: VcSeriesPeriodAllocation[];
   components: VcComponentState[];
   pending: PendingComponent[];
+  /** Signed unresolved amounts, per component and obligation. */
+  pendingByPo: VcPendingAllocation[];
   blocked: BlockedComponent[];
   /** Signed total added to the fixed consideration to form the price. */
   transactionPriceEffectCents: Cents;
@@ -179,6 +196,7 @@ export function buildVcLayers(
   const seriesPeriod: VcSeriesPeriodAllocation[] = [];
   const states: VcComponentState[] = [];
   const pending: PendingComponent[] = [];
+  const pendingByPo: VcPendingAllocation[] = [];
   const blocked: BlockedComponent[] = [];
 
   let generalPool = 0;
@@ -371,7 +389,8 @@ export function buildVcLayers(
     if (eventFailure) continue;
 
     // An included estimate that has not yet been realized is retained against
-    // the target obligation, never dropped and never recognized.
+    // the target obligation, never dropped and never recognized. Its magnitude
+    // stays nonnegative; its economic direction is explicit.
     const unrealizedMagnitude = Math.max(component.includedCents - absCents(realizedSigned), 0);
     if (unrealizedMagnitude > 0) {
       pending.push({
@@ -379,13 +398,22 @@ export function buildVcLayers(
         poName: target.name,
         amountCents: unrealizedMagnitude,
         reason: "awaiting_variable_consideration_event",
+        direction: component.effect,
         detail: {
           componentId: component.id,
           identity: `vc:${component.id}:unrealized`,
           description: component.description,
+          direction: component.effect,
         },
       });
+      pendingByPo.push({
+        id: `vc:${component.id}:unrealized`,
+        componentId: component.id,
+        poId: target.id,
+        signedCents: signed(component.effect, unrealizedMagnitude),
+      });
     }
+
 
     states.push({
       componentId: component.id,
@@ -419,6 +447,7 @@ export function buildVcLayers(
     seriesPeriod,
     components: states,
     pending,
+    pendingByPo,
     blocked,
     transactionPriceEffectCents,
   };

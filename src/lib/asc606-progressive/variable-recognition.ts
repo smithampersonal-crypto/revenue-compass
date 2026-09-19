@@ -63,17 +63,29 @@ export function applyVariableLayers(
     });
   }
 
-  const pendingByPo = new Map<string, Cents>();
+  // Signed unresolved amounts: an unrealized DECREASE reduces the obligation's
+  // allocated consideration; it never increases it. The nonnegative
+  // `PendingComponent.amountCents` invariant is preserved by keeping the
+  // magnitude and the sign in separate fields.
+  const pendingMagnitudeByPo = new Map<string, Cents>();
   for (const component of layers.pending) {
-    pendingByPo.set(
+    pendingMagnitudeByPo.set(
       component.poId,
-      sumCents([pendingByPo.get(component.poId) ?? 0, component.amountCents]),
+      sumCents([pendingMagnitudeByPo.get(component.poId) ?? 0, component.amountCents]),
+    );
+  }
+  const pendingSignedByPo = new Map<string, Cents>();
+  for (const allocation of layers.pendingByPo) {
+    pendingSignedByPo.set(
+      allocation.poId,
+      sumCents([pendingSignedByPo.get(allocation.poId) ?? 0, allocation.signedCents]),
     );
   }
 
   const byPo: ProgressivePoRecognition[] = base.byPo.map((row) => {
     const extraScheduled = scheduledByPo.get(row.poId) ?? 0;
-    const extraPending = pendingByPo.get(row.poId) ?? 0;
+    const extraPending = pendingMagnitudeByPo.get(row.poId) ?? 0;
+    const extraPendingSigned = pendingSignedByPo.get(row.poId) ?? 0;
     if (extraScheduled === 0 && extraPending === 0) return row;
     if (row.state === "blocked") {
       throw new ProgressiveAccountingError(
@@ -82,11 +94,13 @@ export function applyVariableLayers(
     }
     const scheduledCents = sumCents([row.scheduledCents, extraScheduled]);
     const pendingCents = sumCents([row.pendingCents, extraPending]);
+    const pendingSignedCents = sumCents([row.pendingSignedCents, extraPendingSigned]);
     return {
       ...row,
-      allocatedCents: sumCents([row.allocatedCents, extraScheduled, extraPending]),
+      allocatedCents: sumCents([row.allocatedCents, extraScheduled, extraPendingSigned]),
       scheduledCents,
       pendingCents,
+      pendingSignedCents,
       state:
         pendingCents > 0
           ? "pending"
@@ -99,7 +113,10 @@ export function applyVariableLayers(
   });
 
   for (const row of byPo) {
-    if (sumCents([row.scheduledCents, row.pendingCents, row.blockedCents]) !== row.allocatedCents) {
+    if (
+      sumCents([row.scheduledCents, row.pendingSignedCents, row.blockedCents]) !==
+      row.allocatedCents
+    ) {
       throw new ProgressiveAccountingError(
         `progressive conservation violated for "${row.poName}" after applying variable consideration`,
       );

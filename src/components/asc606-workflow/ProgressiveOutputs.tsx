@@ -6,12 +6,8 @@
  */
 
 import { formatCents } from "@/lib/asc606";
-import {
-  analyzeProgressiveContract,
-  PENDING_REASON_LABELS,
-  type CalculationState,
-} from "@/lib/asc606-progressive";
-import { buildProgressiveInput, type WorkflowDraft } from "@/lib/asc606-workflow";
+import { PENDING_REASON_LABELS, type CalculationState } from "@/lib/asc606-progressive";
+import { analyzeWorkflow, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { Notice, Section } from "./fields";
 
@@ -31,16 +27,11 @@ function StateBadge({ state }: { state: CalculationState }) {
 }
 
 export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
-  const built = buildProgressiveInput(draft);
-  let analysis: ReturnType<typeof analyzeProgressiveContract> | null = null;
-  let failure: string | null = null;
-  if (built.ok) {
-    try {
-      analysis = analyzeProgressiveContract(built.input);
-    } catch (error) {
-      failure = (error as Error).message;
-    }
-  }
+  // The SAME authoritative analysis the rest of the app uses. This component
+  // renders that result and never calculates a second one.
+  const workflow = analyzeWorkflow(draft);
+  const analysis = workflow.progressive;
+  const failure = workflow.blockedReason;
 
   // A deterministic failure is shown, never hidden: the surface stays visible
   // and says exactly which facts are blocking it.
@@ -52,7 +43,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
       >
         <div className="space-y-2" data-testid="progressive-outputs-blocked">
           <Notice>{failure ?? "This contract cannot be calculated yet."}</Notice>
-          {built.blocked.map((fact) => (
+          {workflow.progressiveBlocked.map((fact) => (
             <p key={`${fact.ownerKind}:${fact.ownerId}:${fact.code}`} className="text-sm">
               {fact.message}
             </p>

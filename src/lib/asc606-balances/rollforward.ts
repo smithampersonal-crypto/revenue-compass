@@ -41,7 +41,10 @@ export function buildBillingSchedule(input: ContractBalanceInput): BillingSchedu
     .map((event) => {
       const cash = collected.get(event.id) ?? 0n;
       const outstanding = BigInt(event.amountCents) - cash;
-      if (outstanding < 0n) {
+      // A credit memo (negative billing) legitimately carries a negative
+      // outstanding balance; over-collection is an outstanding balance whose
+      // sign is opposite to the billing it belongs to.
+      if (event.amountCents >= 0 ? outstanding < 0n : outstanding > 0n) {
         throw new ContractBalanceError(
           `receivable invariant violated: billing event "${event.id}" is over-collected`,
         );
@@ -124,7 +127,7 @@ export function buildMonthlyRollforward(input: ContractBalanceInput): MonthlyCon
         if (collection.collectionDate <= end) applied += BigInt(collection.amountCents);
       }
       const outstanding = BigInt(event.amountCents) - applied;
-      if (outstanding < 0n) {
+      if (event.amountCents >= 0 ? outstanding < 0n : outstanding > 0n) {
         throw new ContractBalanceError(
           `receivable invariant violated: billing event "${event.id}" is over-collected at ${month}`,
         );
