@@ -400,6 +400,7 @@ describe("independent mutations", () => {
 // J — orchestration-level duplicate / orphan checks
 // ---------------------------------------------------------------------------
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- identity-defect fixtures deliberately build malformed input shapes */
 describe("J — orchestration fails closed on identity defects", () => {
   function expectBlocked(mutate: (input: any) => void) {
     const built = buildProgressiveInput(genomixR3Draft());
