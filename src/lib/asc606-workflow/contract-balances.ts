@@ -26,6 +26,7 @@ import {
 import { ORIGINAL_GROUP_ID } from "@/lib/asc606-contract-modifications";
 import { analyzeWorkflow } from "./analysis";
 import { parseUsdToCents } from "./money-input";
+import type { BlockedFact } from "./r3-adapter";
 import type { WorkflowDraft } from "./types";
 
 export interface ContractBalanceIssue {
@@ -285,7 +286,11 @@ export function analyzeContractBalanceWorkflow(
   // progressive authority already produced. This layer presents that result; it
   // never rebuilds a second billing or balance interpretation from the draft.
   if (revenue.progressive) {
-    return progressiveBalanceWorkflow(revenue.progressive, draftValidation);
+    return progressiveBalanceWorkflow(
+      revenue.progressive,
+      draftValidation,
+      revenue.progressiveBlocked,
+    );
   }
 
   if (
