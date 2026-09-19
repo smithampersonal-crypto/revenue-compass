@@ -119,7 +119,9 @@ describe("R3 facts round-trip through real ARC persistence", () => {
 
     const component = parsed.draft.variableConsiderationComponents[0]!;
     expect(component.meters[0]!.includedQuantityInput).toBe("500000");
-    expect(component.seriesPeriods).toEqual(draft.variableConsiderationComponents[0]!.seriesPeriods);
+    expect(component.seriesPeriods).toEqual(
+      draft.variableConsiderationComponents[0]!.seriesPeriods,
+    );
     expect(component.realizedEvents).toEqual(
       draft.variableConsiderationComponents[0]!.realizedEvents,
     );

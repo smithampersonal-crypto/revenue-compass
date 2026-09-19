@@ -396,7 +396,8 @@ function owningPeriod(
   month: string,
 ): VcSeriesPeriod | undefined {
   return periods.find(
-    (candidate) => month >= candidate.startDate.slice(0, 7) && month <= candidate.endDate.slice(0, 7),
+    (candidate) =>
+      month >= candidate.startDate.slice(0, 7) && month <= candidate.endDate.slice(0, 7),
   );
 }
 
