@@ -583,7 +583,7 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
     const amount = cents(event.amountInput);
     const entered = event.amountInput.trim() !== "" || event.unconditionalRightDate !== "";
     if (!entered) continue;
-    if (amount === null || event.unconditionalRightDate === "") {
+    if (amount === null || !isUsableDate(event.unconditionalRightDate)) {
       blocked.push({
         ownerKind: "billing_event",
         ownerId: event.id,
@@ -663,7 +663,7 @@ function cashCollections(
     const entered = collection.amountInput.trim() !== "" || collection.collectionDate !== "";
     if (!entered) continue;
     const amount = cents(collection.amountInput);
-    if (amount === null || collection.collectionDate === "" || !collection.considerationEventId) {
+    if (amount === null || !isUsableDate(collection.collectionDate) || !collection.considerationEventId) {
       blocked.push({
         ownerKind: "billing_event",
         ownerId: collection.id,
