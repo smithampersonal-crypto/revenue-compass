@@ -10,6 +10,8 @@ import { describe, expect, it } from "vitest";
 
 import { MoneyError, type AllocationRow } from "@/lib/asc606";
 
+import { allocateProgressively } from "../allocation";
+
 import {
   generateProgressiveRevenueSchedule,
   type ProgressiveScheduleInput,
@@ -128,24 +130,14 @@ describe("2. explicit unknown transfer date", () => {
 // 3 & 4. Reconciliation of recognition rows and detail arrays
 // ---------------------------------------------------------------------------
 
-const allocation: AllocationRow[] = [
-  {
-    poId: "po-hosted",
-    name: "Hosted SaaS service",
-    seq: 1,
-    sspCents: HOSTED,
-    allocatedCents: HOSTED,
-    allocationRatioBps: 9_377,
-  } as AllocationRow,
-  {
-    poId: "po-validation",
-    name: "Validation package",
-    seq: 2,
-    sspCents: VALIDATION,
-    allocatedCents: VALIDATION,
-    allocationRatioBps: 623,
-  } as AllocationRow,
-];
+// Built through the accepted deterministic allocator — never hand-shaped.
+const allocation: readonly AllocationRow[] = allocateProgressively({
+  transactionPriceCents: HOSTED + VALIDATION,
+  performanceObligations: [
+    { id: "po-hosted", seq: 1, name: "Hosted SaaS service", sspCents: HOSTED },
+    { id: "po-validation", seq: 2, name: "Validation package", sspCents: VALIDATION },
+  ],
+}).value!;
 
 function recognition() {
   return generateProgressiveRevenueSchedule([
