@@ -247,25 +247,40 @@ export function analyzeProgressiveContract(
     pendingRules: pendingBillingRules(input, vc),
   });
 
-  const balances = buildProgressiveBalances({
-    billing: billing.events,
-    ...(input.cashCollections ? { cashCollections: input.cashCollections } : {}),
-    schedule: recognition.schedule,
-    pending: recognition.pending,
-  });
+  // A BLOCKED allocation is consideration whose amount is known but whose
+  // recognition cannot be determined. The Phase 3 bridge builds its transaction
+  // price from scheduled revenue plus signed PENDING consideration only, so a
+  // blocked amount would silently disappear from it. Allocation, recognition
+  // and the blocked obligation itself stay visible; every monetary rollforward
+  // that mathematically depends on the blocked amount blocks with it.
+  //
+  // A PENDING future fact is different: it keeps its established
+  // unresolved-consideration treatment and still permits partial balances.
+  const recognitionBlocked = recognition.blocked.length > 0;
 
-  const journals = buildProgressiveJournals({
-    contractBalanceInput: balances.contractBalanceInput,
-    pending: recognition.pending,
-    partial: balances.partial,
-  });
+  const balances = recognitionBlocked
+    ? null
+    : buildProgressiveBalances({
+        billing: billing.events,
+        ...(input.cashCollections ? { cashCollections: input.cashCollections } : {}),
+        schedule: recognition.schedule,
+        pending: recognition.pending,
+      });
+
+  const journals = balances
+    ? buildProgressiveJournals({
+        contractBalanceInput: balances.contractBalanceInput,
+        pending: recognition.pending,
+        partial: balances.partial,
+      })
+    : null;
 
   return {
     state: mergeCalculationState(
       allocation.state,
       recognition.state,
       billing.state,
-      balances.state,
+      balances?.state ?? "blocked",
       financing?.state ?? "complete",
       reconciliation.reconciled ? "complete" : "blocked",
     ),
