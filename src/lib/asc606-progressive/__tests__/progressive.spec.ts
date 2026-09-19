@@ -202,9 +202,10 @@ describe("D. over-time input measure", () => {
     expect(() => recognizeInputMeasure({ ...po, totalExpectedUnits: 0 }, SUPPORT)).toThrow(
       ProgressiveAccountingError,
     );
-    expect(() =>
-      recognizeInputMeasure({ ...po, totalExpectedUnits: undefined }, SUPPORT),
-    ).toThrow(ProgressiveAccountingError);
+    const { totalExpectedUnits: _omitted, ...withoutDenominator } = po;
+    expect(() => recognizeInputMeasure(withoutDenominator, SUPPORT)).toThrow(
+      ProgressiveAccountingError,
+    );
   });
 
   it("25. never recognizes more than the allocated amount", () => {
