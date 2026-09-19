@@ -1391,3 +1391,67 @@ workflow draft fields/adapters; usage rule vs actual activity; specific_series_p
 targeting; deterministic VC layer inside transaction-price reconciliation; progressive billing,
 balances and journals; review/provenance/fingerprint integration; significant-financing
 normalization; minimum R3 UI states; integrated Genomix R3 fixture; browser acceptance.
+
+## Phase 9G-R3 — Part 2 (COMPLETE, gate green; awaiting independent review)
+
+Stages A-G delivered on top of the accepted, frozen Part 1 foundation.
+
+### Stage A — workflow facts + deterministic variable-consideration layer
+- `src/lib/asc606-workflow/types.ts`: additive canonical draft facts only —
+  `PoDraft.transferStatus`, `overTimeMeasure`, `totalExpectedUnitsInput`,
+  `unitLabel`, `progressEvents[]`; `VcMeterDraft.includedQuantityInput`;
+  `VcComponentDraft.seriesPeriods[]`, `realizedEvents[]`, `billOnRealization`;
+  new `ProgressEventDraft`, `VcSeriesPeriodDraft`, `VcRealizedEventDraft`.
+  No derived math is stored in the draft.
+- `src/lib/asc606-progressive/variable-consideration.ts`: explicit deterministic
+  VC layer with stable identities (`vc:<componentId>:<eventId>`), separating
+  contractual rule, estimate, constraint/included amount, realized event,
+  allocation treatment and target. `externalPending` is no longer the model:
+  nonzero included VC is inside the transaction price and inside reconciliation.
+- `src/lib/asc606-workflow/r3-adapter.ts`: draft -> engine input. `transferDateUnknown`
+  is set only when the accountant actually recorded "not yet transferred".
+
+### Stage B — specific_series_period + usage
+- Series-period amounts bypass the general SSP pool and adjust only their own
+  period; invalid parent/period/date fails closed. A $0 no-trigger estimate
+  fabricates no period, no billing event and no probability, and leaves the
+  fixed allocation unchanged.
+- `usage.ts`: contractual rule (meters, rates, tier thresholds, billing cadence)
+  separated from accountant-owned actuals; no actuals means no quantity, no
+  invoice, no revenue and no error.
+
+### Stage C — progressive billing / balances / journals
+- `billing.ts`, `balances.ts`, `journals.ts`, `variable-recognition.ts`,
+  `contract.ts`. Billing readiness is independent of recognition readiness;
+  balances expose known billings, known revenue and the explicit unresolved
+  amount; journals emit only known events and report pending accounting events.
+- Contract-level reconciliation proves price -> allocation layers -> recognized
+  + pending + blocked with no disappearance and no double counting.
+
+### Stage D — review / provenance / identity
+- `review.ts`: deterministic material-fact keys and fingerprints
+  (recognition method, transfer status, input-measure denominator, progress
+  events, VC treatment/target, series-period target, usage actuals, realized VC
+  amounts), targeted diff, carry-forward of unrelated conclusions, orphan-detail
+  rejection.
+
+### Stage E — significant financing
+- `financing.ts`: one-year-or-less + accepted expedient -> no adjustment;
+  unconfirmed policy -> review matter only (Steps 4/5 still calculate);
+  beyond one year -> fails closed. No present-value engine.
+
+### Stage F — minimum UI
+- `src/components/asc606-workflow/ProgressiveOutputs.tsx` plus R3 input controls
+  in `Step5Recognition.tsx` (measure of progress, contracted units, transfer
+  status). No R4 polish.
+
+### Stage G — integrated Genomix acceptance
+- `__tests__/genomix-r3.ts` + `__tests__/part2-r3.spec.ts` (32 tests).
+
+### Gate
+166 test files / 2,083 tests green; typecheck, lint (0 errors), production
+build and bundle audit green; `bun run verify` green. RED->GREEN: routing the
+series exception through the general pool fails 8 of the 32 Part 2 tests.
+No DB-facing code changed, so no SQL suite run was required and the Cloud
+database is unchanged. Schema `arc.ai.schema.v5`, prompt `arc.ai.prompt.v6`
+unchanged. R4 NOT STARTED. R3 is not self-accepted.

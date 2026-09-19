@@ -124,6 +124,22 @@ export interface PoDraft {
   recognitionDate: IsoDate | "";
   recognitionRationale: string;
 
+  // ---- Phase 9G-R3 progressive facts (all optional and additive) ----------
+  /**
+   * Point in time only. `not_yet_transferred` is an explicit accountant fact:
+   * the transfer has not happened, so no date exists yet. An absent value is
+   * an ordinary missing input, never a future-event assumption.
+   */
+  transferStatus?: "transferred" | "not_yet_transferred";
+  /** Over time only: how progress is measured. Defaults to time-based. */
+  overTimeMeasure?: "time_based" | "input_measure";
+  /** Input measure only: contracted / expected total units, raw entry. */
+  totalExpectedUnitsInput?: string;
+  /** Input measure only: unit label, for example "hours". */
+  unitLabel?: string;
+  /** Input measure only: accountant-owned actual progress. */
+  progressEvents?: ProgressEventDraft[];
+
   // ---- Material-right fields (kind === "material_right" only) -------------
   /** The good or service the customer would obtain on exercise. */
   underlyingGoodOrServiceName: string;
@@ -380,6 +396,37 @@ export interface VcMeterDraft {
   /** Rate denominator quantity, for example "1000000". */
   rateQuantityInput: string;
   unit: string;
+  /** R3 tier threshold: only quantity above this is chargeable. */
+  includedQuantityInput?: string;
+}
+
+/** R3: one accountant-owned actual-progress observation. Never AI-generated. */
+export interface ProgressEventDraft {
+  id: string;
+  seq: number;
+  date: IsoDate | "";
+  /** Raw accountant-entered quantity of units incurred. */
+  unitsInput: string;
+}
+
+/** R3: a declared distinct service period of a series. */
+export interface VcSeriesPeriodDraft {
+  id: string;
+  seq: number;
+  label: string;
+  startDate: IsoDate | "";
+  endDate: IsoDate | "";
+}
+
+/** R3: a variable amount that actually arose. Accountant-owned. */
+export interface VcRealizedEventDraft {
+  id: string;
+  seq: number;
+  date: IsoDate | "";
+  amountInput: string;
+  /** The declared service period the amount is attributable to. */
+  seriesPeriodId: string | null;
+  description: string;
 }
 
 export interface VcUsagePeriodDraft {
@@ -409,6 +456,13 @@ export interface VcComponentDraft {
   resolutionAmountInput: string;
   resolutionRationale: string;
   meters: VcMeterDraft[];
+  // ---- Phase 9G-R3 additive facts ----------------------------------------
+  /** Declared distinct service periods a specific-series-period amount targets. */
+  seriesPeriods?: VcSeriesPeriodDraft[];
+  /** Realized actual variable amounts. Accountant-owned, never inferred. */
+  realizedEvents?: VcRealizedEventDraft[];
+  /** True when the accepted contract rule bills a realized amount. */
+  billOnRealization?: boolean;
   usagePeriods: VcUsagePeriodDraft[];
 }
 
