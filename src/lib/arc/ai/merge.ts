@@ -1964,7 +1964,25 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         blocking: true,
       });
     } else {
-      const method = mapEstimationMethod(component.estimationMethodProposal);
+      // Post-R2 live regression patch. A zero-at-inception routine assumption
+      // must be COMPLETE and internally valid, or the deterministic engine
+      // rejects ARC's own supposedly nonblocking draft. It is decided before
+      // the estimation method is merged, because a nil assumption is a most
+      // likely amount of $0 — never an expected-value distribution that would
+      // then demand probabilities the contract cannot supply.
+      const zeroCandidate =
+        component.initialEstimateBasis === "zero_no_expected_trigger" &&
+        isUnclaimedString(current().inception.includedInput) &&
+        current().inception.outcomes.every((outcome) => isUnclaimedString(outcome.amountInput));
+      // The inception date is taken from an authoritative canonical date ARC
+      // already holds. If there is none, the assumption fails closed on the
+      // missing date rather than inventing one.
+      const inceptionDate = zeroCandidate ? canonicalInceptionDate(draft) : null;
+      const zeroAtInception = zeroCandidate && inceptionDate !== null;
+
+      const method = zeroAtInception
+        ? "most_likely_amount"
+        : mapEstimationMethod(component.estimationMethodProposal);
       if (method !== null) {
         mergeScalar<VcComponentDraft["estimationMethod"]>({
           key: fieldKeys.vc(canonicalId, "estimationMethod"),
