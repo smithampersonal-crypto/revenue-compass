@@ -9,6 +9,7 @@ import {
 } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
+import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
 
 export function Step5Recognition({
@@ -298,10 +299,7 @@ export function Step5Recognition({
 
         <Step5VariableConsideration draft={draft} onChange={onChange} />
 
-        <Notice>
-          Daily-ratable over-time recognition and point-in-time recognition are supported. Other
-          measures of progress are not implemented.
-        </Notice>
+        <ProgressiveOutputs draft={draft} />
       </div>
     </Section>
   );
