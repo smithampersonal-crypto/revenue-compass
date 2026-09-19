@@ -577,6 +577,7 @@ export function draftRequiresProgressive(draft: WorkflowDraft): boolean {
     for (const component of draft.variableConsiderationComponents) {
       // Usage and ordinary estimated variable consideration keep their accepted
       // Phase 5B treatment; only the R3-specific facts route here.
+      if (component.treatment === "usage_as_incurred") continue;
       if (component.allocationTreatment === "specific_series_period") return true;
       if ((component.realizedEvents?.length ?? 0) > 0) return true;
     }
