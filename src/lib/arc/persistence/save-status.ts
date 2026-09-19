@@ -145,6 +145,7 @@ export function hasPendingWork(status: SaveStatus): boolean {
     status.kind === "unsaved" ||
     status.kind === "saving" ||
     status.kind === "error" ||
+    status.kind === "contention" ||
     status.kind === "conflict"
   );
 }
