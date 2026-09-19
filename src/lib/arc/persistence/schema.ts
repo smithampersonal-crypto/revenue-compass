@@ -54,6 +54,36 @@ const promiseSchema = z.object({
 
 const recognitionMethod = z.enum(["over_time_ratable", "point_in_time"]).nullable();
 
+/**
+ * Phase 9G-R3 additive facts. Every one is optional, so a draft written by an
+ * earlier build of ARC still parses under `arc.workflow.v1` unchanged; when a
+ * fact IS present it is validated exhaustively and a malformed value fails
+ * closed rather than being stripped.
+ */
+const progressEventSchema = z.object({
+  id,
+  seq,
+  date: dateText,
+  unitsInput: text,
+});
+
+const vcSeriesPeriodSchema = z.object({
+  id,
+  seq,
+  label: text,
+  startDate: dateText,
+  endDate: dateText,
+});
+
+const vcRealizedEventSchema = z.object({
+  id,
+  seq,
+  date: dateText,
+  amountInput: text,
+  seriesPeriodId: z.string().nullable(),
+  description: text,
+});
+
 const poSchema = z.object({
   id,
   seq,
@@ -68,6 +98,11 @@ const poSchema = z.object({
   serviceEnd: dateText,
   recognitionDate: dateText,
   recognitionRationale: text,
+  transferStatus: z.enum(["transferred", "not_yet_transferred"]).optional(),
+  overTimeMeasure: z.enum(["time_based", "input_measure"]).optional(),
+  totalExpectedUnitsInput: text.optional(),
+  unitLabel: text.optional(),
+  progressEvents: z.array(progressEventSchema).optional(),
   underlyingGoodOrServiceName: text,
   benefitAmountInput: text,
   exerciseProbabilityInput: text,
@@ -103,6 +138,8 @@ const vcMeterSchema = z.object({
   rateAmountInput: text,
   rateQuantityInput: text,
   unit: text,
+  /** R3 tier threshold. Optional so earlier drafts stay readable. */
+  includedQuantityInput: text.optional(),
 });
 
 const vcUsagePeriodSchema = z.object({
@@ -130,6 +167,9 @@ const vcComponentSchema = z.object({
   resolutionAmountInput: text,
   resolutionRationale: text,
   meters: z.array(vcMeterSchema),
+  seriesPeriods: z.array(vcSeriesPeriodSchema).optional(),
+  realizedEvents: z.array(vcRealizedEventSchema).optional(),
+  billOnRealization: z.boolean().optional(),
   usagePeriods: z.array(vcUsagePeriodSchema),
 });
 
