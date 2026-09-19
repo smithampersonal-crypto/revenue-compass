@@ -119,6 +119,7 @@ export function reconcileProgressive(
     // A specifically allocated pending amount may not also be scheduled under
     // the same identity: that would double count it.
     if (
+      component.amountCents > 0 &&
       scheduledPoIds.has(component.poId) &&
       input.recognition.byPo.find((row) => row.poId === component.poId)?.pendingCents ===
         component.amountCents
