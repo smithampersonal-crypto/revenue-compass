@@ -100,7 +100,7 @@ export async function createAutosaveReconciliationStore(
           .select("canonical_inputs, schema_version")
           .eq("id", scope.revisionId)
           .maybeSingle();
-        if (error) fail("read saved analysis", error);
+        if (error) fail("read saved analysis", error, scope);
         if (!data) return null;
         const parsed = parseCanonicalInputs(data.canonical_inputs, data.schema_version);
         return parsed.ok ? parsed.draft : null;
@@ -110,7 +110,7 @@ export async function createAutosaveReconciliationStore(
         .select("draft_json, schema_version")
         .eq("id", scope.guestWorkspaceId!)
         .maybeSingle();
-      if (error) fail("read temporary workspace", error);
+      if (error) fail("read temporary workspace", error, scope);
       if (!data) return null;
       const parsed = parseCanonicalInputs(data.draft_json, data.schema_version);
       return parsed.ok ? parsed.draft : null;
@@ -127,7 +127,7 @@ export async function createAutosaveReconciliationStore(
         scope.revisionId !== null
           ? await query.eq("revision_id", scope.revisionId).maybeSingle()
           : await query.eq("guest_workspace_id", scope.guestWorkspaceId!).maybeSingle();
-      if (error) fail("read AI state", error);
+      if (error) fail("read AI state", error, scope);
       if (!data) return { status: "absent" };
 
       const row = data as unknown as {
