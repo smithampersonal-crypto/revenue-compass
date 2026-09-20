@@ -368,13 +368,14 @@ export function buildVcLayers(
 
     // ---- B. specific_po --------------------------------------------------
     if (component.treatment === "specific_po") {
-      if (component.includedCents !== 0) {
+      const specific = lifecycleOf(component, includedSigned);
+      if (specific.inceptionSigned !== 0) {
         specificPo.push({
           id: `vc:${component.id}:included`,
           componentId: component.id,
           description: component.description,
           poId: target.id,
-          amountCents: includedSigned,
+          amountCents: specific.inceptionSigned,
         });
       }
       states.push({
@@ -384,7 +385,7 @@ export function buildVcLayers(
         targetPoId: target.id,
         state: "complete",
         estimateSignedCents: estimateSigned,
-        includedSignedCents: includedSigned,
+        includedSignedCents: specific.currentSigned,
         realizedSignedCents: 0,
         pendingSignedCents: 0,
       });
