@@ -474,11 +474,11 @@ function affirm(item: AiReviewItem): AiReviewItem {
     resolution: {
       kind: "affirmed",
       at: "2027-06-30T00:00:00.000Z",
-      method: "explicit",
+      method: "individual",
       reviewFingerprint: item.reviewFingerprint,
     },
     affirmedAt: "2027-06-30T00:00:00.000Z",
-    affirmedMethod: "explicit",
+    affirmedMethod: "individual",
   };
 }
 
