@@ -2076,7 +2076,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: component.reviewState,
         blocking: true,
       });
-      claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
+      claimObject(component.semanticKey, canonicalId, vcSignatures.get(component.semanticKey)!);
       continue;
     }
     const update = (patch: Partial<VcComponentDraft>) => {
@@ -2489,7 +2489,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     }
 
-    claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
+    claimObject(component.semanticKey, canonicalId, vcSignatures.get(component.semanticKey)!);
   }
 
   /* ------------------------------------------------------------ modifications */
