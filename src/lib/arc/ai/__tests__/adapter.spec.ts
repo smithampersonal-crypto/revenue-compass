@@ -48,26 +48,30 @@ describe("pure mapping primitives", () => {
     expect(usableAmount(null)).toBeNull();
   });
 
-  it("maps only recognition methods the engine actually supports", () => {
+  it("maps recognition treatments with their over-time measure of progress", () => {
     expect(mapRecognitionMethod("ratable_over_time")).toEqual({
       supported: true,
       method: "over_time_ratable",
+      overTimeMeasure: "time_based",
     });
     expect(mapRecognitionMethod("point_in_time_transfer")).toEqual({
       supported: true,
       method: "point_in_time",
     });
-    // Never silently coerced into ratable over-time.
-    expect(mapRecognitionMethod("output_method")).toEqual({
-      supported: false,
-      reason: "engine_support_gap",
-    });
+    // R3: an input method keeps the over-time classification AND its measure.
     expect(mapRecognitionMethod("input_method")).toEqual({
+      supported: true,
+      method: "over_time_ratable",
+      overTimeMeasure: "input_measure",
+    });
+    // No deterministic output measure exists yet: fail closed.
+    expect(mapRecognitionMethod("output_method")).toEqual({
       supported: false,
       reason: "engine_support_gap",
     });
     expect(mapRecognitionMethod("unknown")).toEqual({ supported: false, reason: "unknown" });
   });
+
 
   it("maps only unambiguous variable-consideration directions", () => {
     expect(mapVcEffect("usage")).toBe("increase");
