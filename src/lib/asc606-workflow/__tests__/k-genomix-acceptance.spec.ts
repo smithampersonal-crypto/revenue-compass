@@ -11,19 +11,18 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { canonicalReviewTargetFingerprint } from "@/lib/arc/ai/edit-reconciliation";
 import {
-  canonicalReviewTargetFingerprint,
   carryForwardReviewResolutions,
   deriveReviewItem,
   type AiReviewItem,
-} from "@/lib/arc/ai";
+} from "@/lib/arc/ai/review-state";
+import { buildFinalizationSnapshot, buildWorkpaper } from "@/lib/arc/persistence/snapshot";
 import {
-  buildFinalizationSnapshot,
-  buildWorkpaper,
   parseCanonicalInputs,
   toCanonicalInputs,
   validateDraftForPersistence,
-} from "@/lib/arc/persistence";
+} from "@/lib/arc/persistence/schema";
 
 import { analyzeWorkflow } from "../analysis";
 import type { WorkflowDraft } from "../types";
