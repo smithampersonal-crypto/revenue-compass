@@ -454,7 +454,17 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
       "consistentWithAllocationObjective",
       "allocationRationale",
     ]),
-    { name: "usage", fields: ["meters", "usagePeriods"], project: vcUsageProjection },
+    {
+      name: "usage",
+      fields: [
+        "meters",
+        "usagePeriods",
+        "seriesPeriods",
+        "realizedEvents",
+        "billOnRealization",
+      ],
+      project: vcUsageProjection,
+    },
   ],
   modification: [
     plainGroup("treatment", [
