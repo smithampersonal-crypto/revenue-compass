@@ -629,8 +629,8 @@ export function Step3TransactionPrice({
                         meters: [
                           ...component.meters,
                           createVcMeterDraft(
-                            component.meters.length + 1,
-                            `${component.id}-m${component.meters.length + 1}-${Date.now()}`,
+                            nextSeq(component.meters),
+                            nextId(`${component.id}-m`, component.meters),
                           ),
                         ],
                       })
