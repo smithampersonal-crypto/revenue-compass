@@ -182,6 +182,18 @@ describe("citation-mirror instructions", () => {
     expect(evidenceSection).toContain("return an empty anchorIds array");
   });
 
+  it("defines anchorIds as an explicit enumeration rather than endpoint selectors", () => {
+    const policy = instructions.slice(0, instructions.indexOf(AI_PROMPT_SECTIONS.guidance));
+    expect(policy).toContain(
+      "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
+    );
+    expect(policy).toContain('["P0001-S0015","P0001-S0016","P0001-S0017"]');
+    expect(policy).toContain('["P0001-S0015","P0001-S0017"] is invalid');
+    expect(policy).toContain("Never omit an intermediate anchor");
+    expect(policy).toContain("do not return endpoints");
+    expect(policy).toContain("Never fabricate a missing middle id");
+  });
+
   it.each([
     "copy the excerpt",
     "excerpt = null",
