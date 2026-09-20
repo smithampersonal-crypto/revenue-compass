@@ -584,6 +584,27 @@ export function Step3TransactionPrice({
                             />
                           </Field>
                         </MeterField>
+                        <MeterField componentId={component.id} field="includedQuantityInput">
+                          <Field
+                            label="Included quantity (contractual threshold)"
+                            hint="Only quantity above this threshold is chargeable. A blank threshold is missing, never zero."
+                          >
+                            <input
+                              className={inputClass}
+                              inputMode="numeric"
+                              value={meter.includedQuantityInput ?? ""}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id
+                                      ? { ...m, includedQuantityInput: e.target.value }
+                                      : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
                         <div className="flex items-end">
                           <button
                             type="button"
