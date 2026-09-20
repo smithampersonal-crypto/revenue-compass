@@ -89,6 +89,8 @@ const PO_OVER_TIME = "po-saas";
 const PO_POINT = "po-setup";
 const VC_ESTIMATED = "vc-bonus";
 const VC_USAGE = "vc-usage";
+const USAGE_ROW_A = "vc-usage-p1";
+const USAGE_ROW_B = "vc-usage-p2";
 const METER = "vc-usage-m1";
 /** A manually added meter row: never the deterministic AI meter identity. */
 const MANUAL_METER = "vc-usage-manual-2";
@@ -131,6 +133,10 @@ function fixtureDraft() {
       { ...createVcComponentDraft(1, VC_ESTIMATED, "estimated") },
       {
         ...createVcComponentDraft(2, VC_USAGE, "usage_as_incurred"),
+        usagePeriods: [
+          { id: USAGE_ROW_A, month: "2027-02", quantities: {} },
+          { id: USAGE_ROW_B, month: "2027-03", quantities: {} },
+        ],
         meters: manualSecondMeter
           ? [
               { ...createVcMeterDraft(1, METER), rateAmountInput: "0.10", unit: "API call" },
