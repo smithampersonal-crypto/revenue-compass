@@ -235,10 +235,41 @@ export function buildVcLayers(
   const states: VcComponentState[] = [];
   const pending: PendingComponent[] = [];
   const pendingByPo: VcPendingAllocation[] = [];
+  const datedChanges: VcDatedChange[] = [];
   const blocked: BlockedComponent[] = [];
 
   let generalPool = 0;
   const seenComponentIds = new Set<string>();
+
+  /**
+   * The ACCEPTED engine already measured every dated assessment. Its inception
+   * amount enters the allocation layers, and each later change is retained with
+   * its own effective date so recognition can apply the accepted cumulative
+   * catch-up instead of pretending the final amount existed at inception.
+   */
+  const lifecycleOf = (
+    component: ProgressiveVcComponent,
+    fallbackIncludedSigned: Cents,
+  ): { inceptionSigned: Cents; currentSigned: Cents } => {
+    const dated = component.lifecycle ?? [];
+    const first = dated[0];
+    const last = dated[dated.length - 1];
+    if (!first || !last) {
+      return { inceptionSigned: fallbackIncludedSigned, currentSigned: fallbackIncludedSigned };
+    }
+    for (const assessment of dated.slice(1)) {
+      datedChanges.push({
+        id: `${component.id}::${assessment.assessmentId}`,
+        componentId: component.id,
+        assessmentId: assessment.assessmentId,
+        effectiveDate: assessment.effectiveDate,
+        targetPoId: component.treatment === "specific_po" ? (component.targetPoId ?? null) : null,
+        changeCents: assessment.changeCents,
+        isResolution: assessment.isResolution,
+      });
+    }
+    return { inceptionSigned: first.includedCents, currentSigned: last.includedCents };
+  };
 
   for (const component of ordered) {
     const poName = poById.get(component.targetPoId ?? "")?.name ?? component.description;
