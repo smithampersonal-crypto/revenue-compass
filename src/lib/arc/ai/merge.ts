@@ -1271,7 +1271,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   for (const aiPo of analysis.performanceObligations) {
     proposedSemanticKeys.add(aiPo.semanticKey);
     const poAlias = poAliases.get(aiPo.semanticKey);
-    if (poAlias?.status === "ambiguous") {
+    if (poAlias?.status === "ambiguous" || poDeletions.ambiguous.has(aiPo.semanticKey)) {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
         section: sectionFor(aiPo.guidanceIds, "step_2"),
