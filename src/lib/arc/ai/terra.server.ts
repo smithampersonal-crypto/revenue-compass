@@ -267,6 +267,13 @@ export function createTerraAnalyzer(client: ResponsesGenerativeClient): TerraAna
                 ? ` [${issue.anchorIds.join(", ")}]`
                 : ""),
           ),
+          // Structured mirror of the SAME sanitized facts, for the bounded
+          // server-side diagnostic log. No new information is exposed.
+          materialized.issues.map((issue) => ({
+            issueCode: issue.code,
+            path: issue.path,
+            anchorIds: issue.anchorIds ?? [],
+          })),
         );
       }
 
