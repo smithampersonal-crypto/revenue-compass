@@ -1165,25 +1165,42 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         .filter((id): id is string => id !== undefined),
     );
   }
-  const poAliases = reconcileByTieredIdentity(
+  const poSignatures = new Map(
+    analysis.performanceObligations.map((row) => [row.semanticKey, poIdentity(row)] as const),
+  );
+  const poTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.performanceObligations) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("performance_obligation", poSignatures.get(row.semanticKey)!);
+    if (record !== null) poTombstones.set(row.semanticKey, record);
+  }
+  // Canonical promise membership is the PRINCIPAL identity of a grouping: the
+  // satisfaction pattern only gates compatibility and never identifies alone.
+  const sharesCanonicalPromise = (
+    proposal: { semanticKey: string },
+    candidate: { canonicalId: string },
+  ): boolean => {
+    const members = draft.promises
+      .filter((row) => row.performanceObligationId === candidate.canonicalId)
+      .map((row) => row.id);
+    if (members.length === 0) return false;
+    const proposed = proposedPoPromiseIds.get(proposal.semanticKey) ?? [];
+    return members.some((id) => proposed.includes(id));
+  };
+  const poAliases = reconcileByIdentity(
     analysis.performanceObligations
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: poIdentityTiers(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !poTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: poSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("performance_obligation"),
-    (proposal, candidate) => {
-      const members = draft.promises
-        .filter((row) => row.performanceObligationId === candidate.canonicalId)
-        .map((row) => row.id);
-      if (members.length === 0) return false;
-      const proposed = proposedPoPromiseIds.get(proposal.semanticKey) ?? [];
-      return members.some((id) => proposed.includes(id));
-    },
+    { admissible: sharesCanonicalPromise, sufficient: sharesCanonicalPromise },
   );
 
   for (const aiPo of analysis.performanceObligations) {
     proposedSemanticKeys.add(aiPo.semanticKey);
     const poAlias = poAliases.get(aiPo.semanticKey);
-    adoptAlias(aiPo.semanticKey, poAlias);
     if (poAlias?.status === "ambiguous") {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
@@ -1196,8 +1213,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         value: aiPo.semanticKey,
         material: poMaterial(aiPo),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(aiPo.semanticKey, poAlias);
+    const poTombstone = poTombstones.get(aiPo.semanticKey);
+    if (poTombstone !== undefined) suppressAlias(poTombstone, aiPo.semanticKey);
     if (tombstones.has(aiPo.semanticKey)) {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
