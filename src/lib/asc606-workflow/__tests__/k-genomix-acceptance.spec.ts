@@ -39,6 +39,7 @@ import {
   GENOMIX_SUPPORT_CENTS,
   GENOMIX_SUPPORT_UNITS,
   GENOMIX_VALIDATION_CENTS,
+  r3OperationalFacts as r3Facts,
 } from "./genomix-k-fixture";
 
 /* ------------------------------------------------------------------ helpers */
@@ -78,57 +79,6 @@ function saveAndReload(draft: WorkflowDraft): WorkflowDraft {
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) throw new Error("persistence round-trip failed");
   return parsed.draft;
-}
-
-/**
- * The complete R3 operational fact set that belongs to the accountant. Every
- * field named in the closure patch is compared, not a sample of them.
- */
-function r3Facts(draft: WorkflowDraft) {
-  const po = (id: string) => draft.performanceObligations.find((row) => row.id === id)!;
-  const vc = (id: string) => draft.variableConsiderationComponents.find((row) => row.id === id)!;
-  const support = po("po-support");
-  const validation = po("po-validation");
-  const sla = vc("vc-sla");
-  const usage = vc("vc-usage");
-  return {
-    support: {
-      transferStatus: support.transferStatus,
-      recognitionDate: support.recognitionDate,
-      overTimeMeasure: support.overTimeMeasure,
-      totalExpectedUnitsInput: support.totalExpectedUnitsInput,
-      unitLabel: support.unitLabel,
-      progressEvents: support.progressEvents,
-    },
-    validation: {
-      transferStatus: validation.transferStatus,
-      recognitionDate: validation.recognitionDate,
-    },
-    sla: {
-      allocationTreatment: sla.allocationTreatment,
-      targetPoId: sla.targetPoId,
-      inception: sla.inception,
-      remeasurements: sla.remeasurements,
-      hasResolution: sla.hasResolution,
-      resolutionDate: sla.resolutionDate,
-      resolutionAmountInput: sla.resolutionAmountInput,
-      seriesPeriods: sla.seriesPeriods,
-      realizedEvents: sla.realizedEvents,
-      billOnRealization: sla.billOnRealization,
-    },
-    usage: {
-      allocationTreatment: usage.allocationTreatment,
-      targetPoId: usage.targetPoId,
-      meters: usage.meters,
-      usagePeriods: usage.usagePeriods,
-      seriesPeriods: usage.seriesPeriods,
-      billOnRealization: usage.billOnRealization,
-    },
-    billing: {
-      considerationEvents: draft.contractBalances.considerationEvents,
-      cashCollections: draft.contractBalances.cashCollections,
-    },
-  };
 }
 
 /* ---------------------------------------------------- review fingerprint set */
