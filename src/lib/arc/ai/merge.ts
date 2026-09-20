@@ -1917,10 +1917,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // usage components can coexist. It is the economic effect, the canonical
   // performance obligation it attaches to, the evidence and the contractual
   // terms.
-  const vcTiersFor = (
+  const vcSignatureFor = (
     component: (typeof analysis.transactionPrice.variableConsiderationComponents)[number],
   ) =>
-    vcIdentityTiers({
+    vcIdentity({
       type: component.type,
       effect: mapVcEffect(component.type) ?? "undetermined",
       targetCanonicalId:
