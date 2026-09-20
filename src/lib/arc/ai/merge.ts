@@ -620,18 +620,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const deletedSemanticKeys: string[] = [];
 
-  const KIND_ID_PREFIX = {
-    promise: "pr-",
-    performance_obligation: "po-",
-    variable_component: "vc-",
-  } as const;
-
-  function kindOfCanonicalId(canonicalId: string): AiIdentityKind | null {
-    for (const [kind, prefix] of Object.entries(KIND_ID_PREFIX)) {
-      if (canonicalId.startsWith(prefix)) return kind as AiIdentityKind;
-    }
-    return null;
-  }
+  const KIND_ID_PREFIX = IDENTITY_KIND_CANONICAL_PREFIX;
+  const kindOfCanonicalId = identityKindOfCanonicalId;
 
   /**
    * Records the identity of a deleted object so a LATER run that renames the
@@ -665,6 +655,23 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       deletedSemanticKeys.push(semanticKey);
       delete objectProvenance[semanticKey];
     }
+  }
+
+  // Fail closed. Every LIVE incumbent of an R3-governed kind must carry a
+  // recorded identity by now — either written by a patched run or backfilled
+  // above from the immutable prior structured output. If one does not, the
+  // prior result was absent, unreadable or silent about it, and continuing
+  // would mint a duplicate of every object the model has since renamed.
+  const unidentifiedIncumbents = Object.entries(objectProvenance)
+    .filter(
+      ([, provenance]) =>
+        provenance.identitySignature === undefined &&
+        kindOfCanonicalId(provenance.canonicalId) !== null,
+    )
+    .map(([semanticKey]) => semanticKey)
+    .sort();
+  if (unidentifiedIncumbents.length > 0) {
+    throw new AiIdentityBackfillError(unidentifiedIncumbents);
   }
 
   function canonicalIdFor(kind: AiObjectKind, semanticKey: string): string {
@@ -741,14 +748,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
    * deterministic identity test used for live incumbents, so a tombstone
    * survives semantic-key drift; anything it recognizes stays suppressed.
    */
-  function tombstoneFor(
-    kind: AiIdentityKind,
-    signature: IdentitySignature,
-  ): AiTombstoneIdentity | null {
+  function tombstoneFor(kind: AiIdentityKind, signature: IdentitySignature): TombstoneOutcome {
     const matches = tombstoneIdentities.filter(
       (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
     );
-    return matches.length === 1 ? matches[0]! : null;
+    if (matches.length === 1) return { status: "matched", record: matches[0]! };
+    // Two different deleted objects both recognize this proposal: which one
+    // the accountant removed is genuinely unknown, and resurrecting either —
+    // or creating a third — would be a guess.
+    return matches.length === 0 ? { status: "none" } : { status: "ambiguous" };
   }
 
   /** Records a newly observed alias of an already tombstoned economic object. */
