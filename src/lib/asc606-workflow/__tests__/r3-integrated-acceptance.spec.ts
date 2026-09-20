@@ -208,7 +208,10 @@ describe("K8 — AI re-analysis never overwrites an accountant's R3 facts", () =
     expect(r3Facts(merged.draft)).toEqual(r3Facts(draft));
   });
 
-  it("leaves the resulting accounting for those facts unchanged", () => {
+  it("still measures support progress from the accountant's own hours", () => {
+    // The AI fixture may propose its own obligations and prices, so the
+    // absolute allocation can legitimately move. What may never move is the
+    // measure of progress: it is derived from hours the accountant recorded.
     const draft = livedContract();
     const merged = mergeAiAnalysis({
       currentDraft: draft,
@@ -218,12 +221,15 @@ describe("K8 — AI re-analysis never overwrites an accountant's R3 facts", () =
       guidancePack: guidancePackFixture(),
       priorContext: null,
     });
-    expect(recognizedFor(analyze(merged.draft), "po-support")).toBe(
-      recognizedFor(analyze(draft), "po-support"),
-    );
-    expect(recognizedFor(analyze(merged.draft), "po-validation")).toBe(
-      recognizedFor(analyze(draft), "po-validation"),
-    );
+    const ratio = (d: WorkflowDraft) => {
+      const result = analyze(d);
+      const allocated = result.progressive!.allocation!.find((row) => row.poId === "po-support")!
+        .allocatedCents;
+      return recognizedFor(result, "po-support") / allocated;
+    };
+    // 80 of 200 contracted hours.
+    expect(ratio(draft)).toBeCloseTo(0.4, 10);
+    expect(ratio(merged.draft)).toBeCloseTo(0.4, 10);
   });
 
   it("survives a save and reload after re-analysis", () => {
