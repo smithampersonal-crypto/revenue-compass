@@ -408,6 +408,14 @@ export async function executeAiRunHandler(
           ? error
           : new TerraAnalysisError("api_failure", "The AI service request failed.");
       const category = failureCategoryFor(terra);
+      // Observational only, and only for the anchor-selection boundary.
+      if (terra.category === "citation_anchor_failure" && deps.onCitationAnchorDiagnostic) {
+        deps.onCitationAnchorDiagnostic({
+          runId: run.id,
+          failureCode: terra.category,
+          issues: terra.anchorDiagnostics,
+        });
+      }
       await deps.store.markFailure({
         runId: run.id,
         // An API failure never produced a response, so the run is still
