@@ -14,6 +14,7 @@
 export * from "./types";
 export * from "./estimation";
 export * from "./allocation";
+export * from "./allocation-lifecycle";
 export * from "./usage";
 export * from "./recognition";
 export * from "./preview";
