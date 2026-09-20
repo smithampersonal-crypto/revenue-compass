@@ -1486,3 +1486,12 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - [x] Step 5 primary dropdown presents the classification only ("Over time" / "Point in time"); the existing measure-of-progress selector and the denominator / unit label / progress-event controls are reachable.
 - [x] No prompt (v8), schema (v5), persistence schema, recognition enum, engine, VC or database change. No Terra call; the current Genomix draft is untouched.
 - [x] Gate: 181 files / 2,392 tests, typecheck, lint (0 errors, 11 pre-existing warnings), production build green.
+
+## Phase 9G-R3 L — Usage-period "Go to field" navigation
+- [x] Root cause: usage actuals are filed against the Step 3 guidance section by merge, but the only control is rendered in Step 5; `sectionElementIdFor` expanded Step 3, leaving the Step 5 anchor hidden so `scrollIntoView` landed at the bottom of Step 3.
+- [x] `sectionElementIdFor` maps `vc:<id>.usagePeriods(.<rowId>)` to `step-5`; the persisted section, review fingerprints and merge are untouched.
+- [x] `describeReviewTarget` classifies `vc:<id>.usagePeriods.<rowId>` as exact so a row-scoped item reaches that row.
+- [x] `Step5VariableConsideration` wraps each usage row in `AiReviewTarget` keyed by the persisted row id (no timestamp, no Genomix special case).
+- [x] Regression: Step 5 resolution for component and row targets, row-level scroll (not the parent block, not another row or component), distinct anchors per row and per component, other VC fields still follow the persisted section, no draft or review mutation on navigation.
+- [x] Significant financing: both live items come from the routine-assumption branch of the financing/noncash/payable loop (outcome "no", reviewState supported/inference) — one judgment, not duplicate review conclusions. Not altered.
+- [x] Gate: 182 files / 2,397 tests, typecheck clean, lint 0 errors (11 pre-existing warnings), production build OK.
