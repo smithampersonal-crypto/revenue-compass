@@ -1495,3 +1495,16 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - [x] Regression: Step 5 resolution for component and row targets, row-level scroll (not the parent block, not another row or component), distinct anchors per row and per component, other VC fields still follow the persisted section, no draft or review mutation on navigation.
 - [x] Significant financing: both live items come from the routine-assumption branch of the financing/noncash/payable loop (outcome "no", reviewState supported/inference) — one judgment, not duplicate review conclusions. Not altered.
 - [x] Gate: 182 files / 2,397 tests, typecheck clean, lint 0 errors (11 pre-existing warnings), production build OK.
+
+## Phase 9G-R3 — Re-analysis canonical identity hardening
+
+- [x] Deterministic re-identification module (`src/lib/arc/ai/reconciliation.ts`): tiered
+      structural identity, mutual uniqueness, fail-closed ambiguity.
+- [x] Merge adopts a renamed model alias onto the existing canonical object
+      (promises, performance obligations, variable consideration), carrying
+      accountant-owned values, user-edit history and semantic-key lineage.
+- [x] Ambiguous re-identification raises `unsafe_semantic_relationship` instead of guessing.
+- [x] Renamed objects no longer report as omitted and no longer duplicate.
+- [x] Step 3 shows `specific_series_period` for estimated components instead of
+      falling back to "General".
+- [x] Regression suites: `reanalysis-identity.spec.ts` (17), Step 3 allocation display.
