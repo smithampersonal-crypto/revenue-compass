@@ -166,28 +166,6 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return data ?? null;
       };
 
-      /**
-       * Phase 9G-R3. The immutable structured output of the last successful
-       * run, read ONLY so the merge can backfill identity signatures a sidecar
-       * written before this patch never recorded. It contributes no accounting
-       * value and is absent whenever the run or its payload is unreadable.
-       */
-      const priorAnalysis = async (aiState: AiAnalysisState) => {
-        if (aiState.lastSuccessfulRunId === null) return null;
-        const needsBackfill = Object.values(aiState.objectProvenance).some(
-          (provenance) => provenance.identitySignature === undefined,
-        );
-        if (!needsBackfill) return null;
-        const { data, error } = await supabaseAdmin
-          .from("ai_runs")
-          .select("result_metadata")
-          .eq("id", aiState.lastSuccessfulRunId)
-          .maybeSingle();
-        if (error || !data) return null;
-        const parsed = parseAiContractAnalysis((data as { result_metadata: unknown }).result_metadata);
-        return parsed.ok ? parsed.analysis : null;
-      };
-
       if (caller.kind === "revision") {
         const { data, error } = await supabaseAdmin
           .from("analysis_revisions")
