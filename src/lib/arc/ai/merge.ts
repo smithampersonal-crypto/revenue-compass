@@ -1281,7 +1281,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           blocking: true,
         });
       }
-    } else {
+    } else if (mapping.method === "point_in_time") {
       const date = parseIsoDate(proposal.recognitionDateIfContractuallyDeterminable);
       if (date !== null && methodIsAiOwned) {
         mergeText({
