@@ -292,6 +292,25 @@ export function analyzeProgressiveContract(
   // component, a blocked allocation) is the same situation: the transaction
   // price the bridge would build silently excludes it, so no monetary
   // rollforward may be produced from it.
+  //
+  // A FIXED billing event's invoice date is an accountant-owned fact. Billed
+  // versus unbilled receivable timing depends on it, so it is never
+  // manufactured from the unconditional-right date. Without it, no Phase 3
+  // balance and no Phase 4 journal may be produced, while allocation and
+  // determinable revenue stay available. (A variable amount billed on
+  // realization is a separate, genuinely deterministic same-day rule.)
+  for (const event of billing.events) {
+    if (event.kind !== "fixed" || event.invoiceDate) continue;
+    blocked.push({
+      poId: "",
+      poName: event.description,
+      amountCents: 0,
+      code: "billing.invoice_date.missing",
+      message:
+        "A contractual billing event needs the date the invoice was issued before contract balances can be presented.",
+    });
+  }
+
   const recognitionBlocked = recognition.blocked.length > 0 || blocked.length > 0;
 
   const balances = recognitionBlocked
