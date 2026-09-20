@@ -1233,12 +1233,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const poSignatures = new Map(
     analysis.performanceObligations.map((row) => [row.semanticKey, poIdentity(row)] as const),
   );
-  const poTombstones = new Map<string, AiTombstoneIdentity>();
-  for (const row of analysis.performanceObligations) {
-    if (!unseenKey(row.semanticKey)) continue;
-    const record = tombstoneFor("performance_obligation", poSignatures.get(row.semanticKey)!);
-    if (record !== null) poTombstones.set(row.semanticKey, record);
-  }
+  const poDeletions = tombstoneOutcomes(
+    "performance_obligation",
+    analysis.performanceObligations,
+    poSignatures,
+  );
+  const poTombstones = poDeletions.matched;
   // Canonical promise membership is the PRINCIPAL identity of a grouping: the
   // satisfaction pattern only gates compatibility and never identifies alone.
   const sharesCanonicalPromise = (
@@ -1254,7 +1254,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   };
   const poAliases = reconcileByIdentity(
     analysis.performanceObligations
-      .filter((row) => unseenKey(row.semanticKey) && !poTombstones.has(row.semanticKey))
+      .filter(
+        (row) =>
+          unseenKey(row.semanticKey) &&
+          !poTombstones.has(row.semanticKey) &&
+          !poDeletions.ambiguous.has(row.semanticKey),
+      )
       .map((row) => ({
         semanticKey: row.semanticKey,
         signature: poSignatures.get(row.semanticKey)!,
@@ -2002,15 +2007,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       (row) => [row.semanticKey, vcSignatureFor(row)] as const,
     ),
   );
-  const vcTombstones = new Map<string, AiTombstoneIdentity>();
-  for (const row of analysis.transactionPrice.variableConsiderationComponents) {
-    if (!unseenKey(row.semanticKey)) continue;
-    const record = tombstoneFor("variable_component", vcSignatures.get(row.semanticKey)!);
-    if (record !== null) vcTombstones.set(row.semanticKey, record);
-  }
+  const vcDeletions = tombstoneOutcomes(
+    "variable_component",
+    analysis.transactionPrice.variableConsiderationComponents,
+    vcSignatures,
+  );
+  const vcTombstones = vcDeletions.matched;
   const vcAliases = reconcileByIdentity(
     analysis.transactionPrice.variableConsiderationComponents
-      .filter((row) => unseenKey(row.semanticKey) && !vcTombstones.has(row.semanticKey))
+      .filter(
+        (row) =>
+          unseenKey(row.semanticKey) &&
+          !vcTombstones.has(row.semanticKey) &&
+          !vcDeletions.ambiguous.has(row.semanticKey),
+      )
       .map((row) => ({
         semanticKey: row.semanticKey,
         signature: vcSignatures.get(row.semanticKey)!,
@@ -2022,7 +2032,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
     const vcAlias = vcAliases.get(component.semanticKey);
-    if (vcAlias?.status === "ambiguous") {
+    if (vcAlias?.status === "ambiguous" || vcDeletions.ambiguous.has(component.semanticKey)) {
       raise({
         targetKey: `vc:${component.semanticKey}`,
         section,
