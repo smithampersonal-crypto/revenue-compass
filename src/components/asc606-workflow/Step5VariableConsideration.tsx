@@ -1,8 +1,12 @@
 import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
+  nextId,
+  nextSeq,
   variableConsiderationPreview,
   type VcComponentDraft,
+  type VcRealizedEventDraft,
+  type VcSeriesPeriodDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
@@ -239,7 +243,8 @@ export function Step5VariableConsideration({
                       usagePeriods: [
                         ...component.usagePeriods,
                         {
-                          id: `${component.id}-p${component.usagePeriods.length + 1}-${Date.now()}`,
+                          // Deterministic persisted identity: no timestamp.
+                          id: nextId(`${component.id}-p`, component.usagePeriods),
                           month: "",
                           quantities: {},
                         },
@@ -284,9 +289,241 @@ export function Step5VariableConsideration({
                 ) : null}
               </AiReviewTarget>
             )}
+
+            {component.allocationTreatment === "specific_series_period" ? (
+              <SeriesPeriodControls component={component} patch={patch} />
+            ) : null}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Phase 9G-R3 minimum controls for a component allocated to specific distinct
+ * service periods of a series. Everything here is an accountant-owned fact: a
+ * service period is never fabricated from an SLA clause, and a credit is only
+ * recorded when one has actually been granted. Identities are deterministic.
+ */
+function SeriesPeriodControls({
+  component,
+  patch,
+}: {
+  component: VcComponentDraft;
+  patch: (id: string, values: Partial<VcComponentDraft>) => void;
+}) {
+  const periods = component.seriesPeriods ?? [];
+  const events = component.realizedEvents ?? [];
+
+  const setPeriods = (seriesPeriods: VcSeriesPeriodDraft[]) =>
+    patch(component.id, { seriesPeriods });
+  const setEvents = (realizedEvents: VcRealizedEventDraft[]) =>
+    patch(component.id, { realizedEvents });
+
+  return (
+    <div className="space-y-4" data-testid={`series-periods-${component.id}`}>
+      <AiReviewTarget targetKey={`vc:${component.id}.seriesPeriods`}>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Distinct service periods</p>
+          <p className="text-xs text-muted-foreground">
+            Declare the service periods this amount can be attributed to. Periods are never
+            generated automatically.
+          </p>
+          {periods.map((period) => (
+            <div key={period.id} className="grid gap-2 sm:grid-cols-4">
+              <Field label="Label">
+                <input
+                  className={inputClass}
+                  value={period.label}
+                  onChange={(e) =>
+                    setPeriods(
+                      periods.map((row) =>
+                        row.id === period.id ? { ...row, label: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Start date">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={period.startDate}
+                  onChange={(e) =>
+                    setPeriods(
+                      periods.map((row) =>
+                        row.id === period.id ? { ...row, startDate: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <Field label="End date">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={period.endDate}
+                  onChange={(e) =>
+                    setPeriods(
+                      periods.map((row) =>
+                        row.id === period.id ? { ...row, endDate: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  className={buttonClass}
+                  onClick={() => setPeriods(periods.filter((row) => row.id !== period.id))}
+                >
+                  Remove period
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            className={buttonClass}
+            onClick={() =>
+              setPeriods([
+                ...periods,
+                {
+                  id: nextId(`${component.id}-sp`, periods),
+                  seq: nextSeq(periods),
+                  label: "",
+                  startDate: "",
+                  endDate: "",
+                },
+              ])
+            }
+          >
+            Add service period
+          </button>
+        </div>
+      </AiReviewTarget>
+
+      <AiReviewTarget targetKey={`vc:${component.id}.realizedEvents`}>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Amounts actually realized</p>
+          <p className="text-xs text-muted-foreground">
+            Record an amount only once it has actually arisen, and attribute it to the service
+            period it belongs to.
+          </p>
+          {events.map((event) => (
+            <div key={event.id} className="grid gap-2 sm:grid-cols-5">
+              <Field label="Date">
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={event.date}
+                  onChange={(e) =>
+                    setEvents(
+                      events.map((row) =>
+                        row.id === event.id ? { ...row, date: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Amount (USD)">
+                <input
+                  className={inputClass}
+                  inputMode="decimal"
+                  value={event.amountInput}
+                  onChange={(e) =>
+                    setEvents(
+                      events.map((row) =>
+                        row.id === event.id ? { ...row, amountInput: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <Field label="Service period">
+                <select
+                  className={inputClass}
+                  value={event.seriesPeriodId ?? ""}
+                  onChange={(e) =>
+                    setEvents(
+                      events.map((row) =>
+                        row.id === event.id
+                          ? { ...row, seriesPeriodId: e.target.value || null }
+                          : row,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">Select a service period…</option>
+                  {periods.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.label || period.id}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Description">
+                <input
+                  className={inputClass}
+                  value={event.description}
+                  onChange={(e) =>
+                    setEvents(
+                      events.map((row) =>
+                        row.id === event.id ? { ...row, description: e.target.value } : row,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  className={buttonClass}
+                  onClick={() => setEvents(events.filter((row) => row.id !== event.id))}
+                >
+                  Remove amount
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            className={buttonClass}
+            onClick={() =>
+              setEvents([
+                ...events,
+                {
+                  id: nextId(`${component.id}-re`, events),
+                  seq: nextSeq(events),
+                  date: "",
+                  amountInput: "",
+                  seriesPeriodId: null,
+                  description: "",
+                },
+              ])
+            }
+          >
+            Add realized amount
+          </button>
+        </div>
+      </AiReviewTarget>
+
+      <AiReviewTarget targetKey={`vc:${component.id}.billOnRealization`}>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={component.billOnRealization === true}
+            onChange={(e) => patch(component.id, { billOnRealization: e.target.checked })}
+          />
+          The contract bills a realized amount on the date it is realized
+        </label>
+        <p className="text-xs text-muted-foreground">
+          This is a contractual judgment about invoicing. It is not a statement about when the
+          amount was realized, and never about cash collection.
+        </p>
+      </AiReviewTarget>
     </div>
   );
 }

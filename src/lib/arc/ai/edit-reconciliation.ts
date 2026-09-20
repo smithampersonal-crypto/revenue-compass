@@ -53,6 +53,21 @@ interface ParsedKey {
   criterionId?: string;
 }
 
+/**
+ * Phase 9G-R3. Deliberate, explicit synonyms for a canonical property. A UI
+ * target written in the shorter form names exactly the same canonical fact, so
+ * it can never fall through to an undefined property read. New R3 controls use
+ * the canonical property name; this table keeps already-persisted review items
+ * readable.
+ */
+const FIELD_ALIASES: Partial<Record<ObjectFamily, Readonly<Record<string, string>>>> = {
+  po: { totalExpectedUnits: "totalExpectedUnitsInput" },
+};
+
+function resolveFieldAlias(family: ObjectFamily, field: string): string {
+  return FIELD_ALIASES[family]?.[field] ?? field;
+}
+
 /** Parses a stable provenance/review key back into the draft location it names. */
 export function parseCanonicalKey(key: string): ParsedKey {
   for (const prefix of UNREPRESENTABLE_PREFIXES) {
@@ -68,7 +83,11 @@ export function parseCanonicalKey(key: string): ParsedKey {
       const rest = key.slice(family.length + 1);
       const dot = rest.indexOf(".");
       if (dot < 0) return { family, canonicalId: rest, field: null };
-      return { family, canonicalId: rest.slice(0, dot), field: rest.slice(dot + 1) };
+      return {
+        family,
+        canonicalId: rest.slice(0, dot),
+        field: resolveFieldAlias(family, rest.slice(dot + 1)),
+      };
     }
   }
   if (key.startsWith("contract.criteria.")) {
@@ -236,7 +255,48 @@ function pick(row: Row, fields: readonly string[]): Row {
 
 const VC_OUTCOME_FIELDS = ["description", "amountInput", "probabilityInput", "isMostLikely"];
 const VC_ASSESSMENT_FIELDS = ["effectiveDate", "includedInput", "constraintRationale", "evidence"];
-const VC_METER_FIELDS = ["name", "rateAmountInput", "rateQuantityInput", "unit"];
+// Phase 9G-R3. A meter's tier threshold is a material pricing fact, and the
+// meter's own stable identity is part of the conclusion: removing a meter and
+// re-adding it under a new identity is a real accounting change.
+const VC_METER_FIELDS = [
+  "id",
+  "name",
+  "rateAmountInput",
+  "rateQuantityInput",
+  "unit",
+  "includedQuantityInput",
+];
+const VC_SERIES_PERIOD_FIELDS = ["id", "label", "startDate", "endDate"];
+const VC_REALIZED_EVENT_FIELDS = ["id", "date", "amountInput", "seriesPeriodId", "description"];
+const PO_PROGRESS_EVENT_FIELDS = ["id", "date", "unitsInput"];
+/**
+ * Phase 9G-R3. Every canonical fact that can change WHEN and HOW MUCH revenue
+ * a performance obligation recognises. `progressEvents` is added separately
+ * because it needs an identity-keyed projection.
+ */
+const PO_RECOGNITION_FIELDS = [
+  "recognitionMethod",
+  "serviceStart",
+  "serviceEnd",
+  "recognitionDate",
+  "recognitionRationale",
+  "transferStatus",
+  "overTimeMeasure",
+  "totalExpectedUnitsInput",
+  "unitLabel",
+];
+
+/**
+ * Nested rows are projected BY IDENTITY, never by array position: the rows are
+ * sorted by their stable id so a harmless reorder cannot reopen a review, while
+ * adding, deleting or materially changing a row always does.
+ */
+function byIdentity(value: unknown, fields: readonly string[]): Row[] {
+  const rows = Array.isArray(value) ? (value as unknown[]) : [];
+  return rows
+    .map((row) => pick((row ?? {}) as Row, fields))
+    .sort((a, b) => String(a["id"] ?? "").localeCompare(String(b["id"] ?? "")));
+}
 const MODIFIED_PO_FIELDS = [
   "name",
   "status",
@@ -283,15 +343,51 @@ function vcEstimationProjection(row: Row): Row {
   };
 }
 
+/**
+ * Phase 9G-R3. The operational variable-consideration conclusion: what is
+ * metered, what actually happened, which distinct service periods exist, which
+ * amounts were actually realized against them, and whether the contract bills a
+ * realized amount. Every nested row is keyed by its stable identity, and every
+ * quantity map is canonicalised by key, so harmless ordering can never create a
+ * false fingerprint. Cosmetic presentation state is deliberately absent.
+ */
 function vcUsageProjection(row: Row): Row {
   return {
-    meters: (Array.isArray(row["meters"]) ? row["meters"] : []).map((meter) =>
-      pick((meter ?? {}) as Row, VC_METER_FIELDS),
-    ),
-    usagePeriods: (Array.isArray(row["usagePeriods"]) ? row["usagePeriods"] : []).map((period) => {
-      const usage = (period ?? {}) as Row;
-      return { month: usage["month"] ?? null, quantities: usage["quantities"] ?? null };
-    }),
+    meters: byIdentity(row["meters"], VC_METER_FIELDS),
+    usagePeriods: (Array.isArray(row["usagePeriods"]) ? row["usagePeriods"] : [])
+      .map((period) => {
+        const usage = (period ?? {}) as Row;
+        const quantities = (usage["quantities"] ?? null) as Record<string, unknown> | null;
+        return {
+          id: usage["id"] ?? null,
+          month: usage["month"] ?? null,
+          // Keyed by meter identity; `canonicalJson` sorts object keys, so the
+          // order the accountant typed the meters in is never material.
+          quantities:
+            quantities === null
+              ? null
+              : Object.fromEntries(
+                  Object.entries(quantities).sort(([a], [b]) => a.localeCompare(b)),
+                ),
+        };
+      })
+      .sort((a, b) => String(a.id ?? "").localeCompare(String(b.id ?? ""))),
+    seriesPeriods: byIdentity(row["seriesPeriods"], VC_SERIES_PERIOD_FIELDS),
+    realizedEvents: byIdentity(row["realizedEvents"], VC_REALIZED_EVENT_FIELDS),
+    billOnRealization: row["billOnRealization"] ?? null,
+  };
+}
+
+/**
+ * Phase 9G-R3. The recognition conclusion for a performance obligation now
+ * includes the progressive facts that can change it: how control transfers,
+ * how progress is measured, the denominator it is measured against, and the
+ * accountant-owned actual progress. Progress events are projected by identity.
+ */
+function poRecognitionProjection(row: Row): Row {
+  return {
+    ...pick(row, PO_RECOGNITION_FIELDS),
+    progressEvents: byIdentity(row["progressEvents"], PO_PROGRESS_EVENT_FIELDS),
   };
 }
 
@@ -338,13 +434,11 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
   po: [
     plainGroup("classification", ["kind", "name", "classification", "classificationRationale"]),
     plainGroup("ssp", ["sspInput", "sspBasis"]),
-    plainGroup("recognition", [
-      "recognitionMethod",
-      "serviceStart",
-      "serviceEnd",
-      "recognitionDate",
-      "recognitionRationale",
-    ]),
+    {
+      name: "recognition",
+      fields: [...PO_RECOGNITION_FIELDS, "progressEvents"],
+      project: poRecognitionProjection,
+    },
     plainGroup("materialRight", [
       "underlyingGoodOrServiceName",
       "benefitAmountInput",
@@ -379,7 +473,11 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
       "consistentWithAllocationObjective",
       "allocationRationale",
     ]),
-    { name: "usage", fields: ["meters", "usagePeriods"], project: vcUsageProjection },
+    {
+      name: "usage",
+      fields: ["meters", "usagePeriods", "seriesPeriods", "realizedEvents", "billOnRealization"],
+      project: vcUsageProjection,
+    },
   ],
   modification: [
     plainGroup("treatment", [

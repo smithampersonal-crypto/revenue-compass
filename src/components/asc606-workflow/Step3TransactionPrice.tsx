@@ -7,6 +7,8 @@ import {
   createVcComponentDraft,
   createVcMeterDraft,
   createVcOutcomeDraft,
+  nextId,
+  nextSeq,
   parseUsdToCents,
   previewVcMeasurement,
   VC_ALLOCATION_TREATMENT_LABELS,
@@ -58,11 +60,12 @@ export function Step3TransactionPrice({
   const patchComponent = (id: string, values: Partial<VcComponentDraft>) =>
     setComponents(components.map((c) => (c.id === id ? { ...c, ...values } : c)));
 
+  // Deterministic persisted identity: never a timestamp, random value or array
+  // index. The same action on the same draft always produces the same id.
   const addComponent = (treatment: "estimated" | "usage_as_incurred") => {
-    const seq = components.length + 1;
     setComponents([
       ...components,
-      createVcComponentDraft(seq, `vc-${seq}-${Date.now()}`, treatment),
+      createVcComponentDraft(nextSeq(components), nextId("vc", components), treatment),
     ]);
   };
 
@@ -196,8 +199,8 @@ export function Step3TransactionPrice({
               outcomes: [
                 ...assessment.outcomes,
                 createVcOutcomeDraft(
-                  assessment.outcomes.length + 1,
-                  `${assessment.id}-o${assessment.outcomes.length + 1}-${Date.now()}`,
+                  nextSeq(assessment.outcomes),
+                  nextId(`${assessment.id}-o`, assessment.outcomes),
                 ),
               ],
             })
@@ -490,8 +493,11 @@ export function Step3TransactionPrice({
                         remeasurements: [
                           ...component.remeasurements,
                           createVcAssessmentDraft(
-                            component.remeasurements.length + 2,
-                            `${component.id}-a${component.remeasurements.length + 2}-${Date.now()}`,
+                            nextSeq([component.inception, ...component.remeasurements]),
+                            nextId(`${component.id}-a`, [
+                              component.inception,
+                              ...component.remeasurements,
+                            ]),
                           ),
                         ],
                       })
@@ -578,6 +584,27 @@ export function Step3TransactionPrice({
                             />
                           </Field>
                         </MeterField>
+                        <MeterField componentId={component.id} field="includedQuantityInput">
+                          <Field
+                            label="Included quantity (contractual threshold)"
+                            hint="Only quantity above this threshold is chargeable. A blank threshold is missing, never zero."
+                          >
+                            <input
+                              className={inputClass}
+                              inputMode="numeric"
+                              value={meter.includedQuantityInput ?? ""}
+                              onChange={(e) =>
+                                patchComponent(component.id, {
+                                  meters: component.meters.map((m) =>
+                                    m.id === meter.id
+                                      ? { ...m, includedQuantityInput: e.target.value }
+                                      : m,
+                                  ),
+                                })
+                              }
+                            />
+                          </Field>
+                        </MeterField>
                         <div className="flex items-end">
                           <button
                             type="button"
@@ -602,8 +629,8 @@ export function Step3TransactionPrice({
                         meters: [
                           ...component.meters,
                           createVcMeterDraft(
-                            component.meters.length + 1,
-                            `${component.id}-m${component.meters.length + 1}-${Date.now()}`,
+                            nextSeq(component.meters),
+                            nextId(`${component.id}-m`, component.meters),
                           ),
                         ],
                       })

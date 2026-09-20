@@ -3,14 +3,20 @@ import { formatCents, type RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import {
   materialRightStepPreviews,
+  nextId,
+  nextSeq,
   MATERIAL_RIGHT_STATUS_LABELS,
   type PoDraft,
+  type ProgressEventDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
 import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
+
+const smallButtonClass =
+  "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";
 
 export function Step5Recognition({
   draft,
@@ -29,6 +35,8 @@ export function Step5Recognition({
       ...draft,
       performanceObligations: pos.map((po) => (po.id === id ? { ...po, ...values } : po)),
     });
+  const patchProgressEvents = (po: PoDraft, progressEvents: ProgressEventDraft[]) =>
+    patch(po.id, { progressEvents });
 
   const recognitionFields = (po: PoDraft, label: string) => (
     <>
@@ -70,25 +78,109 @@ export function Step5Recognition({
           </AiReviewTarget>
 
           {po.overTimeMeasure === "input_measure" ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <AiReviewTarget targetKey={`po:${po.id}.totalExpectedUnits`}>
-                <Field label="Total contracted units">
-                  <input
-                    className={inputClass}
-                    inputMode="decimal"
-                    value={po.totalExpectedUnitsInput ?? ""}
-                    onChange={(e) => patch(po.id, { totalExpectedUnitsInput: e.target.value })}
-                  />
-                </Field>
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AiReviewTarget targetKey={`po:${po.id}.totalExpectedUnitsInput`}>
+                  <Field label="Total contracted units (denominator)">
+                    <input
+                      className={inputClass}
+                      inputMode="decimal"
+                      value={po.totalExpectedUnitsInput ?? ""}
+                      onChange={(e) => patch(po.id, { totalExpectedUnitsInput: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`po:${po.id}.unitLabel`}>
+                  <Field label="Unit label">
+                    <input
+                      className={inputClass}
+                      value={po.unitLabel ?? ""}
+                      placeholder="hours"
+                      onChange={(e) => patch(po.id, { unitLabel: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+              </div>
+
+              <AiReviewTarget targetKey={`po:${po.id}.progressEvents`}>
+                <div className="space-y-2" data-testid={`progress-events-${po.id}`}>
+                  <p className="text-sm font-medium">
+                    Actual {po.unitLabel || "units"} incurred to date
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter only effort that has actually been incurred. Future effort is never
+                    assumed, and a blank entry is treated as missing, never as zero progress.
+                  </p>
+
+                  {(po.progressEvents ?? []).map((event) => (
+                    <div key={event.id} className="grid gap-2 sm:grid-cols-3">
+                      <Field label="Date incurred">
+                        <input
+                          type="date"
+                          className={inputClass}
+                          value={event.date}
+                          onChange={(e) =>
+                            patchProgressEvents(
+                              po,
+                              (po.progressEvents ?? []).map((row) =>
+                                row.id === event.id ? { ...row, date: e.target.value } : row,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <Field label={`Units incurred (${po.unitLabel || "units"})`}>
+                        <input
+                          className={inputClass}
+                          inputMode="decimal"
+                          value={event.unitsInput}
+                          onChange={(e) =>
+                            patchProgressEvents(
+                              po,
+                              (po.progressEvents ?? []).map((row) =>
+                                row.id === event.id ? { ...row, unitsInput: e.target.value } : row,
+                              ),
+                            )
+                          }
+                        />
+                      </Field>
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          className={smallButtonClass}
+                          onClick={() =>
+                            patchProgressEvents(
+                              po,
+                              (po.progressEvents ?? []).filter((row) => row.id !== event.id),
+                            )
+                          }
+                        >
+                          Remove entry
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    className={smallButtonClass}
+                    onClick={() => {
+                      const existing = po.progressEvents ?? [];
+                      patchProgressEvents(po, [
+                        ...existing,
+                        {
+                          id: nextId(`${po.id}-pe`, existing),
+                          seq: nextSeq(existing),
+                          date: "",
+                          unitsInput: "",
+                        },
+                      ]);
+                    }}
+                  >
+                    Add actual progress
+                  </button>
+                </div>
               </AiReviewTarget>
-              <Field label="Unit label">
-                <input
-                  className={inputClass}
-                  value={po.unitLabel ?? ""}
-                  placeholder="hours"
-                  onChange={(e) => patch(po.id, { unitLabel: e.target.value })}
-                />
-              </Field>
             </div>
           ) : (
             <AiReviewTarget targetKey={`po:${po.id}.servicePeriod`}>
