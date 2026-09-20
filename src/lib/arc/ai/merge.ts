@@ -60,8 +60,11 @@ import {
   type AiObjectKind,
 } from "./identity";
 import {
+  BILLING_COLLECTION_ID_PREFIX,
   BILLING_EVENT_ID_PREFIX,
+  billingCollectionIdentity,
   billingCollectionSemanticKey,
+  billingEventIdentity,
   billingEventSemanticKey,
   billingIdentityCandidates,
   billingLineages,
@@ -82,7 +85,11 @@ import {
   type IdentityOutcome,
   type IdentitySignature,
 } from "./reconciliation";
-import type { AiTombstoneIdentity } from "./tombstones";
+import {
+  tombstoneKindOfCanonicalId,
+  type AiTombstoneIdentity,
+  type AiTombstoneKind,
+} from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
