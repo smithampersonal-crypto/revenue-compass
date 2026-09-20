@@ -175,7 +175,7 @@ describe("Step 3 usage meters are entered through the real control", () => {
     fireEvent.change(screen.getAllByLabelText("Unit")[1]!, { target: { value: "reports" } });
     expect(usage(state.draft).meters[1]!.unit).toBe("reports");
 
-    fireEvent.change(screen.getAllByLabelText("Included quantity (contractual threshold)")[1]!, {
+    fireEvent.change(screen.getAllByLabelText(/^Included quantity/)[1]!, {
       target: { value: "25" },
     });
     expect(usage(state.draft).meters[1]!.includedQuantityInput).toBe("25");
@@ -194,7 +194,7 @@ describe("Step 3 usage meters are entered through the real control", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add meter" }));
     const ids = usage(state.draft).meters.map((meter) => meter.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toEqual(["vc-usage-m-2", "vc-usage-m-1"]);
+    expect(ids).toEqual(["vc-usage-m-2", "vc-usage-m-3"]);
   });
 });
 
