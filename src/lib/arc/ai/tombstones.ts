@@ -15,22 +15,51 @@
  * No database migration is required and older rows read unchanged.
  */
 
-import type { AiIdentityKind, IdentitySignature } from "./reconciliation";
+import { BILLING_COLLECTION_ID_PREFIX, BILLING_EVENT_ID_PREFIX } from "./billing-identity";
+import {
+  identityKindOfCanonicalId,
+  type AiIdentityKind,
+  type IdentitySignature,
+} from "./reconciliation";
+
+/**
+ * Phase L. Deletion identity covers more canonical kinds than re-identification
+ * does: the derived billing objects carry no independent economic identity of
+ * their own — theirs is the billing SCHEDULE plus the deterministic schedule
+ * period — but an accountant can delete them, and a deletion must survive a
+ * model rename exactly like a promise deletion does.
+ */
+export type AiTombstoneKind = AiIdentityKind | "billing_event" | "billing_collection";
 
 export interface AiTombstoneIdentity {
   /** The alias the object carried when it was deleted. */
   semanticKey: string;
-  kind: AiIdentityKind;
+  kind: AiTombstoneKind;
   signature: IdentitySignature;
   /** Every alias suppressed by this tombstone, including `semanticKey`. */
   aliases: readonly string[];
 }
 
+/**
+ * The ONE classifier for deletion identity. R3 kinds keep their existing
+ * meaning; the derived billing objects are classified by their canonical
+ * prefixes and nothing else.
+ */
+export function tombstoneKindOfCanonicalId(canonicalId: string): AiTombstoneKind | null {
+  const identityKind = identityKindOfCanonicalId(canonicalId);
+  if (identityKind !== null) return identityKind;
+  if (canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)) return "billing_event";
+  if (canonicalId.startsWith(BILLING_COLLECTION_ID_PREFIX)) return "billing_collection";
+  return null;
+}
+
 const RECORD_MARKER = "arcTombstoneIdentity";
-const KINDS: readonly AiIdentityKind[] = [
+const KINDS: readonly AiTombstoneKind[] = [
   "promise",
   "performance_obligation",
   "variable_component",
+  "billing_event",
+  "billing_collection",
 ];
 
 /** The persisted `tombstones` array: strings plus identity records. */
@@ -63,7 +92,7 @@ function readRecord(value: unknown): AiTombstoneIdentity | null {
   const kind = record["kind"];
   const signature = record["signature"];
   if (typeof semanticKey !== "string" || semanticKey === "") return null;
-  if (typeof kind !== "string" || !KINDS.includes(kind as AiIdentityKind)) return null;
+  if (typeof kind !== "string" || !KINDS.includes(kind as AiTombstoneKind)) return null;
   if (signature === null || typeof signature !== "object") return null;
   const gate = (signature as Record<string, unknown>)["gate"];
   const corroborators = (signature as Record<string, unknown>)["corroborators"];
@@ -73,7 +102,7 @@ function readRecord(value: unknown): AiTombstoneIdentity | null {
     : [];
   return {
     semanticKey,
-    kind: kind as AiIdentityKind,
+    kind: kind as AiTombstoneKind,
     signature: {
       gate,
       corroborators: corroborators.map((entry) => (typeof entry === "string" ? entry : null)),

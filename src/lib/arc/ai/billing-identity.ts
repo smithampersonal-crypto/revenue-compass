@@ -84,6 +84,44 @@ export function billingTermIdentity(term: {
   };
 }
 
+/**
+ * Phase L deletion identity. A derived billing object has no economic identity
+ * of its own: it IS the reconciled billing schedule at one deterministic
+ * schedule period. Scoping the gate — never the corroborators — keeps annual
+ * event 1 distinct from annual event 2 and an invoice distinct from its
+ * projected collection, while the schedule facts still do the identifying.
+ */
+const SCHEDULE_SCOPE = /#(event|collection)#\d+$/;
+
+export function billingEventIdentity(
+  schedule: IdentitySignature,
+  period: number,
+): IdentitySignature {
+  return {
+    gate: `${billingScheduleSignature(schedule).gate}#event#${period}`,
+    corroborators: schedule.corroborators,
+  };
+}
+
+export function billingCollectionIdentity(
+  schedule: IdentitySignature,
+  period: number,
+): IdentitySignature {
+  return {
+    gate: `${billingScheduleSignature(schedule).gate}#collection#${period}`,
+    corroborators: schedule.corroborators,
+  };
+}
+
+/** The unscoped SCHEDULE identity behind a (possibly scoped) signature. */
+export function billingScheduleSignature(signature: IdentitySignature): IdentitySignature {
+  if (!SCHEDULE_SCOPE.test(signature.gate)) return signature;
+  return {
+    gate: signature.gate.replace(SCHEDULE_SCOPE, ""),
+    corroborators: signature.corroborators,
+  };
+}
+
 export interface BillingLineageMember {
   semanticKey: string;
   canonicalId: string;
@@ -127,7 +165,7 @@ export function billingLineages(
       const lineage = lineageOf(parsed.termKey);
       lineage.events.set(parsed.period, { semanticKey, canonicalId: provenance.canonicalId });
       if (lineage.signature === undefined && provenance.identitySignature !== undefined) {
-        lineage.signature = provenance.identitySignature;
+        lineage.signature = billingScheduleSignature(provenance.identitySignature);
       }
       continue;
     }
@@ -135,6 +173,8 @@ export function billingLineages(
       if (!semanticKey.endsWith("#collection")) continue;
       const parsed = parseBillingEventSemanticKey(semanticKey.slice(0, -"#collection".length));
       if (parsed === null) continue;
+      // Only an INVOICE may establish schedule identity: a collection is
+      // strictly subordinate and never identifies a schedule on its own.
       lineageOf(parsed.termKey).collections.set(parsed.period, {
         semanticKey,
         canonicalId: provenance.canonicalId,

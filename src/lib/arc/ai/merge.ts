@@ -60,8 +60,11 @@ import {
   type AiObjectKind,
 } from "./identity";
 import {
+  BILLING_COLLECTION_ID_PREFIX,
   BILLING_EVENT_ID_PREFIX,
+  billingCollectionIdentity,
   billingCollectionSemanticKey,
+  billingEventIdentity,
   billingEventSemanticKey,
   billingIdentityCandidates,
   billingLineages,
@@ -82,7 +85,11 @@ import {
   type IdentityOutcome,
   type IdentitySignature,
 } from "./reconciliation";
-import type { AiTombstoneIdentity } from "./tombstones";
+import {
+  tombstoneKindOfCanonicalId,
+  type AiTombstoneIdentity,
+  type AiTombstoneKind,
+} from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
@@ -284,11 +291,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const priorBilling = priorBillingIdentityIndex(args.priorAnalysis);
     for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
       if (provenance.identitySignature !== undefined) continue;
-      if (!provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)) continue;
-      const parsed = parseBillingEventSemanticKey(semanticKey);
+      const isEvent = provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX);
+      const isCollection = provenance.canonicalId.startsWith(BILLING_COLLECTION_ID_PREFIX);
+      if (!isEvent && !isCollection) continue;
+      const parsed = parseBillingEventSemanticKey(
+        isCollection && semanticKey.endsWith("#collection")
+          ? semanticKey.slice(0, -"#collection".length)
+          : semanticKey,
+      );
       if (parsed === null) continue;
-      const signature = priorBilling.get(parsed.termKey);
-      if (signature === undefined) continue;
+      const schedule = priorBilling.get(parsed.termKey);
+      if (schedule === undefined) continue;
+      const signature = isEvent
+        ? billingEventIdentity(schedule, parsed.period)
+        : billingCollectionIdentity(schedule, parsed.period);
       objectProvenance[semanticKey] = { ...provenance, identitySignature: signature };
       previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
     }
@@ -658,7 +674,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const aliases = [...new Set([semanticKey, ...(provenance.previousSemanticKeys ?? [])])];
     for (const alias of aliases) tombstones.add(alias);
     const signature = provenance.identitySignature;
-    const kind = kindOfCanonicalId(provenance.canonicalId);
+    const kind = tombstoneKindOfCanonicalId(provenance.canonicalId);
     if (signature === undefined || kind === null) return;
     const existing = tombstoneIdentities.find((entry) =>
       entry.aliases.some((alias) => aliases.includes(alias)),
@@ -803,7 +819,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
    * deterministic identity test used for live incumbents, so a tombstone
    * survives semantic-key drift; anything it recognizes stays suppressed.
    */
-  function tombstoneFor(kind: AiIdentityKind, signature: IdentitySignature): TombstoneOutcome {
+  function tombstoneFor(kind: AiTombstoneKind, signature: IdentitySignature): TombstoneOutcome {
     const matches = tombstoneIdentities.filter(
       (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
     );
@@ -2908,8 +2924,41 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     for (const event of schedule.events) {
       const eventSemanticKey = billingEventSemanticKey(semanticKey, event.period);
+      const eventSignature = billingEventIdentity(termSignature, event.period);
+      const collectionSignature = billingCollectionIdentity(termSignature, event.period);
       proposedSemanticKeys.add(eventSemanticKey);
       if (tombstones.has(eventSemanticKey)) continue;
+
+      // Phase L. A deleted invoice stays deleted even when the model renames
+      // the schedule: the deletion is recorded by schedule identity plus the
+      // deterministic schedule period, not by the ephemeral derived key. This
+      // holds when no live row of that period survives to carry the old alias.
+      const eventTombstone = tombstoneFor("billing_event", eventSignature);
+      if (eventTombstone.status === "matched") {
+        suppressAlias(eventTombstone.record, eventSemanticKey);
+        const cashKey = billingCollectionSemanticKey(eventSemanticKey);
+        proposedSemanticKeys.add(cashKey);
+        const subordinate = tombstoneFor("billing_collection", collectionSignature);
+        if (subordinate.status === "matched") suppressAlias(subordinate.record, cashKey);
+        else tombstones.add(cashKey);
+        continue;
+      }
+      if (eventTombstone.status === "ambiguous") {
+        raise({
+          targetKey: `billing:${eventSemanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason:
+            "You previously removed more than one invoice that this renamed billing schedule could refer to. ARC created nothing — tell it whether this invoice is new or one you already removed.",
+          guidanceIds: [],
+          citations: term.citations,
+          value: eventSemanticKey,
+          material: billingMaterial(term),
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
 
       const eventId = canonicalIdFor("consideration_event", eventSemanticKey);
       if (draft.contractBalances.considerationEvents.every((row) => row.id !== eventId)) {
@@ -2935,7 +2984,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
       // The schedule identity is recorded on the derived invoice, so a later
       // run that renames the billing term can still find this lineage.
-      claimObject(eventSemanticKey, eventId, termSignature);
+      claimObject(eventSemanticKey, eventId, eventSignature);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -2967,6 +3016,29 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         continue;
       }
       if (tombstones.has(cashSemanticKey)) continue;
+      // A projected collection the accountant removed on its own stays removed
+      // through a schedule rename, while its invoice survives.
+      const cashTombstone = tombstoneFor("billing_collection", collectionSignature);
+      if (cashTombstone.status === "matched") {
+        suppressAlias(cashTombstone.record, cashSemanticKey);
+        continue;
+      }
+      if (cashTombstone.status === "ambiguous") {
+        raise({
+          targetKey: `cash:${eventSemanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason:
+            "You previously removed more than one projected collection that this renamed billing schedule could refer to. ARC created nothing here.",
+          guidanceIds: [],
+          citations: projection.citations,
+          value: cashSemanticKey,
+          material: projectionMaterial(),
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
       const cashId = canonicalIdFor("cash_collection", cashSemanticKey);
       if (draft.contractBalances.cashCollections.every((row) => row.id !== cashId)) {
         const created: CashCollectionDraft = {
@@ -2983,7 +3055,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
       // A projected collection is subordinate to its canonical invoice: it
       // inherits the same schedule identity and is never matched on its own.
-      claimObject(cashSemanticKey, cashId, termSignature);
+      claimObject(cashSemanticKey, cashId, collectionSignature);
     }
   }
 
