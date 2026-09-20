@@ -442,7 +442,7 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
         treatment: "specific_po",
         effect: "decrease",
         inception: "10,000.00",
-        resolution: { date: "2027-09-30", amount: "900,000.00" },
+        resolution: { date: "2027-09-30", amount: "60,000.00" },
       }),
     );
     const workflow = analyzeWorkflow(draft);
@@ -454,7 +454,7 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
           treatment: "specific_po",
           effect: "decrease",
           inceptionCents: 1_000_000,
-          resolution: { date: "2027-09-30", cents: 90_000_000 },
+          resolution: { date: "2027-09-30", cents: 6_000_000 },
         }),
       ),
     ).toContain(PO_CODE);
