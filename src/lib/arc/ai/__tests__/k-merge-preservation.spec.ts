@@ -227,7 +227,11 @@ function accountantEdits(draft: WorkflowDraft, ids: LineageIds): WorkflowDraft {
               meter.id === usageMeterId ? { ...meter, includedQuantityInput: "0" } : meter,
             ),
             usagePeriods: [
-              { id: `${ids.usage}-p-2027-02`, month: "2027-02", quantities: { [usageMeterId]: "500" } },
+              {
+                id: `${ids.usage}-p-2027-02`,
+                month: "2027-02",
+                quantities: { [usageMeterId]: "500" },
+              },
             ],
             seriesPeriods: SERIES_PERIODS.map((period) => ({ ...period })),
             billOnRealization: true,
@@ -410,7 +414,6 @@ describe("G5 — review behaviour after a real re-analysis", () => {
     `vc:${ids.sla}.realizedEvents`,
   ];
 
-
   function itemFor(draft: WorkflowDraft, targetKey: string): AiReviewItem {
     const item = deriveReviewItem({
       targetKey,
@@ -466,7 +469,6 @@ describe("G5 — review behaviour after a real re-analysis", () => {
     }
   });
 });
-
 
 describe("G5 — a third re-analysis keeps ownership stable", () => {
   it("still carries every accountant-owned fact", () => {
