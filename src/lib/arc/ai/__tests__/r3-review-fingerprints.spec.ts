@@ -242,7 +242,7 @@ describe("one R3 variable-consideration fact reopens only its own conclusion", (
       base,
       patchVc(base, "vc-sla", {
         seriesPeriods: (sla.seriesPeriods ?? []).map((period) =>
-          period.id === "q3" ? { ...period, endDate: "2027-09-29" } : period,
+          period.id === "y1" ? { ...period, endDate: "2027-09-29" } : period,
         ),
       }),
       SLA_OPERATIONAL,
@@ -252,7 +252,7 @@ describe("one R3 variable-consideration fact reopens only its own conclusion", (
   it("a realized service-level amount", () => {
     expectOnlyChanged(
       base,
-      withRealizedCredit(base, "5,000.00", "q3", "2027-09-30"),
+      withRealizedCredit(base, "5,000.00", "y1", "2027-09-30"),
       SLA_OPERATIONAL,
     );
   });
