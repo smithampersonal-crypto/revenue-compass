@@ -504,73 +504,63 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
   it("parity: the same lifecycle blocks, or does not block, on both routes", () => {
     const cases: {
       label: string;
-      treatment: "general" | "specific_po";
-      effect: "increase" | "decrease";
-      inception: string;
-      inceptionCents: number;
-      remeasurements?: { date: string; amount: string; cents: number }[];
+      draft: PenaltyOptions;
+      accepted: AcceptedSpec;
       blocked: boolean;
     }[] = [
       {
-        label: "valid increase",
-        treatment: "general",
-        effect: "increase",
-        inception: "12,000.00",
-        inceptionCents: 1_200_000,
-        remeasurements: [{ date: "2027-07-01", amount: "24,000.00", cents: 2_400_000 }],
+        label: "valid increase then remeasurement",
+        draft: {
+          treatment: "general",
+          effect: "increase",
+          inception: "12,000.00",
+          remeasurements: [{ date: "2027-07-01", amount: "24,000.00" }],
+        },
+        accepted: {
+          treatment: "general",
+          effect: "increase",
+          inceptionCents: 1_200_000,
+          remeasurements: [{ date: "2027-07-01", cents: 2_400_000 }],
+        },
         blocked: false,
       },
       {
-        label: "intermediate negative pool",
-        treatment: "general",
-        effect: "decrease",
-        inception: "100,000.00",
-        inceptionCents: 10_000_000,
-        remeasurements: [{ date: "2027-06-30", amount: "600,000.00", cents: 60_000_000 }],
+        label: "resolution drives the general pool negative",
+        draft: {
+          treatment: "general",
+          effect: "decrease",
+          inception: "100,000.00",
+          resolution: { date: "2027-09-30", amount: "600,000.00" },
+        },
+        accepted: {
+          treatment: "general",
+          effect: "decrease",
+          inceptionCents: 10_000_000,
+          resolution: { date: "2027-09-30", cents: 60_000_000 },
+        },
         blocked: true,
       },
       {
         label: "intermediate negative obligation",
-        treatment: "specific_po",
-        effect: "decrease",
-        inception: "10,000.00",
-        inceptionCents: 1_000_000,
-        remeasurements: [{ date: "2027-06-30", amount: "900,000.00", cents: 90_000_000 }],
+        draft: {
+          treatment: "specific_po",
+          effect: "decrease",
+          inception: "10,000.00",
+          remeasurements: [{ date: "2027-06-30", amount: "60,000.00" }],
+        },
+        accepted: {
+          treatment: "specific_po",
+          effect: "decrease",
+          inceptionCents: 1_000_000,
+          remeasurements: [{ date: "2027-06-30", cents: 6_000_000 }],
+        },
         blocked: true,
       },
     ];
 
     for (const testCase of cases) {
-      const workflow = analyzeWorkflow(
-        draftWith(
-          penaltyComponent({
-            treatment: testCase.treatment,
-            effect: testCase.effect,
-            inception: testCase.inception,
-            ...(testCase.remeasurements
-              ? {
-                  remeasurements: testCase.remeasurements.map((row) => ({
-                    date: row.date,
-                    amount: row.amount,
-                  })),
-                }
-              : {}),
-          }),
-        ),
-      );
-      const accepted = acceptedAnalysis({
-        treatment: testCase.treatment,
-        effect: testCase.effect,
-        inceptionCents: testCase.inceptionCents,
-        ...(testCase.remeasurements
-          ? {
-              remeasurements: testCase.remeasurements.map((row) => ({
-                date: row.date,
-                cents: row.cents,
-              })),
-            }
-          : {}),
-      });
+      const workflow = analyzeWorkflow(draftWith(penaltyComponent(testCase.draft)));
+      const accepted = acceptedAnalysis(testCase.accepted);
       const allocationIds = acceptedBlockingIds(accepted).filter((id) =>
         id.startsWith("vc.allocation."),
       );
@@ -581,5 +571,6 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
       );
       expect(new Set(r3Codes), `${testCase.label}: same reason`).toEqual(new Set(allocationIds));
     }
+
   });
 });
