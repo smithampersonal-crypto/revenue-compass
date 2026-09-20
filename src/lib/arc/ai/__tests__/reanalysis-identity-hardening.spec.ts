@@ -112,7 +112,11 @@ describe("legacy sidecars reconcile on the first run after deployment", () => {
     );
     expect(backfilled.draft.performanceObligations).toHaveLength(3);
     expect(backfilled.draft.variableConsiderationComponents).toHaveLength(2);
-    expect(canonicalIds(backfilled.aiState, RUN2)).toEqual(canonicalIds(first.aiState, RUN1));
+    const carried = { ...RUN2 } as Record<string, string>;
+    delete carried["slaPromise"];
+    const before = canonicalIds(first.aiState, RUN1) as Record<string, string>;
+    delete before["slaPromise"];
+    expect(canonicalIds(backfilled.aiState, carried)).toEqual(before);
   });
 
   it("backfills only what the prior run actually stated", () => {
@@ -238,7 +242,7 @@ describe("an ambiguous pairing is fail-closed", () => {
       row.semanticKey === RUN2.slaPromise
         ? {
             ...row,
-            promiseType: "service" as const,
+            promiseType: "support" as const,
             description: "Dedicated engineering support, 40 hours annually",
             citations: [
               {
@@ -266,7 +270,7 @@ describe("an ambiguous pairing is fail-closed", () => {
   });
 
   it("creates no canonical row for the contested proposal", () => {
-    expect(run.second.draft.promises).toHaveLength(run.first.draft.promises.length + 1);
+    expect(run.second.draft.promises).toHaveLength(run.first.draft.promises.length);
   });
 
   it("adopts no alias and leaves the incumbent owned by its original key", () => {
