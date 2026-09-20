@@ -663,18 +663,18 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const claimedObjects: Array<{
     semanticKey: string;
     canonicalId: string;
-    identityTiers?: readonly string[];
+    identitySignature?: IdentitySignature;
   }> = [];
   function claimObject(
     semanticKey: string,
     canonicalId: string,
-    identityTiers?: readonly string[],
+    identitySignature?: IdentitySignature,
   ): void {
     if (claimedObjects.some((entry) => entry.semanticKey === semanticKey)) return;
     claimedObjects.push({
       semanticKey,
       canonicalId,
-      ...(identityTiers === undefined ? {} : { identityTiers }),
+      ...(identitySignature === undefined ? {} : { identitySignature }),
     });
   }
 
