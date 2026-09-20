@@ -2924,8 +2924,41 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     for (const event of schedule.events) {
       const eventSemanticKey = billingEventSemanticKey(semanticKey, event.period);
+      const eventSignature = billingEventIdentity(termSignature, event.period);
+      const collectionSignature = billingCollectionIdentity(termSignature, event.period);
       proposedSemanticKeys.add(eventSemanticKey);
       if (tombstones.has(eventSemanticKey)) continue;
+
+      // Phase L. A deleted invoice stays deleted even when the model renames
+      // the schedule: the deletion is recorded by schedule identity plus the
+      // deterministic schedule period, not by the ephemeral derived key. This
+      // holds when no live row of that period survives to carry the old alias.
+      const eventTombstone = tombstoneFor("billing_event", eventSignature);
+      if (eventTombstone.status === "matched") {
+        suppressAlias(eventTombstone.record, eventSemanticKey);
+        const cashKey = billingCollectionSemanticKey(eventSemanticKey);
+        proposedSemanticKeys.add(cashKey);
+        const subordinate = tombstoneFor("billing_collection", collectionSignature);
+        if (subordinate.status === "matched") suppressAlias(subordinate.record, cashKey);
+        else tombstones.add(cashKey);
+        continue;
+      }
+      if (eventTombstone.status === "ambiguous") {
+        raise({
+          targetKey: `billing:${eventSemanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason:
+            "You previously removed more than one invoice that this renamed billing schedule could refer to. ARC created nothing — tell it whether this invoice is new or one you already removed.",
+          guidanceIds: [],
+          citations: term.citations,
+          value: eventSemanticKey,
+          material: billingMaterial(term),
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
 
       const eventId = canonicalIdFor("consideration_event", eventSemanticKey);
       if (draft.contractBalances.considerationEvents.every((row) => row.id !== eventId)) {
