@@ -19,7 +19,13 @@ import {
   parseBillingTombstoneAlias,
   priorAnalysisRequired,
 } from "../identity-backfill";
-import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
+import {
+  AiIdentityBackfillError,
+  createEmptyAiAnalysisState,
+  mergeAiAnalysis,
+  type AiAnalysisState,
+} from "../merge";
+
 import type { AiContractAnalysis } from "../schema";
 import { toPersistedAiState } from "../state-serialization";
 import { decodeTombstones } from "../tombstones";
