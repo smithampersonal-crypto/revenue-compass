@@ -53,6 +53,29 @@ export function BillingAndBalances({
 
   const updateEvent = (id: string, patch: Partial<ConsiderationEventDraft>) =>
     setEvents(considerationEvents.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  /**
+   * Safe deletion of a billing event. A projected collection exists only
+   * because its invoice does, so it is removed with it; recorded (actual) cash
+   * is accountant evidence and is never silently destroyed — deletion is
+   * blocked until that cash is reassigned or removed. Either way the canonical
+   * draft never keeps a cash row pointing at a billing event that is gone.
+   */
+  const linkedCash = (eventId: string) =>
+    cashCollections.filter((c) => c.considerationEventId === eventId);
+  const recordedCashFor = (eventId: string) =>
+    linkedCash(eventId).filter((c) => !isProjectedCollection(c));
+  const removeEvent = (eventId: string) => {
+    if (recordedCashFor(eventId).length > 0) return;
+    onChange({
+      ...draft,
+      contractBalances: {
+        ...draft.contractBalances,
+        considerationEvents: considerationEvents.filter((e) => e.id !== eventId),
+        cashCollections: cashCollections.filter((c) => c.considerationEventId !== eventId),
+      },
+    });
+  };
   const updateCash = (id: string, patch: Partial<CashCollectionDraft>) =>
     setCash(cashCollections.map((c) => (c.id === id ? { ...c, ...patch } : c)));
 
