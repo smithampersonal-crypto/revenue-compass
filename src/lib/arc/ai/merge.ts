@@ -674,7 +674,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const aliases = [...new Set([semanticKey, ...(provenance.previousSemanticKeys ?? [])])];
     for (const alias of aliases) tombstones.add(alias);
     const signature = provenance.identitySignature;
-    const kind = kindOfCanonicalId(provenance.canonicalId);
+    const kind = tombstoneKindOfCanonicalId(provenance.canonicalId);
     if (signature === undefined || kind === null) return;
     const existing = tombstoneIdentities.find((entry) =>
       entry.aliases.some((alias) => aliases.includes(alias)),
@@ -819,7 +819,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
    * deterministic identity test used for live incumbents, so a tombstone
    * survives semantic-key drift; anything it recognizes stays suppressed.
    */
-  function tombstoneFor(kind: AiIdentityKind, signature: IdentitySignature): TombstoneOutcome {
+  function tombstoneFor(kind: AiTombstoneKind, signature: IdentitySignature): TombstoneOutcome {
     const matches = tombstoneIdentities.filter(
       (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
     );
