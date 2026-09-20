@@ -97,7 +97,10 @@ export function billingEventIdentity(
   schedule: IdentitySignature,
   period: number,
 ): IdentitySignature {
-  return { gate: `${billingScheduleSignature(schedule).gate}#event#${period}`, corroborators: schedule.corroborators };
+  return {
+    gate: `${billingScheduleSignature(schedule).gate}#event#${period}`,
+    corroborators: schedule.corroborators,
+  };
 }
 
 export function billingCollectionIdentity(
@@ -113,7 +116,10 @@ export function billingCollectionIdentity(
 /** The unscoped SCHEDULE identity behind a (possibly scoped) signature. */
 export function billingScheduleSignature(signature: IdentitySignature): IdentitySignature {
   if (!SCHEDULE_SCOPE.test(signature.gate)) return signature;
-  return { gate: signature.gate.replace(SCHEDULE_SCOPE, ""), corroborators: signature.corroborators };
+  return {
+    gate: signature.gate.replace(SCHEDULE_SCOPE, ""),
+    corroborators: signature.corroborators,
+  };
 }
 
 export interface BillingLineageMember {
