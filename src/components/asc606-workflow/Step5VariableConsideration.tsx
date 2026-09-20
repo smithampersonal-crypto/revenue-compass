@@ -289,6 +289,10 @@ export function Step5VariableConsideration({
                 ) : null}
               </AiReviewTarget>
             )}
+
+            {component.allocationTreatment === "specific_series_period" ? (
+              <SeriesPeriodControls component={component} patch={patch} />
+            ) : null}
           </div>
         );
       })}
