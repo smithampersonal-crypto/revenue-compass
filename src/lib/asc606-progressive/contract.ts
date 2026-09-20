@@ -202,27 +202,81 @@ export function analyzeProgressiveContract(
   }
 
   // ---- Dated changes: allocated on their own effective date ----------------
-  // The ACCEPTED Phase 5B allocation rule decides where a dated change goes: a
-  // general change is allocated on the original relative-SSP basis, a
-  // specific-PO change stays with its obligation. Nothing is re-derived here.
+  // The ACCEPTED Phase 5B allocation-lifecycle authority decides both where a
+  // dated change goes and whether the whole chronological sequence of
+  // allocation states is valid. Nothing is re-derived or re-ruled here: a
+  // negative pool or a negative obligation allocation at ANY date blocks, and
+  // a later favorable change never repairs an earlier invalid state.
   const allocatables = pos.map((po) => ({
     id: po.id,
     seq: po.seq,
     name: po.name,
     sspCents: po.sspCents,
   }));
+  const lifecyclePlan = planAllocationLifecycle({
+    generalPoolCents,
+    allocatables,
+    specific: vc.specificPo.map((row) => ({
+      componentId: row.componentId,
+      description: row.description,
+      poId: row.poId,
+      amountCents: row.amountCents,
+    })),
+    changes: vc.datedChanges.map((change) => ({
+      id: change.id,
+      componentId: change.componentId,
+      assessmentId: change.assessmentId,
+      effectiveDate: change.effectiveDate,
+      targetPoId: change.targetPoId ?? null,
+      changeCents: change.changeCents,
+      isResolution: change.isResolution,
+    })),
+  });
+
+  if (!lifecyclePlan.ok) {
+    // The source lifecycle and its dated measurement facts are retained for
+    // diagnosis; nothing is deleted, clamped or skipped. No authoritative
+    // allocation, revenue, balance or journal may be produced.
+    for (const failure of lifecyclePlan.failures) {
+      blocked.push({
+        poId: "",
+        poName: "",
+        amountCents: 0,
+        code: failure.id,
+        message: failure.message,
+      });
+    }
+    return {
+      state: "blocked",
+      transactionPriceCents,
+      generalPoolCents,
+      allocation: null,
+      provisional: allocation.provisional,
+      blocked,
+      vc,
+      usageAmounts,
+      recognition: null,
+      billing: buildProgressiveBillingSchedule({
+        fixed: input.fixedBilling ?? [],
+        realized: vc.seriesPeriod.filter((row) => row.billable),
+        pendingRules: pendingBillingRules(input, vc),
+      }),
+      balances: null,
+      journals: null,
+      reconciliation: null,
+      financing,
+    };
+  }
+
   const changesByPo = new Map<string, DynamicChange[]>();
   const changeTotalByPo = new Map<string, Cents>();
-  for (const change of vc.datedChanges) {
-    const rows = change.targetPoId
-      ? [{ poId: change.targetPoId, amountCents: change.changeCents }]
-      : allocateSignedAmount(change.changeCents, allocatables);
-    for (const row of rows) {
+  for (const planned of lifecyclePlan.plannedChanges) {
+    for (const row of planned.allocationByPo) {
       if (row.amountCents === 0) continue;
       const list = changesByPo.get(row.poId) ?? [];
       list.push({
-        id: `${change.id}:${row.poId}`,
-        date: change.effectiveDate,
+        id: `${planned.change.id}:${row.poId}`,
+        date: planned.change.effectiveDate,
         amountCents: row.amountCents,
       });
       changesByPo.set(row.poId, list);
