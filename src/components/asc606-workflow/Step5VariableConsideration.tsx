@@ -247,7 +247,7 @@ export function Step5VariableConsideration({
                         Remove month
                       </button>
                     </div>
-                  </div>
+                  </AiReviewTarget>
                 ))}
 
                 <button
