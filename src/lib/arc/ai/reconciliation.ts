@@ -38,6 +38,25 @@ import type { AiCitation } from "./schema";
 /** The canonical object kinds that participate in re-identification. */
 export type AiIdentityKind = "promise" | "performance_obligation" | "variable_component";
 
+/**
+ * The single deterministic mapping from a canonical ID to the R3 identity kind
+ * it belongs to. Canonical objects OUTSIDE this map (contract modifications,
+ * billing events, cash receipts) never carry an identity signature and must
+ * never be treated as unidentified R3 incumbents.
+ */
+export const IDENTITY_KIND_CANONICAL_PREFIX: Readonly<Record<AiIdentityKind, string>> = {
+  promise: "pr-",
+  performance_obligation: "po-",
+  variable_component: "vc-",
+};
+
+export function identityKindOfCanonicalId(canonicalId: string): AiIdentityKind | null {
+  for (const [kind, prefix] of Object.entries(IDENTITY_KIND_CANONICAL_PREFIX)) {
+    if (canonicalId.startsWith(prefix)) return kind as AiIdentityKind;
+  }
+  return null;
+}
+
 export interface IdentitySignature {
   /** Broad compatibility. Necessary, never sufficient. */
   gate: string;

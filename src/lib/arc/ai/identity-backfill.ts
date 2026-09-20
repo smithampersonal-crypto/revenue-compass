@@ -20,6 +20,7 @@
 
 import { mapVcEffect } from "./adapter";
 import {
+  identityKindOfCanonicalId,
   poIdentity,
   promiseIdentity,
   vcIdentity,
@@ -31,6 +32,24 @@ import type { AiContractAnalysis } from "./schema";
 export interface PriorIdentity {
   kind: AiIdentityKind;
   signature: IdentitySignature;
+}
+
+/**
+ * True when the sidecar holds at least one canonical object GOVERNED BY R3
+ * identity reconciliation that carries no identity signature yet.
+ *
+ * Scope matters: provenance for billing events, cash receipts and contract
+ * modifications never receives a signature, so including them would make ARC
+ * fetch the prior structured result on every run forever.
+ */
+export function identityBackfillRequired(objectProvenance: {
+  [semanticKey: string]: { canonicalId: string; identitySignature?: unknown };
+}): boolean {
+  return Object.values(objectProvenance).some(
+    (provenance) =>
+      provenance.identitySignature === undefined &&
+      identityKindOfCanonicalId(provenance.canonicalId) !== null,
+  );
 }
 
 /**
