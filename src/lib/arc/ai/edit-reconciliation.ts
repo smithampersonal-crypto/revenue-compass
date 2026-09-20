@@ -399,13 +399,11 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
   po: [
     plainGroup("classification", ["kind", "name", "classification", "classificationRationale"]),
     plainGroup("ssp", ["sspInput", "sspBasis"]),
-    plainGroup("recognition", [
-      "recognitionMethod",
-      "serviceStart",
-      "serviceEnd",
-      "recognitionDate",
-      "recognitionRationale",
-    ]),
+    {
+      name: "recognition",
+      fields: [...PO_RECOGNITION_FIELDS, "progressEvents"],
+      project: poRecognitionProjection,
+    },
     plainGroup("materialRight", [
       "underlyingGoodOrServiceName",
       "benefitAmountInput",
