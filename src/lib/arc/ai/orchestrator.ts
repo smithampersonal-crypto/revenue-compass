@@ -37,7 +37,11 @@ import {
   type AiRunStore,
   type AiRunRow,
 } from "./runs.handlers";
-import { TerraAnalysisError, type TerraAnalyzer } from "./terra.server";
+import {
+  TerraAnalysisError,
+  type TerraAnalyzer,
+  type TerraAnchorDiagnostic,
+} from "./terra.server";
 import type { AiPreflightResult, PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------- boundary */
