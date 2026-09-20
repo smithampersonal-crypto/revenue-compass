@@ -59,14 +59,19 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
+import { priorIdentityIndex } from "./identity-backfill";
 import {
-  poIdentityTiers,
-  promiseIdentityTiers,
-  reconcileByTieredIdentity,
-  vcIdentityTiers,
+  poIdentity,
+  promiseIdentity,
+  reconcileByIdentity,
+  signaturesIdentify,
+  vcIdentity,
+  type AiIdentityKind,
   type IdentityCandidate,
   type IdentityOutcome,
+  type IdentitySignature,
 } from "./reconciliation";
+import type { AiTombstoneIdentity } from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
@@ -104,7 +109,7 @@ export interface AiObjectProvenance extends AiFieldProvenance {
    * object from the analysis that created it. It lets a later run whose model
    * renamed its own semantic keys reconcile onto the SAME canonical object.
    */
-  identityTiers?: readonly string[];
+  identitySignature?: IdentitySignature;
   /** Earlier model aliases of this same canonical object, oldest first. */
   previousSemanticKeys?: readonly string[];
 }
@@ -116,6 +121,12 @@ export interface AiAnalysisState {
   fieldProvenance: Record<string, AiFieldProvenance>;
   objectProvenance: Record<string, AiObjectProvenance>;
   tombstones: string[];
+  /**
+   * Phase 9G-R3. Deleted-object identity, so a renamed proposal for the same
+   * economic object is still suppressed. Persisted inside the existing
+   * `tombstones` jsonb array; absent on sidecars written before the patch.
+   */
+  tombstoneIdentities?: readonly AiTombstoneIdentity[];
   reviewItems: AiReviewItem[];
 }
 
@@ -127,6 +138,7 @@ export function createEmptyAiAnalysisState(): AiAnalysisState {
     fieldProvenance: {},
     objectProvenance: {},
     tombstones: [],
+    tombstoneIdentities: [],
     reviewItems: [],
   };
 }
@@ -147,6 +159,12 @@ export interface MergeAiAnalysisArgs {
   runId: string;
   guidancePack: GuidancePack;
   priorContext: PriorAccountingContext | null;
+  /**
+   * Phase 9G-R3. The immutable structured output of the last successful run,
+   * used ONLY to backfill identity signatures a pre-patch sidecar never
+   * recorded. It never contributes accounting values to this merge.
+   */
+  priorAnalysis?: AiContractAnalysis | null;
 }
 
 export interface MergeAiAnalysisResult {
@@ -198,7 +216,48 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...previousState.objectProvenance,
   };
   const tombstones = new Set(previousState.tombstones);
+  const tombstoneIdentities: AiTombstoneIdentity[] = [
+    ...(previousState.tombstoneIdentities ?? []),
+  ].map((identity) => ({ ...identity, aliases: [...identity.aliases] }));
   const issues: AiReviewItem[] = [];
+
+  /* ----------------------------- legacy sidecar identity backfill (R3) */
+
+  // A sidecar written before Phase 9G-R3 records canonical IDs but no identity
+  // signature. Rather than guess identity from incomplete canonical fields,
+  // ARC recomputes it from the immutable structured output of the run that
+  // created those objects, so the very first run after deployment already
+  // reconciles correctly.
+  if (args.priorAnalysis != null) {
+    const canonicalIdBySemanticKey = (semanticKey: string): string | null =>
+      previousState.objectProvenance[semanticKey]?.canonicalId ?? null;
+    const priorIdentities = priorIdentityIndex(args.priorAnalysis, canonicalIdBySemanticKey);
+
+    for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
+      if (provenance.identitySignature !== undefined) continue;
+      const prior =
+        priorIdentities.get(semanticKey) ??
+        [...(provenance.previousSemanticKeys ?? [])]
+          .map((alias) => priorIdentities.get(alias))
+          .find((entry) => entry !== undefined);
+      if (prior === undefined) continue;
+      objectProvenance[semanticKey] = { ...provenance, identitySignature: prior.signature };
+      previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
+    }
+
+    const identified = new Set(tombstoneIdentities.flatMap((entry) => [...entry.aliases]));
+    for (const semanticKey of [...tombstones].sort()) {
+      if (identified.has(semanticKey)) continue;
+      const prior = priorIdentities.get(semanticKey);
+      if (prior === undefined) continue;
+      tombstoneIdentities.push({
+        semanticKey,
+        kind: prior.kind,
+        signature: prior.signature,
+        aliases: [semanticKey],
+      });
+    }
+  }
 
   const takenIds = new Set<string>([
     ...draft.promises.map((row) => row.id),
@@ -539,14 +598,48 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const deletedSemanticKeys: string[] = [];
 
+  const KIND_ID_PREFIX = {
+    promise: "pr-",
+    performance_obligation: "po-",
+    variable_component: "vc-",
+  } as const;
+
+  function kindOfCanonicalId(canonicalId: string): AiIdentityKind | null {
+    for (const [kind, prefix] of Object.entries(KIND_ID_PREFIX)) {
+      if (canonicalId.startsWith(prefix)) return kind as AiIdentityKind;
+    }
+    return null;
+  }
+
+  /**
+   * Records the identity of a deleted object so a LATER run that renames the
+   * same economic object is still suppressed. Without it a tombstone would
+   * only suppress the ephemeral alias the model happened to use that day.
+   */
+  function rememberTombstone(semanticKey: string, provenance: AiObjectProvenance): void {
+    const aliases = [...new Set([semanticKey, ...(provenance.previousSemanticKeys ?? [])])];
+    for (const alias of aliases) tombstones.add(alias);
+    const signature = provenance.identitySignature;
+    const kind = kindOfCanonicalId(provenance.canonicalId);
+    if (signature === undefined || kind === null) return;
+    const existing = tombstoneIdentities.find((entry) =>
+      entry.aliases.some((alias) => aliases.includes(alias)),
+    );
+    if (existing !== undefined) {
+      existing.aliases = [...new Set([...existing.aliases, ...aliases])].sort();
+      return;
+    }
+    tombstoneIdentities.push({ semanticKey, kind, signature, aliases: aliases.sort() });
+  }
+
   /**
    * Any previously AI-created object whose canonical row is gone was deleted by
    * the user. It is tombstoned and never recreated, even when the model
-   * proposes the same semantic object again.
+   * proposes the same semantic object again — under any name.
    */
   for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
     if (!takenIds.has(provenance.canonicalId)) {
-      tombstones.add(semanticKey);
+      rememberTombstone(semanticKey, provenance);
       deletedSemanticKeys.push(semanticKey);
       delete objectProvenance[semanticKey];
     }
@@ -570,18 +663,18 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const claimedObjects: Array<{
     semanticKey: string;
     canonicalId: string;
-    identityTiers?: readonly string[];
+    identitySignature?: IdentitySignature;
   }> = [];
   function claimObject(
     semanticKey: string,
     canonicalId: string,
-    identityTiers?: readonly string[],
+    identitySignature?: IdentitySignature,
   ): void {
     if (claimedObjects.some((entry) => entry.semanticKey === semanticKey)) return;
     claimedObjects.push({
       semanticKey,
       canonicalId,
-      ...(identityTiers === undefined ? {} : { identityTiers }),
+      ...(identitySignature === undefined ? {} : { identitySignature }),
     });
   }
 
@@ -598,27 +691,21 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...analysis.transactionPrice.variableConsiderationComponents.map((row) => row.semanticKey),
   ]);
 
-  const KIND_ID_PREFIX = {
-    promise: "pr-",
-    performance_obligation: "po-",
-    variable_component: "vc-",
-  } as const;
-
   /**
    * Incumbent canonical objects available for re-identification: AI-owned,
    * still present in the draft, carrying a recorded identity, and NOT already
    * claimed by an unchanged semantic key in this very analysis.
    */
-  function identityCandidates(kind: keyof typeof KIND_ID_PREFIX): IdentityCandidate[] {
+  function identityCandidates(kind: AiIdentityKind): IdentityCandidate[] {
     const prefix = KIND_ID_PREFIX[kind];
     const candidates: IdentityCandidate[] = [];
     for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
       if (incomingObjectKeys.has(semanticKey)) continue;
       if (!provenance.canonicalId.startsWith(prefix)) continue;
       if (!takenIds.has(provenance.canonicalId)) continue;
-      const tiers = provenance.identityTiers;
-      if (tiers === undefined || tiers.length === 0) continue;
-      candidates.push({ semanticKey, canonicalId: provenance.canonicalId, tiers });
+      const signature = provenance.identitySignature;
+      if (signature === undefined) continue;
+      candidates.push({ semanticKey, canonicalId: provenance.canonicalId, signature });
     }
     return candidates.sort((left, right) => left.semanticKey.localeCompare(right.semanticKey));
   }
@@ -626,6 +713,27 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /** True when a semantic key is genuinely new to ARC and may be reconciled. */
   const unseenKey = (semanticKey: string) =>
     objectProvenance[semanticKey] === undefined && !tombstones.has(semanticKey);
+
+  /**
+   * A deleted economic object the model has renamed. Matching is the same
+   * deterministic identity test used for live incumbents, so a tombstone
+   * survives semantic-key drift; anything it recognizes stays suppressed.
+   */
+  function tombstoneFor(
+    kind: AiIdentityKind,
+    signature: IdentitySignature,
+  ): AiTombstoneIdentity | null {
+    const matches = tombstoneIdentities.filter(
+      (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
+    );
+    return matches.length === 1 ? matches[0]! : null;
+  }
+
+  /** Records a newly observed alias of an already tombstoned economic object. */
+  function suppressAlias(record: AiTombstoneIdentity, semanticKey: string): void {
+    record.aliases = [...new Set([...record.aliases, semanticKey])].sort();
+    tombstones.add(semanticKey);
+  }
 
   /**
    * Transfers canonical ownership from the previous alias to the new one. The
@@ -845,31 +953,51 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     if (text !== "" && !manualPromiseByText.has(text)) manualPromiseByText.set(text, promise);
   }
 
-  const promiseAliases = reconcileByTieredIdentity(
+  const promiseSignatures = new Map(
+    analysis.promises.map((row) => [row.semanticKey, promiseIdentity(row)] as const),
+  );
+  // A tombstoned economic object is recognized by its identity, not by the
+  // name the model gave it today, and is never offered for reconciliation.
+  const promiseTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.promises) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("promise", promiseSignatures.get(row.semanticKey)!);
+    if (record !== null) promiseTombstones.set(row.semanticKey, record);
+  }
+  const promiseAliases = reconcileByIdentity(
     analysis.promises
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: promiseIdentityTiers(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !promiseTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: promiseSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("promise"),
   );
 
   for (const aiPromise of analysis.promises) {
     proposedSemanticKeys.add(aiPromise.semanticKey);
     const promiseAlias = promiseAliases.get(aiPromise.semanticKey);
-    adoptAlias(aiPromise.semanticKey, promiseAlias);
     if (promiseAlias?.status === "ambiguous") {
+      // Fail closed: no incumbent is adopted, no canonical object is minted
+      // and nothing is re-pointed until the accountant says what this is.
       raise({
         targetKey: `promise:${aiPromise.semanticKey}`,
         section: "step_2",
         reasonCode: "unsafe_semantic_relationship",
         reason:
-          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — check whether this is a new promise or a renamed one.",
+          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — tell ARC whether this is a new promise or a renamed one.",
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: aiPromise.semanticKey,
         material: promiseMaterial(aiPromise),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(aiPromise.semanticKey, promiseAlias);
+    const promiseTombstone = promiseTombstones.get(aiPromise.semanticKey);
+    if (promiseTombstone !== undefined) suppressAlias(promiseTombstone, aiPromise.semanticKey);
     if (tombstones.has(aiPromise.semanticKey)) {
       raise({
         targetKey: `promise:${aiPromise.semanticKey}`,
@@ -1017,7 +1145,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    claimObject(aiPromise.semanticKey, canonicalId, promiseIdentityTiers(aiPromise));
+    claimObject(aiPromise.semanticKey, canonicalId, promiseSignatures.get(aiPromise.semanticKey)!);
   }
 
   /* ------------------------------------------------ performance obligations */
@@ -1037,25 +1165,42 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         .filter((id): id is string => id !== undefined),
     );
   }
-  const poAliases = reconcileByTieredIdentity(
+  const poSignatures = new Map(
+    analysis.performanceObligations.map((row) => [row.semanticKey, poIdentity(row)] as const),
+  );
+  const poTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.performanceObligations) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("performance_obligation", poSignatures.get(row.semanticKey)!);
+    if (record !== null) poTombstones.set(row.semanticKey, record);
+  }
+  // Canonical promise membership is the PRINCIPAL identity of a grouping: the
+  // satisfaction pattern only gates compatibility and never identifies alone.
+  const sharesCanonicalPromise = (
+    proposal: { semanticKey: string },
+    candidate: { canonicalId: string },
+  ): boolean => {
+    const members = draft.promises
+      .filter((row) => row.performanceObligationId === candidate.canonicalId)
+      .map((row) => row.id);
+    if (members.length === 0) return false;
+    const proposed = proposedPoPromiseIds.get(proposal.semanticKey) ?? [];
+    return members.some((id) => proposed.includes(id));
+  };
+  const poAliases = reconcileByIdentity(
     analysis.performanceObligations
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: poIdentityTiers(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !poTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: poSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("performance_obligation"),
-    (proposal, candidate) => {
-      const members = draft.promises
-        .filter((row) => row.performanceObligationId === candidate.canonicalId)
-        .map((row) => row.id);
-      if (members.length === 0) return false;
-      const proposed = proposedPoPromiseIds.get(proposal.semanticKey) ?? [];
-      return members.some((id) => proposed.includes(id));
-    },
+    { admissible: sharesCanonicalPromise, sufficient: sharesCanonicalPromise },
   );
 
   for (const aiPo of analysis.performanceObligations) {
     proposedSemanticKeys.add(aiPo.semanticKey);
     const poAlias = poAliases.get(aiPo.semanticKey);
-    adoptAlias(aiPo.semanticKey, poAlias);
     if (poAlias?.status === "ambiguous") {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
@@ -1068,8 +1213,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         value: aiPo.semanticKey,
         material: poMaterial(aiPo),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(aiPo.semanticKey, poAlias);
+    const poTombstone = poTombstones.get(aiPo.semanticKey);
+    if (poTombstone !== undefined) suppressAlias(poTombstone, aiPo.semanticKey);
     if (tombstones.has(aiPo.semanticKey)) {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
@@ -1284,7 +1434,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     // A preserved manual performance obligation stays manual: ARC does not
     // claim ownership of a row the accountant built.
-    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId, poIdentityTiers(aiPo));
+    if (!manualHost)
+      claimObject(aiPo.semanticKey, canonicalId, poSignatures.get(aiPo.semanticKey)!);
   }
 
   /* ----------------------------------------------------------- recognition */
@@ -1767,10 +1918,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // usage components can coexist. It is the economic effect, the canonical
   // performance obligation it attaches to, the evidence and the contractual
   // terms.
-  const vcTiersFor = (
+  const vcSignatureFor = (
     component: (typeof analysis.transactionPrice.variableConsiderationComponents)[number],
   ) =>
-    vcIdentityTiers({
+    vcIdentity({
       type: component.type,
       effect: mapVcEffect(component.type) ?? "undetermined",
       targetCanonicalId:
@@ -1781,10 +1932,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       rateInput: component.contractualRateOrAmountInput,
       unitDescription: component.unitDescription,
     });
-  const vcAliases = reconcileByTieredIdentity(
+  const vcSignatures = new Map(
+    analysis.transactionPrice.variableConsiderationComponents.map(
+      (row) => [row.semanticKey, vcSignatureFor(row)] as const,
+    ),
+  );
+  const vcTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.transactionPrice.variableConsiderationComponents) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("variable_component", vcSignatures.get(row.semanticKey)!);
+    if (record !== null) vcTombstones.set(row.semanticKey, record);
+  }
+  const vcAliases = reconcileByIdentity(
     analysis.transactionPrice.variableConsiderationComponents
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: vcTiersFor(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !vcTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: vcSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("variable_component"),
   );
 
@@ -1792,7 +1957,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
     const vcAlias = vcAliases.get(component.semanticKey);
-    adoptAlias(component.semanticKey, vcAlias);
     if (vcAlias?.status === "ambiguous") {
       raise({
         targetKey: `vc:${component.semanticKey}`,
@@ -1805,8 +1969,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         value: component.semanticKey,
         material: vcMaterial(component),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(component.semanticKey, vcAlias);
+    const vcTombstone = vcTombstones.get(component.semanticKey);
+    if (vcTombstone !== undefined) suppressAlias(vcTombstone, component.semanticKey);
     if (tombstones.has(component.semanticKey)) {
       raise({
         targetKey: `vc:${component.semanticKey}`,
@@ -1908,7 +2077,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: component.reviewState,
         blocking: true,
       });
-      claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
+      claimObject(component.semanticKey, canonicalId, vcSignatures.get(component.semanticKey)!);
       continue;
     }
     const update = (patch: Partial<VcComponentDraft>) => {
@@ -2321,7 +2490,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     }
 
-    claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
+    claimObject(component.semanticKey, canonicalId, vcSignatures.get(component.semanticKey)!);
   }
 
   /* ------------------------------------------------------------ modifications */
@@ -2749,10 +2918,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // classification, recognition and standalone selling price. Recording an
   // intermediate fingerprint would make an identical re-run look like a user
   // edit on the next merge.
-  for (const { semanticKey, canonicalId, identityTiers } of claimedObjects) {
+  for (const { semanticKey, canonicalId, identitySignature } of claimedObjects) {
     const prior = previousState.objectProvenance[semanticKey];
     const carried = objectProvenance[semanticKey];
-    const tiers = identityTiers ?? carried?.identityTiers;
+    const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
@@ -2776,7 +2945,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         : finalFingerprint,
       canonicalId,
       userModified,
-      ...(tiers === undefined ? {} : { identityTiers: tiers }),
+      ...(signature === undefined ? {} : { identitySignature: signature }),
       ...(lineage === undefined || lineage.length === 0 ? {} : { previousSemanticKeys: lineage }),
     };
   }
@@ -2806,6 +2975,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     fieldProvenance,
     objectProvenance,
     tombstones: [...tombstones].sort(),
+    tombstoneIdentities: [...tombstoneIdentities].sort((left, right) =>
+      left.semanticKey.localeCompare(right.semanticKey),
+    ),
     reviewItems,
   };
 

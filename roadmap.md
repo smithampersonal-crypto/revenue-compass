@@ -1508,3 +1508,27 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - [x] Step 3 shows `specific_series_period` for estimated components instead of
       falling back to "General".
 - [x] Regression suites: `reanalysis-identity.spec.ts` (17), Step 3 allocation display.
+
+## Phase 9G-R3 — Re-analysis identity ACCEPTANCE HARDENING
+
+- [x] Blocker 1 — legacy sidecars: `identity-backfill.ts` derives identity signatures
+      from the immutable structured output of the last successful run
+      (`ai_runs.result_metadata`, parsed through `parseAiContractAnalysis`), supplied
+      at the trusted execution boundary and only when a provenance entry lacks one.
+      No guessing from canonical fields, no database migration.
+- [x] Blocker 2 — broad facts are not identity: `reconciliation.ts` separates a GATE
+      (promise type, satisfaction pattern, VC type/effect/target) from ordered
+      CORROBORATORS (evidence pages, terms, description). The first corroborator both
+      sides supply is decisive; a gate alone never matches. Performance obligations
+      additionally require overlapping canonical promise membership.
+- [x] Blocker 3 — ambiguity is fail-closed: no alias adoption, no canonical row, no
+      re-pointing, no monetary-ownership change; a blocking (red)
+      `unsafe_semantic_relationship` item is raised instead.
+- [x] Blocker 4 — tombstones survive drift: `tombstones.ts` records deleted-object
+      identity plus every alias inside the EXISTING `tombstones` jsonb array (legacy
+      string rows read unchanged). A renamed deleted object stays suppressed; a
+      genuinely new object of the same category is still created.
+- [x] Regression: `reanalysis-identity-hardening.spec.ts` (17) plus the existing
+      `reanalysis-identity.spec.ts` (17).
+- [x] Gate: 184 files / 2,432 tests, typecheck clean, lint 0 errors (11 pre-existing
+      warnings), production build OK. No Terra call; live saved analysis untouched.

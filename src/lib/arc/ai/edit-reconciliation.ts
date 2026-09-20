@@ -16,7 +16,19 @@ import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
 import { type AiAnalysisState } from "./merge";
+import type { AiIdentityKind } from "./reconciliation";
 import type { AiReviewItem, AiReviewSeverity } from "./review-state";
+import type { AiTombstoneIdentity } from "./tombstones";
+
+const TOMBSTONE_KIND_PREFIX: ReadonlyArray<readonly [string, AiIdentityKind]> = [
+  ["pr-", "promise"],
+  ["po-", "performance_obligation"],
+  ["vc-", "variable_component"],
+];
+
+function tombstoneKindOf(canonicalId: string): AiIdentityKind | null {
+  return TOMBSTONE_KIND_PREFIX.find(([prefix]) => canonicalId.startsWith(prefix))?.[1] ?? null;
+}
 
 /* ------------------------------------------------------- canonical reading */
 
@@ -788,11 +800,26 @@ export function reconcileAiEdits(input: ReconcileAiEditInput): ReconcileAiEditRe
   /* ---------------------------------------------------- object provenance */
 
   const tombstones = new Set(state.tombstones);
+  const tombstoneIdentities: AiTombstoneIdentity[] = [...(state.tombstoneIdentities ?? [])].map(
+    (identity) => ({ ...identity, aliases: [...identity.aliases] }),
+  );
   for (const [semanticKey, provenance] of Object.entries(state.objectProvenance)) {
     const before = canonicalObjectEditFingerprint(previous, provenance.canonicalId);
     const after = canonicalObjectEditFingerprint(next, provenance.canonicalId);
     if (before !== null && after === null) {
-      tombstones.add(semanticKey);
+      // The deletion is recorded by economic IDENTITY as well as by name, so a
+      // later run that renames the object cannot resurrect it.
+      const aliases = [...new Set([semanticKey, ...(provenance.previousSemanticKeys ?? [])])];
+      for (const alias of aliases) tombstones.add(alias);
+      const kind = tombstoneKindOf(provenance.canonicalId);
+      if (provenance.identitySignature !== undefined && kind !== null) {
+        tombstoneIdentities.push({
+          semanticKey,
+          kind,
+          signature: provenance.identitySignature,
+          aliases: aliases.sort(),
+        });
+      }
       delete state.objectProvenance[semanticKey];
       changed = true;
       continue;
@@ -812,6 +839,11 @@ export function reconcileAiEdits(input: ReconcileAiEditInput): ReconcileAiEditRe
   const sortedTombstones = [...tombstones].sort();
   if (sortedTombstones.join("\u0000") !== state.tombstones.join("\u0000")) {
     state.tombstones = sortedTombstones;
+  }
+  if (tombstoneIdentities.length !== (state.tombstoneIdentities ?? []).length) {
+    state.tombstoneIdentities = tombstoneIdentities.sort((left, right) =>
+      left.semanticKey.localeCompare(right.semanticKey),
+    );
   }
 
   /* -------------------------------------------------------- review items */
