@@ -71,7 +71,11 @@ import {
   billingTermIdentity,
   parseBillingEventSemanticKey,
 } from "./billing-identity";
-import { priorBillingIdentityIndex, priorIdentityIndex } from "./identity-backfill";
+import {
+  legacyBillingTombstones,
+  priorBillingIdentityIndex,
+  priorIdentityIndex,
+} from "./identity-backfill";
 import {
   identityKindOfCanonicalId,
   IDENTITY_KIND_CANONICAL_PREFIX,
