@@ -14,6 +14,8 @@
  * Pure TypeScript: no React, DOM, network, database or AI dependency.
  */
 
+import { allocateSignedAmount, type DynamicChange } from "@/lib/asc606-variable-consideration";
+
 import { sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
 
 import {
@@ -199,13 +201,47 @@ export function analyzeProgressiveContract(
     specificByPo.set(row.poId, sumCents([specificByPo.get(row.poId) ?? 0, row.amountCents]));
   }
 
+  // ---- Dated changes: allocated on their own effective date ----------------
+  // The ACCEPTED Phase 5B allocation rule decides where a dated change goes: a
+  // general change is allocated on the original relative-SSP basis, a
+  // specific-PO change stays with its obligation. Nothing is re-derived here.
+  const allocatables = pos.map((po) => ({
+    id: po.id,
+    seq: po.seq,
+    name: po.name,
+    sspCents: po.sspCents,
+  }));
+  const changesByPo = new Map<string, DynamicChange[]>();
+  const changeTotalByPo = new Map<string, Cents>();
+  for (const change of vc.datedChanges) {
+    const rows = change.targetPoId
+      ? [{ poId: change.targetPoId, amountCents: change.changeCents }]
+      : allocateSignedAmount(change.changeCents, allocatables);
+    for (const row of rows) {
+      if (row.amountCents === 0) continue;
+      const list = changesByPo.get(row.poId) ?? [];
+      list.push({
+        id: `${change.id}:${row.poId}`,
+        date: change.effectiveDate,
+        amountCents: row.amountCents,
+      });
+      changesByPo.set(row.poId, list);
+      changeTotalByPo.set(
+        row.poId,
+        sumCents([changeTotalByPo.get(row.poId) ?? 0, row.amountCents]),
+      );
+    }
+  }
+
   const allocationById = new Map(allocation.value.map((row) => [row.poId, row]));
   const recognitionInputs = pos.map((po) => ({
     po,
     allocatedCents: sumCents([
       allocationById.get(po.id)?.allocatedCents ?? 0,
       specificByPo.get(po.id) ?? 0,
+      changeTotalByPo.get(po.id) ?? 0,
     ]),
+    ...(changesByPo.has(po.id) ? { datedChanges: changesByPo.get(po.id)! } : {}),
   }));
 
   const baseRecognition = generateProgressiveRevenueSchedule(recognitionInputs);
@@ -231,6 +267,7 @@ export function analyzeProgressiveContract(
     allocatedCents: sumCents([
       row.allocatedCents,
       specificByPo.get(row.poId) ?? 0,
+      changeTotalByPo.get(row.poId) ?? 0,
       seriesByPo.get(row.poId) ?? 0,
     ]),
   }));
@@ -261,6 +298,25 @@ export function analyzeProgressiveContract(
   // component, a blocked allocation) is the same situation: the transaction
   // price the bridge would build silently excludes it, so no monetary
   // rollforward may be produced from it.
+  //
+  // A FIXED billing event's invoice date is an accountant-owned fact. Billed
+  // versus unbilled receivable timing depends on it, so it is never
+  // manufactured from the unconditional-right date. Without it, no Phase 3
+  // balance and no Phase 4 journal may be produced, while allocation and
+  // determinable revenue stay available. (A variable amount billed on
+  // realization is a separate, genuinely deterministic same-day rule.)
+  for (const event of billing.events) {
+    if (event.kind !== "fixed" || event.invoiceDate) continue;
+    blocked.push({
+      poId: "",
+      poName: event.description,
+      amountCents: 0,
+      code: "billing.invoice_date.missing",
+      message:
+        "A contractual billing event needs the date the invoice was issued before contract balances can be presented.",
+    });
+  }
+
   const recognitionBlocked = recognition.blocked.length > 0 || blocked.length > 0;
 
   const balances = recognitionBlocked

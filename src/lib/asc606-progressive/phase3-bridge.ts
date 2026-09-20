@@ -14,6 +14,7 @@ import { sumCents, type Cents, type RevenueSchedule } from "@/lib/asc606";
 import type { CashCollectionEvent, ContractBalanceInput } from "@/lib/asc606-balances";
 
 import type { ProgressiveBillingEvent } from "./billing";
+import { ProgressiveAccountingError } from "./types";
 import { sumSignedPendingCents, type PendingComponent } from "./types";
 
 /** One cash receipt applied to a known billing event. */
@@ -51,13 +52,26 @@ export function buildProgressiveBalanceInput(facts: ProgressiveBalanceFacts): Pr
   // where same-day invoicing is a genuinely deterministic rule.
   const considerationEvents = [...facts.billing]
     .sort((a, b) => a.seq - b.seq)
-    .map((event) => ({
-      id: event.id,
-      seq: event.seq,
-      amountCents: event.amountCents,
-      unconditionalRightDate: event.date,
-      invoiceDate: event.invoiceDate ?? event.date,
-    }));
+    .map((event) => {
+      // FIXED: the invoice date is the accountant's own fact and is NEVER
+      // manufactured here. The orchestration blocks the dependent balances and
+      // journals before this bridge is reached; this guard makes a fabricated
+      // Phase 3 result structurally impossible.
+      if (event.kind === "fixed" && !event.invoiceDate) {
+        throw new ProgressiveAccountingError(
+          `billing event "${event.id}" has no invoice date, so billed and unbilled receivables cannot be determined`,
+        );
+      }
+      return {
+        id: event.id,
+        seq: event.seq,
+        amountCents: event.amountCents,
+        unconditionalRightDate: event.date,
+        // A variable amount billed on realization is invoiced the same day by
+        // the accepted contractual rule.
+        invoiceDate: event.invoiceDate ?? event.date,
+      };
+    });
 
   const eventIds = new Set(considerationEvents.map((event) => event.id));
   const cashCollections: CashCollectionEvent[] = [...(facts.cashCollections ?? [])]

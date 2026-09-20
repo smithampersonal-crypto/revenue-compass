@@ -126,7 +126,7 @@ export type FailFn = (
   severity?: VcCheckResult["severity"],
 ) => void;
 
-function validateEstimatedComponent(
+export function validateEstimatedComponent(
   component: EstimatedComponentInput,
   allPoIds: ReadonlySet<string>,
   fail: FailFn,

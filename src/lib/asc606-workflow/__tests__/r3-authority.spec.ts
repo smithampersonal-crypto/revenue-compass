@@ -188,7 +188,7 @@ describe("D — variable-consideration source of truth", () => {
     expect(vc.estimateCents).toBe(2_400_000);
   });
 
-  it("maps the accepted resolution facts into a single realized event", () => {
+  it("routes a specific-PO resolution through the accepted dated lifecycle", () => {
     const draft = genomixR3Draft();
     const component = draft.variableConsiderationComponents[0]!;
     const resolved = {
@@ -208,9 +208,15 @@ describe("D — variable-consideration source of truth", () => {
       ],
     };
     const vc = buildProgressiveInput(resolved).input!.variableComponents![0]!;
-    expect((vc.realizedEvents ?? []).map((e) => [e.id, e.amountCents, e.date])).toEqual([
-      ["vc-sla:resolution", 1_200_000, "2027-09-30"],
-    ]);
+    // The resolution is the FINAL dated assessment of the accepted engine, not
+    // a second variable-consideration authority bolted on as a realized event.
+    expect(vc.realizedEvents ?? []).toEqual([]);
+    const lifecycle = vc.lifecycle ?? [];
+    expect(lifecycle[lifecycle.length - 1]).toMatchObject({
+      effectiveDate: "2027-09-30",
+      includedCents: 1_200_000,
+      isResolution: true,
+    });
   });
 });
 

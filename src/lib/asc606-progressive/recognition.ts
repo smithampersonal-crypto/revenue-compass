@@ -29,6 +29,8 @@ import {
   type RevenueScheduleRowByPo,
 } from "@/lib/asc606";
 
+import { recognizeDynamicUnit, type DynamicChange } from "@/lib/asc606-variable-consideration";
+
 import {
   mergeCalculationState,
   ProgressiveAccountingError,
@@ -68,7 +70,14 @@ export interface ProgressiveRecognizableUnit extends Omit<RecognizableUnit, "rec
 
 export interface ProgressiveScheduleInput {
   po: ProgressiveRecognizableUnit;
+  /** Allocated consideration NOW: inception plus every dated change. */
   allocatedCents: Cents;
+  /**
+   * Dated signed changes already included in `allocatedCents`. When present,
+   * the ACCEPTED dynamic recognition engine schedules this obligation so the
+   * cumulative catch-up falls in the month the change became effective.
+   */
+  datedChanges?: readonly DynamicChange[];
 }
 
 export interface ProgressivePoRecognition {
@@ -270,7 +279,11 @@ export function generateProgressiveRevenueSchedule(
   const pending: PendingComponent[] = [];
   const blocked: BlockedComponent[] = [];
 
-  for (const { po, allocatedCents } of ordered) {
+  for (const { po, allocatedCents, datedChanges } of ordered) {
+    const changes: DynamicChange[] = [...(datedChanges ?? [])].filter(
+      (change) => change.amountCents !== 0,
+    );
+    const changeTotal = changes.reduce((total, change) => total + change.amountCents, 0);
     // R3 Part 1 hardening: an invalid allocation is category A at the boundary.
     // It is never carried into a pending bucket, and it blocks ONLY this PO.
     if (!isValidCents(allocatedCents) || allocatedCents < 0) {
@@ -355,7 +368,13 @@ export function generateProgressiveRevenueSchedule(
       case "over_time_ratable": {
         try {
           const scheduled = push(
-            recognizeOverTime(po as RecognizableUnit, allocatedCents) as PoRows[],
+            (changes.length > 0
+              ? recognizeDynamicUnit({
+                  unit: po as RecognizableUnit,
+                  inceptionAllocatedCents: allocatedCents - changeTotal,
+                  changes,
+                })
+              : recognizeOverTime(po as RecognizableUnit, allocatedCents)) as PoRows[],
           );
           byPo.push({
             ...base,
@@ -384,6 +403,13 @@ export function generateProgressiveRevenueSchedule(
           );
           break;
         }
+        if (markedUnknown && changes.length > 0) {
+          block(
+            "recognition.remeasurement.unsupported",
+            `A dated change in variable consideration allocated to "${po.name}" cannot be recognized before the transfer has occurred.`,
+          );
+          break;
+        }
         if (markedUnknown) {
           // Category C: the treatment is known, the transfer has not happened.
           // The allocated amount is RETAINED as pending, never recognized and
@@ -406,9 +432,21 @@ export function generateProgressiveRevenueSchedule(
           );
           break;
         }
-        const scheduled = push(
-          recognizePointInTime(po as RecognizableUnit, allocatedCents) as PoRows[],
-        );
+        let scheduled: Cents;
+        try {
+          scheduled = push(
+            (changes.length > 0
+              ? recognizeDynamicUnit({
+                  unit: po as RecognizableUnit,
+                  inceptionAllocatedCents: allocatedCents - changeTotal,
+                  changes,
+                })
+              : recognizePointInTime(po as RecognizableUnit, allocatedCents)) as PoRows[],
+          );
+        } catch (error) {
+          block("recognition.point_in_time.remeasured", (error as Error).message);
+          break;
+        }
         byPo.push({
           ...base,
           scheduledCents: scheduled,
@@ -422,6 +460,15 @@ export function generateProgressiveRevenueSchedule(
       }
 
       case "over_time_input_measure": {
+        if (changes.length > 0) {
+          // R3 does not invent remeasurement mathematics for an input measure.
+          // The dated change is retained and this obligation FAILS CLOSED.
+          block(
+            "recognition.remeasurement.unsupported",
+            `A dated change in variable consideration allocated to "${po.name}" cannot yet be recognized against an input measure of progress.`,
+          );
+          break;
+        }
         let measured: InputMeasureResult;
         try {
           measured = recognizeInputMeasure(po, allocatedCents);

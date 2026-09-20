@@ -68,6 +68,22 @@ export interface VcRealizedEvent {
   description?: string;
 }
 
+/**
+ * One dated measurement of the component, as the ACCEPTED Phase 5B engine
+ * measured it. Amounts are already signed by the component's effect.
+ */
+export interface VcLifecycleAssessment {
+  assessmentId: string;
+  effectiveDate: IsoDate;
+  /** Signed unconstrained estimate at this date. */
+  unconstrainedCents: Cents;
+  /** Signed amount included after the constraint at this date. */
+  includedCents: Cents;
+  /** Signed change against the prior assessment; 0 at inception. */
+  changeCents: Cents;
+  isResolution: boolean;
+}
+
 export interface ProgressiveVcComponent {
   id: string;
   seq: number;
@@ -83,6 +99,26 @@ export interface ProgressiveVcComponent {
   /** Magnitude included after the constraint. May legitimately be zero. */
   includedCents: Cents;
   realizedEvents?: readonly VcRealizedEvent[];
+  /**
+   * The accepted engine's dated lifecycle (inception, each remeasurement, the
+   * resolution). Present for general and specific-PO estimated components; the
+   * sequence is never flattened into one current amount before recognition.
+   */
+  lifecycle?: readonly VcLifecycleAssessment[];
+}
+
+/** One dated, signed transaction-price change awaiting allocation. */
+export interface VcDatedChange {
+  /** Stable identity: `<componentId>::<assessmentId>`. */
+  id: string;
+  componentId: string;
+  assessmentId: string;
+  effectiveDate: IsoDate;
+  /** Null when the change is allocated on a general relative-SSP basis. */
+  targetPoId: string | null;
+  /** Signed change in the transaction price. */
+  changeCents: Cents;
+  isResolution: boolean;
 }
 
 export interface VcSpecificPoAllocation {
@@ -152,6 +188,8 @@ export interface ProgressiveVcLayers {
   pending: PendingComponent[];
   /** Signed unresolved amounts, per component and obligation. */
   pendingByPo: VcPendingAllocation[];
+  /** Dated transaction-price changes after inception, in effective order. */
+  datedChanges: VcDatedChange[];
   blocked: BlockedComponent[];
   /** Signed total added to the fixed consideration to form the price. */
   transactionPriceEffectCents: Cents;
@@ -197,10 +235,41 @@ export function buildVcLayers(
   const states: VcComponentState[] = [];
   const pending: PendingComponent[] = [];
   const pendingByPo: VcPendingAllocation[] = [];
+  const datedChanges: VcDatedChange[] = [];
   const blocked: BlockedComponent[] = [];
 
   let generalPool = 0;
   const seenComponentIds = new Set<string>();
+
+  /**
+   * The ACCEPTED engine already measured every dated assessment. Its inception
+   * amount enters the allocation layers, and each later change is retained with
+   * its own effective date so recognition can apply the accepted cumulative
+   * catch-up instead of pretending the final amount existed at inception.
+   */
+  const lifecycleOf = (
+    component: ProgressiveVcComponent,
+    fallbackIncludedSigned: Cents,
+  ): { inceptionSigned: Cents; currentSigned: Cents } => {
+    const dated = component.lifecycle ?? [];
+    const first = dated[0];
+    const last = dated[dated.length - 1];
+    if (!first || !last) {
+      return { inceptionSigned: fallbackIncludedSigned, currentSigned: fallbackIncludedSigned };
+    }
+    for (const assessment of dated.slice(1)) {
+      datedChanges.push({
+        id: `${component.id}::${assessment.assessmentId}`,
+        componentId: component.id,
+        assessmentId: assessment.assessmentId,
+        effectiveDate: assessment.effectiveDate,
+        targetPoId: component.treatment === "specific_po" ? (component.targetPoId ?? null) : null,
+        changeCents: assessment.changeCents,
+        isResolution: assessment.isResolution,
+      });
+    }
+    return { inceptionSigned: first.includedCents, currentSigned: last.includedCents };
+  };
 
   for (const component of ordered) {
     const poName = poById.get(component.targetPoId ?? "")?.name ?? component.description;
@@ -269,7 +338,10 @@ export function buildVcLayers(
           continue;
         }
       }
-      generalPool = sumCents([generalPool, includedSigned]);
+      const general = lifecycleOf(component, includedSigned);
+      // Only the INCEPTION amount joins the inception relative-SSP pool; each
+      // dated change is allocated on its own effective date.
+      generalPool = sumCents([generalPool, general.inceptionSigned]);
       states.push({
         componentId: component.id,
         description: component.description,
@@ -277,7 +349,7 @@ export function buildVcLayers(
         targetPoId: null,
         state: "complete",
         estimateSignedCents: estimateSigned,
-        includedSignedCents: includedSigned,
+        includedSignedCents: general.currentSigned,
         realizedSignedCents: 0,
         pendingSignedCents: 0,
       });
@@ -296,13 +368,14 @@ export function buildVcLayers(
 
     // ---- B. specific_po --------------------------------------------------
     if (component.treatment === "specific_po") {
-      if (component.includedCents !== 0) {
+      const specific = lifecycleOf(component, includedSigned);
+      if (specific.inceptionSigned !== 0) {
         specificPo.push({
           id: `vc:${component.id}:included`,
           componentId: component.id,
           description: component.description,
           poId: target.id,
-          amountCents: includedSigned,
+          amountCents: specific.inceptionSigned,
         });
       }
       states.push({
@@ -312,7 +385,7 @@ export function buildVcLayers(
         targetPoId: target.id,
         state: "complete",
         estimateSignedCents: estimateSigned,
-        includedSignedCents: includedSigned,
+        includedSignedCents: specific.currentSigned,
         realizedSignedCents: 0,
         pendingSignedCents: 0,
       });
@@ -427,10 +500,21 @@ export function buildVcLayers(
     });
   }
 
+  datedChanges.sort((a, b) =>
+    a.effectiveDate === b.effectiveDate
+      ? a.id.localeCompare(b.id)
+      : a.effectiveDate < b.effectiveDate
+        ? -1
+        : 1,
+  );
+
   const transactionPriceEffectCents = sumCents([
     generalPool,
     ...specificPo.map((row) => row.amountCents),
     ...seriesPeriod.map((row) => row.amountCents),
+    // Every dated change, including a resolution, moves the transaction price
+    // on its own date; the current price is inception plus every change.
+    ...datedChanges.map((change) => change.changeCents),
     ...states
       .filter((state) => state.treatment === "specific_series_period")
       .map((state) => state.pendingSignedCents),
@@ -447,6 +531,7 @@ export function buildVcLayers(
     components: states,
     pending,
     pendingByPo,
+    datedChanges,
     blocked,
     transactionPriceEffectCents,
   };
