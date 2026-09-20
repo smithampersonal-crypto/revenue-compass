@@ -495,10 +495,11 @@ describe("G5 — accounting authority after re-analysis", () => {
 
   it("reflects the legitimately changed AI-owned rate in usage consideration", () => {
     const usageAt = (draft: WorkflowDraft) =>
-      analyzeWorkflow(draft).progressive!.usageAmounts!.reduce(
-        (sum, row) => sum + row.amountCents,
+      analyzeWorkflow(draft).progressive!.usageAmounts.reduce(
+        (sum, row) => sum + Number(row.totalCents),
         0,
       );
+
     // 500 accountant-recorded samples, at the rate the contract analysis owns.
     expect(usageAt(L.edited)).toBe(67_500);
     expect(usageAt(L.second.draft)).toBe(77_500);
