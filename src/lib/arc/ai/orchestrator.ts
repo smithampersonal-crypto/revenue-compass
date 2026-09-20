@@ -45,6 +45,8 @@ import type { AiPreflightResult, PriorAccountingContext } from "./types";
 export type AiFailureCategory = "preflight" | "api" | "response" | "application";
 
 /** Everything the orchestrator needs about the scope it is about to change. */
+import type { AiContractAnalysis } from "./schema";
+
 export interface AiExecutionContext {
   draft: WorkflowDraft;
   aiState: AiAnalysisState;
