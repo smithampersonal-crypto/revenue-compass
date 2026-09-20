@@ -53,6 +53,21 @@ interface ParsedKey {
   criterionId?: string;
 }
 
+/**
+ * Phase 9G-R3. Deliberate, explicit synonyms for a canonical property. A UI
+ * target written in the shorter form names exactly the same canonical fact, so
+ * it can never fall through to an undefined property read. New R3 controls use
+ * the canonical property name; this table keeps already-persisted review items
+ * readable.
+ */
+const FIELD_ALIASES: Partial<Record<ObjectFamily, Readonly<Record<string, string>>>> = {
+  po: { totalExpectedUnits: "totalExpectedUnitsInput" },
+};
+
+function resolveFieldAlias(family: ObjectFamily, field: string): string {
+  return FIELD_ALIASES[family]?.[field] ?? field;
+}
+
 /** Parses a stable provenance/review key back into the draft location it names. */
 export function parseCanonicalKey(key: string): ParsedKey {
   for (const prefix of UNREPRESENTABLE_PREFIXES) {
@@ -68,7 +83,11 @@ export function parseCanonicalKey(key: string): ParsedKey {
       const rest = key.slice(family.length + 1);
       const dot = rest.indexOf(".");
       if (dot < 0) return { family, canonicalId: rest, field: null };
-      return { family, canonicalId: rest.slice(0, dot), field: rest.slice(dot + 1) };
+      return {
+        family,
+        canonicalId: rest.slice(0, dot),
+        field: resolveFieldAlias(family, rest.slice(dot + 1)),
+      };
     }
   }
   if (key.startsWith("contract.criteria.")) {
