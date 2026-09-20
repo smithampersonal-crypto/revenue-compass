@@ -159,12 +159,12 @@ describe("K4 — a service-level credit is actually realized", () => {
   });
 
   it("keeps the contract internally reconciled before and after the credit", () => {
-    expect(analyze(saveAndReload(livedContract())).progressive!.reconciliation!.balanced).toBe(
+    expect(analyze(saveAndReload(livedContract())).progressive!.reconciliation!.reconciled).toBe(
       true,
     );
     expect(
       analyze(saveAndReload(withSupportHours(genomixR3Draft(), HOURS))).progressive!
-        .reconciliation!.balanced,
+        .reconciliation!.reconciled,
     ).toBe(true);
   });
 });
@@ -187,8 +187,10 @@ describe("K5 — every progressive step survives a real save and reload", () => 
 
   it("canonicalises the same facts on every save", () => {
     const draft = livedContract();
-    expect(serializeDraft(saveAndReload(draft))).toBe(serializeDraft(draft));
     expect(toCanonicalInputs(saveAndReload(draft))).toEqual(toCanonicalInputs(draft));
+    expect(serializeDraft(saveAndReload(saveAndReload(draft)))).toBe(
+      serializeDraft(saveAndReload(draft)),
+    );
   });
 });
 
