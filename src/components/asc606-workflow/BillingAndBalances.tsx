@@ -134,12 +134,20 @@ export function BillingAndBalances({
                   </p>
                   <button
                     type="button"
-                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
-                    onClick={() => setEvents(considerationEvents.filter((e) => e.id !== event.id))}
+                    disabled={recordedCashFor(event.id).length > 0}
+                    data-testid={`remove-billing-event-${event.id}`}
+                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => removeEvent(event.id)}
                   >
                     Remove billing event
                   </button>
                 </div>
+                {recordedCashFor(event.id).length > 0 ? (
+                  <Notice tone="warning">
+                    Cash you recorded is applied to this billing event. Reassign or remove that cash
+                    collection first — ARC will not discard recorded cash for you.
+                  </Notice>
+                ) : null}
                 <div className="grid gap-3 md:grid-cols-3">
                   {needsContractLink ? (
                     <Field label="Contract">
