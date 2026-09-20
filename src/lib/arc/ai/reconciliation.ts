@@ -185,7 +185,10 @@ export function reconcileByTieredIdentity(
         prefix(candidate.tiers, 1) === prefix(proposal.tiers, 1) &&
         admissible(proposal, candidate),
     );
-    result.set(proposal.semanticKey, remaining.length === 0 ? { status: "none" } : { status: "ambiguous" });
+    result.set(
+      proposal.semanticKey,
+      remaining.length === 0 ? { status: "none" } : { status: "ambiguous" },
+    );
   }
 
   return result;

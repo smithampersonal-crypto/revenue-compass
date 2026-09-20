@@ -157,7 +157,12 @@ function ownedFacts(draft: WorkflowDraft, ids: Ids) {
 }
 
 function lineage(secondAnalysis: AiContractAnalysis = driftRun2Analysis()) {
-  const first = merge(driftRun1Analysis(), createEmptyDraft(), createEmptyAiAnalysisState(), DRIFT_RUN_1);
+  const first = merge(
+    driftRun1Analysis(),
+    createEmptyDraft(),
+    createEmptyAiAnalysisState(),
+    DRIFT_RUN_1,
+  );
   const ids = idsOf(first.aiState, RUN1);
   const edited = accountantEdits(first.draft, ids);
   const reconciled = reconcileAiEdits({

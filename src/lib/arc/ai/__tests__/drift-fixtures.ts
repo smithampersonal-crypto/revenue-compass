@@ -250,12 +250,7 @@ export function driftRun2Analysis(): AiContractAnalysis {
     promise(RUN2.hostedPromise, "Hosted HelixFlow platform access", "hosted_service", 1),
     promise(RUN2.capacityPromise, "Annual specimen throughput entitlement", "hosted_service", 2),
     promise(RUN2.validationPromise, "IQ/OQ/PQ validation artifact package", "validation", 3),
-    promise(
-      RUN2.supportPromise,
-      "Clinical bioinformatics engineering support hours",
-      "support",
-      4,
-    ),
+    promise(RUN2.supportPromise, "Clinical bioinformatics engineering support hours", "support", 4),
     promise(RUN2.slaPromise, "Availability and incident-response commitment", "support", 5),
   ];
   analysis.performanceObligations = [
@@ -273,13 +268,7 @@ export function driftRun2Analysis(): AiContractAnalysis {
       "point_in_time",
       3,
     ),
-    po(
-      RUN2.supportPo,
-      [RUN2.supportPromise],
-      "Bioinformatics engineering support",
-      "over_time",
-      4,
-    ),
+    po(RUN2.supportPo, [RUN2.supportPromise], "Bioinformatics engineering support", "over_time", 4),
   ];
   analysis.transactionPrice.variableConsiderationComponents = [
     usageVc(RUN2.usageVc, RUN2.hostedPo, "1.55"),
