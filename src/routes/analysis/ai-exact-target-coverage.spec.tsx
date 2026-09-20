@@ -263,7 +263,10 @@ const CANDIDATES: ReadonlyArray<readonly [string, GuidanceReviewSection]> = [
   [`vc:${VC_USAGE}.meter.name`, "step_3"],
   [`vc:${VC_USAGE}.meter.rateQuantityInput`, "step_3"],
   [`vc:${VC_USAGE}.meter.unit`, "step_3"],
-  [`vc:${VC_USAGE}.usagePeriods`, "step_5"],
+  // Filed under Step 3 by the guidance section, entered in Step 5.
+  [`vc:${VC_USAGE}.usagePeriods`, "step_3"],
+  [`vc:${VC_USAGE}.usagePeriods.${USAGE_ROW_A}`, "step_3"],
+  [`vc:${VC_USAGE}.usagePeriods.${USAGE_ROW_B}`, "step_3"],
 
   [`modification:${MOD}`, "additional_topics"],
   [`modification:${MOD}.phase5cFacts`, "additional_topics"],
