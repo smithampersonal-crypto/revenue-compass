@@ -953,31 +953,51 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     if (text !== "" && !manualPromiseByText.has(text)) manualPromiseByText.set(text, promise);
   }
 
-  const promiseAliases = reconcileByTieredIdentity(
+  const promiseSignatures = new Map(
+    analysis.promises.map((row) => [row.semanticKey, promiseIdentity(row)] as const),
+  );
+  // A tombstoned economic object is recognized by its identity, not by the
+  // name the model gave it today, and is never offered for reconciliation.
+  const promiseTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.promises) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("promise", promiseSignatures.get(row.semanticKey)!);
+    if (record !== null) promiseTombstones.set(row.semanticKey, record);
+  }
+  const promiseAliases = reconcileByIdentity(
     analysis.promises
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: promiseIdentityTiers(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !promiseTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: promiseSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("promise"),
   );
 
   for (const aiPromise of analysis.promises) {
     proposedSemanticKeys.add(aiPromise.semanticKey);
     const promiseAlias = promiseAliases.get(aiPromise.semanticKey);
-    adoptAlias(aiPromise.semanticKey, promiseAlias);
     if (promiseAlias?.status === "ambiguous") {
+      // Fail closed: no incumbent is adopted, no canonical object is minted
+      // and nothing is re-pointed until the accountant says what this is.
       raise({
         targetKey: `promise:${aiPromise.semanticKey}`,
         section: "step_2",
         reasonCode: "unsafe_semantic_relationship",
         reason:
-          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — check whether this is a new promise or a renamed one.",
+          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — tell ARC whether this is a new promise or a renamed one.",
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: aiPromise.semanticKey,
         material: promiseMaterial(aiPromise),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(aiPromise.semanticKey, promiseAlias);
+    const promiseTombstone = promiseTombstones.get(aiPromise.semanticKey);
+    if (promiseTombstone !== undefined) suppressAlias(promiseTombstone, aiPromise.semanticKey);
     if (tombstones.has(aiPromise.semanticKey)) {
       raise({
         targetKey: `promise:${aiPromise.semanticKey}`,
