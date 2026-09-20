@@ -1208,8 +1208,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         current: current().overTimeMeasure,
         proposed: proposedMeasure,
         unclaimed: current().overTimeMeasure === undefined,
-        apply: (value) =>
-          value === undefined ? undefined : update({ overTimeMeasure: value }),
+        apply: (value) => (value === undefined ? undefined : update({ overTimeMeasure: value })),
         section,
         guidanceIds: proposal.guidanceIds,
         citations: proposal.citations,

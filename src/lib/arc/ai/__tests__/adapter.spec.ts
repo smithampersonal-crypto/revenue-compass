@@ -72,7 +72,6 @@ describe("pure mapping primitives", () => {
     expect(mapRecognitionMethod("unknown")).toEqual({ supported: false, reason: "unknown" });
   });
 
-
   it("maps only unambiguous variable-consideration directions", () => {
     expect(mapVcEffect("usage")).toBe("increase");
     expect(mapVcEffect("bonus")).toBe("increase");

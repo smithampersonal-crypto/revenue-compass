@@ -136,7 +136,6 @@ export function mapRecognitionMethod(
   return { supported: false, reason: "engine_support_gap" };
 }
 
-
 /* --------------------------------------------------- variable consideration */
 
 /**

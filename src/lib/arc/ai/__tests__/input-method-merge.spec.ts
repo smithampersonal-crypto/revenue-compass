@@ -9,11 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { deriveCanonicalId, fieldKeys } from "../identity";
-import {
-  createEmptyAiAnalysisState,
-  mergeAiAnalysis,
-  type AiAnalysisState,
-} from "../merge";
+import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import type { AiContractAnalysis } from "../schema";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 
