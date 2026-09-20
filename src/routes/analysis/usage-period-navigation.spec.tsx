@@ -70,9 +70,8 @@ vi.mock("@/components/arc/use-supabase-session", () => ({
   useSupabaseSession: () => ({ status: "signed-out", email: null, userId: null }),
 }));
 
-const { createEmptyDraft, createVcComponentDraft, createVcMeterDraft } = await import(
-  "@/lib/asc606-workflow"
-);
+const { createEmptyDraft, createVcComponentDraft, createVcMeterDraft } =
+  await import("@/lib/asc606-workflow");
 const { AnalysisProvider } = await import("@/components/arc/analysis-context");
 const { Asc606AnalysisArea } = await import("./index");
 
@@ -187,9 +186,7 @@ describe("usage-period review navigation", () => {
     const { container } = renderArea();
 
     const anchor = await waitFor(() => {
-      const found = container.querySelector(
-        `#${CSS.escape(reviewTargetAnchorId(targetKey))}`,
-      );
+      const found = container.querySelector(`#${CSS.escape(reviewTargetAnchorId(targetKey))}`);
       expect(found).not.toBeNull();
       return found!;
     });
