@@ -28,6 +28,7 @@ import type {
 } from "@/lib/asc606-progressive";
 
 import { parseUsageQuantity, parseUsdToCents } from "./money-input";
+import { buildEstimatedLifecycle, usesAcceptedLifecycle } from "./vc-lifecycle";
 import { previewVcCurrentMeasurement } from "./vc-measurement";
 import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
 
@@ -229,6 +230,7 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): Ser
 
 function toProgressiveVcComponent(
   component: VcComponentDraft,
+  poIds: ReadonlySet<string>,
   blocked: BlockedFact[],
 ): ProgressiveVcComponent {
   const name = component.description || component.id;
@@ -302,6 +304,27 @@ function toProgressiveVcComponent(
     });
   }
 
+  // The ACCEPTED Phase 5B lifecycle owns a general or specific-PO estimated
+  // component end to end: inception, every dated remeasurement and the
+  // resolution, with the signed transaction-price change at each date. R3
+  // never recreates that arithmetic and never flattens it to one amount.
+  const acceptedLifecycle = usesAcceptedLifecycle(component)
+    ? buildEstimatedLifecycle(component, poIds)
+    : null;
+  if (acceptedLifecycle && acceptedLifecycle.lifecycle === null) {
+    blocked.push({
+      ownerKind: "variable_component",
+      ownerId: component.id,
+      ownerName: name,
+      code: "vc.lifecycle.unusable",
+      message:
+        acceptedLifecycle.issues[0] ??
+        `The variable consideration for "${name}" cannot be measured from the facts entered.`,
+    });
+    unusable = true;
+  }
+  const lifecycle = acceptedLifecycle?.lifecycle ?? null;
+
   let estimateNow: Cents;
   let includedNow: Cents | null;
   if (component.treatment === "estimated") {
@@ -350,6 +373,8 @@ function toProgressiveVcComponent(
   // layer needs; it is mapped here rather than modelled a second time.
   if (
     component.hasResolution &&
+    lifecycle === null &&
+    !usesAcceptedLifecycle(component) &&
     !realized.some((event) => event.id === resolutionEventId(component))
   ) {
     const resolved = cents(component.resolutionAmountInput);
@@ -386,6 +411,18 @@ function toProgressiveVcComponent(
     estimateCents: unusable ? UNUSABLE : estimateNow,
     includedCents: unusable ? UNUSABLE : (includedNow ?? UNUSABLE),
     realizedEvents: realized,
+    ...(lifecycle && !unusable
+      ? {
+          lifecycle: lifecycle.result.assessments.map((assessment) => ({
+            assessmentId: assessment.assessmentId,
+            effectiveDate: assessment.effectiveDate,
+            unconstrainedCents: assessment.unconstrainedCents,
+            includedCents: assessment.includedCents,
+            changeCents: assessment.changeCents,
+            isResolution: assessment.isResolution,
+          })),
+        }
+      : {}),
   };
 }
 
@@ -587,9 +624,10 @@ export function buildProgressiveInput(draft: WorkflowDraft): ProgressiveInputRes
 
   const pos = draft.performanceObligations.map((po) => toProgressivePo(po, blocked));
 
+  const poIds = new Set(draft.performanceObligations.map((po) => po.id));
   const components = draft.hasVariableConsideration
     ? draft.variableConsiderationComponents.map((component) =>
-        toProgressiveVcComponent(component, blocked),
+        toProgressiveVcComponent(component, poIds, blocked),
       )
     : [];
 
