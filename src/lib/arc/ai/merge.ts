@@ -1235,7 +1235,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    if (mapping.method === "over_time_ratable") {
+    // An input-measure obligation is measured by units incurred, not by a
+    // calendar period, so no service period is demanded of it here.
+    const usesInputMeasure = current().overTimeMeasure === "input_measure";
+    if (mapping.method === "over_time_ratable" && !usesInputMeasure) {
       const start = parseIsoDate(proposal.serviceStartDate);
       const end = parseIsoDate(proposal.serviceEndDate);
       if (start !== null && end !== null && methodIsAiOwned) {
