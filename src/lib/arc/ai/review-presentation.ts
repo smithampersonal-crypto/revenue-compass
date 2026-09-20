@@ -259,10 +259,9 @@ export function describeReviewTarget(
     return label ? exact(label) : fallback();
   }
 
-  const vc = /^vc:([^.]+)\.(.+)$/.exec(targetKey);
+  const vc = /^vc:[^.]+\.(.+)$/.exec(targetKey);
   if (vc) {
-    const vcId = vc[1]!;
-    const field = vc[2]!;
+    const field = vc[1]!;
     const meter = /^meter\.([A-Za-z0-9_]+)$/.exec(field);
     if (meter) {
       return VC_METER_FIELDS.has(meter[1]!)
