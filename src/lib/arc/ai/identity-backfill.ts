@@ -19,7 +19,12 @@
  */
 
 import { mapVcEffect } from "./adapter";
-import { BILLING_EVENT_ID_PREFIX, billingTermIdentity } from "./billing-identity";
+import {
+  BILLING_EVENT_ID_PREFIX,
+  billingTermIdentity,
+  parseBillingEventSemanticKey,
+} from "./billing-identity";
+import type { AiTombstoneIdentity, AiTombstoneKind } from "./tombstones";
 import {
   identityKindOfCanonicalId,
   poIdentity,
