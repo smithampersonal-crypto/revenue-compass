@@ -359,7 +359,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     }
   }
 
-
   const takenIds = new Set<string>([
     ...draft.promises.map((row) => row.id),
     ...draft.performanceObligations.map((row) => row.id),

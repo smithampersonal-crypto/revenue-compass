@@ -257,4 +257,3 @@ describe("legacy billing deletions survive schedule renames", () => {
     expect(legacy.state).toEqual(stateBefore);
   });
 });
-
