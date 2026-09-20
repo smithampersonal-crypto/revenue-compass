@@ -152,6 +152,70 @@ describe("Step 5 input-measure progress is entered through the real control", ()
   });
 });
 
+/* ------------------- L Checkpoint 3 — recognition-method disclosure (Step 5) */
+
+describe("Step 5 recognition method reaches the input measure", () => {
+  function blankMethod() {
+    const base = onlyPo("po-support");
+    return mount(Step5Recognition, {
+      ...base,
+      performanceObligations: base.performanceObligations.map((po) => ({
+        ...po,
+        recognitionMethod: null,
+        overTimeMeasure: undefined,
+        totalExpectedUnitsInput: "",
+        unitLabel: "",
+        progressEvents: [],
+      })),
+    });
+  }
+
+  it("offers the over-time classification, not one measurement convention", () => {
+    blankMethod();
+    const select = screen.getByLabelText("Recognition method") as HTMLSelectElement;
+    expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
+      "Select a method…",
+      "Over time",
+      "Point in time",
+    ]);
+  });
+
+  it("exposes the measure of progress as soon as over time is selected", () => {
+    const state = blankMethod();
+    expect(screen.queryByLabelText("Measure of progress")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Recognition method"), {
+      target: { value: "over_time_ratable" },
+    });
+    expect(support(state.draft).recognitionMethod).toBe("over_time_ratable");
+    expect(screen.getByLabelText("Measure of progress")).toBeTruthy();
+    expect(screen.queryByLabelText("Total contracted units (denominator)")).toBeNull();
+  });
+
+  it("reveals the denominator, unit label and progress events on an input measure", () => {
+    const state = blankMethod();
+    fireEvent.change(screen.getByLabelText("Recognition method"), {
+      target: { value: "over_time_ratable" },
+    });
+    fireEvent.change(screen.getByLabelText("Measure of progress"), {
+      target: { value: "input_measure" },
+    });
+    expect(support(state.draft).overTimeMeasure).toBe("input_measure");
+    expect(screen.getByLabelText("Total contracted units (denominator)")).toBeTruthy();
+    expect(screen.getByLabelText("Unit label")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add actual progress" })).toBeTruthy();
+  });
+
+  it("keeps point-in-time behaviour unchanged", () => {
+    const state = blankMethod();
+    fireEvent.change(screen.getByLabelText("Recognition method"), {
+      target: { value: "point_in_time" },
+    });
+    expect(support(state.draft).recognitionMethod).toBe("point_in_time");
+    expect(screen.queryByLabelText("Measure of progress")).toBeNull();
+  });
+});
+
 /* ------------------------------------------------- J — usage meter (Step 3) */
 
 describe("Step 3 usage meters are entered through the real control", () => {
