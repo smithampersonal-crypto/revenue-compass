@@ -93,15 +93,19 @@ function usageTrigger(): VcComponentDraft {
 }
 
 interface PenaltyOptions {
+  id?: string;
+  seq?: number;
   treatment: "general" | "specific_po";
   effect: "increase" | "decrease";
+  targetPoId?: string;
   inception: string;
   remeasurements?: { date: string; amount: string }[];
   resolution?: { date: string; amount: string };
 }
 
 function penaltyComponent(options: PenaltyOptions): VcComponentDraft {
-  const base = createVcComponentDraft(1, "vc-penalty", "estimated");
+  const id = options.id ?? "vc-penalty";
+  const base = createVcComponentDraft(options.seq ?? 1, id, "estimated");
   const component: VcComponentDraft = {
     ...base,
     description: "Service-level penalty",
@@ -110,13 +114,13 @@ function penaltyComponent(options: PenaltyOptions): VcComponentDraft {
     allocationTreatment: options.treatment,
     allocationRationale:
       "The amount is allocated on the basis the allocation objective supports for this contract.",
-    inception: assessment("vc-penalty-a1", 1, SERVICE_START, options.inception),
+    inception: assessment(`${id}-a1`, 1, SERVICE_START, options.inception),
     remeasurements: (options.remeasurements ?? []).map((row, index) =>
-      assessment(`vc-penalty-r${index + 1}`, index + 1, row.date, row.amount),
+      assessment(`${id}-r${index + 1}`, index + 1, row.date, row.amount),
     ),
   };
   if (options.treatment === "specific_po") {
-    component.targetPoId = "po-hosted";
+    component.targetPoId = options.targetPoId ?? "po-validation";
     component.relatesSpecifically = true;
     component.consistentWithAllocationObjective = true;
   }
@@ -128,6 +132,7 @@ function penaltyComponent(options: PenaltyOptions): VcComponentDraft {
   }
   return component;
 }
+
 
 function draftWith(component: VcComponentDraft): WorkflowDraft {
   const base = answerAllStep1(createEmptyDraft());
