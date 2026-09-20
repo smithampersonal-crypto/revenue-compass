@@ -2917,10 +2917,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // classification, recognition and standalone selling price. Recording an
   // intermediate fingerprint would make an identical re-run look like a user
   // edit on the next merge.
-  for (const { semanticKey, canonicalId, identityTiers } of claimedObjects) {
+  for (const { semanticKey, canonicalId, identitySignature } of claimedObjects) {
     const prior = previousState.objectProvenance[semanticKey];
     const carried = objectProvenance[semanticKey];
-    const tiers = identityTiers ?? carried?.identityTiers;
+    const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
@@ -2944,7 +2944,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         : finalFingerprint,
       canonicalId,
       userModified,
-      ...(tiers === undefined ? {} : { identityTiers: tiers }),
+      ...(signature === undefined ? {} : { identitySignature: signature }),
       ...(lineage === undefined || lineage.length === 0 ? {} : { previousSemanticKeys: lineage }),
     };
   }
@@ -2974,6 +2974,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     fieldProvenance,
     objectProvenance,
     tombstones: [...tombstones].sort(),
+    tombstoneIdentities: [...tombstoneIdentities].sort((left, right) =>
+      left.semanticKey.localeCompare(right.semanticKey),
+    ),
     reviewItems,
   };
 
