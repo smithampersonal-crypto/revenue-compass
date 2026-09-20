@@ -92,9 +92,7 @@ describe("production execution boundary instructions", () => {
     expect(instructions).toContain(
       "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
     );
-    expect(instructions).toContain(
-      '["P0001-S0015","P0001-S0016","P0001-S0017"]',
-    );
+    expect(instructions).toContain('["P0001-S0015","P0001-S0016","P0001-S0017"]');
     expect(instructions).toContain('["P0001-S0015","P0001-S0017"] is invalid');
     expect(instructions).toContain("Never omit an intermediate anchor");
     expect(instructions).toContain("do not return endpoints");
