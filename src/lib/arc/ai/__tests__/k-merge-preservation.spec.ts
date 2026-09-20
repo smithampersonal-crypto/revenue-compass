@@ -449,20 +449,24 @@ describe("G5 — review behaviour after a real re-analysis", () => {
     }
   });
 
-  it("reopens only the conclusion the AI actually changed", () => {
-    const rateKey = `vc:${L.ids.usage}.meter.rateAmountInput`;
-    const keys = [...operationalTargets(L.ids), rateKey];
+  it("reopens only the conclusions the AI actually changed", () => {
+    const usageKey = `vc:${L.ids.usage}.usagePeriods`;
+    const keys = [...operationalTargets(L.ids), usageKey];
     const approved = keys.map((key) => affirm(itemFor(L.edited, key)));
     const rederived = keys.map((key) => itemFor(L.second.draft, key));
     const carried = new Map(
       carryForwardReviewResolutions(rederived, approved).map((item) => [item.targetKey, item]),
     );
-    expect(`${rateKey}:${carried.get(rateKey)!.state}`).toBe(`${rateKey}:yellow`);
+    // The usage conclusion reopens because its AI-owned rate moved...
+    expect(`${usageKey}:${carried.get(usageKey)!.state}`).toBe(`${usageKey}:yellow`);
+    // ...and nothing else does: an AI description change reopens no
+    // accountant-owned operational conclusion.
     for (const key of operationalTargets(L.ids)) {
       expect(`${key}:${carried.get(key)!.state}`).toBe(`${key}:resolved`);
     }
   });
 });
+
 
 describe("G5 — a third re-analysis keeps ownership stable", () => {
   it("still carries every accountant-owned fact", () => {
