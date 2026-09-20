@@ -1463,4 +1463,11 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - Phase 3 balances / Phase 4 journals reused, extended for credit-memo signs and partial metadata.
 - Orchestration fails closed on duplicate/orphan identities.
 - Gate: 168 files / 2120 tests, typecheck, lint, build, bundle audit green. No Cloud mutation; schema v5 / prompt v6; G/H/K/L and R4 not started.
+
+## Phase 9G-R3 L — Citation anchor endpoint-selection correction
+- [x] Clarify canonical trusted instructions: `anchorIds` explicitly enumerates every selected consecutive anchor and is never a start/end pair.
+- [x] Add positive three-ID and invalid endpoint-only examples; require narrowing spans over three anchors or genuinely visual evidence; prohibit fabricated middle IDs.
+- [x] Advance new-run prompt provenance to `arc.ai.prompt.v7`; retain `arc.ai.schema.v5`.
+- [x] Preserve fail-closed materialization, `anchor_range_reversed`, diagnostic logging, quotas, and all frozen R3 accounting behavior.
+- [ ] Complete full repository verification, hosted configuration check, GitHub job confirmation, and final ZIP checksum.
 - ZIP sha256 92ed5870b2e7a26108f43f50f067688d20715197da0d6f0a93ba78e8228781a6
