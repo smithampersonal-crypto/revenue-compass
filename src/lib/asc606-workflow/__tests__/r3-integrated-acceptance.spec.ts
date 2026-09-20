@@ -148,13 +148,23 @@ describe("K3 — hours are incurred against the input measure", () => {
 });
 
 describe("K4 — a service-level credit is actually realized", () => {
-  it("reflects the realized credit and remains internally consistent", () => {
-    const before = analyze(saveAndReload(withSupportHours(genomixR3Draft(), HOURS)));
-    const after = analyze(saveAndReload(livedContract()));
-    expect(after.progressive!.reconciliation!.balanced).toBe(true);
-    expect(before.progressive!.reconciliation!.balanced).toBe(true);
-    const sla = after.draftEcho === undefined ? null : null;
-    expect(sla).toBeNull();
+  const totalRecognized = (draft: WorkflowDraft) =>
+    analyze(draft).progressive!.recognition!.reduce((sum, row) => sum + row.recognizedCents, 0);
+
+  it("reduces recognized revenue once a credit has actually arisen", () => {
+    const before = withSupportHours(withValidationTransfer(genomixR3Draft(), "2027-02-15"), HOURS);
+    const after = saveAndReload(livedContract());
+    expect(totalRecognized(after)).toBeLessThan(totalRecognized(before));
+  });
+
+  it("keeps the contract internally reconciled before and after the credit", () => {
+    expect(analyze(saveAndReload(livedContract())).progressive!.reconciliation!.balanced).toBe(
+      true,
+    );
+    expect(
+      analyze(saveAndReload(withSupportHours(genomixR3Draft(), HOURS))).progressive!
+        .reconciliation!.balanced,
+    ).toBe(true);
   });
 });
 
