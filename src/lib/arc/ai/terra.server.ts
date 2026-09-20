@@ -86,15 +86,39 @@ export type TerraFailureCategory =
   | "citation_anchor_failure"
   | "citation_validation_failure";
 
+/**
+ * One bounded, sanitized anchor-selection diagnostic. Carries ONLY the
+ * materializer's own issue code, the schema path and at most three anchor ids
+ * the provider actually submitted. Never excerpt text, page text, prompt,
+ * model output or credentials.
+ */
+export interface TerraAnchorDiagnostic {
+  issueCode: string;
+  path: string;
+  anchorIds: string[];
+}
+
 export class TerraAnalysisError extends Error {
   readonly category: TerraFailureCategory;
   /** Bounded, privacy-safe detail. Never a response body, prompt or credential. */
   readonly details: string[];
-  constructor(category: TerraFailureCategory, message: string, details: string[] = []) {
+  /** Populated only for `citation_anchor_failure`. Bounded to 20 entries. */
+  readonly anchorDiagnostics: readonly TerraAnchorDiagnostic[];
+  constructor(
+    category: TerraFailureCategory,
+    message: string,
+    details: string[] = [],
+    anchorDiagnostics: readonly TerraAnchorDiagnostic[] = [],
+  ) {
     super(message);
     this.name = "TerraAnalysisError";
     this.category = category;
     this.details = details.slice(0, 40);
+    this.anchorDiagnostics = anchorDiagnostics.slice(0, 20).map((entry) => ({
+      issueCode: entry.issueCode,
+      path: entry.path.slice(0, 200),
+      anchorIds: entry.anchorIds.slice(0, 3).map((id) => id.slice(0, 32)),
+    }));
   }
 }
 
