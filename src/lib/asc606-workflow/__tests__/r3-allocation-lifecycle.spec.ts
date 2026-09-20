@@ -133,7 +133,6 @@ function penaltyComponent(options: PenaltyOptions): VcComponentDraft {
   return component;
 }
 
-
 function draftWith(...components: VcComponentDraft[]): WorkflowDraft {
   const base = answerAllStep1(createEmptyDraft());
   const hosted = {
@@ -258,7 +257,6 @@ function acceptedComponent(spec: AcceptedSpec): EstimatedComponentInput {
 }
 
 function acceptedAnalysis(...specs: AcceptedSpec[]) {
-
   const input: VcContractInput = {
     fixedConsiderationCents: FIXED_CENTS,
     standardPerformanceObligations: [
@@ -410,7 +408,6 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
       ),
     ).toContain(GENERAL_POOL_CODE);
   });
-
 
   it("D1. blocks when the resolution itself drives the general pool negative", () => {
     const draft = draftWith(
@@ -571,6 +568,5 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
       );
       expect(new Set(r3Codes), `${testCase.label}: same reason`).toEqual(new Set(allocationIds));
     }
-
   });
 });

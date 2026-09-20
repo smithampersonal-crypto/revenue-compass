@@ -14,10 +14,7 @@
  * Pure TypeScript: no React, DOM, network, database or AI dependency.
  */
 
-import {
-  planAllocationLifecycle,
-  type DynamicChange,
-} from "@/lib/asc606-variable-consideration";
+import { planAllocationLifecycle, type DynamicChange } from "@/lib/asc606-variable-consideration";
 
 import { sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
 

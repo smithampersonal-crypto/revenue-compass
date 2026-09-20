@@ -99,9 +99,7 @@ function sortChanges(changes: readonly LifecycleDatedChange[]): LifecycleDatedCh
  * Returns either every valid allocation state, or the accepted blocking
  * reasons. Never throws for an accounting condition.
  */
-export function planAllocationLifecycle(
-  input: AllocationLifecycleInput,
-): AllocationLifecyclePlan {
+export function planAllocationLifecycle(input: AllocationLifecycleInput): AllocationLifecyclePlan {
   const failures: AllocationLifecycleFailure[] = [];
 
   if (input.generalPoolCents < 0) {

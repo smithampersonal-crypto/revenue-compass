@@ -35,10 +35,7 @@ import {
   type RevenueSource,
 } from "@/lib/asc606-material-rights";
 import { allocationLayers, type SpecificAllocationInput } from "./allocation";
-import {
-  planAllocationLifecycle,
-  type LifecycleDatedChange,
-} from "./allocation-lifecycle";
+import { planAllocationLifecycle, type LifecycleDatedChange } from "./allocation-lifecycle";
 import {
   constraintConclusion,
   orderedAssessments,
@@ -235,8 +232,7 @@ export function analyzeVariableConsideration(
         componentId: component.componentId,
         assessmentId: assessment.assessmentId,
         effectiveDate: assessment.effectiveDate,
-        targetPoId:
-          definition.allocationTreatment === "general" ? null : definition.targetPoId!,
+        targetPoId: definition.allocationTreatment === "general" ? null : definition.targetPoId!,
         changeCents: assessment.changeCents,
         isResolution: assessment.isResolution,
       });
@@ -244,8 +240,7 @@ export function analyzeVariableConsideration(
   }
 
   const plan = planAllocationLifecycle({
-    generalPoolCents:
-      generalPool < 0n ? -1 : bigIntToCents(generalPool, "general allocation pool"),
+    generalPoolCents: generalPool < 0n ? -1 : bigIntToCents(generalPool, "general allocation pool"),
     allocatables,
     specific,
     changes: datedChanges,
