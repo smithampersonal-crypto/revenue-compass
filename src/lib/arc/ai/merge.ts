@@ -291,11 +291,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const priorBilling = priorBillingIdentityIndex(args.priorAnalysis);
     for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
       if (provenance.identitySignature !== undefined) continue;
-      if (!provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)) continue;
-      const parsed = parseBillingEventSemanticKey(semanticKey);
+      const isEvent = provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX);
+      const isCollection = provenance.canonicalId.startsWith(BILLING_COLLECTION_ID_PREFIX);
+      if (!isEvent && !isCollection) continue;
+      const parsed = parseBillingEventSemanticKey(
+        isCollection && semanticKey.endsWith("#collection")
+          ? semanticKey.slice(0, -"#collection".length)
+          : semanticKey,
+      );
       if (parsed === null) continue;
-      const signature = priorBilling.get(parsed.termKey);
-      if (signature === undefined) continue;
+      const schedule = priorBilling.get(parsed.termKey);
+      if (schedule === undefined) continue;
+      const signature = isEvent
+        ? billingEventIdentity(schedule, parsed.period)
+        : billingCollectionIdentity(schedule, parsed.period);
       objectProvenance[semanticKey] = { ...provenance, identitySignature: signature };
       previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
     }
