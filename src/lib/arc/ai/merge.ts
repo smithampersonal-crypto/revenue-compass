@@ -59,14 +59,19 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
+import { priorIdentityIndex } from "./identity-backfill";
 import {
-  poIdentityTiers,
-  promiseIdentityTiers,
-  reconcileByTieredIdentity,
-  vcIdentityTiers,
+  poIdentity,
+  promiseIdentity,
+  reconcileByIdentity,
+  signaturesIdentify,
+  vcIdentity,
+  type AiIdentityKind,
   type IdentityCandidate,
   type IdentityOutcome,
+  type IdentitySignature,
 } from "./reconciliation";
+import type { AiTombstoneIdentity } from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
