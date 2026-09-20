@@ -61,6 +61,8 @@ import {
 } from "./identity";
 import { priorIdentityIndex } from "./identity-backfill";
 import {
+  identityKindOfCanonicalId,
+  IDENTITY_KIND_CANONICAL_PREFIX,
   poIdentity,
   promiseIdentity,
   reconcileByIdentity,
@@ -145,10 +147,32 @@ export function createEmptyAiAnalysisState(): AiAnalysisState {
 
 /** Raised when the merged draft is not a structurally valid canonical draft. */
 export class AiMergeError extends Error {
-  readonly code = "merged_draft_invalid";
+  readonly code: string = "merged_draft_invalid";
   constructor(message: string) {
     super(message);
     this.name = "AiMergeError";
+  }
+}
+
+/**
+ * Raised when a live canonical object governed by R3 identity reconciliation
+ * carries no identity signature and none could be recovered from the immutable
+ * structured output of the run that created it.
+ *
+ * ARC fails closed here rather than merging blind: merging blind mints a
+ * duplicate of every renamed object. Nothing is mutated — the merge is pure,
+ * so the accountant's saved draft and sidecar are untouched and the run is
+ * recorded as an application failure.
+ */
+export class AiIdentityBackfillError extends AiMergeError {
+  override readonly code = "identity_backfill_unavailable";
+  readonly semanticKeys: readonly string[];
+  constructor(semanticKeys: readonly string[]) {
+    super(
+      `Re-analysis cannot proceed: ${semanticKeys.length} existing AI object(s) have no recorded identity and the previous AI result is unavailable.`,
+    );
+    this.name = "AiIdentityBackfillError";
+    this.semanticKeys = semanticKeys;
   }
 }
 
@@ -598,18 +622,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const deletedSemanticKeys: string[] = [];
 
-  const KIND_ID_PREFIX = {
-    promise: "pr-",
-    performance_obligation: "po-",
-    variable_component: "vc-",
-  } as const;
-
-  function kindOfCanonicalId(canonicalId: string): AiIdentityKind | null {
-    for (const [kind, prefix] of Object.entries(KIND_ID_PREFIX)) {
-      if (canonicalId.startsWith(prefix)) return kind as AiIdentityKind;
-    }
-    return null;
-  }
+  const KIND_ID_PREFIX = IDENTITY_KIND_CANONICAL_PREFIX;
+  const kindOfCanonicalId = identityKindOfCanonicalId;
 
   /**
    * Records the identity of a deleted object so a LATER run that renames the
@@ -643,6 +657,23 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       deletedSemanticKeys.push(semanticKey);
       delete objectProvenance[semanticKey];
     }
+  }
+
+  // Fail closed. Every LIVE incumbent of an R3-governed kind must carry a
+  // recorded identity by now — either written by a patched run or backfilled
+  // above from the immutable prior structured output. If one does not, the
+  // prior result was absent, unreadable or silent about it, and continuing
+  // would mint a duplicate of every object the model has since renamed.
+  const unidentifiedIncumbents = Object.entries(objectProvenance)
+    .filter(
+      ([, provenance]) =>
+        provenance.identitySignature === undefined &&
+        kindOfCanonicalId(provenance.canonicalId) !== null,
+    )
+    .map(([semanticKey]) => semanticKey)
+    .sort();
+  if (unidentifiedIncumbents.length > 0) {
+    throw new AiIdentityBackfillError(unidentifiedIncumbents);
   }
 
   function canonicalIdFor(kind: AiObjectKind, semanticKey: string): string {
@@ -715,18 +746,48 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     objectProvenance[semanticKey] === undefined && !tombstones.has(semanticKey);
 
   /**
+   * A deleted economic object may be recognized exactly once, not at all, or
+   * — materially different — by more than one deletion at the same time.
+   */
+  type TombstoneOutcome =
+    | { status: "matched"; record: AiTombstoneIdentity }
+    | { status: "ambiguous" }
+    | { status: "none" };
+
+  /**
+   * Resolves the deletion outcomes for one canonical kind: the proposals that
+   * match exactly one deleted identity, and the ones that are contested.
+   */
+  function tombstoneOutcomes(
+    kind: AiIdentityKind,
+    rows: readonly { semanticKey: string }[],
+    signatures: ReadonlyMap<string, IdentitySignature>,
+  ): { matched: Map<string, AiTombstoneIdentity>; ambiguous: Set<string> } {
+    const matched = new Map<string, AiTombstoneIdentity>();
+    const ambiguous = new Set<string>();
+    for (const row of rows) {
+      if (!unseenKey(row.semanticKey)) continue;
+      const outcome = tombstoneFor(kind, signatures.get(row.semanticKey)!);
+      if (outcome.status === "matched") matched.set(row.semanticKey, outcome.record);
+      else if (outcome.status === "ambiguous") ambiguous.add(row.semanticKey);
+    }
+    return { matched, ambiguous };
+  }
+
+  /**
    * A deleted economic object the model has renamed. Matching is the same
    * deterministic identity test used for live incumbents, so a tombstone
    * survives semantic-key drift; anything it recognizes stays suppressed.
    */
-  function tombstoneFor(
-    kind: AiIdentityKind,
-    signature: IdentitySignature,
-  ): AiTombstoneIdentity | null {
+  function tombstoneFor(kind: AiIdentityKind, signature: IdentitySignature): TombstoneOutcome {
     const matches = tombstoneIdentities.filter(
       (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
     );
-    return matches.length === 1 ? matches[0]! : null;
+    if (matches.length === 1) return { status: "matched", record: matches[0]! };
+    // Two different deleted objects both recognize this proposal: which one
+    // the accountant removed is genuinely unknown, and resurrecting either —
+    // or creating a third — would be a guess.
+    return matches.length === 0 ? { status: "none" } : { status: "ambiguous" };
   }
 
   /** Records a newly observed alias of an already tombstoned economic object. */
@@ -958,15 +1019,16 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   );
   // A tombstoned economic object is recognized by its identity, not by the
   // name the model gave it today, and is never offered for reconciliation.
-  const promiseTombstones = new Map<string, AiTombstoneIdentity>();
-  for (const row of analysis.promises) {
-    if (!unseenKey(row.semanticKey)) continue;
-    const record = tombstoneFor("promise", promiseSignatures.get(row.semanticKey)!);
-    if (record !== null) promiseTombstones.set(row.semanticKey, record);
-  }
+  const promiseDeletions = tombstoneOutcomes("promise", analysis.promises, promiseSignatures);
+  const promiseTombstones = promiseDeletions.matched;
   const promiseAliases = reconcileByIdentity(
     analysis.promises
-      .filter((row) => unseenKey(row.semanticKey) && !promiseTombstones.has(row.semanticKey))
+      .filter(
+        (row) =>
+          unseenKey(row.semanticKey) &&
+          !promiseTombstones.has(row.semanticKey) &&
+          !promiseDeletions.ambiguous.has(row.semanticKey),
+      )
       .map((row) => ({
         semanticKey: row.semanticKey,
         signature: promiseSignatures.get(row.semanticKey)!,
@@ -977,7 +1039,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   for (const aiPromise of analysis.promises) {
     proposedSemanticKeys.add(aiPromise.semanticKey);
     const promiseAlias = promiseAliases.get(aiPromise.semanticKey);
-    if (promiseAlias?.status === "ambiguous") {
+    if (
+      promiseAlias?.status === "ambiguous" ||
+      promiseDeletions.ambiguous.has(aiPromise.semanticKey)
+    ) {
       // Fail closed: no incumbent is adopted, no canonical object is minted
       // and nothing is re-pointed until the accountant says what this is.
       raise({
@@ -985,7 +1050,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         section: "step_2",
         reasonCode: "unsafe_semantic_relationship",
         reason:
-          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — tell ARC whether this is a new promise or a renamed one.",
+          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper, or more than one you previously removed. ARC did not guess which one it means — tell ARC whether this is a new promise or a renamed one.",
         guidanceIds: aiPromise.guidanceIds,
         citations: aiPromise.citations,
         value: aiPromise.semanticKey,
@@ -1168,12 +1233,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const poSignatures = new Map(
     analysis.performanceObligations.map((row) => [row.semanticKey, poIdentity(row)] as const),
   );
-  const poTombstones = new Map<string, AiTombstoneIdentity>();
-  for (const row of analysis.performanceObligations) {
-    if (!unseenKey(row.semanticKey)) continue;
-    const record = tombstoneFor("performance_obligation", poSignatures.get(row.semanticKey)!);
-    if (record !== null) poTombstones.set(row.semanticKey, record);
-  }
+  const poDeletions = tombstoneOutcomes(
+    "performance_obligation",
+    analysis.performanceObligations,
+    poSignatures,
+  );
+  const poTombstones = poDeletions.matched;
   // Canonical promise membership is the PRINCIPAL identity of a grouping: the
   // satisfaction pattern only gates compatibility and never identifies alone.
   const sharesCanonicalPromise = (
@@ -1189,7 +1254,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   };
   const poAliases = reconcileByIdentity(
     analysis.performanceObligations
-      .filter((row) => unseenKey(row.semanticKey) && !poTombstones.has(row.semanticKey))
+      .filter(
+        (row) =>
+          unseenKey(row.semanticKey) &&
+          !poTombstones.has(row.semanticKey) &&
+          !poDeletions.ambiguous.has(row.semanticKey),
+      )
       .map((row) => ({
         semanticKey: row.semanticKey,
         signature: poSignatures.get(row.semanticKey)!,
@@ -1201,7 +1271,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   for (const aiPo of analysis.performanceObligations) {
     proposedSemanticKeys.add(aiPo.semanticKey);
     const poAlias = poAliases.get(aiPo.semanticKey);
-    if (poAlias?.status === "ambiguous") {
+    if (poAlias?.status === "ambiguous" || poDeletions.ambiguous.has(aiPo.semanticKey)) {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
         section: sectionFor(aiPo.guidanceIds, "step_2"),
@@ -1937,15 +2007,20 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       (row) => [row.semanticKey, vcSignatureFor(row)] as const,
     ),
   );
-  const vcTombstones = new Map<string, AiTombstoneIdentity>();
-  for (const row of analysis.transactionPrice.variableConsiderationComponents) {
-    if (!unseenKey(row.semanticKey)) continue;
-    const record = tombstoneFor("variable_component", vcSignatures.get(row.semanticKey)!);
-    if (record !== null) vcTombstones.set(row.semanticKey, record);
-  }
+  const vcDeletions = tombstoneOutcomes(
+    "variable_component",
+    analysis.transactionPrice.variableConsiderationComponents,
+    vcSignatures,
+  );
+  const vcTombstones = vcDeletions.matched;
   const vcAliases = reconcileByIdentity(
     analysis.transactionPrice.variableConsiderationComponents
-      .filter((row) => unseenKey(row.semanticKey) && !vcTombstones.has(row.semanticKey))
+      .filter(
+        (row) =>
+          unseenKey(row.semanticKey) &&
+          !vcTombstones.has(row.semanticKey) &&
+          !vcDeletions.ambiguous.has(row.semanticKey),
+      )
       .map((row) => ({
         semanticKey: row.semanticKey,
         signature: vcSignatures.get(row.semanticKey)!,
@@ -1957,7 +2032,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
     const vcAlias = vcAliases.get(component.semanticKey);
-    if (vcAlias?.status === "ambiguous") {
+    if (vcAlias?.status === "ambiguous" || vcDeletions.ambiguous.has(component.semanticKey)) {
       raise({
         targetKey: `vc:${component.semanticKey}`,
         section,

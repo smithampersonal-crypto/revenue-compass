@@ -24,7 +24,12 @@ import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { reconcileAiEdits } from "../edit-reconciliation";
 import { priorIdentityIndex } from "../identity-backfill";
-import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
+import {
+  AiIdentityBackfillError,
+  createEmptyAiAnalysisState,
+  mergeAiAnalysis,
+  type AiAnalysisState,
+} from "../merge";
 import {
   promiseIdentity,
   reconcileByIdentity,
@@ -98,9 +103,11 @@ describe("legacy sidecars reconcile on the first run after deployment", () => {
     ).toBe(true);
 
     // Without the prior structured output there is nothing trustworthy to
-    // reconcile against, and ARC refuses to guess from canonical fields.
-    const blind = merge(driftRun2Analysis(), first.draft, legacy, DRIFT_RUN_2);
-    expect(blind.draft.performanceObligations.length).toBeGreaterThan(3);
+    // reconcile against. Merging blind would duplicate every renamed object,
+    // so ARC fails closed instead — the draft is never touched.
+    expect(() => merge(driftRun2Analysis(), first.draft, legacy, DRIFT_RUN_2)).toThrow(
+      AiIdentityBackfillError,
+    );
 
     // With it, the first post-deployment run behaves exactly as a patched one.
     const backfilled = merge(

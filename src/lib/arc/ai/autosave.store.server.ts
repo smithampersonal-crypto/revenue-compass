@@ -21,7 +21,8 @@ import type {
   AutosaveScope,
 } from "./autosave-reconciliation.handlers";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
-import { decodeTombstones, encodeTombstones } from "./tombstones";
+import { encodedAiTombstones } from "./state-serialization";
+import { decodeTombstones } from "./tombstones";
 import { normalizePersistedReviewPayload } from "./review-normalization";
 
 interface CodedError {
@@ -196,14 +197,13 @@ export async function createAutosaveReconciliationStore(
         p_expected_lock_version: args.expectedLockVersion,
         p_canonical_inputs: args.canonical,
         p_schema_version: args.schemaVersion,
+        // One shared serializer for both trusted write paths, so tombstone
+        // identity can never be dropped on one of them.
         p_ai_state: {
           sourceState: args.aiState.sourceState,
           fieldProvenance: args.aiState.fieldProvenance,
           objectProvenance: args.aiState.objectProvenance,
-          tombstones: encodeTombstones(
-            args.aiState.tombstones,
-            args.aiState.tombstoneIdentities ?? [],
-          ),
+          tombstones: encodedAiTombstones(args.aiState),
           reviewItems: args.aiState.reviewItems,
         },
         p_review_events: args.reviewEvents,

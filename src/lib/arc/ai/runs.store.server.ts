@@ -12,7 +12,9 @@
 
 import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
 
+import { identityBackfillRequired } from "./identity-backfill";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
+import { toPersistedAiState } from "./state-serialization";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import { parseAiContractAnalysis } from "./schema";
 import { decodeTombstones } from "./tombstones";
@@ -299,10 +301,10 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
        */
       const priorAnalysis = async (aiState: AiAnalysisState) => {
         if (aiState.lastSuccessfulRunId === null) return null;
-        const needsBackfill = Object.values(aiState.objectProvenance).some(
-          (provenance) => provenance.identitySignature === undefined,
-        );
-        if (!needsBackfill) return null;
+        // Scoped to the canonical kinds R3 identity actually governs: billing,
+        // cash and modification provenance never carry a signature, and
+        // counting them would fetch the prior result on every run forever.
+        if (!identityBackfillRequired(aiState.objectProvenance)) return null;
         const { data, error } = await supabaseAdmin
           .from("ai_runs")
           .select("result_metadata")
@@ -424,7 +426,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         // Written back in the same canonical envelope every other writer uses.
         p_canonical_inputs: toCanonicalInputs(args.canonicalInputs) as never,
         p_schema_version: args.schemaVersion,
-        p_ai_state: args.aiState as never,
+        // The SAME serializer autosave uses: tombstone identity records are
+        // part of the persisted `tombstones` array, never dropped here.
+        p_ai_state: toPersistedAiState(args.aiState) as never,
         p_source_set_fingerprint: args.sourceSetFingerprint,
         p_structured_result: args.structuredResult as never,
         p_usage_metadata: args.usageMetadata as never,
