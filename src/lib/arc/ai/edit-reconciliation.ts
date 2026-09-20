@@ -16,7 +16,19 @@ import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
 import { type AiAnalysisState } from "./merge";
+import type { AiIdentityKind } from "./reconciliation";
 import type { AiReviewItem, AiReviewSeverity } from "./review-state";
+import type { AiTombstoneIdentity } from "./tombstones";
+
+const TOMBSTONE_KIND_PREFIX: ReadonlyArray<readonly [string, AiIdentityKind]> = [
+  ["pr-", "promise"],
+  ["po-", "performance_obligation"],
+  ["vc-", "variable_component"],
+];
+
+function tombstoneKindOf(canonicalId: string): AiIdentityKind | null {
+  return TOMBSTONE_KIND_PREFIX.find(([prefix]) => canonicalId.startsWith(prefix))?.[1] ?? null;
+}
 
 /* ------------------------------------------------------- canonical reading */
 
