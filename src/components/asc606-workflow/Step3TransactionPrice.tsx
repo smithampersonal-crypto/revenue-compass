@@ -58,11 +58,12 @@ export function Step3TransactionPrice({
   const patchComponent = (id: string, values: Partial<VcComponentDraft>) =>
     setComponents(components.map((c) => (c.id === id ? { ...c, ...values } : c)));
 
+  // Deterministic persisted identity: never a timestamp, random value or array
+  // index. The same action on the same draft always produces the same id.
   const addComponent = (treatment: "estimated" | "usage_as_incurred") => {
-    const seq = components.length + 1;
     setComponents([
       ...components,
-      createVcComponentDraft(seq, `vc-${seq}-${Date.now()}`, treatment),
+      createVcComponentDraft(nextSeq(components), nextId("vc", components), treatment),
     ]);
   };
 
