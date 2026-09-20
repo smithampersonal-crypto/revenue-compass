@@ -493,8 +493,11 @@ export function Step3TransactionPrice({
                         remeasurements: [
                           ...component.remeasurements,
                           createVcAssessmentDraft(
-                            component.remeasurements.length + 2,
-                            `${component.id}-a${component.remeasurements.length + 2}-${Date.now()}`,
+                            nextSeq([component.inception, ...component.remeasurements]),
+                            nextId(`${component.id}-a`, [
+                              component.inception,
+                              ...component.remeasurements,
+                            ]),
                           ),
                         ],
                       })
