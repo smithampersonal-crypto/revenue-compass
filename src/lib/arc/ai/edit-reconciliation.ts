@@ -308,15 +308,51 @@ function vcEstimationProjection(row: Row): Row {
   };
 }
 
+/**
+ * Phase 9G-R3. The operational variable-consideration conclusion: what is
+ * metered, what actually happened, which distinct service periods exist, which
+ * amounts were actually realized against them, and whether the contract bills a
+ * realized amount. Every nested row is keyed by its stable identity, and every
+ * quantity map is canonicalised by key, so harmless ordering can never create a
+ * false fingerprint. Cosmetic presentation state is deliberately absent.
+ */
 function vcUsageProjection(row: Row): Row {
   return {
-    meters: (Array.isArray(row["meters"]) ? row["meters"] : []).map((meter) =>
-      pick((meter ?? {}) as Row, VC_METER_FIELDS),
-    ),
-    usagePeriods: (Array.isArray(row["usagePeriods"]) ? row["usagePeriods"] : []).map((period) => {
-      const usage = (period ?? {}) as Row;
-      return { month: usage["month"] ?? null, quantities: usage["quantities"] ?? null };
-    }),
+    meters: byIdentity(row["meters"], VC_METER_FIELDS),
+    usagePeriods: (Array.isArray(row["usagePeriods"]) ? row["usagePeriods"] : [])
+      .map((period) => {
+        const usage = (period ?? {}) as Row;
+        const quantities = (usage["quantities"] ?? null) as Record<string, unknown> | null;
+        return {
+          id: usage["id"] ?? null,
+          month: usage["month"] ?? null,
+          // Keyed by meter identity; `canonicalJson` sorts object keys, so the
+          // order the accountant typed the meters in is never material.
+          quantities:
+            quantities === null
+              ? null
+              : Object.fromEntries(
+                  Object.entries(quantities).sort(([a], [b]) => a.localeCompare(b)),
+                ),
+        };
+      })
+      .sort((a, b) => String(a.id ?? "").localeCompare(String(b.id ?? ""))),
+    seriesPeriods: byIdentity(row["seriesPeriods"], VC_SERIES_PERIOD_FIELDS),
+    realizedEvents: byIdentity(row["realizedEvents"], VC_REALIZED_EVENT_FIELDS),
+    billOnRealization: row["billOnRealization"] ?? null,
+  };
+}
+
+/**
+ * Phase 9G-R3. The recognition conclusion for a performance obligation now
+ * includes the progressive facts that can change it: how control transfers,
+ * how progress is measured, the denominator it is measured against, and the
+ * accountant-owned actual progress. Progress events are projected by identity.
+ */
+function poRecognitionProjection(row: Row): Row {
+  return {
+    ...pick(row, PO_RECOGNITION_FIELDS),
+    progressEvents: byIdentity(row["progressEvents"], PO_PROGRESS_EVENT_FIELDS),
   };
 }
 
