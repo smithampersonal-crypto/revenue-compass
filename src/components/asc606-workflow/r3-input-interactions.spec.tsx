@@ -414,3 +414,28 @@ describe("nextId and nextSeq never collide with an existing row", () => {
     expect(nextSeq([{ seq: 3 }, { seq: 1 }])).toBe(4);
   });
 });
+
+/* ------------------------------- Step 3 allocation treatment truthfulness */
+
+describe("Step 3 shows an estimated component's stored allocation treatment", () => {
+  it("renders a series-period credit as series period, not as general", () => {
+    const state = mount(Step3TransactionPrice, onlyVc("vc-sla"));
+    const select = screen.getByLabelText("Allocation treatment") as HTMLSelectElement;
+
+    // The stored conclusion is allocation to the distinct service period.
+    expect(select.value).toBe("specific_series_period");
+    expect([...select.options].map((option) => option.value)).toEqual([
+      "general",
+      "specific_po",
+      "specific_series_period",
+    ]);
+    // Merely displaying the component never rewrites the stored treatment.
+    expect(state.draft.variableConsiderationComponents[0]!.allocationTreatment).toBe(
+      "specific_series_period",
+    );
+
+    // The accountant can still move it to general allocation deliberately.
+    fireEvent.change(select, { target: { value: "general" } });
+    expect(state.draft.variableConsiderationComponents[0]!.allocationTreatment).toBe("general");
+  });
+});
