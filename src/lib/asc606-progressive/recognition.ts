@@ -29,10 +29,7 @@ import {
   type RevenueScheduleRowByPo,
 } from "@/lib/asc606";
 
-import {
-  recognizeDynamicUnit,
-  type DynamicChange,
-} from "@/lib/asc606-variable-consideration";
+import { recognizeDynamicUnit, type DynamicChange } from "@/lib/asc606-variable-consideration";
 
 import {
   mergeCalculationState,

@@ -501,7 +501,11 @@ export function buildVcLayers(
   }
 
   datedChanges.sort((a, b) =>
-    a.effectiveDate === b.effectiveDate ? a.id.localeCompare(b.id) : a.effectiveDate < b.effectiveDate ? -1 : 1,
+    a.effectiveDate === b.effectiveDate
+      ? a.id.localeCompare(b.id)
+      : a.effectiveDate < b.effectiveDate
+        ? -1
+        : 1,
   );
 
   const transactionPriceEffectCents = sumCents([

@@ -14,10 +14,7 @@
  * Pure TypeScript: no React, DOM, network, database or AI dependency.
  */
 
-import {
-  allocateSignedAmount,
-  type DynamicChange,
-} from "@/lib/asc606-variable-consideration";
+import { allocateSignedAmount, type DynamicChange } from "@/lib/asc606-variable-consideration";
 
 import { sumCents, type AllocationRow, type Cents } from "@/lib/asc606";
 
@@ -223,7 +220,11 @@ export function analyzeProgressiveContract(
     for (const row of rows) {
       if (row.amountCents === 0) continue;
       const list = changesByPo.get(row.poId) ?? [];
-      list.push({ id: `${change.id}:${row.poId}`, date: change.effectiveDate, amountCents: row.amountCents });
+      list.push({
+        id: `${change.id}:${row.poId}`,
+        date: change.effectiveDate,
+        amountCents: row.amountCents,
+      });
       changesByPo.set(row.poId, list);
       changeTotalByPo.set(
         row.poId,

@@ -250,10 +250,16 @@ function allocatedFor(workflow: ReturnType<typeof analyzeWorkflow>, poId: string
 
 describe("R3: the full dated variable-consideration lifecycle", () => {
   it("routes a contract carrying an R3 usage fact through the progressive engine", () => {
-    expect(draftRequiresProgressive(draftWith(estimatedComponent({
-      treatment: "general",
-      inception: "12,000.00",
-    })))).toBe(true);
+    expect(
+      draftRequiresProgressive(
+        draftWith(
+          estimatedComponent({
+            treatment: "general",
+            inception: "12,000.00",
+          }),
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("keeps every dated assessment of a specific-PO component distinct", () => {

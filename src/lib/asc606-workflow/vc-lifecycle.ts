@@ -43,8 +43,7 @@ export interface EstimatedLifecycleOutcome {
 export function usesAcceptedLifecycle(component: VcComponentDraft): boolean {
   return (
     component.treatment === "estimated" &&
-    (component.allocationTreatment === "general" ||
-      component.allocationTreatment === "specific_po")
+    (component.allocationTreatment === "general" || component.allocationTreatment === "specific_po")
   );
 }
 
