@@ -13,16 +13,12 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  createVcComponentDraft,
-  createVcMeterDraft,
-  type VcComponentDraft,
-  type WorkflowDraft,
-} from "@/lib/asc606-workflow";
+import type { WorkflowDraft } from "@/lib/asc606-workflow";
 import {
   genomixR3Draft,
   withRealizedCredit,
   withSupportHours,
+  withUsageActual,
   withValidationTransfer,
 } from "@/lib/asc606-workflow/__tests__/genomix-r3-fixture";
 
@@ -38,36 +34,11 @@ import {
 } from "../review-state";
 
 const USAGE_ID = "vc-usage";
-const METER_ID = `${USAGE_ID}-m1`;
+const METER_ID = "m-samples";
 
-/** The Genomix draft plus a usage component, so meter facts are exercised too. */
+/** The canonical Genomix draft with one month of real Tier 2 usage recorded. */
 function draftWithUsage(): WorkflowDraft {
-  const base = genomixR3Draft();
-  const usage: VcComponentDraft = {
-    ...createVcComponentDraft(2, USAGE_ID, "usage_as_incurred"),
-    description: "Tier 2 analysis usage",
-    allocationTreatment: "specific_po",
-    targetPoId: "po-hosted",
-    relatesSpecifically: true,
-    consistentWithAllocationObjective: true,
-    allocationRationale: "Usage relates specifically to the hosted platform.",
-    billOnRealization: true,
-    meters: [
-      {
-        ...createVcMeterDraft(1, METER_ID),
-        name: "Tier 2 analyses",
-        rateAmountInput: "4.00",
-        rateQuantityInput: "1",
-        unit: "analyses",
-        includedQuantityInput: "1000",
-      },
-    ],
-    usagePeriods: [{ id: `${USAGE_ID}-p1`, month: "2027-02", quantities: { [METER_ID]: "1500" } }],
-  };
-  return {
-    ...base,
-    variableConsiderationComponents: [...base.variableConsiderationComponents, usage],
-  };
+  return withUsageActual(genomixR3Draft(), "2027-02", "1500");
 }
 
 /**
