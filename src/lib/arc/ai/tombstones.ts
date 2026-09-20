@@ -92,7 +92,7 @@ function readRecord(value: unknown): AiTombstoneIdentity | null {
   const kind = record["kind"];
   const signature = record["signature"];
   if (typeof semanticKey !== "string" || semanticKey === "") return null;
-  if (typeof kind !== "string" || !KINDS.includes(kind as AiIdentityKind)) return null;
+  if (typeof kind !== "string" || !KINDS.includes(kind as AiTombstoneKind)) return null;
   if (signature === null || typeof signature !== "object") return null;
   const gate = (signature as Record<string, unknown>)["gate"];
   const corroborators = (signature as Record<string, unknown>)["corroborators"];
@@ -102,7 +102,7 @@ function readRecord(value: unknown): AiTombstoneIdentity | null {
     : [];
   return {
     semanticKey,
-    kind: kind as AiIdentityKind,
+    kind: kind as AiTombstoneKind,
     signature: {
       gate,
       corroborators: corroborators.map((entry) => (typeof entry === "string" ? entry : null)),
