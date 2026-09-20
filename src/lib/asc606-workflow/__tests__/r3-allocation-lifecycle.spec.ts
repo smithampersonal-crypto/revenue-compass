@@ -176,7 +176,7 @@ function draftWith(...components: VcComponentDraft[]): WorkflowDraft {
     })),
     performanceObligations: pos,
     hasVariableConsideration: true,
-    variableConsiderationComponents: [component, usageTrigger()],
+    variableConsiderationComponents: [...components, usageTrigger()],
     contractBalances: {
       ...base.contractBalances,
       considerationEvents: [
