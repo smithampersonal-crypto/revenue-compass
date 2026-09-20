@@ -279,10 +279,9 @@ describe("an ambiguous pairing is fail-closed", () => {
     expect(incumbent?.canonicalId).toBe(
       run.first.aiState.objectProvenance[RUN1.supportPromise]!.canonicalId,
     );
-    for (const issue of contested) {
-      const key = issue.value as string;
-      expect(run.second.aiState.objectProvenance[key]).toBeUndefined();
-    }
+    // The contested run-2 aliases own nothing at all.
+    expect(run.second.aiState.objectProvenance[RUN2.supportPromise]).toBeUndefined();
+    expect(run.second.aiState.objectProvenance[RUN2.slaPromise]).toBeUndefined();
   });
 
   it("changes no monetary ownership while the ambiguity stands", () => {
