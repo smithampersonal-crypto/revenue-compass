@@ -223,6 +223,11 @@ export function Step5Recognition({
                   const next: PoDraft = { ...po };
                   if (value === "") delete next.transferStatus;
                   else next.transferStatus = value as "transferred" | "not_yet_transferred";
+                  // A deliberate move to "not yet transferred" removes any date
+                  // previously entered: the date input disappears with it, so a
+                  // retained date would be a contradiction the accountant can
+                  // no longer see or correct. Moving back never invents one.
+                  if (value === "not_yet_transferred") next.recognitionDate = "";
                   onChange({
                     ...draft,
                     performanceObligations: pos.map((row) => (row.id === po.id ? next : row)),

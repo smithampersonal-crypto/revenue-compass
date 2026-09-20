@@ -1,6 +1,7 @@
 import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
+  draftRequiresProgressive,
   nextId,
   nextSeq,
   variableConsiderationPreview,
@@ -18,6 +19,13 @@ const buttonClass =
 /**
  * Step 5 variable-consideration controls: usage actuals and resolution are
  * accountant inputs; every amount displayed here is produced by the engine.
+ *
+ * Phase 9G-R3: when the contract is routed through the progressive authority,
+ * this section is purely an input editor. The legacy Phase 5B presentation
+ * preview does not own R3 treatments (a specific-series-period estimate, for
+ * one), so consulting it here would surface a conclusion that contradicts the
+ * single authority. Progressive accounting is presented by ProgressiveOutputs,
+ * which reads analyzeWorkflow(). Non-progressive contracts are untouched.
  */
 export function Step5VariableConsideration({
   draft,
@@ -29,7 +37,10 @@ export function Step5VariableConsideration({
   const components = draft.variableConsiderationComponents;
   if (!draft.hasVariableConsideration || components.length === 0) return null;
 
-  const preview = variableConsiderationPreview(draft);
+  const routedThroughProgressive = draftRequiresProgressive(draft);
+  const preview = routedThroughProgressive
+    ? { analysis: null, errors: [] as string[] }
+    : variableConsiderationPreview(draft);
   const analysis = preview.analysis;
 
   const patch = (id: string, values: Partial<VcComponentDraft>) =>
