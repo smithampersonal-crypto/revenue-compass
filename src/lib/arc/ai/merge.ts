@@ -598,14 +598,48 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const deletedSemanticKeys: string[] = [];
 
+  const KIND_ID_PREFIX = {
+    promise: "pr-",
+    performance_obligation: "po-",
+    variable_component: "vc-",
+  } as const;
+
+  function kindOfCanonicalId(canonicalId: string): AiIdentityKind | null {
+    for (const [kind, prefix] of Object.entries(KIND_ID_PREFIX)) {
+      if (canonicalId.startsWith(prefix)) return kind as AiIdentityKind;
+    }
+    return null;
+  }
+
+  /**
+   * Records the identity of a deleted object so a LATER run that renames the
+   * same economic object is still suppressed. Without it a tombstone would
+   * only suppress the ephemeral alias the model happened to use that day.
+   */
+  function rememberTombstone(semanticKey: string, provenance: AiObjectProvenance): void {
+    const aliases = [...new Set([semanticKey, ...(provenance.previousSemanticKeys ?? [])])];
+    for (const alias of aliases) tombstones.add(alias);
+    const signature = provenance.identitySignature;
+    const kind = kindOfCanonicalId(provenance.canonicalId);
+    if (signature === undefined || kind === null) return;
+    const existing = tombstoneIdentities.find((entry) =>
+      entry.aliases.some((alias) => aliases.includes(alias)),
+    );
+    if (existing !== undefined) {
+      existing.aliases = [...new Set([...existing.aliases, ...aliases])].sort();
+      return;
+    }
+    tombstoneIdentities.push({ semanticKey, kind, signature, aliases: aliases.sort() });
+  }
+
   /**
    * Any previously AI-created object whose canonical row is gone was deleted by
    * the user. It is tombstoned and never recreated, even when the model
-   * proposes the same semantic object again.
+   * proposes the same semantic object again — under any name.
    */
   for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
     if (!takenIds.has(provenance.canonicalId)) {
-      tombstones.add(semanticKey);
+      rememberTombstone(semanticKey, provenance);
       deletedSemanticKeys.push(semanticKey);
       delete objectProvenance[semanticKey];
     }
