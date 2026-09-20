@@ -134,7 +134,7 @@ function penaltyComponent(options: PenaltyOptions): VcComponentDraft {
 }
 
 
-function draftWith(component: VcComponentDraft): WorkflowDraft {
+function draftWith(...components: VcComponentDraft[]): WorkflowDraft {
   const base = answerAllStep1(createEmptyDraft());
   const hosted = {
     ...createPoDraft(1, "po-hosted"),
