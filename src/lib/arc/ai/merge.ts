@@ -216,7 +216,48 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...previousState.objectProvenance,
   };
   const tombstones = new Set(previousState.tombstones);
+  const tombstoneIdentities: AiTombstoneIdentity[] = [
+    ...(previousState.tombstoneIdentities ?? []),
+  ].map((identity) => ({ ...identity, aliases: [...identity.aliases] }));
   const issues: AiReviewItem[] = [];
+
+  /* ----------------------------- legacy sidecar identity backfill (R3) */
+
+  // A sidecar written before Phase 9G-R3 records canonical IDs but no identity
+  // signature. Rather than guess identity from incomplete canonical fields,
+  // ARC recomputes it from the immutable structured output of the run that
+  // created those objects, so the very first run after deployment already
+  // reconciles correctly.
+  if (args.priorAnalysis != null) {
+    const canonicalIdBySemanticKey = (semanticKey: string): string | null =>
+      previousState.objectProvenance[semanticKey]?.canonicalId ?? null;
+    const priorIdentities = priorIdentityIndex(args.priorAnalysis, canonicalIdBySemanticKey);
+
+    for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
+      if (provenance.identitySignature !== undefined) continue;
+      const prior =
+        priorIdentities.get(semanticKey) ??
+        [...(provenance.previousSemanticKeys ?? [])]
+          .map((alias) => priorIdentities.get(alias))
+          .find((entry) => entry !== undefined);
+      if (prior === undefined) continue;
+      objectProvenance[semanticKey] = { ...provenance, identitySignature: prior.signature };
+      previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
+    }
+
+    const identified = new Set(tombstoneIdentities.flatMap((entry) => [...entry.aliases]));
+    for (const semanticKey of [...tombstones].sort()) {
+      if (identified.has(semanticKey)) continue;
+      const prior = priorIdentities.get(semanticKey);
+      if (prior === undefined) continue;
+      tombstoneIdentities.push({
+        semanticKey,
+        kind: prior.kind,
+        signature: prior.signature,
+        aliases: [semanticKey],
+      });
+    }
+  }
 
   const takenIds = new Set<string>([
     ...draft.promises.map((row) => row.id),
