@@ -216,13 +216,7 @@ describe("legacy identity backfill is scoped and fails closed", () => {
       performanceObligations: [],
     } as unknown as AiContractAnalysis;
     expect(() =>
-      merge(
-        driftRun2Analysis(),
-        first.draft,
-        legacySidecar(first.aiState),
-        DRIFT_RUN_2,
-        malformed,
-      ),
+      merge(driftRun2Analysis(), first.draft, legacySidecar(first.aiState), DRIFT_RUN_2, malformed),
     ).toThrow(AiIdentityBackfillError);
     expect(first.draft.performanceObligations).toHaveLength(3);
   });
