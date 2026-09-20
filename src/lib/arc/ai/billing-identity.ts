@@ -167,14 +167,12 @@ export function billingLineages(
       if (!semanticKey.endsWith("#collection")) continue;
       const parsed = parseBillingEventSemanticKey(semanticKey.slice(0, -"#collection".length));
       if (parsed === null) continue;
-      const lineage = lineageOf(parsed.termKey);
-      lineage.collections.set(parsed.period, {
+      // Only an INVOICE may establish schedule identity: a collection is
+      // strictly subordinate and never identifies a schedule on its own.
+      lineageOf(parsed.termKey).collections.set(parsed.period, {
         semanticKey,
         canonicalId: provenance.canonicalId,
       });
-      if (lineage.signature === undefined && provenance.identitySignature !== undefined) {
-        lineage.signature = billingScheduleSignature(provenance.identitySignature);
-      }
     }
   }
 
