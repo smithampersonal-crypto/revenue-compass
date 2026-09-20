@@ -145,10 +145,32 @@ export function createEmptyAiAnalysisState(): AiAnalysisState {
 
 /** Raised when the merged draft is not a structurally valid canonical draft. */
 export class AiMergeError extends Error {
-  readonly code = "merged_draft_invalid";
+  readonly code: string = "merged_draft_invalid";
   constructor(message: string) {
     super(message);
     this.name = "AiMergeError";
+  }
+}
+
+/**
+ * Raised when a live canonical object governed by R3 identity reconciliation
+ * carries no identity signature and none could be recovered from the immutable
+ * structured output of the run that created it.
+ *
+ * ARC fails closed here rather than merging blind: merging blind mints a
+ * duplicate of every renamed object. Nothing is mutated — the merge is pure,
+ * so the accountant's saved draft and sidecar are untouched and the run is
+ * recorded as an application failure.
+ */
+export class AiIdentityBackfillError extends AiMergeError {
+  override readonly code = "identity_backfill_unavailable";
+  readonly semanticKeys: readonly string[];
+  constructor(semanticKeys: readonly string[]) {
+    super(
+      `Re-analysis cannot proceed: ${semanticKeys.length} existing AI object(s) have no recorded identity and the previous AI result is unavailable.`,
+    );
+    this.name = "AiIdentityBackfillError";
+    this.semanticKeys = semanticKeys;
   }
 }
 
