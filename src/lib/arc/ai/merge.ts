@@ -109,7 +109,7 @@ export interface AiObjectProvenance extends AiFieldProvenance {
    * object from the analysis that created it. It lets a later run whose model
    * renamed its own semantic keys reconcile onto the SAME canonical object.
    */
-  identityTiers?: readonly string[];
+  identitySignature?: IdentitySignature;
   /** Earlier model aliases of this same canonical object, oldest first. */
   previousSemanticKeys?: readonly string[];
 }
@@ -121,6 +121,12 @@ export interface AiAnalysisState {
   fieldProvenance: Record<string, AiFieldProvenance>;
   objectProvenance: Record<string, AiObjectProvenance>;
   tombstones: string[];
+  /**
+   * Phase 9G-R3. Deleted-object identity, so a renamed proposal for the same
+   * economic object is still suppressed. Persisted inside the existing
+   * `tombstones` jsonb array; absent on sidecars written before the patch.
+   */
+  tombstoneIdentities?: readonly AiTombstoneIdentity[];
   reviewItems: AiReviewItem[];
 }
 
@@ -132,6 +138,7 @@ export function createEmptyAiAnalysisState(): AiAnalysisState {
     fieldProvenance: {},
     objectProvenance: {},
     tombstones: [],
+    tombstoneIdentities: [],
     reviewItems: [],
   };
 }
