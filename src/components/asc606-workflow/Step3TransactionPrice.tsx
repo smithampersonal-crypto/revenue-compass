@@ -7,6 +7,8 @@ import {
   createVcComponentDraft,
   createVcMeterDraft,
   createVcOutcomeDraft,
+  nextId,
+  nextSeq,
   parseUsdToCents,
   previewVcMeasurement,
   VC_ALLOCATION_TREATMENT_LABELS,
