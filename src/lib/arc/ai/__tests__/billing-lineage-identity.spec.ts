@@ -333,7 +333,18 @@ describe("billing-schedule lineage identity", () => {
 
   it("an unidentifiable legacy schedule blocks instead of duplicating", () => {
     const first = run1();
-    const legacy = legacySidecar(first.aiState);
+    // Only the billing lineage lost its identity: the promise/obligation
+    // hardening has its own fail-closed path and is not under test here.
+    const legacy: AiAnalysisState = {
+      ...first.aiState,
+      objectProvenance: Object.fromEntries(
+        Object.entries(first.aiState.objectProvenance).map(([key, provenance]) => {
+          if (!provenance.canonicalId.startsWith("ce-")) return [key, provenance];
+          const { identitySignature: _dropped, ...rest } = provenance;
+          return [key, rest];
+        }),
+      ),
+    };
     const second = merge(
       withBilling(driftRun2Analysis(), [annualAdvanceTerm(RUN2_BILLING_KEY)]),
       first.draft,
