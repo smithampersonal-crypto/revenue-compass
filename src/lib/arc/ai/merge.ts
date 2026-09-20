@@ -3055,7 +3055,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
       // A projected collection is subordinate to its canonical invoice: it
       // inherits the same schedule identity and is never matched on its own.
-      claimObject(cashSemanticKey, cashId, termSignature);
+      claimObject(cashSemanticKey, cashId, collectionSignature);
     }
   }
 
