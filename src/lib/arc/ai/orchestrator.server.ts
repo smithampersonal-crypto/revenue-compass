@@ -18,8 +18,31 @@ import {
 } from "./request-package.server";
 import type { AiRequestPackage } from "./types";
 
+/** The one bounded diagnostic line. Sanitized upstream; re-bounded here. */
+export function logCitationAnchorDiagnostic(diagnostic: {
+  runId: string;
+  failureCode: string;
+  issues: readonly { issueCode: string; path: string; anchorIds: string[] }[];
+}): void {
+  console.error(
+    JSON.stringify({
+      event: "arc.ai.citation_anchor_failure",
+      runId: diagnostic.runId,
+      failureCode: diagnostic.failureCode,
+      issues: diagnostic.issues.slice(0, 20).map((issue) => ({
+        issueCode: issue.issueCode,
+        path: issue.path.slice(0, 200),
+        anchorIds: issue.anchorIds.slice(0, 3),
+      })),
+    }),
+  );
+}
+
 export async function createExecutionBoundaries(): Promise<
-  Pick<AiExecutionDeps, "buildPackage" | "analyzer" | "releaseBytes">
+  Pick<
+    AiExecutionDeps,
+    "buildPackage" | "analyzer" | "releaseBytes" | "onCitationAnchorDiagnostic"
+  >
 > {
   const [
     { loadAuthorizedSelectedSources },
@@ -37,6 +60,7 @@ export async function createExecutionBoundaries(): Promise<
 
   return {
     analyzer,
+    onCitationAnchorDiagnostic: logCitationAnchorDiagnostic,
     releaseBytes: (requestPackage) =>
       releaseRequestSensitivePayload(requestPackage as AiRequestPackage),
     buildPackage: (args) =>
