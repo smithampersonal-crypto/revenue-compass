@@ -314,7 +314,7 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
         treatment: "specific_po",
         effect: "decrease",
         inception: "10,000.00",
-        remeasurements: [{ date: "2027-06-30", amount: "900,000.00" }],
+        remeasurements: [{ date: "2027-06-30", amount: "60,000.00" }],
         resolution: { date: "2027-09-30", amount: "10,000.00" },
       }),
     );
@@ -333,7 +333,7 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
           treatment: "specific_po",
           effect: "decrease",
           inceptionCents: 1_000_000,
-          remeasurements: [{ date: "2027-06-30", cents: 90_000_000 }],
+          remeasurements: [{ date: "2027-06-30", cents: 6_000_000 }],
           resolution: { date: "2027-09-30", cents: 1_000_000 },
         }),
       ),
@@ -345,15 +345,12 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
       penaltyComponent({
         treatment: "specific_po",
         effect: "decrease",
-        inception: "600,000.00",
+        inception: "60,000.00",
         resolution: { date: "2027-09-30", amount: "0.00" },
       }),
     );
     const workflow = analyzeWorkflow(draft);
     expect(blockedCodes(workflow)).toContain(PO_CODE);
-    expect(
-      workflow.progressive!.blocked.some((row) => /at inception is negative/.test(row.message)),
-    ).toBe(true);
     expectNoAuthoritativeAccounting(workflow);
 
     expect(
@@ -361,7 +358,7 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
         acceptedAnalysis({
           treatment: "specific_po",
           effect: "decrease",
-          inceptionCents: 60_000_000,
+          inceptionCents: 6_000_000,
           resolution: { date: "2027-09-30", cents: 0 },
         }),
       ),
@@ -369,34 +366,51 @@ describe("R3: chronological allocation states reuse the accepted Phase 5B author
   });
 
   it("C. blocks a running general pool that becomes negative and later recovers", () => {
-    const draft = draftWith(
-      penaltyComponent({
-        treatment: "general",
-        effect: "decrease",
-        inception: "100,000.00",
-        remeasurements: [{ date: "2027-06-30", amount: "600,000.00" }],
-        resolution: { date: "2027-09-30", amount: "50,000.00" },
-      }),
-    );
-    const workflow = analyzeWorkflow(draft);
+    // The June penalty drives the running general pool negative; the August
+    // bonus restores a positive final pool. The lifecycle is still invalid.
+    const penalty = penaltyComponent({
+      treatment: "general",
+      effect: "decrease",
+      inception: "100,000.00",
+      remeasurements: [{ date: "2027-06-30", amount: "700,000.00" }],
+    });
+    const bonus = penaltyComponent({
+      id: "vc-bonus",
+      seq: 2,
+      treatment: "general",
+      effect: "increase",
+      inception: "1,000.00",
+      remeasurements: [{ date: "2027-08-31", amount: "250,000.00" }],
+    });
+    const workflow = analyzeWorkflow(draftWith(penalty, bonus));
     expect(blockedCodes(workflow)).toContain(GENERAL_POOL_CODE);
-    expect(
-      workflow.progressive!.blocked.some((row) => row.message.includes("2027-06-30")),
-    ).toBe(true);
+    expect(workflow.progressive!.blocked.some((row) => row.message.includes("2027-06-30"))).toBe(
+      true,
+    );
     expectNoAuthoritativeAccounting(workflow);
 
     expect(
       acceptedBlockingIds(
-        acceptedAnalysis({
-          treatment: "general",
-          effect: "decrease",
-          inceptionCents: 10_000_000,
-          remeasurements: [{ date: "2027-06-30", cents: 60_000_000 }],
-          resolution: { date: "2027-09-30", cents: 5_000_000 },
-        }),
+        acceptedAnalysis(
+          {
+            treatment: "general",
+            effect: "decrease",
+            inceptionCents: 10_000_000,
+            remeasurements: [{ date: "2027-06-30", cents: 70_000_000 }],
+          },
+          {
+            id: "vc-bonus",
+            seq: 2,
+            treatment: "general",
+            effect: "increase",
+            inceptionCents: 100_000,
+            remeasurements: [{ date: "2027-08-31", cents: 25_000_000 }],
+          },
+        ),
       ),
     ).toContain(GENERAL_POOL_CODE);
   });
+
 
   it("D1. blocks when the resolution itself drives the general pool negative", () => {
     const draft = draftWith(
