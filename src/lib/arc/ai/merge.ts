@@ -1200,14 +1200,16 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     // Phase 9G-R3 L. The over-time MEASURE is its own AI-owned canonical fact,
     // merged through the same provenance machinery: an accountant-owned measure
     // is preserved, never silently overwritten by a later re-analysis.
-    if (mapping.overTimeMeasure !== undefined) {
-      mergeScalar<PoDraft["overTimeMeasure"]>({
+    const proposedMeasure = mapping.overTimeMeasure;
+    if (proposedMeasure !== undefined) {
+      mergeScalar<"time_based" | "input_measure" | undefined>({
         key: fieldKeys.po(canonicalId, "overTimeMeasure"),
         semanticKey: proposal.performanceObligationKey,
         current: current().overTimeMeasure,
-        proposed: mapping.overTimeMeasure,
+        proposed: proposedMeasure,
         unclaimed: current().overTimeMeasure === undefined,
-        apply: (value) => update({ overTimeMeasure: value }),
+        apply: (value) =>
+          value === undefined ? undefined : update({ overTimeMeasure: value }),
         section,
         guidanceIds: proposal.guidanceIds,
         citations: proposal.citations,
