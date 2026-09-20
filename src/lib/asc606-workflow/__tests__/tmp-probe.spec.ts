@@ -1,28 +1,44 @@
 import { describe, expect, it } from "vitest";
 import { analyzeWorkflow } from "../analysis";
-import { genomixR3Draft, withUsageActual } from "./genomix-r3-fixture";
+import { buildFinalizationSnapshot, buildWorkpaper } from "@/lib/arc/persistence/snapshot";
+import {
+  genomixR3Draft,
+  withRealizedCredit,
+  withSupportHours,
+  withUsageActual,
+  withValidationTransfer,
+} from "./genomix-r3-fixture";
+import type { WorkflowDraft } from "../types";
+
+function resolved(): WorkflowDraft {
+  let d = withValidationTransfer(genomixR3Draft(), "2027-03-15");
+  d = withSupportHours(d, [
+    { id: "po-support-pe-1", seq: 1, date: "2027-01-31", unitsInput: "150" },
+    { id: "po-support-pe-2", seq: 2, date: "2028-10-31", unitsInput: "150" },
+  ]);
+  d = withUsageActual(d, "2027-02", "500");
+  d = withRealizedCredit(d, "1,500.00", "y1", "2027-04-30");
+  return d;
+}
 
 describe("probe", () => {
-  it("inception", () => {
-    const r = analyzeWorkflow(genomixR3Draft());
-    console.log("adapterErrors", r.adapterErrors);
-    console.log("blockedReason", r.blockedReason);
-    console.log("progressiveBlocked", JSON.stringify(r.progressiveBlocked, null, 1));
-    console.log("allocation", JSON.stringify(r.progressive?.allocation));
-    console.log("state", r.progressive?.state);
-    console.log("usageAmounts", JSON.stringify(r.progressive?.usageAmounts));
-    console.log("billing", JSON.stringify(r.progressive?.billing)?.slice(0, 1200));
-    console.log("journals?", r.progressive?.journals !== null);
-    console.log("balances?", r.progressive?.balances !== null);
-    console.log("recognition total", r.progressive?.recognition?.schedule.totalCents);
-    console.log("gate", JSON.stringify(r.progressiveGate));
-    expect(true).toBe(true);
-  });
-  it("usage", () => {
-    const r = analyzeWorkflow(withUsageActual(genomixR3Draft(), "2027-02", "500"));
-    console.log("U blocked", r.blockedReason, JSON.stringify(r.progressiveBlocked));
-    console.log("U usageAmounts", JSON.stringify(r.progressive?.usageAmounts));
-    console.log("U total", r.progressive?.recognition?.schedule.totalCents);
+  it("resolved", () => {
+    const d = resolved();
+    const r = analyzeWorkflow(d);
+    console.log("state", r.progressive?.state, "finalized", r.finalized, r.blockedReason);
+    console.log("blocked", JSON.stringify(r.progressiveBlocked));
+    console.log("recon", JSON.stringify(r.progressive?.reconciliation));
+    console.log("billing state", r.progressive?.billing?.state);
+    console.log("billing pending", JSON.stringify(r.progressive?.billing?.pendingRules));
+    console.log("billing events", JSON.stringify(r.progressive?.billing?.events));
+    const wp = buildWorkpaper(d);
+    console.log("balances finalized", wp.balances.finalized);
+    console.log(
+      "balance blocking",
+      JSON.stringify(wp.balances.validation?.blocking?.map((i: { message: string }) => i.message)),
+    );
+    const snap = buildFinalizationSnapshot(d);
+    console.log("snapshot ok", snap.ok, JSON.stringify(snap.ok ? "ok" : snap.issues));
     expect(true).toBe(true);
   });
 });
