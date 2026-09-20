@@ -1471,3 +1471,11 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - [x] Preserve fail-closed materialization, `anchor_range_reversed`, diagnostic logging, quotas, and all frozen R3 accounting behavior.
 - [ ] Complete full repository verification, hosted configuration check, GitHub job confirmation, and final ZIP checksum.
 - ZIP sha256 92ed5870b2e7a26108f43f50f067688d20715197da0d6f0a93ba78e8228781a6
+
+## Phase 9G-R3 L — Step 2 grouping-stability correction (prompt v8)
+- [x] Add the Step 2 rule: a separately priced volume/capacity/tier/quota/entitlement/usage allowance is not automatically its own performance obligation; group it with the underlying service unless it transfers an additional distinct good or service.
+- [x] Add the matching provisional-SSP rule: a grouped separately stated entitlement amount belongs in the underlying PO's provisional SSP, not a separate SSP item.
+- [x] Advance new-run prompt provenance to `arc.ai.prompt.v8`; retain `arc.ai.schema.v5`.
+- [x] Production-boundary regression proving all four rule elements plus the retained v7 anchor-enumeration rule.
+- [x] No schema, adapter, engine, VC-allocation, Guidance Card, retry or citation-materialization change; no live Terra call.
+- [x] Gate: 180 files / 2381 tests, typecheck, lint (0 errors), production build, bundle audit green.

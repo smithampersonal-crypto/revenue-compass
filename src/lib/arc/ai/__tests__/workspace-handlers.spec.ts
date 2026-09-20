@@ -173,7 +173,7 @@ function fixture(
         userMonthlyRunLimit: 10,
         model: "gpt-5.6-terra",
         reasoningEffort: "high",
-        promptVersion: "arc.ai.prompt.v7",
+        promptVersion: "arc.ai.prompt.v8",
         outputSchemaVersion: "arc.ai.schema.v5",
         guidanceRegistryHash: "hash",
       },

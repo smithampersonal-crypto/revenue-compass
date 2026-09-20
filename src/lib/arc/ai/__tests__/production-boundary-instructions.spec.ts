@@ -79,7 +79,7 @@ describe("production execution boundary instructions", () => {
       expect(instructions).toContain(heading);
     }
     expect(instructions).toContain(`promptVersion: ${AI_LIMITS.promptVersion}`);
-    expect(instructions).toContain("promptVersion: arc.ai.prompt.v7");
+    expect(instructions).toContain("promptVersion: arc.ai.prompt.v8");
     expect(instructions).toContain(`outputSchemaVersion: ${AI_LIMITS.outputSchemaVersion}`);
     expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v5");
 
@@ -101,6 +101,43 @@ describe("production execution boundary instructions", () => {
     // The legacy fallback preamble must not be what production sends.
     expect(instructions).not.toContain(
       "You are analyzing contract PDFs supplied by ARC (Ayden's Revenue Compass).",
+    );
+  });
+
+  it("carries the v8 Step 2 grouping rule for priced capacity and usage entitlements", async () => {
+    const request = await productionCanonicalRequest();
+    const instructions = request["instructions"] as string;
+
+    // A separately priced line is not automatically its own obligation.
+    expect(instructions).toContain(
+      "Do not create a separate performance obligation merely because a contract separately prices or labels a volume, capacity, tier, quota, entitlement, or usage allowance",
+    );
+    expect(instructions).toContain(
+      "A separately stated price does not by itself establish a separate performance obligation.",
+    );
+
+    // The affirmative decision rule: additional transferred service versus a
+    // quantity/capacity/access attribute of the underlying service.
+    expect(instructions).toContain(
+      "whether it transfers an additional good or service independently from the underlying service, or merely defines the quantity, capacity, access level, or included usage of that underlying service",
+    );
+    expect(instructions).toContain(
+      "group it with the underlying service rather than creating a separate performance obligation",
+    );
+
+    // Grouped entitlement pricing belongs in the underlying PO's provisional SSP.
+    expect(instructions).toContain(
+      "include that amount in the provisional SSP of the underlying performance obligation rather than creating a separate SSP item",
+    );
+
+    // Combination is never hard-coded: genuine evidence can still separate.
+    expect(instructions).toContain(
+      "When the evidence does show that such an item transfers an additional distinct good or service, conclude it is a separate performance obligation",
+    );
+
+    // The v7 anchor-enumeration rule survives the v8 bump.
+    expect(instructions).toContain(
+      "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
     );
   });
 
