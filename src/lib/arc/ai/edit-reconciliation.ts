@@ -236,7 +236,32 @@ function pick(row: Row, fields: readonly string[]): Row {
 
 const VC_OUTCOME_FIELDS = ["description", "amountInput", "probabilityInput", "isMostLikely"];
 const VC_ASSESSMENT_FIELDS = ["effectiveDate", "includedInput", "constraintRationale", "evidence"];
-const VC_METER_FIELDS = ["name", "rateAmountInput", "rateQuantityInput", "unit"];
+// Phase 9G-R3. A meter's tier threshold is a material pricing fact, and the
+// meter's own stable identity is part of the conclusion: removing a meter and
+// re-adding it under a new identity is a real accounting change.
+const VC_METER_FIELDS = [
+  "id",
+  "name",
+  "rateAmountInput",
+  "rateQuantityInput",
+  "unit",
+  "includedQuantityInput",
+];
+const VC_SERIES_PERIOD_FIELDS = ["id", "label", "startDate", "endDate"];
+const VC_REALIZED_EVENT_FIELDS = ["id", "date", "amountInput", "seriesPeriodId", "description"];
+const PO_PROGRESS_EVENT_FIELDS = ["id", "date", "unitsInput"];
+
+/**
+ * Nested rows are projected BY IDENTITY, never by array position: the rows are
+ * sorted by their stable id so a harmless reorder cannot reopen a review, while
+ * adding, deleting or materially changing a row always does.
+ */
+function byIdentity(value: unknown, fields: readonly string[]): Row[] {
+  const rows = Array.isArray(value) ? (value as unknown[]) : [];
+  return rows
+    .map((row) => pick((row ?? {}) as Row, fields))
+    .sort((a, b) => String(a["id"] ?? "").localeCompare(String(b["id"] ?? "")));
+}
 const MODIFIED_PO_FIELDS = [
   "name",
   "status",
