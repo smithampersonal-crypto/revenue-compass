@@ -63,6 +63,12 @@ const pages = buildCitationAnchorPages(evidence);
 const page1 = pages[0]!.anchors;
 const page2 = pages[1]!.anchors;
 
+/** A page long enough to expose selections beyond the allowed maximum. */
+const wideEvidence: AiDocumentEvidence[] = [
+  { ...evidence[0]!, pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }], pageCount: 1 } as AiDocumentEvidence,
+];
+const widePage = buildCitationAnchorPages(wideEvidence)[0]!.anchors;
+
 const PATH = "contractAssessment.commercialSubstance.citations[0]";
 
 function analysisWith(citation: Record<string, unknown>): Record<string, unknown> {
@@ -161,8 +167,13 @@ describe("every anchor failure class still fails closed", () => {
   });
 
   it("anchor_range_too_large: more ids than the provider maximum", () => {
-    const ids = page1.slice(0, CITATION_ANCHOR_MAX_RANGE + 1).map((anchor) => anchor.anchorId);
-    const issue = expectFailure(citation({ anchorIds: ids }), "anchor_range_too_large");
+    const ids = widePage.slice(0, CITATION_ANCHOR_MAX_RANGE + 1).map((anchor) => anchor.anchorId);
+    expect(ids).toHaveLength(CITATION_ANCHOR_MAX_RANGE + 1);
+    const issue = expectFailure(
+      citation({ anchorIds: ids }),
+      "anchor_range_too_large",
+      wideEvidence,
+    );
     // Reported ids stay bounded to the provider maximum.
     expect(issue.anchorIds).toHaveLength(CITATION_ANCHOR_MAX_RANGE);
   });
