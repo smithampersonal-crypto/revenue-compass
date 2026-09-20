@@ -500,10 +500,17 @@ export function buildVcLayers(
     });
   }
 
+  datedChanges.sort((a, b) =>
+    a.effectiveDate === b.effectiveDate ? a.id.localeCompare(b.id) : a.effectiveDate < b.effectiveDate ? -1 : 1,
+  );
+
   const transactionPriceEffectCents = sumCents([
     generalPool,
     ...specificPo.map((row) => row.amountCents),
     ...seriesPeriod.map((row) => row.amountCents),
+    // Every dated change, including a resolution, moves the transaction price
+    // on its own date; the current price is inception plus every change.
+    ...datedChanges.map((change) => change.changeCents),
     ...states
       .filter((state) => state.treatment === "specific_series_period")
       .map((state) => state.pendingSignedCents),
@@ -520,6 +527,7 @@ export function buildVcLayers(
     components: states,
     pending,
     pendingByPo,
+    datedChanges,
     blocked,
     transactionPriceEffectCents,
   };
