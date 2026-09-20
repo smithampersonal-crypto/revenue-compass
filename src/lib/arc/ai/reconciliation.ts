@@ -118,7 +118,7 @@ export function evidenceSignature(citations: readonly AiCitation[]): string | nu
     .join("|");
 }
 
-function textSignature(value: string | null | undefined): string | null {
+export function textSignature(value: string | null | undefined): string | null {
   const text = normalizedText(value ?? "");
   return text === "" ? null : text;
 }
