@@ -1197,6 +1197,25 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: proposal.reviewState,
       label: "Recognition method",
     });
+    // Phase 9G-R3 L. The over-time MEASURE is its own AI-owned canonical fact,
+    // merged through the same provenance machinery: an accountant-owned measure
+    // is preserved, never silently overwritten by a later re-analysis.
+    const proposedMeasure = mapping.overTimeMeasure;
+    if (proposedMeasure !== undefined) {
+      mergeScalar<"time_based" | "input_measure" | undefined>({
+        key: fieldKeys.po(canonicalId, "overTimeMeasure"),
+        semanticKey: proposal.performanceObligationKey,
+        current: current().overTimeMeasure,
+        proposed: proposedMeasure,
+        unclaimed: current().overTimeMeasure === undefined,
+        apply: (value) => (value === undefined ? undefined : update({ overTimeMeasure: value })),
+        section,
+        guidanceIds: proposal.guidanceIds,
+        citations: proposal.citations,
+        aiReviewState: proposal.reviewState,
+        label: "Measure of progress",
+      });
+    }
     // The rationale and the AI-derived service dates explain the AI method.
     // If the accountant owns the method, none of them may be attached to it.
     const methodIsAiOwned =
@@ -1217,7 +1236,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    if (mapping.method === "over_time_ratable") {
+    // An input-measure obligation is measured by units incurred, not by a
+    // calendar period, so no service period is demanded of it here.
+    const usesInputMeasure = current().overTimeMeasure === "input_measure";
+    if (mapping.method === "over_time_ratable" && !usesInputMeasure) {
       const start = parseIsoDate(proposal.serviceStartDate);
       const end = parseIsoDate(proposal.serviceEndDate);
       if (start !== null && end !== null && methodIsAiOwned) {
@@ -1260,7 +1282,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           blocking: true,
         });
       }
-    } else {
+    } else if (mapping.method === "point_in_time") {
       const date = parseIsoDate(proposal.recognitionDateIfContractuallyDeterminable);
       if (date !== null && methodIsAiOwned) {
         mergeText({

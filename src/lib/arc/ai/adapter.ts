@@ -104,19 +104,33 @@ export function usableAmount(value: string | null | undefined): string | null {
 /* ------------------------------------------------------------- recognition */
 
 export type RecognitionMapping =
-  | { supported: true; method: RecognitionMethod }
+  | {
+      supported: true;
+      method: RecognitionMethod;
+      overTimeMeasure?: "time_based" | "input_measure";
+    }
   | { supported: false; reason: "engine_support_gap" | "unknown" };
 
 /**
- * Only the two recognition methods ARC v1's engine actually executes are
- * mapped. `input_method` and `output_method` are NEVER silently coerced to
- * ratable over-time — that would be ARC inventing an accounting policy.
+ * `recognitionMethod` is the canonical TOP-LEVEL over-time / point-in-time
+ * classification; `overTimeMeasure` carries the measurement policy underneath
+ * it. Under R3 the deterministic engine measures progress either by time or by
+ * inputs incurred, so `input_method` is a supported treatment: it maps to the
+ * over-time classification WITH an input measure, which the R3 adapter turns
+ * into `over_time_input_measure`. It is never ratable recognition in disguise.
+ * `output_method` has no deterministic measure yet and stays fail-closed
+ * unsupported; `unknown` stays unknown.
  */
 export function mapRecognitionMethod(
   method:
     "ratable_over_time" | "input_method" | "output_method" | "point_in_time_transfer" | "unknown",
 ): RecognitionMapping {
-  if (method === "ratable_over_time") return { supported: true, method: "over_time_ratable" };
+  if (method === "ratable_over_time") {
+    return { supported: true, method: "over_time_ratable", overTimeMeasure: "time_based" };
+  }
+  if (method === "input_method") {
+    return { supported: true, method: "over_time_ratable", overTimeMeasure: "input_measure" };
+  }
   if (method === "point_in_time_transfer") return { supported: true, method: "point_in_time" };
   if (method === "unknown") return { supported: false, reason: "unknown" };
   return { supported: false, reason: "engine_support_gap" };

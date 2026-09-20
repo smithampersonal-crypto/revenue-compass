@@ -1479,3 +1479,10 @@ unchanged. R4 NOT STARTED. R3 is not self-accepted.
 - [x] Production-boundary regression proving all four rule elements plus the retained v7 anchor-enumeration rule.
 - [x] No schema, adapter, engine, VC-allocation, Guidance Card, retry or citation-materialization change; no live Terra call.
 - [x] Gate: 180 files / 2381 tests, typecheck, lint (0 errors), production build, bundle audit green.
+
+## Phase 9G-R3 L — Checkpoint 3 input-method cure (deterministic adapter + Step 5 UI)
+- [x] `mapRecognitionMethod` now carries the over-time measure: `ratable_over_time` -> `over_time_ratable`/`time_based`; `input_method` -> `over_time_ratable`/`input_measure`; `point_in_time_transfer` -> `point_in_time`; `output_method` fail-closed unsupported; `unknown` unknown. Stale comments replaced.
+- [x] Merge writes `overTimeMeasure` as its own AI-owned canonical field via `fieldKeys.po(id, "overTimeMeasure")` through `mergeScalar`; accountant-owned measures are preserved; an input-measure proposal no longer raises `unsupported_recognition_method`; an input-measure PO is not asked for a service period.
+- [x] Step 5 primary dropdown presents the classification only ("Over time" / "Point in time"); the existing measure-of-progress selector and the denominator / unit label / progress-event controls are reachable.
+- [x] No prompt (v8), schema (v5), persistence schema, recognition enum, engine, VC or database change. No Terra call; the current Genomix draft is untouched.
+- [x] Gate: 181 files / 2,392 tests, typecheck, lint (0 errors, 11 pre-existing warnings), production build green.

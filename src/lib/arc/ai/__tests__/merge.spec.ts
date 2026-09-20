@@ -89,6 +89,8 @@ function manualEquivalent(): WorkflowDraft {
         sspInput: "120000",
         sspBasis: "Observable standalone renewal pricing.",
         recognitionMethod: "over_time_ratable",
+        // The accountant's equivalent choice: over time, measured by time.
+        overTimeMeasure: "time_based",
         serviceStart: "2027-01-01",
         serviceEnd: "2027-12-31",
         recognitionRationale: "Customer simultaneously receives and consumes the hosted service.",
