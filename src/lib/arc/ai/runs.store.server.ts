@@ -12,7 +12,7 @@
 
 import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
 
-import { identityBackfillRequired } from "./identity-backfill";
+import { priorAnalysisRequired } from "./identity-backfill";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { toPersistedAiState } from "./state-serialization";
 import { normalizePersistedReviewItems } from "./review-normalization";
@@ -304,7 +304,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         // Scoped to the canonical kinds R3 identity actually governs: billing,
         // cash and modification provenance never carry a signature, and
         // counting them would fetch the prior result on every run forever.
-        if (!identityBackfillRequired(aiState.objectProvenance)) return null;
+        // Phase L: a legacy billing deletion needs the prior result even when
+        // no live billing provenance remains to ask for it.
+        if (!priorAnalysisRequired(aiState)) return null;
         const { data, error } = await supabaseAdmin
           .from("ai_runs")
           .select("result_metadata")
