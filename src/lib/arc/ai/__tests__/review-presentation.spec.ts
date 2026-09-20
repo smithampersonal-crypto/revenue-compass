@@ -146,6 +146,31 @@ describe("Task 7 target presentation registry", () => {
     expect(describeReviewTarget("po:po-saas.sspInput", "step_2").sectionElementId).toBe("step-2");
   });
 
+  it("opens Step 5 for measured usage quantities whatever section filed the item", () => {
+    // Usage actuals are only ever entered in Step 5, so a Step 3 filing must
+    // not open Step 3 and leave the control hidden.
+    const component = describeReviewTarget("vc:vc-usage.usagePeriods", "step_3");
+    expect(component.kind).toBe("exact");
+    expect(component.sectionElementId).toBe("step-5");
+    expect(component.anchorId).toBe(reviewTargetAnchorId("vc:vc-usage.usagePeriods"));
+
+    const row = describeReviewTarget("vc:vc-usage.usagePeriods.vc-usage-p1", "step_3");
+    expect(row.kind).toBe("exact");
+    expect(row.sectionElementId).toBe("step-5");
+    expect(row.anchorId).toBe(reviewTargetAnchorId("vc:vc-usage.usagePeriods.vc-usage-p1"));
+
+    // A different row and a different component never share an anchor.
+    expect(row.anchorId).not.toBe(
+      describeReviewTarget("vc:vc-usage.usagePeriods.vc-usage-p2", "step_3").anchorId,
+    );
+    expect(row.anchorId).not.toBe(
+      describeReviewTarget("vc:vc-other.usagePeriods.vc-usage-p1", "step_3").anchorId,
+    );
+
+    // Other variable-consideration fields keep following the persisted section.
+    expect(describeReviewTarget("vc:vc-usage.treatment", "step_3").sectionElementId).toBe("step-3");
+  });
+
   it("derives a stable DOM anchor that is safe as an id", () => {
     const anchor = reviewTargetAnchorId("po:po-saas.recognitionMethod");
     expect(anchor).toBe(reviewTargetAnchorId("po:po-saas.recognitionMethod"));
