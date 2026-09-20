@@ -194,7 +194,11 @@ export function Step5VariableConsideration({
                 </p>
 
                 {component.usagePeriods.map((period) => (
-                  <div key={period.id} className="grid gap-2 sm:grid-cols-4">
+                  <AiReviewTarget
+                    key={period.id}
+                    targetKey={`vc:${component.id}.usagePeriods.${period.id}`}
+                    className="grid gap-2 sm:grid-cols-4"
+                  >
                     <Field label="Accounting month">
                       <input
                         type="month"
@@ -243,7 +247,7 @@ export function Step5VariableConsideration({
                         Remove month
                       </button>
                     </div>
-                  </div>
+                  </AiReviewTarget>
                 ))}
 
                 <button

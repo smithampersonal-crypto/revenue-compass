@@ -268,6 +268,12 @@ export function describeReviewTarget(
         ? exact(`Variable consideration meter — ${humanize(meter[1]!)}`)
         : fallback();
     }
+    // A review item may name one measured month by its stable persisted row
+    // id. That row renders its own anchor, so navigation reaches the actual
+    // quantity control rather than the component the row belongs to.
+    const usageRow = /^usagePeriods\.([A-Za-z0-9_-]+)$/.exec(field);
+    if (usageRow) return exact("Variable consideration — measured usage month");
+
     return VC_FIELDS.has(field) ? exact(`Variable consideration — ${humanize(field)}`) : fallback();
   }
 
@@ -309,8 +315,15 @@ export function describeReviewTarget(
  * Additional Topics is several accordions, so a modification or a variable
  * consideration target opens its own subtopic. Anything else opens Additional
  * Topics Applied rather than guessing a subtopic.
+ *
+ * Measured usage quantities are an exception that is not a guess: they are
+ * only ever entered in Step 5, whatever guidance section raised the item, so
+ * opening the section the item was filed under would hide the control. The
+ * filed section itself is untouched — it still drives grouping and the
+ * review fingerprint.
  */
 function sectionElementIdFor(targetKey: string, section: GuidanceReviewSection): string {
+  if (/^vc:[^.]+\.usagePeriods(\.|$)/.test(targetKey)) return SECTION_ELEMENT_IDS.step_5;
   if (section !== "additional_topics") return SECTION_ELEMENT_IDS[section];
   if (targetKey.startsWith("modification:") || targetKey === "draft.hasContractModifications") {
     return "topic-modifications";
