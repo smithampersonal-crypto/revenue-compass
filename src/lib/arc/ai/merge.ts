@@ -2984,7 +2984,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
       // The schedule identity is recorded on the derived invoice, so a later
       // run that renames the billing term can still find this lineage.
-      claimObject(eventSemanticKey, eventId, termSignature);
+      claimObject(eventSemanticKey, eventId, eventSignature);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -3016,6 +3016,29 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         continue;
       }
       if (tombstones.has(cashSemanticKey)) continue;
+      // A projected collection the accountant removed on its own stays removed
+      // through a schedule rename, while its invoice survives.
+      const cashTombstone = tombstoneFor("billing_collection", collectionSignature);
+      if (cashTombstone.status === "matched") {
+        suppressAlias(cashTombstone.record, cashSemanticKey);
+        continue;
+      }
+      if (cashTombstone.status === "ambiguous") {
+        raise({
+          targetKey: `cash:${eventSemanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason:
+            "You previously removed more than one projected collection that this renamed billing schedule could refer to. ARC created nothing here.",
+          guidanceIds: [],
+          citations: projection.citations,
+          value: cashSemanticKey,
+          material: projectionMaterial(),
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
       const cashId = canonicalIdFor("cash_collection", cashSemanticKey);
       if (draft.contractBalances.cashCollections.every((row) => row.id !== cashId)) {
         const created: CashCollectionDraft = {
