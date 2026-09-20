@@ -159,14 +159,16 @@ describe("Step 5 recognition method reaches the input measure", () => {
     const base = onlyPo("po-support");
     return mount(Step5Recognition, {
       ...base,
-      performanceObligations: base.performanceObligations.map((po) => ({
-        ...po,
-        recognitionMethod: null,
-        overTimeMeasure: undefined,
-        totalExpectedUnitsInput: "",
-        unitLabel: "",
-        progressEvents: [],
-      })),
+      performanceObligations: base.performanceObligations.map((po) => {
+        const { overTimeMeasure: _measure, ...rest } = po;
+        return {
+          ...rest,
+          recognitionMethod: null,
+          totalExpectedUnitsInput: "",
+          unitLabel: "",
+          progressEvents: [],
+        };
+      }),
     });
   }
 
