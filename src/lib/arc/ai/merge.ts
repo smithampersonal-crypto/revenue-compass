@@ -1931,10 +1931,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       rateInput: component.contractualRateOrAmountInput,
       unitDescription: component.unitDescription,
     });
-  const vcAliases = reconcileByTieredIdentity(
+  const vcSignatures = new Map(
+    analysis.transactionPrice.variableConsiderationComponents.map(
+      (row) => [row.semanticKey, vcSignatureFor(row)] as const,
+    ),
+  );
+  const vcTombstones = new Map<string, AiTombstoneIdentity>();
+  for (const row of analysis.transactionPrice.variableConsiderationComponents) {
+    if (!unseenKey(row.semanticKey)) continue;
+    const record = tombstoneFor("variable_component", vcSignatures.get(row.semanticKey)!);
+    if (record !== null) vcTombstones.set(row.semanticKey, record);
+  }
+  const vcAliases = reconcileByIdentity(
     analysis.transactionPrice.variableConsiderationComponents
-      .filter((row) => unseenKey(row.semanticKey))
-      .map((row) => ({ semanticKey: row.semanticKey, tiers: vcTiersFor(row) })),
+      .filter((row) => unseenKey(row.semanticKey) && !vcTombstones.has(row.semanticKey))
+      .map((row) => ({
+        semanticKey: row.semanticKey,
+        signature: vcSignatures.get(row.semanticKey)!,
+      })),
     identityCandidates("variable_component"),
   );
 
@@ -1942,7 +1956,6 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
     const vcAlias = vcAliases.get(component.semanticKey);
-    adoptAlias(component.semanticKey, vcAlias);
     if (vcAlias?.status === "ambiguous") {
       raise({
         targetKey: `vc:${component.semanticKey}`,
@@ -1955,8 +1968,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         value: component.semanticKey,
         material: vcMaterial(component),
         aiReviewState: "needs_review",
+        blocking: true,
       });
+      continue;
     }
+    adoptAlias(component.semanticKey, vcAlias);
+    const vcTombstone = vcTombstones.get(component.semanticKey);
+    if (vcTombstone !== undefined) suppressAlias(vcTombstone, component.semanticKey);
     if (tombstones.has(component.semanticKey)) {
       raise({
         targetKey: `vc:${component.semanticKey}`,
