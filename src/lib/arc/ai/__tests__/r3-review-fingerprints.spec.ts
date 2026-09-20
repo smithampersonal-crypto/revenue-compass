@@ -15,12 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 import {
-  genomixR3Draft,
+  genomixBenchmarkDraft,
   withRealizedCredit,
   withSupportHours,
   withUsageActual,
   withValidationTransfer,
-} from "@/lib/asc606-workflow/__tests__/genomix-r3-fixture";
+} from "@/lib/asc606-workflow/__tests__/genomix-k-fixture";
 
 import {
   canonicalReviewTargetFingerprint,
@@ -38,7 +38,7 @@ const METER_ID = "m-samples";
 
 /** The canonical Genomix draft with one month of real Tier 2 usage recorded. */
 function draftWithUsage(): WorkflowDraft {
-  return withUsageActual(genomixR3Draft(), "2027-02", "1500");
+  return withUsageActual(genomixBenchmarkDraft(), "2027-02", "1500");
 }
 
 /**
