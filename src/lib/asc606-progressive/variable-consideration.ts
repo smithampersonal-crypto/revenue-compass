@@ -68,6 +68,22 @@ export interface VcRealizedEvent {
   description?: string;
 }
 
+/**
+ * One dated measurement of the component, as the ACCEPTED Phase 5B engine
+ * measured it. Amounts are already signed by the component's effect.
+ */
+export interface VcLifecycleAssessment {
+  assessmentId: string;
+  effectiveDate: IsoDate;
+  /** Signed unconstrained estimate at this date. */
+  unconstrainedCents: Cents;
+  /** Signed amount included after the constraint at this date. */
+  includedCents: Cents;
+  /** Signed change against the prior assessment; 0 at inception. */
+  changeCents: Cents;
+  isResolution: boolean;
+}
+
 export interface ProgressiveVcComponent {
   id: string;
   seq: number;
@@ -83,6 +99,26 @@ export interface ProgressiveVcComponent {
   /** Magnitude included after the constraint. May legitimately be zero. */
   includedCents: Cents;
   realizedEvents?: readonly VcRealizedEvent[];
+  /**
+   * The accepted engine's dated lifecycle (inception, each remeasurement, the
+   * resolution). Present for general and specific-PO estimated components; the
+   * sequence is never flattened into one current amount before recognition.
+   */
+  lifecycle?: readonly VcLifecycleAssessment[];
+}
+
+/** One dated, signed transaction-price change awaiting allocation. */
+export interface VcDatedChange {
+  /** Stable identity: `<componentId>::<assessmentId>`. */
+  id: string;
+  componentId: string;
+  assessmentId: string;
+  effectiveDate: IsoDate;
+  /** Null when the change is allocated on a general relative-SSP basis. */
+  targetPoId: string | null;
+  /** Signed change in the transaction price. */
+  changeCents: Cents;
+  isResolution: boolean;
 }
 
 export interface VcSpecificPoAllocation {
@@ -152,6 +188,8 @@ export interface ProgressiveVcLayers {
   pending: PendingComponent[];
   /** Signed unresolved amounts, per component and obligation. */
   pendingByPo: VcPendingAllocation[];
+  /** Dated transaction-price changes after inception, in effective order. */
+  datedChanges: VcDatedChange[];
   blocked: BlockedComponent[];
   /** Signed total added to the fixed consideration to form the price. */
   transactionPriceEffectCents: Cents;
