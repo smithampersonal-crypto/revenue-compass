@@ -59,7 +59,16 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
-import { priorIdentityIndex } from "./identity-backfill";
+import {
+  BILLING_EVENT_ID_PREFIX,
+  billingCollectionSemanticKey,
+  billingEventSemanticKey,
+  billingIdentityCandidates,
+  billingLineages,
+  billingTermIdentity,
+  parseBillingEventSemanticKey,
+} from "./billing-identity";
+import { priorBillingIdentityIndex, priorIdentityIndex } from "./identity-backfill";
 import {
   identityKindOfCanonicalId,
   IDENTITY_KIND_CANONICAL_PREFIX,
@@ -266,6 +275,21 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           .find((entry) => entry !== undefined);
       if (prior === undefined) continue;
       objectProvenance[semanticKey] = { ...provenance, identitySignature: prior.signature };
+      previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
+    }
+
+    // Phase L. The same treatment for derived billing objects: their identity
+    // is the identity of the billing SCHEDULE recorded in the prior structured
+    // result, never a guess from the canonical invoice rows.
+    const priorBilling = priorBillingIdentityIndex(args.priorAnalysis);
+    for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
+      if (provenance.identitySignature !== undefined) continue;
+      if (!provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)) continue;
+      const parsed = parseBillingEventSemanticKey(semanticKey);
+      if (parsed === null) continue;
+      const signature = priorBilling.get(parsed.termKey);
+      if (signature === undefined) continue;
+      objectProvenance[semanticKey] = { ...provenance, identitySignature: signature };
       previousState.objectProvenance[semanticKey] = objectProvenance[semanticKey];
     }
 
