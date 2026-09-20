@@ -159,6 +159,12 @@ export interface MergeAiAnalysisArgs {
   runId: string;
   guidancePack: GuidancePack;
   priorContext: PriorAccountingContext | null;
+  /**
+   * Phase 9G-R3. The immutable structured output of the last successful run,
+   * used ONLY to backfill identity signatures a pre-patch sidecar never
+   * recorded. It never contributes accounting values to this merge.
+   */
+  priorAnalysis?: AiContractAnalysis | null;
 }
 
 export interface MergeAiAnalysisResult {
