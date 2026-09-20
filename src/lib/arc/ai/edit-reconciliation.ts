@@ -16,12 +16,11 @@ import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 
 import { PROVISIONAL_SSP_TARGET_KEY, valueFingerprint } from "./identity";
 import { type AiAnalysisState } from "./merge";
-import { identityKindOfCanonicalId } from "./reconciliation";
 import type { AiReviewItem, AiReviewSeverity } from "./review-state";
-import type { AiTombstoneIdentity } from "./tombstones";
+import { tombstoneKindOfCanonicalId, type AiTombstoneIdentity } from "./tombstones";
 
-/** One shared deterministic classifier; see `reconciliation.ts`. */
-const tombstoneKindOf = identityKindOfCanonicalId;
+/** One shared deterministic classifier; see `tombstones.ts`. */
+const tombstoneKindOf = tombstoneKindOfCanonicalId;
 
 /* ------------------------------------------------------- canonical reading */
 
