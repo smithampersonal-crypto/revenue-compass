@@ -61,6 +61,8 @@ import {
 } from "./identity";
 import { priorIdentityIndex } from "./identity-backfill";
 import {
+  identityKindOfCanonicalId,
+  IDENTITY_KIND_CANONICAL_PREFIX,
   poIdentity,
   promiseIdentity,
   reconcileByIdentity,
@@ -742,6 +744,35 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /** True when a semantic key is genuinely new to ARC and may be reconciled. */
   const unseenKey = (semanticKey: string) =>
     objectProvenance[semanticKey] === undefined && !tombstones.has(semanticKey);
+
+  /**
+   * A deleted economic object may be recognized exactly once, not at all, or
+   * — materially different — by more than one deletion at the same time.
+   */
+  type TombstoneOutcome =
+    | { status: "matched"; record: AiTombstoneIdentity }
+    | { status: "ambiguous" }
+    | { status: "none" };
+
+  /**
+   * Resolves the deletion outcomes for one canonical kind: the proposals that
+   * match exactly one deleted identity, and the ones that are contested.
+   */
+  function tombstoneOutcomes(
+    kind: AiIdentityKind,
+    rows: readonly { semanticKey: string }[],
+    signatures: ReadonlyMap<string, IdentitySignature>,
+  ): { matched: Map<string, AiTombstoneIdentity>; ambiguous: Set<string> } {
+    const matched = new Map<string, AiTombstoneIdentity>();
+    const ambiguous = new Set<string>();
+    for (const row of rows) {
+      if (!unseenKey(row.semanticKey)) continue;
+      const outcome = tombstoneFor(kind, signatures.get(row.semanticKey)!);
+      if (outcome.status === "matched") matched.set(row.semanticKey, outcome.record);
+      else if (outcome.status === "ambiguous") ambiguous.add(row.semanticKey);
+    }
+    return { matched, ambiguous };
+  }
 
   /**
    * A deleted economic object the model has renamed. Matching is the same
