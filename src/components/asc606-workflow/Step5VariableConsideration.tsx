@@ -1,8 +1,12 @@
 import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
+  nextId,
+  nextSeq,
   variableConsiderationPreview,
   type VcComponentDraft,
+  type VcRealizedEventDraft,
+  type VcSeriesPeriodDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
