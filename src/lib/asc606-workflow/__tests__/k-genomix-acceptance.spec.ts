@@ -212,9 +212,9 @@ describe("K1 — inception", () => {
 
   it("presents partial but valid balances and only the known journals", () => {
     const result = analyze(draft);
-    expect(result.progressiveGate.engineBlocked).toBe(false);
-    expect(result.progressiveGate.dependencyBlockers).toEqual([]);
-    expect(result.progressiveGate.balancesPresentable).toBe(true);
+    expect(result.progressiveGate!.engineBlocked).toBe(false);
+    expect(result.progressiveGate!.dependencyBlockers).toEqual([]);
+    expect(result.progressiveGate!.balancesPresentable).toBe(true);
     const journals = result.progressive!.journals!;
     expect(journals.balanced).toBe(true);
     expect(journals.entries.length).toBeGreaterThan(0);
@@ -462,7 +462,7 @@ describe("K7 — finalization of the fully resolved contract", () => {
     expect(result.progressive!.state).toBe("complete");
     expect(result.progressive!.blocked).toEqual([]);
     expect(result.progressive!.billing.state).toBe("complete");
-    expect(result.progressiveGate.dependencyBlockers).toEqual([]);
+    expect(result.progressiveGate!.dependencyBlockers).toEqual([]);
   });
 
   it("reconciles price, allocation, revenue, balances and journals", () => {

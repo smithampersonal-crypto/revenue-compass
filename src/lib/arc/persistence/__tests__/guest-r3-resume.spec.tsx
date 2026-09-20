@@ -26,11 +26,7 @@ import {
   withValidationTransfer,
 } from "@/lib/asc606-workflow/__tests__/genomix-k-fixture";
 
-import {
-  parseCanonicalInputs,
-  toCanonicalInputs,
-  validateDraftForPersistence,
-} from "../schema";
+import { parseCanonicalInputs, toCanonicalInputs, validateDraftForPersistence } from "../schema";
 import type { GuestWorkspaceDto } from "../guest.functions";
 
 vi.mock("@tanstack/react-start", async (importOriginal) => {
@@ -67,7 +63,7 @@ const store: { row: unknown; lockVersion: number } = { row: null, lockVersion: 1
 
 function writeRow(draft: WorkflowDraft): void {
   const validated = validateDraftForPersistence(draft);
-  if (!validated.ok) throw new Error(`guest save rejected: ${validated.issues.join(", ")}`);
+  if (!validated.ok) throw new Error(`guest save rejected: ${validated.reason}`);
   store.row = JSON.parse(JSON.stringify(toCanonicalInputs(validated.draft)));
 }
 
@@ -111,8 +107,8 @@ function Probe() {
       <p data-testid="mode">{persistence.mode}</p>
       <p data-testid="customer">{draft.contract.customerName}</p>
       <p data-testid="hours">
-        {draft.performanceObligations.find((po) => po.id === "po-support")?.progressEvents?.length ??
-          0}
+        {draft.performanceObligations.find((po) => po.id === "po-support")?.progressEvents
+          ?.length ?? 0}
       </p>
       <button type="button" onClick={() => setDraft((previous) => recordActuals(previous))}>
         record actuals
@@ -125,7 +121,7 @@ function renderGuest() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider guest>
+      <AnalysisProvider guest sample={undefined}>
         <SaveStatusIndicator />
         <Probe />
       </AnalysisProvider>

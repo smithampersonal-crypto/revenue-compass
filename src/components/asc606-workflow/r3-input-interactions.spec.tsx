@@ -9,7 +9,7 @@
  * draft the component produced.
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { nextId, nextSeq, type WorkflowDraft } from "@/lib/asc606-workflow";
@@ -32,7 +32,7 @@ function mount(StepComponent: Step, initial: WorkflowDraft) {
     const Component = StepComponent as unknown as (props: {
       draft: WorkflowDraft;
       onChange: (next: WorkflowDraft) => void;
-    }) => JSX.Element;
+    }) => ReactElement;
     return <Component draft={draft} onChange={setDraft} />;
   }
   render(<Harness />);
@@ -116,10 +116,11 @@ describe("Step 5 input-measure progress is entered through the real control", ()
       ["po-support-pe-2", 2],
     ]);
 
-    fireEvent.click(within(screen.getByTestId("progress-events-po-support")).getAllByRole(
-      "button",
-      { name: "Remove entry" },
-    )[0]!);
+    fireEvent.click(
+      within(screen.getByTestId("progress-events-po-support")).getAllByRole("button", {
+        name: "Remove entry",
+      })[0]!,
+    );
     expect(support(state.draft).progressEvents!.map((event) => event.id)).toEqual([
       "po-support-pe-2",
     ]);
