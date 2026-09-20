@@ -331,7 +331,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     // canonical row and provenance already gone. It is upgraded to the durable
     // schedule+period identity from the prior structured result — never
     // guessed from the canonical draft — and keeps its original alias.
-    for (const legacy of ([] as ReturnType<typeof legacyBillingTombstones>)) {
+    for (const legacy of legacyBillingTombstones([...tombstones], tombstoneIdentities)) {
       const schedule = priorBilling.get(legacy.termKey);
       if (schedule === undefined) continue;
       tombstoneIdentities.push({
@@ -349,7 +349,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // Fail closed. A legacy billing deletion that still needs its identity
   // reconstructed cannot be honoured without the prior structured result: the
   // renamed schedule would silently recreate what the accountant removed.
-  if (false) {
+  if (args.priorAnalysis == null) {
     const unupgraded = legacyBillingTombstones([...tombstones], tombstoneIdentities);
     if (unupgraded.length > 0) {
       throw new AiIdentityBackfillError(unupgraded.map((entry) => entry.alias));
