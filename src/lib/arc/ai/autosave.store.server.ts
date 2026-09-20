@@ -21,6 +21,7 @@ import type {
   AutosaveScope,
 } from "./autosave-reconciliation.handlers";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
+import { decodeTombstones, encodeTombstones } from "./tombstones";
 import { normalizePersistedReviewPayload } from "./review-normalization";
 
 interface CodedError {
@@ -179,7 +180,7 @@ export async function createAutosaveReconciliationStore(
           objectProvenance:
             (row.object_provenance as AiAnalysisState["objectProvenance"]) ??
             empty.objectProvenance,
-          tombstones: Array.isArray(row.tombstones) ? (row.tombstones as string[]) : [],
+          ...decodeTombstones(row.tombstones),
           reviewItems: payload.items,
         },
       };
@@ -199,7 +200,10 @@ export async function createAutosaveReconciliationStore(
           sourceState: args.aiState.sourceState,
           fieldProvenance: args.aiState.fieldProvenance,
           objectProvenance: args.aiState.objectProvenance,
-          tombstones: args.aiState.tombstones,
+          tombstones: encodeTombstones(
+            args.aiState.tombstones,
+            args.aiState.tombstoneIdentities ?? [],
+          ),
           reviewItems: args.aiState.reviewItems,
         },
         p_review_events: args.reviewEvents,
