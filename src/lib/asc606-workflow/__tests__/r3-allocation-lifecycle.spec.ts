@@ -214,40 +214,51 @@ function acceptedAssessment(
   };
 }
 
-function acceptedAnalysis(options: {
+interface AcceptedSpec {
+  id?: string;
+  seq?: number;
   treatment: "general" | "specific_po";
   effect: "increase" | "decrease";
+  targetPoId?: string;
   inceptionCents: number;
   remeasurements?: { date: string; cents: number }[];
   resolution?: { date: string; cents: number };
-}) {
+}
+
+function acceptedComponent(spec: AcceptedSpec): EstimatedComponentInput {
+  const id = spec.id ?? "vc-penalty";
   const component: EstimatedComponentInput = {
-    id: "vc-penalty",
-    seq: 1,
+    id,
+    seq: spec.seq ?? 1,
     description: "Service-level penalty",
-    effect: options.effect,
+    effect: spec.effect,
     estimationMethod: "most_likely_amount",
-    allocationTreatment: options.treatment,
+    allocationTreatment: spec.treatment,
     allocationRationale:
       "The amount is allocated on the basis the allocation objective supports for this contract.",
-    inception: acceptedAssessment("vc-penalty-a1", 1, SERVICE_START, options.inceptionCents),
-    remeasurements: (options.remeasurements ?? []).map((row, index) =>
-      acceptedAssessment(`vc-penalty-r${index + 1}`, index + 1, row.date, row.cents),
+    inception: acceptedAssessment(`${id}-a1`, 1, SERVICE_START, spec.inceptionCents),
+    remeasurements: (spec.remeasurements ?? []).map((row, index) =>
+      acceptedAssessment(`${id}-r${index + 1}`, index + 1, row.date, row.cents),
     ),
   };
-  if (options.treatment === "specific_po") {
-    component.targetPoId = "po-hosted";
+  if (spec.treatment === "specific_po") {
+    component.targetPoId = spec.targetPoId ?? "po-validation";
     component.relatesSpecificallyToPo = true;
     component.consistentWithAllocationObjective = true;
   }
-  if (options.resolution) {
+  if (spec.resolution) {
     component.resolution = {
-      id: "vc-penalty:resolution",
-      date: options.resolution.date,
-      actualCents: options.resolution.cents,
+      id: `${id}:resolution`,
+      date: spec.resolution.date,
+      actualCents: spec.resolution.cents,
       rationale: "The final amount is now known.",
     };
   }
+  return component;
+}
+
+function acceptedAnalysis(...specs: AcceptedSpec[]) {
+
   const input: VcContractInput = {
     fixedConsiderationCents: FIXED_CENTS,
     standardPerformanceObligations: [
