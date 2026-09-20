@@ -67,7 +67,7 @@ import {
 } from "./types";
 import { validateVariableConsideration } from "./validation";
 
-function measureComponent(component: EstimatedComponentInput): VcComponentResult {
+export function measureComponent(component: EstimatedComponentInput): VcComponentResult {
   const assessments: VcAssessmentResult[] = [];
   let prior = 0;
 
