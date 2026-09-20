@@ -199,8 +199,8 @@ export function Step3TransactionPrice({
               outcomes: [
                 ...assessment.outcomes,
                 createVcOutcomeDraft(
-                  assessment.outcomes.length + 1,
-                  `${assessment.id}-o${assessment.outcomes.length + 1}-${Date.now()}`,
+                  nextSeq(assessment.outcomes),
+                  nextId(`${assessment.id}-o`, assessment.outcomes),
                 ),
               ],
             })
