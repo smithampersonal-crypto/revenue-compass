@@ -7,17 +7,27 @@
  * object for a key it has never seen, the merge asks this module whether the
  * proposal is in fact an existing canonical object under a new alias.
  *
- * The algorithm is deliberately fail-closed:
+ * Identity has two deliberately separated parts:
  *
- *   - identity is compared on ordered TIERS of objective structured facts;
- *   - a tier match is only accepted when the pairing is MUTUALLY unique — the
- *     proposal has exactly one candidate and that candidate is claimed by
- *     exactly one proposal;
- *   - unresolved pairings move to the next, narrower tier;
- *   - anything still contested at the end is `ambiguous` and is never
- *     resolved by picking a first candidate;
- *   - a proposal with no candidate at all is `none`, i.e. a genuinely new
- *     economic object the merge may create.
+ *   - a GATE: a broad compatibility fact (promise type, satisfaction pattern,
+ *     variable-consideration type/effect/target). A gate is NEVER sufficient
+ *     identity on its own — two entirely different support promises share it.
+ *   - ordered CORROBORATORS: stable economic facts that actually identify the
+ *     object. The FIRST corroborator both sides can supply is decisive: if the
+ *     two sides disagree there, they are different economic objects, and the
+ *     weaker corroborators below it are never consulted to rescue the match.
+ *     Description prose is always the weakest and is only reached when no
+ *     evidence is available on one of the two sides.
+ *
+ * The algorithm is fail-closed:
+ *
+ *   - a match is only accepted when the pairing is MUTUALLY unique — the
+ *     proposal identifies exactly one incumbent and that incumbent is
+ *     identified by exactly one proposal;
+ *   - anything contested is `ambiguous`, and the caller must refuse to act on
+ *     it rather than guess;
+ *   - a proposal that identifies no incumbent at all is `none`, i.e. a
+ *     genuinely new economic object the merge may create.
  *
  * Pure: no clock, no randomness, no I/O. Ordering of the inputs never changes
  * the outcome.
@@ -25,22 +35,49 @@
 
 import type { AiCitation } from "./schema";
 
+/** The canonical object kinds that participate in re-identification. */
+export type AiIdentityKind = "promise" | "performance_obligation" | "variable_component";
+
+export interface IdentitySignature {
+  /** Broad compatibility. Necessary, never sufficient. */
+  gate: string;
+  /**
+   * Ordered identifying facts, strongest first. `null` means this side cannot
+   * supply the fact at all, so it is skipped rather than treated as a value.
+   */
+  corroborators: readonly (string | null)[];
+}
+
 export interface IdentityCandidate {
   /** The semantic key that owned this canonical object on the previous run. */
   semanticKey: string;
   canonicalId: string;
-  tiers: readonly string[];
+  signature: IdentitySignature;
 }
 
 export interface IdentityProposal {
   semanticKey: string;
-  tiers: readonly string[];
+  signature: IdentitySignature;
 }
 
 export type IdentityOutcome =
   | { status: "matched"; canonicalId: string; previousSemanticKey: string }
   | { status: "ambiguous" }
   | { status: "none" };
+
+export interface IdentityRules {
+  /**
+   * A hard structural requirement the signature cannot express (performance
+   * obligations require overlapping canonical promise membership). A candidate
+   * that fails it is not a candidate at all.
+   */
+  admissible?: (proposal: IdentityProposal, candidate: IdentityCandidate) => boolean;
+  /**
+   * Structural corroboration that stands in for the signature corroborators
+   * (again: canonical promise membership for performance obligations).
+   */
+  sufficient?: (proposal: IdentityProposal, candidate: IdentityCandidate) => boolean;
+}
 
 /* ------------------------------------------------------- identity signals */
 
@@ -51,145 +88,141 @@ function normalizedText(value: string): string {
 /**
  * Stable source/evidence identity: the exact document pages the conclusion was
  * drawn from, order-independent. Excerpt prose is deliberately excluded — it
- * is model wording, not an objective contractual fact.
+ * is model wording, not an objective contractual fact. `null` when the
+ * proposal carries no evidence at all, which is an absence, not a value.
  */
-export function evidenceSignature(citations: readonly AiCitation[]): string {
+export function evidenceSignature(citations: readonly AiCitation[]): string | null {
+  if (citations.length === 0) return null;
   return [...citations]
     .map((citation) => `${citation.documentId}#${citation.pageStart}-${citation.pageEnd}`)
     .sort()
     .join("|");
 }
 
+function textSignature(value: string | null | undefined): string | null {
+  const text = normalizedText(value ?? "");
+  return text === "" ? null : text;
+}
+
 /**
- * Promise identity. Type first (an objective structured fact), then the
- * evidence it rests on, then — only as a tie-breaker between candidates that
- * are otherwise indistinguishable — the description text.
+ * Promise identity. The promise TYPE only gates compatibility; the source
+ * evidence identifies the promise, and its description is consulted only when
+ * one of the two sides has no evidence at all.
  */
-export function promiseIdentityTiers(input: {
+export function promiseIdentity(input: {
   promiseType: string;
   citations: readonly AiCitation[];
   description: string;
-}): readonly string[] {
-  return [
-    `promise|${input.promiseType}`,
-    `evidence|${evidenceSignature(input.citations)}`,
-    `text|${normalizedText(input.description)}`,
-  ];
-}
-
-/** Performance-obligation identity: the satisfaction structure it asserts. */
-export function poIdentityTiers(input: { satisfactionPattern: string }): readonly string[] {
-  return [`po|${input.satisfactionPattern}`];
+}): IdentitySignature {
+  return {
+    gate: `promise|${input.promiseType}`,
+    corroborators: [evidenceSignature(input.citations), textSignature(input.description)],
+  };
 }
 
 /**
- * Variable-consideration identity. The economic effect and the canonical
- * performance obligation it attaches to come first, then the evidence, then
- * the contractual rate. A shared component TYPE alone never identifies a
- * component.
+ * Performance-obligation identity. The satisfaction structure only gates
+ * compatibility: canonical promise membership is the principal identity and is
+ * supplied by the caller as a structural rule. Evidence corroborates a
+ * grouping whose membership can no longer be read (a deleted obligation).
  */
-export function vcIdentityTiers(input: {
+export function poIdentity(input: {
+  satisfactionPattern: string;
+  citations: readonly AiCitation[];
+}): IdentitySignature {
+  return {
+    gate: `po|${input.satisfactionPattern}`,
+    corroborators: [evidenceSignature(input.citations)],
+  };
+}
+
+/**
+ * Variable-consideration identity. Economic type, effect and the canonical
+ * performance obligation it attaches to gate compatibility only — a second
+ * usage component on the same obligation is perfectly ordinary. Source
+ * evidence identifies the component, and the contractual terms corroborate it
+ * when evidence is unavailable.
+ */
+export function vcIdentity(input: {
   type: string;
   effect: string;
   targetCanonicalId: string | null;
   citations: readonly AiCitation[];
   rateInput: string | null;
   unitDescription: string | null;
-}): readonly string[] {
-  return [
-    `vc|${input.type}|${input.effect}|${input.targetCanonicalId ?? "unallocated"}`,
-    `evidence|${evidenceSignature(input.citations)}`,
-    `terms|${input.rateInput ?? ""}|${normalizedText(input.unitDescription ?? "")}`,
-  ];
+}): IdentitySignature {
+  const terms = textSignature(
+    `${input.rateInput ?? ""}|${input.unitDescription ?? ""}`.replace(/^\|$/, ""),
+  );
+  return {
+    gate: `vc|${input.type}|${input.effect}|${input.targetCanonicalId ?? "unallocated"}`,
+    corroborators: [evidenceSignature(input.citations), terms],
+  };
 }
 
 /* ------------------------------------------------------------- algorithm */
 
-function prefix(tiers: readonly string[], depth: number): string {
-  return tiers.slice(0, depth).join("\u0000");
+/**
+ * True when two signatures identify the SAME economic object: the gate agrees
+ * and the first corroborator both sides can supply agrees. A disagreement
+ * there is decisive — weaker corroborators never overturn it — and two
+ * signatures with no shared corroborator identify nothing.
+ */
+export function signaturesIdentify(left: IdentitySignature, right: IdentitySignature): boolean {
+  if (left.gate !== right.gate) return false;
+  const depth = Math.max(left.corroborators.length, right.corroborators.length);
+  for (let index = 0; index < depth; index += 1) {
+    const a = left.corroborators[index] ?? null;
+    const b = right.corroborators[index] ?? null;
+    if (a === null || b === null) continue;
+    return a === b;
+  }
+  return false;
 }
 
 /**
  * Resolves each proposal to an existing canonical object, a genuinely new
  * object, or an ambiguity that must be reviewed rather than guessed.
- *
- * `restrict` optionally narrows the candidate set for a proposal by a
- * structural rule the tiers cannot express (performance obligations use it to
- * require overlapping canonical promise membership).
  */
-export function reconcileByTieredIdentity(
+export function reconcileByIdentity(
   proposals: readonly IdentityProposal[],
   candidates: readonly IdentityCandidate[],
-  restrict?: (proposal: IdentityProposal, candidate: IdentityCandidate) => boolean,
+  rules: IdentityRules = {},
 ): Map<string, IdentityOutcome> {
+  const identifies = (proposal: IdentityProposal, candidate: IdentityCandidate): boolean => {
+    if (proposal.signature.gate !== candidate.signature.gate) return false;
+    if (rules.admissible !== undefined && !rules.admissible(proposal, candidate)) return false;
+    if (rules.sufficient !== undefined && rules.sufficient(proposal, candidate)) return true;
+    return signaturesIdentify(proposal.signature, candidate.signature);
+  };
+
+  const links = new Map<string, IdentityCandidate[]>();
+  for (const proposal of proposals) {
+    links.set(
+      proposal.semanticKey,
+      candidates.filter((candidate) => identifies(proposal, candidate)),
+    );
+  }
+
+  const claims = new Map<string, number>();
+  for (const list of links.values()) {
+    for (const candidate of list) {
+      claims.set(candidate.semanticKey, (claims.get(candidate.semanticKey) ?? 0) + 1);
+    }
+  }
+
   const result = new Map<string, IdentityOutcome>();
-  const openCandidates = [...candidates];
-  let openProposals = [...proposals];
-
-  const admissible = (proposal: IdentityProposal, candidate: IdentityCandidate): boolean =>
-    restrict === undefined || restrict(proposal, candidate);
-
-  const maxTier = Math.max(
-    0,
-    ...proposals.map((proposal) => proposal.tiers.length),
-    ...candidates.map((candidate) => candidate.tiers.length),
-  );
-
-  for (let depth = 1; depth <= maxTier && openProposals.length > 0; depth += 1) {
-    const links = new Map<string, IdentityCandidate[]>();
-    for (const proposal of openProposals) {
-      if (proposal.tiers.length < depth) {
-        links.set(proposal.semanticKey, []);
-        continue;
-      }
-      links.set(
-        proposal.semanticKey,
-        openCandidates.filter(
-          (candidate) =>
-            candidate.tiers.length >= depth &&
-            prefix(candidate.tiers, depth) === prefix(proposal.tiers, depth) &&
-            admissible(proposal, candidate),
-        ),
-      );
-    }
-
-    const claims = new Map<string, number>();
-    for (const list of links.values()) {
-      for (const candidate of list) {
-        claims.set(candidate.semanticKey, (claims.get(candidate.semanticKey) ?? 0) + 1);
-      }
-    }
-
-    const settled = new Set<string>();
-    for (const [semanticKey, list] of links) {
-      const only = list.length === 1 ? list[0]! : null;
-      if (only === null || claims.get(only.semanticKey) !== 1) continue;
+  for (const [semanticKey, list] of links) {
+    const only = list.length === 1 ? list[0]! : null;
+    if (only !== null && claims.get(only.semanticKey) === 1) {
       result.set(semanticKey, {
         status: "matched",
         canonicalId: only.canonicalId,
         previousSemanticKey: only.semanticKey,
       });
-      settled.add(semanticKey);
-      openCandidates.splice(openCandidates.indexOf(only), 1);
+      continue;
     }
-    openProposals = openProposals.filter((proposal) => !settled.has(proposal.semanticKey));
+    result.set(semanticKey, list.length === 0 ? { status: "none" } : { status: "ambiguous" });
   }
-
-  // Whatever is left either had no candidate at all (a genuinely new object)
-  // or could not be told apart from more than one incumbent (fail closed).
-  for (const proposal of openProposals) {
-    const remaining = openCandidates.filter(
-      (candidate) =>
-        candidate.tiers.length >= 1 &&
-        proposal.tiers.length >= 1 &&
-        prefix(candidate.tiers, 1) === prefix(proposal.tiers, 1) &&
-        admissible(proposal, candidate),
-    );
-    result.set(
-      proposal.semanticKey,
-      remaining.length === 0 ? { status: "none" } : { status: "ambiguous" },
-    );
-  }
-
   return result;
 }
