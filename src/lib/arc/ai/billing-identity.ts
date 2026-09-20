@@ -159,7 +159,7 @@ export function billingLineages(
       const lineage = lineageOf(parsed.termKey);
       lineage.events.set(parsed.period, { semanticKey, canonicalId: provenance.canonicalId });
       if (lineage.signature === undefined && provenance.identitySignature !== undefined) {
-        lineage.signature = provenance.identitySignature;
+        lineage.signature = billingScheduleSignature(provenance.identitySignature);
       }
       continue;
     }
@@ -167,10 +167,14 @@ export function billingLineages(
       if (!semanticKey.endsWith("#collection")) continue;
       const parsed = parseBillingEventSemanticKey(semanticKey.slice(0, -"#collection".length));
       if (parsed === null) continue;
-      lineageOf(parsed.termKey).collections.set(parsed.period, {
+      const lineage = lineageOf(parsed.termKey);
+      lineage.collections.set(parsed.period, {
         semanticKey,
         canonicalId: provenance.canonicalId,
       });
+      if (lineage.signature === undefined && provenance.identitySignature !== undefined) {
+        lineage.signature = billingScheduleSignature(provenance.identitySignature);
+      }
     }
   }
 
