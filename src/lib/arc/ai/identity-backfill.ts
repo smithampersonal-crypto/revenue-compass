@@ -19,7 +19,12 @@
  */
 
 import { mapVcEffect } from "./adapter";
-import { BILLING_EVENT_ID_PREFIX, billingTermIdentity } from "./billing-identity";
+import {
+  BILLING_EVENT_ID_PREFIX,
+  billingTermIdentity,
+  parseBillingEventSemanticKey,
+} from "./billing-identity";
+import type { AiTombstoneIdentity, AiTombstoneKind } from "./tombstones";
 import {
   identityKindOfCanonicalId,
   poIdentity,
@@ -55,6 +60,70 @@ export function identityBackfillRequired(objectProvenance: {
         // none. Its projected collection inherits identity from the event and
         // never needs one of its own.
         provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)),
+  );
+}
+
+/**
+ * Phase L — final acceptance patch. A deletion recorded BEFORE billing
+ * deletion identity existed survives only as a plain-string alias such as
+ * `fixed_annual_advance_billing#1` or `…#1#collection`, with the canonical row
+ * and its provenance already gone. Such an alias can still be upgraded to a
+ * durable schedule+period identity — but only from the immutable prior
+ * structured result, never from the canonical draft.
+ */
+export interface LegacyBillingTombstone {
+  alias: string;
+  termKey: string;
+  period: number;
+  kind: Extract<AiTombstoneKind, "billing_event" | "billing_collection">;
+}
+
+/** The derived-billing shape of one plain tombstone alias, or null. */
+export function parseBillingTombstoneAlias(alias: string): LegacyBillingTombstone | null {
+  const isCollection = alias.endsWith("#collection");
+  const parsed = parseBillingEventSemanticKey(
+    isCollection ? alias.slice(0, -"#collection".length) : alias,
+  );
+  if (parsed === null) return null;
+  return {
+    alias,
+    termKey: parsed.termKey,
+    period: parsed.period,
+    kind: isCollection ? "billing_collection" : "billing_event",
+  };
+}
+
+/**
+ * The narrow predicate that keeps ARC from reading the prior structured result
+ * forever. It returns ONLY aliases that (a) parse as a derived billing key and
+ * (b) are not already covered by a durable identity record. Already-upgraded
+ * billing tombstones and ordinary tombstones are excluded.
+ */
+export function legacyBillingTombstones(
+  tombstones: readonly string[],
+  tombstoneIdentities: readonly AiTombstoneIdentity[] = [],
+): LegacyBillingTombstone[] {
+  const covered = new Set(tombstoneIdentities.flatMap((entry) => [...entry.aliases]));
+  return [...tombstones]
+    .sort()
+    .filter((alias) => !covered.has(alias))
+    .map(parseBillingTombstoneAlias)
+    .filter((entry): entry is LegacyBillingTombstone => entry !== null);
+}
+
+/**
+ * The trusted execution boundary must fetch the prior structured result when
+ * EITHER a live incumbent lacks identity or a legacy billing deletion still
+ * needs one — the latter can be true with no live billing provenance left.
+ */
+export function priorAnalysisRequired(state: {
+  objectProvenance: { [semanticKey: string]: { canonicalId: string; identitySignature?: unknown } };
+  tombstones: readonly string[];
+  tombstoneIdentities?: readonly AiTombstoneIdentity[];
+}): boolean {
+  return (
+    identityBackfillRequired(state.objectProvenance) ||
+    legacyBillingTombstones(state.tombstones, state.tombstoneIdentities ?? []).length > 0
   );
 }
 

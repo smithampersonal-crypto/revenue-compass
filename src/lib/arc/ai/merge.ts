@@ -71,7 +71,11 @@ import {
   billingTermIdentity,
   parseBillingEventSemanticKey,
 } from "./billing-identity";
-import { priorBillingIdentityIndex, priorIdentityIndex } from "./identity-backfill";
+import {
+  legacyBillingTombstones,
+  priorBillingIdentityIndex,
+  priorIdentityIndex,
+} from "./identity-backfill";
 import {
   identityKindOfCanonicalId,
   IDENTITY_KIND_CANONICAL_PREFIX,
@@ -320,6 +324,35 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         signature: prior.signature,
         aliases: [semanticKey],
       });
+    }
+
+    // Phase L final acceptance. A billing deletion recorded BEFORE billing
+    // deletion identity existed survives only as a plain alias, with its
+    // canonical row and provenance already gone. It is upgraded to the durable
+    // schedule+period identity from the prior structured result — never
+    // guessed from the canonical draft — and keeps its original alias.
+    for (const legacy of legacyBillingTombstones([...tombstones], tombstoneIdentities)) {
+      const schedule = priorBilling.get(legacy.termKey);
+      if (schedule === undefined) continue;
+      tombstoneIdentities.push({
+        semanticKey: legacy.alias,
+        kind: legacy.kind,
+        signature:
+          legacy.kind === "billing_event"
+            ? billingEventIdentity(schedule, legacy.period)
+            : billingCollectionIdentity(schedule, legacy.period),
+        aliases: [legacy.alias],
+      });
+    }
+  }
+
+  // Fail closed. A legacy billing deletion that still needs its identity
+  // reconstructed cannot be honoured without the prior structured result: the
+  // renamed schedule would silently recreate what the accountant removed.
+  if (args.priorAnalysis == null) {
+    const unupgraded = legacyBillingTombstones([...tombstones], tombstoneIdentities);
+    if (unupgraded.length > 0) {
+      throw new AiIdentityBackfillError(unupgraded.map((entry) => entry.alias));
     }
   }
 
