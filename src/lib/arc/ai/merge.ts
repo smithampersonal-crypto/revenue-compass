@@ -1145,7 +1145,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    claimObject(aiPromise.semanticKey, canonicalId, promiseIdentityTiers(aiPromise));
+    claimObject(aiPromise.semanticKey, canonicalId, promiseSignatures.get(aiPromise.semanticKey)!);
   }
 
   /* ------------------------------------------------ performance obligations */
