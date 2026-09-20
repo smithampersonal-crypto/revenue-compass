@@ -273,14 +273,8 @@ export function describeReviewTarget(
     // id. That row renders its own anchor, so navigation reaches the actual
     // quantity control rather than the component the row belongs to.
     const usageRow = /^usagePeriods\.([A-Za-z0-9_-]+)$/.exec(field);
-    if (usageRow) {
-      return {
-        kind: "exact",
-        label: "Variable consideration — measured usage month",
-        anchorId: reviewTargetAnchorId(`vc:${vcId}.usagePeriods.${usageRow[1]!}`),
-        sectionElementId: sectionElementIdFor(targetKey, section),
-      };
-    }
+    if (usageRow) return exact("Variable consideration — measured usage month");
+
     return VC_FIELDS.has(field) ? exact(`Variable consideration — ${humanize(field)}`) : fallback();
   }
 
