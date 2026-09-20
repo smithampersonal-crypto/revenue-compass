@@ -14,6 +14,8 @@ import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/s
 
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { normalizePersistedReviewItems } from "./review-normalization";
+import { parseAiContractAnalysis } from "./schema";
+import { decodeTombstones } from "./tombstones";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
 import { AiApplyConflictError } from "./orchestrator";
