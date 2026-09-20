@@ -12,11 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
 
-import {
-  createEmptyAiAnalysisState,
-  mergeAiAnalysis,
-  type AiAnalysisState,
-} from "../merge";
+import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import type { AiContractAnalysis } from "../schema";
 import { DRIFT_RUN_1, DRIFT_RUN_2, driftRun1Analysis, driftRun2Analysis } from "./drift-fixtures";
 import { guidancePackFixture } from "./merge-fixtures";
@@ -110,9 +106,10 @@ describe("billing-schedule lineage identity", () => {
     const first = run1();
     expect(first.draft.contractBalances.considerationEvents).toHaveLength(2);
     expect(first.draft.contractBalances.cashCollections).toHaveLength(2);
-    expect(
-      first.draft.contractBalances.considerationEvents.map((row) => row.amountInput),
-    ).toEqual(["245000", "245000"]);
+    expect(first.draft.contractBalances.considerationEvents.map((row) => row.amountInput)).toEqual([
+      "245000",
+      "245000",
+    ]);
   });
 
   it("a renamed billing term does not duplicate the schedule", () => {
@@ -144,15 +141,16 @@ describe("billing-schedule lineage identity", () => {
       first.aiState,
       DRIFT_RUN_2,
     );
+    const canonical = new Set([...eventIds(first.draft), ...cashIds(first.draft)]);
     const omitted = second.issues.filter(
       (issue) =>
         issue.reasonCode === "ai_proposal_omitted" &&
-        eventIds(first.draft).concat(cashIds(first.draft)).includes(String(issue.value)),
+        canonical.has(issue.targetKey.replace(/^object:/, "")),
     );
     expect(omitted).toHaveLength(0);
-    expect(
-      second.issues.some((issue) => issue.reasonCode === "unsafe_semantic_relationship"),
-    ).toBe(false);
+    expect(second.issues.some((issue) => issue.reasonCode === "unsafe_semantic_relationship")).toBe(
+      false,
+    );
   });
 
   it("projected collections stay attached to their canonical invoice", () => {
@@ -165,7 +163,7 @@ describe("billing-schedule lineage identity", () => {
     );
     const events = new Set(eventIds(second.draft));
     for (const cash of second.draft.contractBalances.cashCollections) {
-      expect(events.has(cash.considerationEventId)).toBe(true);
+      expect(events.has(cash.considerationEventId ?? "")).toBe(true);
       expect(cash.basis).toBe("projected_contract_due_date");
     }
   });
@@ -310,9 +308,9 @@ describe("billing-schedule lineage identity", () => {
       DRIFT_RUN_1,
     );
     expect(merged.draft.contractBalances.considerationEvents).toHaveLength(1);
-    expect(
-      merged.issues.some((issue) => issue.reasonCode === "manual_structure_preserved"),
-    ).toBe(true);
+    expect(merged.issues.some((issue) => issue.reasonCode === "manual_structure_preserved")).toBe(
+      true,
+    );
   });
 
   it("a legacy sidecar reconciles from the immutable prior structured result", () => {
@@ -353,9 +351,9 @@ describe("billing-schedule lineage identity", () => {
     );
     expect(second.draft.contractBalances.considerationEvents).toHaveLength(2);
     expect(eventIds(second.draft)).toEqual(eventIds(first.draft));
-    expect(
-      second.issues.some((issue) => issue.reasonCode === "unsafe_semantic_relationship"),
-    ).toBe(true);
+    expect(second.issues.some((issue) => issue.reasonCode === "unsafe_semantic_relationship")).toBe(
+      true,
+    );
   });
 });
 
@@ -387,9 +385,9 @@ describe("full Genomix run 1 → accountant edits → renamed run 2", () => {
     expect(second.draft.variableConsiderationComponents).toHaveLength(2);
     expect(second.draft.contractBalances.considerationEvents).toHaveLength(2);
     expect(second.draft.contractBalances.cashCollections).toHaveLength(2);
-    expect(
-      second.draft.performanceObligations.find((row) => row.id === poId)?.sspInput,
-    ).toBe("450000");
+    expect(second.draft.performanceObligations.find((row) => row.id === poId)?.sspInput).toBe(
+      "450000",
+    );
     expect(
       second.draft.contractBalances.considerationEvents.map((row) => row.invoiceDate),
     ).toContain("2026-11-02");
