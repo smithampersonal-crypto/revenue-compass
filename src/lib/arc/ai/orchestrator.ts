@@ -152,6 +152,19 @@ export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
    * draft values, prompt or credentials — and nothing here is persisted.
    */
   onMergeDiagnostic?: (diagnostic: { errorName: string; frames: readonly string[] }) => void;
+  /**
+   * Bounded, sanitized citation-anchor diagnostic. Emitted ONCE, and only for
+   * a `citation_anchor_failure`, carrying the run id, the failure code and the
+   * materializer's own issue code, schema path and at most three submitted
+   * anchor ids per issue. Never excerpt text, page text, model output, prompt,
+   * source content, user data or credentials. Purely observational: the
+   * fail-closed path is unchanged.
+   */
+  onCitationAnchorDiagnostic?: (diagnostic: {
+    runId: string;
+    failureCode: string;
+    issues: readonly TerraAnchorDiagnostic[];
+  }) => void;
 }
 
 /** Bounded, non-sensitive frames: file, line and column only. */
