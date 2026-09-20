@@ -281,7 +281,7 @@ function acceptedAnalysis(...specs: AcceptedSpec[]) {
       },
     ],
     materialRights: [],
-    estimatedComponents: [component],
+    estimatedComponents: specs.map(acceptedComponent),
     usageComponents: [],
   };
   return analyzeVariableConsideration(input);
