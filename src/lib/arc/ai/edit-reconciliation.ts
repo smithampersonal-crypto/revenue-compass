@@ -250,6 +250,22 @@ const VC_METER_FIELDS = [
 const VC_SERIES_PERIOD_FIELDS = ["id", "label", "startDate", "endDate"];
 const VC_REALIZED_EVENT_FIELDS = ["id", "date", "amountInput", "seriesPeriodId", "description"];
 const PO_PROGRESS_EVENT_FIELDS = ["id", "date", "unitsInput"];
+/**
+ * Phase 9G-R3. Every canonical fact that can change WHEN and HOW MUCH revenue
+ * a performance obligation recognises. `progressEvents` is added separately
+ * because it needs an identity-keyed projection.
+ */
+const PO_RECOGNITION_FIELDS = [
+  "recognitionMethod",
+  "serviceStart",
+  "serviceEnd",
+  "recognitionDate",
+  "recognitionRationale",
+  "transferStatus",
+  "overTimeMeasure",
+  "totalExpectedUnitsInput",
+  "unitLabel",
+];
 
 /**
  * Nested rows are projected BY IDENTITY, never by array position: the rows are
