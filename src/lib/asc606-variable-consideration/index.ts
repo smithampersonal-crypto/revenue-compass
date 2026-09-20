@@ -33,13 +33,11 @@ import {
   type MaterialRightOutcome,
   type RevenueSource,
 } from "@/lib/asc606-material-rights";
+import { allocationLayers, type SpecificAllocationInput } from "./allocation";
 import {
-  allocationLayers,
-  allocateSignedAmount,
-  applyAllocationChanges,
-  buildInceptionAllocation,
-  type SpecificAllocationInput,
-} from "./allocation";
+  planAllocationLifecycle,
+  type LifecycleDatedChange,
+} from "./allocation-lifecycle";
 import {
   constraintConclusion,
   orderedAssessments,
