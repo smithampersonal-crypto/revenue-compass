@@ -2751,9 +2751,91 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const servicePeriod = deriveContractServicePeriod(draft);
   const projection = analysis.projectedCollectionAssumptions;
 
+  // Phase L. A billing-term key is a model alias, so the SCHEDULE is
+  // reconciled before any invoice can be derived from it. Event identity then
+  // follows deterministically from the reconciled lineage and the schedule
+  // period, and a projected collection follows its canonical event.
+  const incumbentLineages = billingLineages(objectProvenance);
+  const incomingTermKeys = new Set(analysis.billingTerms.map((term) => term.semanticKey));
+  const billingSignatures = new Map(
+    analysis.billingTerms.map((term) => [term.semanticKey, billingTermIdentity(term)] as const),
+  );
+  // A legacy incumbent schedule whose identity could not be recovered cannot
+  // be reconciled at all; while one exists, ARC must not decide that a renamed
+  // proposal is "genuinely new" and stand a duplicate schedule beside it.
+  const unidentifiedLineages = [...incumbentLineages.values()].filter(
+    (lineage) => lineage.signature === undefined,
+  );
+  const billingAliases = reconcileByIdentity(
+    analysis.billingTerms
+      .filter(
+        (term) =>
+          !incumbentLineages.has(term.semanticKey) &&
+          !tombstones.has(term.semanticKey) &&
+          objectProvenance[term.semanticKey] === undefined,
+      )
+      .map((term) => ({
+        semanticKey: term.semanticKey,
+        signature: billingSignatures.get(term.semanticKey)!,
+      })),
+    billingIdentityCandidates(incumbentLineages, incomingTermKeys),
+  );
+
   for (const term of analysis.billingTerms) {
     const semanticKey = term.semanticKey;
+    const termSignature = billingSignatures.get(semanticKey)!;
     proposedSemanticKeys.add(semanticKey);
+
+    const billingAlias = billingAliases.get(semanticKey);
+    if (
+      billingAlias?.status === "ambiguous" ||
+      (billingAlias?.status === "none" && unidentifiedLineages.length > 0)
+    ) {
+      // Fail closed: no consideration event, no projected collection, no
+      // re-pointing, no incumbent touched.
+      raise({
+        targetKey: `billing:${semanticKey}`,
+        section: "additional_topics",
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The latest AI analysis describes this billing schedule under a new internal label and ARC could not tell which existing schedule it is. No invoices or projected collections were created — tell ARC whether this is a new billing schedule or a renamed one.",
+        guidanceIds: [],
+        citations: term.citations,
+        value: semanticKey,
+        material: billingMaterial(term),
+        aiReviewState: "needs_review",
+        blocking: true,
+      });
+      continue;
+    }
+
+    // A reconciled schedule keeps its canonical invoices, their accountant
+    // edits and their projected collections: only the alias changes.
+    if (billingAlias?.status === "matched") {
+      const incumbent = incumbentLineages.get(billingAlias.previousSemanticKey);
+      for (const member of [
+        ...(incumbent?.events.values() ?? []),
+        ...(incumbent?.collections.values() ?? []),
+      ]) {
+        const parsed = parseBillingEventSemanticKey(
+          member.semanticKey.endsWith("#collection")
+            ? member.semanticKey.slice(0, -"#collection".length)
+            : member.semanticKey,
+        );
+        if (parsed === null) continue;
+        const rekeyed = member.semanticKey.endsWith("#collection")
+          ? billingCollectionSemanticKey(billingEventSemanticKey(semanticKey, parsed.period))
+          : billingEventSemanticKey(semanticKey, parsed.period);
+        adoptAlias(rekeyed, {
+          status: "matched",
+          canonicalId: member.canonicalId,
+          previousSemanticKey: member.semanticKey,
+        });
+        // The old alias is still the same proposed economic object, so it must
+        // never be reported as an object the model stopped proposing.
+        proposedSemanticKeys.add(member.semanticKey);
+      }
+    }
     if (tombstones.has(semanticKey)) {
       raise({
         targetKey: `billing:${semanticKey}`,
