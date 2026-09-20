@@ -400,12 +400,16 @@ describe("G5 — the resulting provenance is truthful", () => {
 });
 
 describe("G5 — review behaviour after a real re-analysis", () => {
+  // Conclusions that rest only on facts the accountant owns. The usage
+  // measurement conclusion is deliberately NOT here: under the accepted
+  // material grouping it rests on the recorded quantities AND the
+  // contract-derived meter rate, so the AI's rate change must reopen it.
   const operationalTargets = (ids: LineageIds) => [
     `po:${ids.po}.progressEvents`,
     `po:${ids.po}.transferStatus`,
-    `vc:${ids.usage}.usagePeriods`,
     `vc:${ids.sla}.realizedEvents`,
   ];
+
 
   function itemFor(draft: WorkflowDraft, targetKey: string): AiReviewItem {
     const item = deriveReviewItem({
