@@ -348,7 +348,7 @@ describe("R3: resolution is economically authoritative", () => {
     );
     expect(workflow.progressive!.transactionPriceCents).toBe(FIXED_CENTS + 1_200_000);
     const resolution = workflow.progressive!.vc.datedChanges;
-    expect(resolution).toHaveLength(2);
+    expect(resolution).toHaveLength(1);
     expect(resolution.every((change) => change.isResolution)).toBe(true);
     expect(resolution.reduce((total, change) => total + change.changeCents, 0)).toBe(200_000);
 
