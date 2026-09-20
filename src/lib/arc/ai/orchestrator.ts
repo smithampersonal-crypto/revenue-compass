@@ -37,7 +37,7 @@ import {
   type AiRunStore,
   type AiRunRow,
 } from "./runs.handlers";
-import { TerraAnalysisError, type TerraAnalyzer } from "./terra.server";
+import { TerraAnalysisError, type TerraAnalyzer, type TerraAnchorDiagnostic } from "./terra.server";
 import type { AiPreflightResult, PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------- boundary */
@@ -152,6 +152,19 @@ export interface AiExecutionDeps extends Omit<AiRunDeps, "store"> {
    * draft values, prompt or credentials — and nothing here is persisted.
    */
   onMergeDiagnostic?: (diagnostic: { errorName: string; frames: readonly string[] }) => void;
+  /**
+   * Bounded, sanitized citation-anchor diagnostic. Emitted ONCE, and only for
+   * a `citation_anchor_failure`, carrying the run id, the failure code and the
+   * materializer's own issue code, schema path and at most three submitted
+   * anchor ids per issue. Never excerpt text, page text, model output, prompt,
+   * source content, user data or credentials. Purely observational: the
+   * fail-closed path is unchanged.
+   */
+  onCitationAnchorDiagnostic?: (diagnostic: {
+    runId: string;
+    failureCode: string;
+    issues: readonly TerraAnchorDiagnostic[];
+  }) => void;
 }
 
 /** Bounded, non-sensitive frames: file, line and column only. */
@@ -395,6 +408,14 @@ export async function executeAiRunHandler(
           ? error
           : new TerraAnalysisError("api_failure", "The AI service request failed.");
       const category = failureCategoryFor(terra);
+      // Observational only, and only for the anchor-selection boundary.
+      if (terra.category === "citation_anchor_failure" && deps.onCitationAnchorDiagnostic) {
+        deps.onCitationAnchorDiagnostic({
+          runId: run.id,
+          failureCode: terra.category,
+          issues: terra.anchorDiagnostics,
+        });
+      }
       await deps.store.markFailure({
         runId: run.id,
         // An API failure never produced a response, so the run is still
