@@ -2907,7 +2907,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     }
 
     for (const event of schedule.events) {
-      const eventSemanticKey = `${semanticKey}#${event.period}`;
+      const eventSemanticKey = billingEventSemanticKey(semanticKey, event.period);
       proposedSemanticKeys.add(eventSemanticKey);
       if (tombstones.has(eventSemanticKey)) continue;
 
@@ -2933,7 +2933,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           valueFingerprint: valueFingerprint(event.invoiceDate),
         };
       }
-      claimObject(eventSemanticKey, eventId);
+      // The schedule identity is recorded on the derived invoice, so a later
+      // run that renames the billing term can still find this lineage.
+      claimObject(eventSemanticKey, eventId, termSignature);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -2942,7 +2944,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         contractualDueDateBasis: projection.contractualDueDateBasis,
         paymentTermsDays: projection.paymentTermsDays ?? term.paymentTermsDays,
       });
-      const cashSemanticKey = `${eventSemanticKey}#collection`;
+      const cashSemanticKey = billingCollectionSemanticKey(eventSemanticKey);
       proposedSemanticKeys.add(cashSemanticKey);
       if (!projected.ok) {
         raise({
@@ -2979,7 +2981,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           cashCollections: [...draft.contractBalances.cashCollections, created],
         };
       }
-      claimObject(cashSemanticKey, cashId);
+      // A projected collection is subordinate to its canonical invoice: it
+      // inherits the same schedule identity and is never matched on its own.
+      claimObject(cashSemanticKey, cashId, termSignature);
     }
   }
 
