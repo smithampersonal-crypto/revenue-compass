@@ -338,7 +338,10 @@ export function buildVcLayers(
           continue;
         }
       }
-      generalPool = sumCents([generalPool, includedSigned]);
+      const general = lifecycleOf(component, includedSigned);
+      // Only the INCEPTION amount joins the inception relative-SSP pool; each
+      // dated change is allocated on its own effective date.
+      generalPool = sumCents([generalPool, general.inceptionSigned]);
       states.push({
         componentId: component.id,
         description: component.description,
@@ -346,7 +349,7 @@ export function buildVcLayers(
         targetPoId: null,
         state: "complete",
         estimateSignedCents: estimateSigned,
-        includedSignedCents: includedSigned,
+        includedSignedCents: general.currentSigned,
         realizedSignedCents: 0,
         pendingSignedCents: 0,
       });
