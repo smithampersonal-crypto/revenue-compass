@@ -14,6 +14,7 @@
 export * from "./types";
 export * from "./estimation";
 export * from "./allocation";
+export * from "./allocation-lifecycle";
 export * from "./usage";
 export * from "./recognition";
 export * from "./preview";
@@ -33,13 +34,8 @@ import {
   type MaterialRightOutcome,
   type RevenueSource,
 } from "@/lib/asc606-material-rights";
-import {
-  allocationLayers,
-  allocateSignedAmount,
-  applyAllocationChanges,
-  buildInceptionAllocation,
-  type SpecificAllocationInput,
-} from "./allocation";
+import { allocationLayers, type SpecificAllocationInput } from "./allocation";
+import { planAllocationLifecycle, type LifecycleDatedChange } from "./allocation-lifecycle";
 import {
   constraintConclusion,
   orderedAssessments,
@@ -201,6 +197,9 @@ export function analyzeVariableConsideration(
   };
 
   // ---- Inception allocation ------------------------------------------------
+  // The chronological allocation-state authority lives in one shared pure
+  // helper (`planAllocationLifecycle`) so this engine and the Phase 9G-R3
+  // progressive engine cannot reach different conclusions.
   let generalPool = BigInt(input.fixedConsiderationCents);
   const specific: SpecificAllocationInput[] = [];
   for (const component of components) {
@@ -223,105 +222,55 @@ export function analyzeVariableConsideration(
   };
   const allocatables = buildAllocatables(mrShell);
 
-  if (generalPool < 0n) {
-    allocationFail(
-      "vc.allocation.general_pool.nonnegative",
-      "The consideration allocated on a relative standalone-selling-price basis cannot be negative. Review the variable-consideration amounts and their allocation treatment.",
-    );
-    return blockedWithExtra();
-  }
-
-  const { base, inceptionFinal } = buildInceptionAllocation({
-    generalPoolCents: bigIntToCents(generalPool, "general allocation pool"),
-    allocatables,
-    specific,
-  });
-
-  const negativeInception = inceptionFinal.filter((row) => row.amountCents < 0);
-  if (negativeInception.length > 0) {
-    for (const row of negativeInception) {
-      allocationFail(
-        "vc.allocation.po.nonnegative",
-        `The amount allocated to "${row.name}" at inception is negative. A performance obligation cannot carry a negative allocation; review the variable consideration allocated specifically to it.`,
-      );
-    }
-    return blockedWithExtra();
-  }
-
-  let initialTransactionPrice = 0n;
-  for (const row of inceptionFinal) initialTransactionPrice += BigInt(row.amountCents);
-
-  // ---- Dated changes -------------------------------------------------------
-  interface PendingChange {
-    event: Omit<VcChangeEvent, "catchUpCents" | "futureImpactCents">;
-  }
-  const pending: PendingChange[] = [];
+  const datedChanges: LifecycleDatedChange[] = [];
   for (const component of components) {
     const definition = componentInputById.get(component.componentId)!;
     component.assessments.forEach((assessment, index) => {
       if (index === 0) return; // inception is not a change
-      const change = assessment.changeCents;
-      const allocationByPo =
-        definition.allocationTreatment === "general"
-          ? allocateSignedAmount(change, allocatables)
-          : [{ poId: definition.targetPoId!, amountCents: change }];
-      pending.push({
-        event: {
-          id: `${component.componentId}::${assessment.assessmentId}`,
-          componentId: component.componentId,
-          assessmentId: assessment.assessmentId,
-          effectiveDate: assessment.effectiveDate,
-          month: monthKeyOf(assessment.effectiveDate),
-          transactionPriceChangeCents: change,
-          allocationByPo: allocationByPo.filter((row) => row.amountCents !== 0 || change === 0),
-          isResolution: assessment.isResolution,
-        },
+      datedChanges.push({
+        id: `${component.componentId}::${assessment.assessmentId}`,
+        componentId: component.componentId,
+        assessmentId: assessment.assessmentId,
+        effectiveDate: assessment.effectiveDate,
+        targetPoId: definition.allocationTreatment === "general" ? null : definition.targetPoId!,
+        changeCents: assessment.changeCents,
+        isResolution: assessment.isResolution,
       });
     });
   }
-  pending.sort(
-    (a, b) =>
-      (a.event.effectiveDate < b.event.effectiveDate
-        ? -1
-        : a.event.effectiveDate > b.event.effectiveDate
-          ? 1
-          : 0) || (a.event.id < b.event.id ? -1 : 1),
-  );
 
-  // Each successive allocation state, in chronological order, must stay
-  // nonnegative — not only the final one. The general allocation pool itself is
-  // maintained chronologically as well: large specific allocations can keep
-  // every performance obligation positive while the pool is invalid.
-  const treatmentByComponentId = new Map(
-    components.map((component) => [component.componentId, component.allocationTreatment]),
-  );
-  let runningGeneralPool = generalPool;
-  let intermediate = inceptionFinal;
-  for (const { event } of pending) {
-    if (treatmentByComponentId.get(event.componentId) === "general") {
-      runningGeneralPool += BigInt(event.transactionPriceChangeCents);
-      if (runningGeneralPool < 0n) {
-        allocationFail(
-          "vc.allocation.general_pool.nonnegative",
-          `The consideration allocated on a relative standalone-selling-price basis becomes negative on ${event.effectiveDate}. Review the variable-consideration amounts and their allocation treatment.`,
-        );
-        return blockedWithExtra();
-      }
-    }
-    intermediate = applyAllocationChanges(intermediate, event.allocationByPo);
-    for (const row of intermediate) {
-      if (row.amountCents < 0) {
-        allocationFail(
-          "vc.allocation.po.nonnegative",
-          `The amount allocated to "${row.name}" becomes negative on ${event.effectiveDate}. A performance obligation cannot carry a negative allocation; review the change in variable consideration allocated specifically to it.`,
-        );
-      }
-    }
-    if (extraFailures.length > 0) return blockedWithExtra();
+  const plan = planAllocationLifecycle({
+    generalPoolCents: generalPool < 0n ? -1 : bigIntToCents(generalPool, "general allocation pool"),
+    allocatables,
+    specific,
+    changes: datedChanges,
+  });
+  if (!plan.ok) {
+    for (const failure of plan.failures) allocationFail(failure.id, failure.message);
+    return blockedWithExtra();
   }
+  const { base, inceptionFinal } = plan;
 
-  const allChangeAllocations = pending.flatMap((p) => p.event.allocationByPo);
-  const currentFinal = applyAllocationChanges(inceptionFinal, allChangeAllocations);
+  let initialTransactionPrice = 0n;
+  for (const row of inceptionFinal) initialTransactionPrice += BigInt(row.amountCents);
+
+  interface PendingChange {
+    event: Omit<VcChangeEvent, "catchUpCents" | "futureImpactCents">;
+  }
+  const pending: PendingChange[] = plan.plannedChanges.map(({ change, allocationByPo }) => ({
+    event: {
+      id: change.id,
+      componentId: change.componentId,
+      assessmentId: change.assessmentId,
+      effectiveDate: change.effectiveDate,
+      month: monthKeyOf(change.effectiveDate),
+      transactionPriceChangeCents: change.changeCents,
+      allocationByPo,
+      isResolution: change.isResolution,
+    },
+  }));
+
+  const currentFinal = plan.currentFinal;
 
   let currentEstimated = 0n;
   for (const row of currentFinal) currentEstimated += BigInt(row.amountCents);
