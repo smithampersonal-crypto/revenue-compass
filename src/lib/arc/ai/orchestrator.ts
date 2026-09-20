@@ -49,6 +49,11 @@ export interface AiExecutionContext {
   draft: WorkflowDraft;
   aiState: AiAnalysisState;
   priorContext: PriorAccountingContext | null;
+  /**
+   * Phase 9G-R3. Immutable structured output of the last successful run,
+   * supplied only when the sidecar predates identity signatures.
+   */
+  priorAnalysis?: AiContractAnalysis | null;
   schemaVersion: string;
   /** Observed optimistic lock of the revision or temporary workspace. */
   lockVersion: number;
@@ -447,6 +452,7 @@ export async function executeAiRunHandler(
           runId: run.id,
           guidancePack: preflight.package.guidance,
           priorContext: latest.priorContext,
+          priorAnalysis: latest.priorAnalysis ?? null,
         });
       } catch (error) {
         deps.onMergeDiagnostic?.(mergeDiagnosticOf(error));
