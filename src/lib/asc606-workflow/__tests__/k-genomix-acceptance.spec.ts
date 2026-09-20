@@ -401,7 +401,12 @@ describe("K4 — mutation 3: real Tier 2 usage is measured", () => {
   });
 
   it("reopens only the usage conclusion", () => {
-    expectSelectiveReopen(before, after, ["vc:vc-usage.usagePeriods"]);
+    expectSelectiveReopen(before, after, [
+      "vc:vc-usage.usagePeriods",
+      // The metered-usage conclusion is one composite: the rate is read
+      // together with the quantities it prices.
+      "vc:vc-usage.meter.rateAmountInput",
+    ]);
   });
 });
 
@@ -452,7 +457,11 @@ describe("K5 — mutation 4: a service-level credit is actually realized", () =>
   });
 
   it("reopens only the realized-credit conclusion", () => {
-    expectSelectiveReopen(before, after, ["vc:vc-sla.realizedEvents"]);
+    expectSelectiveReopen(before, after, [
+      "vc:vc-sla.realizedEvents",
+      // Realized credits are read against the service periods they belong to.
+      "vc:vc-sla.seriesPeriods",
+    ]);
   });
 });
 
@@ -534,7 +543,10 @@ describe("K7 — finalization of the fully resolved contract", () => {
     expect(snapshot.reconciliation.totals.transactionPriceCents).toBe(
       authoritative.transactionPriceCents,
     );
-    expect(snapshot.engineOutputs.workflow.progressive).toEqual(authoritative);
+    // The snapshot is stored as JSON, so it is compared as stored.
+    expect(snapshot.engineOutputs.workflow.progressive).toEqual(
+      JSON.parse(JSON.stringify(authoritative)),
+    );
   });
 
   it("preserves those totals across a snapshot round-trip", () => {
