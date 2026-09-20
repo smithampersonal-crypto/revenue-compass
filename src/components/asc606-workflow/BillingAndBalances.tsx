@@ -66,15 +66,7 @@ export function BillingAndBalances({
   const recordedCashFor = (eventId: string) =>
     linkedCash(eventId).filter((c) => !isProjectedCollection(c));
   const removeEvent = (eventId: string) => {
-    if (recordedCashFor(eventId).length > 0) return;
-    onChange({
-      ...draft,
-      contractBalances: {
-        ...draft.contractBalances,
-        considerationEvents: considerationEvents.filter((e) => e.id !== eventId),
-        cashCollections: cashCollections.filter((c) => c.considerationEventId !== eventId),
-      },
-    });
+    setEvents(considerationEvents.filter((e) => e.id !== eventId));
   };
   const updateCash = (id: string, patch: Partial<CashCollectionDraft>) =>
     setCash(cashCollections.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -134,7 +126,6 @@ export function BillingAndBalances({
                   </p>
                   <button
                     type="button"
-                    disabled={recordedCashFor(event.id).length > 0}
                     data-testid={`remove-billing-event-${event.id}`}
                     className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => removeEvent(event.id)}
