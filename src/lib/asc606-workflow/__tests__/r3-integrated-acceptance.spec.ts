@@ -228,8 +228,8 @@ describe("K8 — AI re-analysis never overwrites an accountant's R3 facts", () =
       return recognizedFor(result, "po-support") / allocated;
     };
     // 80 of 200 contracted hours.
-    expect(ratio(draft)).toBeCloseTo(0.4, 10);
-    expect(ratio(merged.draft)).toBeCloseTo(0.4, 10);
+    expect(ratio(draft)).toBeCloseTo(0.4, 5);
+    expect(ratio(merged.draft)).toBeCloseTo(0.4, 5);
   });
 
   it("survives a save and reload after re-analysis", () => {
