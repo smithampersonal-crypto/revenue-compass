@@ -59,6 +59,14 @@ import {
   valueFingerprint,
   type AiObjectKind,
 } from "./identity";
+import {
+  poIdentityTiers,
+  promiseIdentityTiers,
+  reconcileByTieredIdentity,
+  vcIdentityTiers,
+  type IdentityCandidate,
+  type IdentityOutcome,
+} from "./reconciliation";
 import { normalizePersistedReviewItems } from "./review-normalization";
 import {
   carryForwardReviewResolutions,
@@ -91,6 +99,14 @@ export interface AiFieldProvenance {
 export interface AiObjectProvenance extends AiFieldProvenance {
   canonicalId: string;
   userModified: boolean;
+  /**
+   * Phase 9G-R3. The deterministic identity signature ARC derived for this
+   * object from the analysis that created it. It lets a later run whose model
+   * renamed its own semantic keys reconcile onto the SAME canonical object.
+   */
+  identityTiers?: readonly string[];
+  /** Earlier model aliases of this same canonical object, oldest first. */
+  previousSemanticKeys?: readonly string[];
 }
 
 export interface AiAnalysisState {
@@ -551,13 +567,86 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
    * obligation, a performance obligation needs its recognition and
    * standalone selling price). Both are resolved in one pass at the end.
    */
-  const claimedObjects: Array<{ semanticKey: string; canonicalId: string }> = [];
-  function claimObject(semanticKey: string, canonicalId: string): void {
+  const claimedObjects: Array<{
+    semanticKey: string;
+    canonicalId: string;
+    identityTiers?: readonly string[];
+  }> = [];
+  function claimObject(
+    semanticKey: string,
+    canonicalId: string,
+    identityTiers?: readonly string[],
+  ): void {
     if (claimedObjects.some((entry) => entry.semanticKey === semanticKey)) return;
-    claimedObjects.push({ semanticKey, canonicalId });
+    claimedObjects.push({
+      semanticKey,
+      canonicalId,
+      ...(identityTiers === undefined ? {} : { identityTiers }),
+    });
   }
 
   const proposedSemanticKeys = new Set<string>();
+
+  /* ------------------------------- deterministic re-identification (R3) */
+
+  // A model semantic key is a model-local alias. Before ARC mints a NEW
+  // canonical object for a key it has never seen, it asks whether the
+  // proposal is an existing canonical object the model simply renamed.
+  const incomingObjectKeys = new Set<string>([
+    ...analysis.promises.map((row) => row.semanticKey),
+    ...analysis.performanceObligations.map((row) => row.semanticKey),
+    ...analysis.transactionPrice.variableConsiderationComponents.map((row) => row.semanticKey),
+  ]);
+
+  const KIND_ID_PREFIX = {
+    promise: "pr-",
+    performance_obligation: "po-",
+    variable_component: "vc-",
+  } as const;
+
+  /**
+   * Incumbent canonical objects available for re-identification: AI-owned,
+   * still present in the draft, carrying a recorded identity, and NOT already
+   * claimed by an unchanged semantic key in this very analysis.
+   */
+  function identityCandidates(kind: keyof typeof KIND_ID_PREFIX): IdentityCandidate[] {
+    const prefix = KIND_ID_PREFIX[kind];
+    const candidates: IdentityCandidate[] = [];
+    for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
+      if (incomingObjectKeys.has(semanticKey)) continue;
+      if (!provenance.canonicalId.startsWith(prefix)) continue;
+      if (!takenIds.has(provenance.canonicalId)) continue;
+      const tiers = provenance.identityTiers;
+      if (tiers === undefined || tiers.length === 0) continue;
+      candidates.push({ semanticKey, canonicalId: provenance.canonicalId, tiers });
+    }
+    return candidates.sort((left, right) => left.semanticKey.localeCompare(right.semanticKey));
+  }
+
+  /** True when a semantic key is genuinely new to ARC and may be reconciled. */
+  const unseenKey = (semanticKey: string) =>
+    objectProvenance[semanticKey] === undefined && !tombstones.has(semanticKey);
+
+  /**
+   * Transfers canonical ownership from the previous alias to the new one. The
+   * canonical ID, its accountant-owned values, its user-edit history and its
+   * lineage all survive; no canonical object ever ends up owned twice.
+   */
+  function adoptAlias(semanticKey: string, outcome: IdentityOutcome | undefined): void {
+    if (outcome === undefined || outcome.status !== "matched") return;
+    const incumbent = objectProvenance[outcome.previousSemanticKey];
+    if (incumbent === undefined) return;
+    const lineage = [
+      ...new Set([...(incumbent.previousSemanticKeys ?? []), outcome.previousSemanticKey]),
+    ];
+    objectProvenance[semanticKey] = { ...incumbent, semanticKey, previousSemanticKeys: lineage };
+    delete objectProvenance[outcome.previousSemanticKey];
+    // User-edit detection at the end of the merge reads both of these by the
+    // CURRENT key, so the alias inherits them intact.
+    previousState.objectProvenance[semanticKey] = incumbent;
+    const preMerge = preMergeFingerprints.get(outcome.previousSemanticKey);
+    if (preMerge !== undefined) preMergeFingerprints.set(semanticKey, preMerge);
+  }
 
   /* --------------------------------------------------------- Step 1 + head */
 
@@ -756,8 +845,31 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     if (text !== "" && !manualPromiseByText.has(text)) manualPromiseByText.set(text, promise);
   }
 
+  const promiseAliases = reconcileByTieredIdentity(
+    analysis.promises
+      .filter((row) => unseenKey(row.semanticKey))
+      .map((row) => ({ semanticKey: row.semanticKey, tiers: promiseIdentityTiers(row) })),
+    identityCandidates("promise"),
+  );
+
   for (const aiPromise of analysis.promises) {
     proposedSemanticKeys.add(aiPromise.semanticKey);
+    const promiseAlias = promiseAliases.get(aiPromise.semanticKey);
+    adoptAlias(aiPromise.semanticKey, promiseAlias);
+    if (promiseAlias?.status === "ambiguous") {
+      raise({
+        targetKey: `promise:${aiPromise.semanticKey}`,
+        section: "step_2",
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The latest AI analysis describes this promise under a new internal label that matches more than one promise already in your workpaper. ARC did not guess which one it means — check whether this is a new promise or a renamed one.",
+        guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
+        value: aiPromise.semanticKey,
+        material: promiseMaterial(aiPromise),
+        aiReviewState: "needs_review",
+      });
+    }
     if (tombstones.has(aiPromise.semanticKey)) {
       raise({
         targetKey: `promise:${aiPromise.semanticKey}`,
@@ -905,15 +1017,59 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       });
     }
 
-    claimObject(aiPromise.semanticKey, canonicalId);
+    claimObject(aiPromise.semanticKey, canonicalId, promiseIdentityTiers(aiPromise));
   }
 
   /* ------------------------------------------------ performance obligations */
 
   const poIdBySemanticKey = new Map<string, string>();
 
+  // Performance obligations are re-identified through their CANONICAL promise
+  // membership (already reconciled above) plus a compatible satisfaction
+  // structure — never through prose. A renamed grouping that still owns the
+  // same promises is the same performance obligation.
+  const proposedPoPromiseIds = new Map<string, string[]>();
+  for (const aiPo of analysis.performanceObligations) {
+    proposedPoPromiseIds.set(
+      aiPo.semanticKey,
+      aiPo.promiseKeys
+        .map((promiseKey) => promiseIdBySemanticKey.get(promiseKey))
+        .filter((id): id is string => id !== undefined),
+    );
+  }
+  const poAliases = reconcileByTieredIdentity(
+    analysis.performanceObligations
+      .filter((row) => unseenKey(row.semanticKey))
+      .map((row) => ({ semanticKey: row.semanticKey, tiers: poIdentityTiers(row) })),
+    identityCandidates("performance_obligation"),
+    (proposal, candidate) => {
+      const members = draft.promises
+        .filter((row) => row.performanceObligationId === candidate.canonicalId)
+        .map((row) => row.id);
+      if (members.length === 0) return false;
+      const proposed = proposedPoPromiseIds.get(proposal.semanticKey) ?? [];
+      return members.some((id) => proposed.includes(id));
+    },
+  );
+
   for (const aiPo of analysis.performanceObligations) {
     proposedSemanticKeys.add(aiPo.semanticKey);
+    const poAlias = poAliases.get(aiPo.semanticKey);
+    adoptAlias(aiPo.semanticKey, poAlias);
+    if (poAlias?.status === "ambiguous") {
+      raise({
+        targetKey: `po:${aiPo.semanticKey}`,
+        section: sectionFor(aiPo.guidanceIds, "step_2"),
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The latest AI analysis labels this performance obligation differently and it matches more than one grouping already in your workpaper. ARC did not guess which one it means — confirm the grouping.",
+        guidanceIds: aiPo.guidanceIds,
+        citations: aiPo.citations,
+        value: aiPo.semanticKey,
+        material: poMaterial(aiPo),
+        aiReviewState: "needs_review",
+      });
+    }
     if (tombstones.has(aiPo.semanticKey)) {
       raise({
         targetKey: `po:${aiPo.semanticKey}`,
@@ -1128,7 +1284,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     // A preserved manual performance obligation stays manual: ARC does not
     // claim ownership of a row the accountant built.
-    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId);
+    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId, poIdentityTiers(aiPo));
   }
 
   /* ----------------------------------------------------------- recognition */
@@ -1607,9 +1763,50 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     if (text !== "" && !manualVcByText.has(text)) manualVcByText.set(text, row);
   }
 
+  // Variable-consideration identity is NEVER the component type alone: two
+  // usage components can coexist. It is the economic effect, the canonical
+  // performance obligation it attaches to, the evidence and the contractual
+  // terms.
+  const vcTiersFor = (
+    component: (typeof analysis.transactionPrice.variableConsiderationComponents)[number],
+  ) =>
+    vcIdentityTiers({
+      type: component.type,
+      effect: mapVcEffect(component.type) ?? "undetermined",
+      targetCanonicalId:
+        component.targetPerformanceObligationKey === null
+          ? null
+          : (poIdBySemanticKey.get(component.targetPerformanceObligationKey) ?? null),
+      citations: component.citations,
+      rateInput: component.contractualRateOrAmountInput,
+      unitDescription: component.unitDescription,
+    });
+  const vcAliases = reconcileByTieredIdentity(
+    analysis.transactionPrice.variableConsiderationComponents
+      .filter((row) => unseenKey(row.semanticKey))
+      .map((row) => ({ semanticKey: row.semanticKey, tiers: vcTiersFor(row) })),
+    identityCandidates("variable_component"),
+  );
+
   for (const component of analysis.transactionPrice.variableConsiderationComponents) {
     proposedSemanticKeys.add(component.semanticKey);
     const section = sectionFor(component.guidanceIds, "step_3");
+    const vcAlias = vcAliases.get(component.semanticKey);
+    adoptAlias(component.semanticKey, vcAlias);
+    if (vcAlias?.status === "ambiguous") {
+      raise({
+        targetKey: `vc:${component.semanticKey}`,
+        section,
+        reasonCode: "unsafe_semantic_relationship",
+        reason:
+          "The latest AI analysis labels this variable-consideration component differently and it matches more than one component already in your workpaper. ARC did not guess which one it means — confirm it.",
+        guidanceIds: component.guidanceIds,
+        citations: component.citations,
+        value: component.semanticKey,
+        material: vcMaterial(component),
+        aiReviewState: "needs_review",
+      });
+    }
     if (tombstones.has(component.semanticKey)) {
       raise({
         targetKey: `vc:${component.semanticKey}`,
@@ -1711,7 +1908,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         aiReviewState: component.reviewState,
         blocking: true,
       });
-      claimObject(component.semanticKey, canonicalId);
+      claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
       continue;
     }
     const update = (patch: Partial<VcComponentDraft>) => {
@@ -2124,7 +2321,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     }
 
-    claimObject(component.semanticKey, canonicalId);
+    claimObject(component.semanticKey, canonicalId, vcTiersFor(component));
   }
 
   /* ------------------------------------------------------------ modifications */
@@ -2552,8 +2749,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // classification, recognition and standalone selling price. Recording an
   // intermediate fingerprint would make an identical re-run look like a user
   // edit on the next merge.
-  for (const { semanticKey, canonicalId } of claimedObjects) {
+  for (const { semanticKey, canonicalId, identityTiers } of claimedObjects) {
     const prior = previousState.objectProvenance[semanticKey];
+    const carried = objectProvenance[semanticKey];
+    const tiers = identityTiers ?? carried?.identityTiers;
+    const lineage = carried?.previousSemanticKeys;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
     // ARC last wrote. A difference created by ARC applying this very analysis
@@ -2576,6 +2776,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         : finalFingerprint,
       canonicalId,
       userModified,
+      ...(tiers === undefined ? {} : { identityTiers: tiers }),
+      ...(lineage === undefined || lineage.length === 0 ? {} : { previousSemanticKeys: lineage }),
     };
   }
 

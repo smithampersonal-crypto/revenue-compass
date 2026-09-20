@@ -398,8 +398,14 @@ export function Step3TransactionPrice({
                   }
                   disabled={component.treatment === "usage_as_incurred"}
                 >
+                  {/*
+                   * An estimated component may also be allocated to a distinct
+                   * period of a series (ASC 606-10-32-40). Omitting that option
+                   * made a stored series-period allocation display as "General",
+                   * i.e. as a different accounting conclusion than the one held.
+                   */}
                   {(component.treatment === "estimated"
-                    ? (["general", "specific_po"] as const)
+                    ? (["general", "specific_po", "specific_series_period"] as const)
                     : (["specific_series_period"] as const)
                   ).map((treatment) => (
                     <option key={treatment} value={treatment}>
