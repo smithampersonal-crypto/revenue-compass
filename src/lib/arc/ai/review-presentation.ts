@@ -322,8 +322,15 @@ export function describeReviewTarget(
  * Additional Topics is several accordions, so a modification or a variable
  * consideration target opens its own subtopic. Anything else opens Additional
  * Topics Applied rather than guessing a subtopic.
+ *
+ * Measured usage quantities are an exception that is not a guess: they are
+ * only ever entered in Step 5, whatever guidance section raised the item, so
+ * opening the section the item was filed under would hide the control. The
+ * filed section itself is untouched — it still drives grouping and the
+ * review fingerprint.
  */
 function sectionElementIdFor(targetKey: string, section: GuidanceReviewSection): string {
+  if (/^vc:[^.]+\.usagePeriods(\.|$)/.test(targetKey)) return SECTION_ELEMENT_IDS.step_5;
   if (section !== "additional_topics") return SECTION_ELEMENT_IDS[section];
   if (targetKey.startsWith("modification:") || targetKey === "draft.hasContractModifications") {
     return "topic-modifications";
