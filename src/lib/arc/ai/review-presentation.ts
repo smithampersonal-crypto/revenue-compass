@@ -259,14 +259,27 @@ export function describeReviewTarget(
     return label ? exact(label) : fallback();
   }
 
-  const vc = /^vc:[^.]+\.(.+)$/.exec(targetKey);
+  const vc = /^vc:([^.]+)\.(.+)$/.exec(targetKey);
   if (vc) {
-    const field = vc[1]!;
+    const vcId = vc[1]!;
+    const field = vc[2]!;
     const meter = /^meter\.([A-Za-z0-9_]+)$/.exec(field);
     if (meter) {
       return VC_METER_FIELDS.has(meter[1]!)
         ? exact(`Variable consideration meter — ${humanize(meter[1]!)}`)
         : fallback();
+    }
+    // A review item may name one measured month by its stable persisted row
+    // id. That row renders its own anchor, so navigation reaches the actual
+    // quantity control rather than the component the row belongs to.
+    const usageRow = /^usagePeriods\.([A-Za-z0-9_-]+)$/.exec(field);
+    if (usageRow) {
+      return {
+        kind: "exact",
+        label: "Variable consideration — measured usage month",
+        anchorId: reviewTargetAnchorId(`vc:${vcId}.usagePeriods.${usageRow[1]!}`),
+        sectionElementId: sectionElementIdFor(targetKey, section),
+      };
     }
     return VC_FIELDS.has(field) ? exact(`Variable consideration — ${humanize(field)}`) : fallback();
   }
