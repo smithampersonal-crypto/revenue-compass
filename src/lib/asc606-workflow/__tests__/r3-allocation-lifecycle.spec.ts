@@ -286,7 +286,7 @@ function expectNoAuthoritativeAccounting(workflow: ReturnType<typeof analyzeWork
   expect(workflow.progressive!.recognition).toBeNull();
   expect(workflow.progressive!.balances).toBeNull();
   expect(workflow.progressive!.journals).toBeNull();
-  expect(workflow.canFinalize).toBe(false);
+  expect(workflow.finalized).toBe(false);
 }
 
 /* ------------------------------------------------------------------ tests */
