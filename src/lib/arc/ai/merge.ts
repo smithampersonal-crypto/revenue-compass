@@ -691,27 +691,21 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     ...analysis.transactionPrice.variableConsiderationComponents.map((row) => row.semanticKey),
   ]);
 
-  const KIND_ID_PREFIX = {
-    promise: "pr-",
-    performance_obligation: "po-",
-    variable_component: "vc-",
-  } as const;
-
   /**
    * Incumbent canonical objects available for re-identification: AI-owned,
    * still present in the draft, carrying a recorded identity, and NOT already
    * claimed by an unchanged semantic key in this very analysis.
    */
-  function identityCandidates(kind: keyof typeof KIND_ID_PREFIX): IdentityCandidate[] {
+  function identityCandidates(kind: AiIdentityKind): IdentityCandidate[] {
     const prefix = KIND_ID_PREFIX[kind];
     const candidates: IdentityCandidate[] = [];
     for (const [semanticKey, provenance] of Object.entries(objectProvenance)) {
       if (incomingObjectKeys.has(semanticKey)) continue;
       if (!provenance.canonicalId.startsWith(prefix)) continue;
       if (!takenIds.has(provenance.canonicalId)) continue;
-      const tiers = provenance.identityTiers;
-      if (tiers === undefined || tiers.length === 0) continue;
-      candidates.push({ semanticKey, canonicalId: provenance.canonicalId, tiers });
+      const signature = provenance.identitySignature;
+      if (signature === undefined) continue;
+      candidates.push({ semanticKey, canonicalId: provenance.canonicalId, signature });
     }
     return candidates.sort((left, right) => left.semanticKey.localeCompare(right.semanticKey));
   }
@@ -719,6 +713,27 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   /** True when a semantic key is genuinely new to ARC and may be reconciled. */
   const unseenKey = (semanticKey: string) =>
     objectProvenance[semanticKey] === undefined && !tombstones.has(semanticKey);
+
+  /**
+   * A deleted economic object the model has renamed. Matching is the same
+   * deterministic identity test used for live incumbents, so a tombstone
+   * survives semantic-key drift; anything it recognizes stays suppressed.
+   */
+  function tombstoneFor(
+    kind: AiIdentityKind,
+    signature: IdentitySignature,
+  ): AiTombstoneIdentity | null {
+    const matches = tombstoneIdentities.filter(
+      (entry) => entry.kind === kind && signaturesIdentify(entry.signature, signature),
+    );
+    return matches.length === 1 ? matches[0]! : null;
+  }
+
+  /** Records a newly observed alias of an already tombstoned economic object. */
+  function suppressAlias(record: AiTombstoneIdentity, semanticKey: string): void {
+    record.aliases = [...new Set([...record.aliases, semanticKey])].sort();
+    tombstones.add(semanticKey);
+  }
 
   /**
    * Transfers canonical ownership from the previous alias to the new one. The
