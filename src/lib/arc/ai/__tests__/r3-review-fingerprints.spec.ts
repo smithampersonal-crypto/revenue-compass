@@ -13,18 +13,14 @@
  */
 import { describe, expect, it } from "vitest";
 
+import type { WorkflowDraft } from "@/lib/asc606-workflow";
 import {
-  createVcComponentDraft,
-  createVcMeterDraft,
-  type VcComponentDraft,
-  type WorkflowDraft,
-} from "@/lib/asc606-workflow";
-import {
-  genomixR3Draft,
+  genomixBenchmarkDraft,
   withRealizedCredit,
   withSupportHours,
+  withUsageActual,
   withValidationTransfer,
-} from "@/lib/asc606-workflow/__tests__/genomix-r3-fixture";
+} from "@/lib/asc606-workflow/__tests__/genomix-k-fixture";
 
 import {
   canonicalReviewTargetFingerprint,
@@ -38,36 +34,11 @@ import {
 } from "../review-state";
 
 const USAGE_ID = "vc-usage";
-const METER_ID = `${USAGE_ID}-m1`;
+const METER_ID = "m-samples";
 
-/** The Genomix draft plus a usage component, so meter facts are exercised too. */
+/** The canonical Genomix draft with one month of real Tier 2 usage recorded. */
 function draftWithUsage(): WorkflowDraft {
-  const base = genomixR3Draft();
-  const usage: VcComponentDraft = {
-    ...createVcComponentDraft(2, USAGE_ID, "usage_as_incurred"),
-    description: "Tier 2 analysis usage",
-    allocationTreatment: "specific_po",
-    targetPoId: "po-hosted",
-    relatesSpecifically: true,
-    consistentWithAllocationObjective: true,
-    allocationRationale: "Usage relates specifically to the hosted platform.",
-    billOnRealization: true,
-    meters: [
-      {
-        ...createVcMeterDraft(1, METER_ID),
-        name: "Tier 2 analyses",
-        rateAmountInput: "4.00",
-        rateQuantityInput: "1",
-        unit: "analyses",
-        includedQuantityInput: "1000",
-      },
-    ],
-    usagePeriods: [{ id: `${USAGE_ID}-p1`, month: "2027-02", quantities: { [METER_ID]: "1500" } }],
-  };
-  return {
-    ...base,
-    variableConsiderationComponents: [...base.variableConsiderationComponents, usage],
-  };
+  return withUsageActual(genomixBenchmarkDraft(), "2027-02", "1500");
 }
 
 /**
@@ -271,7 +242,7 @@ describe("one R3 variable-consideration fact reopens only its own conclusion", (
       base,
       patchVc(base, "vc-sla", {
         seriesPeriods: (sla.seriesPeriods ?? []).map((period) =>
-          period.id === "q3" ? { ...period, endDate: "2027-09-29" } : period,
+          period.id === "y1" ? { ...period, endDate: "2027-09-29" } : period,
         ),
       }),
       SLA_OPERATIONAL,
@@ -281,7 +252,7 @@ describe("one R3 variable-consideration fact reopens only its own conclusion", (
   it("a realized service-level amount", () => {
     expectOnlyChanged(
       base,
-      withRealizedCredit(base, "5,000.00", "q3", "2027-09-30"),
+      withRealizedCredit(base, "5,000.00", "y1", "2027-09-30"),
       SLA_OPERATIONAL,
     );
   });

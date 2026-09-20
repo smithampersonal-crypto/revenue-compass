@@ -2,19 +2,19 @@
  * Phase 9G-R3 accounting-authority fixture, expressed as a REAL WorkflowDraft.
  *
  * Every fact below is entered the way an accountant enters it in the app, so
- * the acceptance tests travel the same path the product does. All companies,
- * customers and amounts are fictional demonstration data.
- *
- * The full accepted Genomix benchmark — the one the K acceptance suite uses —
- * lives in ./genomix-k-fixture.ts. This fixture stays the narrower engine
- * fixture the accepted B/D/E/F/J authority suites were written against.
+ * the acceptance tests travel the same path the product does. The facts are
+ * the accepted synthetic Genomix benchmark (see
+ * src/lib/asc606-progressive/__tests__/genomix-r3.ts), expressed in canonical
+ * draft form rather than as a direct engine input. All companies, customers
+ * and amounts are fictional demonstration data.
  *
  * Genomix Bio / Helix Analytics — fixed $490,000:
- *   Hosted SaaS         $446,000  over time, time based
+ *   Hosted SaaS         $446,000  over time, time based, 11/1/2026 - 10/31/2028
  *   Validation services  $29,600  point in time, NOT yet transferred
- *   Support hours        $14,400  over time, input measure (200 hours)
+ *   Support hours        $14,400  over time, input measure (300 hours)
+ *   Tier 2 usage overages          contractual meter rule known, no usage yet
  *   Service-level credit      $0  specific service period, no trigger yet
- *   Billing: two $245,000 instalments
+ *   Billing: two $245,000 annual instalments (11/1/2026 and 11/1/2027)
  */
 
 import {
@@ -24,6 +24,7 @@ import {
   createVcComponentDraft,
   type PoDraft,
   type VcComponentDraft,
+  type VcSeriesPeriodDraft,
   type WorkflowDraft,
 } from "../types";
 import { answerAllStep1 } from "./fixtures";
@@ -32,6 +33,28 @@ export const GENOMIX_FIXED_CENTS = 49_000_000;
 export const GENOMIX_HOSTED_CENTS = 44_600_000;
 export const GENOMIX_VALIDATION_CENTS = 2_960_000;
 export const GENOMIX_SUPPORT_CENTS = 1_440_000;
+
+export const GENOMIX_SERVICE_START = "2026-11-01";
+export const GENOMIX_SERVICE_END = "2028-10-31";
+export const GENOMIX_SUPPORT_UNITS = 300;
+
+/** Contractual distinct service periods of the hosted series. */
+export const GENOMIX_SERIES_PERIODS: VcSeriesPeriodDraft[] = [
+  {
+    id: "y1",
+    seq: 1,
+    label: "Year 1 service period",
+    startDate: "2026-11-01",
+    endDate: "2027-10-31",
+  },
+  {
+    id: "y2",
+    seq: 2,
+    label: "Year 2 service period",
+    startDate: "2027-11-01",
+    endDate: "2028-10-31",
+  },
+];
 
 function hostedPo(): PoDraft {
   return {
@@ -43,8 +66,8 @@ function hostedPo(): PoDraft {
     sspBasis: "Provisional: no observable standalone price; expected cost plus a margin.",
     recognitionMethod: "over_time_ratable",
     overTimeMeasure: "time_based",
-    serviceStart: "2027-01-01",
-    serviceEnd: "2027-12-31",
+    serviceStart: GENOMIX_SERVICE_START,
+    serviceEnd: GENOMIX_SERVICE_END,
     recognitionRationale: "The customer simultaneously receives and consumes the hosted service.",
   };
 }
@@ -73,7 +96,7 @@ function supportPo(): PoDraft {
     sspBasis: "Provisional: contracted hourly rate card.",
     recognitionMethod: "over_time_ratable",
     overTimeMeasure: "input_measure",
-    totalExpectedUnitsInput: "200",
+    totalExpectedUnitsInput: String(GENOMIX_SUPPORT_UNITS),
     unitLabel: "hours",
     progressEvents: [],
     recognitionRationale:
@@ -86,7 +109,7 @@ function slaComponent(): VcComponentDraft {
   const base = createVcComponentDraft(1, "vc-sla", "estimated");
   return {
     ...base,
-    description: "Service-level credit",
+    description: "Monthly SLA availability credits",
     effect: "decrease",
     estimationMethod: "most_likely_amount",
     allocationTreatment: "specific_series_period",
@@ -94,10 +117,10 @@ function slaComponent(): VcComponentDraft {
     relatesSpecifically: true,
     consistentWithAllocationObjective: true,
     allocationRationale:
-      "A credit relates specifically to the quarter whose service level was missed, so allocating it to that distinct service period meets the allocation objective.",
+      "A credit relates specifically to the service period whose service level was missed, so allocating it to that distinct service period meets the allocation objective.",
     inception: {
       ...base.inception,
-      effectiveDate: "2027-01-01",
+      effectiveDate: GENOMIX_SERVICE_START,
       includedInput: "0.00",
       constraintRationale:
         "No service level has been missed and none is expected, so the most likely amount of credit at inception is nil.",
@@ -112,18 +135,48 @@ function slaComponent(): VcComponentDraft {
         },
       ],
     },
-    seriesPeriods: [
-      { id: "q1", seq: 1, label: "Q1 2027", startDate: "2027-01-01", endDate: "2027-03-31" },
-      { id: "q2", seq: 2, label: "Q2 2027", startDate: "2027-04-01", endDate: "2027-06-30" },
-      { id: "q3", seq: 3, label: "Q3 2027", startDate: "2027-07-01", endDate: "2027-09-30" },
-      { id: "q4", seq: 4, label: "Q4 2027", startDate: "2027-10-01", endDate: "2027-12-31" },
-    ],
+    seriesPeriods: GENOMIX_SERIES_PERIODS.map((period) => ({ ...period })),
     realizedEvents: [],
     billOnRealization: true,
   };
 }
 
-export function genomixR3Draft(): WorkflowDraft {
+/**
+ * Tier 2 usage overages. The contractual rule is known at inception; no usage
+ * actual exists and none is fabricated.
+ */
+function usageComponent(): VcComponentDraft {
+  const base = createVcComponentDraft(2, "vc-usage", "usage_as_incurred");
+  return {
+    ...base,
+    description: "Tier 2 usage overages",
+    effect: "increase",
+    allocationTreatment: "specific_series_period",
+    targetPoId: "po-hosted",
+    relatesSpecifically: true,
+    consistentWithAllocationObjective: true,
+    allocationRationale:
+      "Each overage relates specifically to the service period in which the usage occurred.",
+    meters: [
+      {
+        id: "m-samples",
+        seq: 1,
+        name: "Tier 2 samples",
+        rateAmountInput: "12.00",
+        rateQuantityInput: "1",
+        unit: "samples",
+        // The contract establishes the tier threshold: every Tier 2 sample is
+        // chargeable, so the included quantity is a known zero, not a blank.
+        includedQuantityInput: "0",
+      },
+    ],
+    usagePeriods: [],
+    seriesPeriods: GENOMIX_SERIES_PERIODS.map((period) => ({ ...period })),
+    billOnRealization: true,
+  };
+}
+
+export function genomixBenchmarkDraft(): WorkflowDraft {
   const base = answerAllStep1(createEmptyDraft());
   const pos = [hostedPo(), validationPo(), supportPo()];
   const promises = pos.map((po, index) => ({
@@ -146,23 +199,23 @@ export function genomixR3Draft(): WorkflowDraft {
     promises,
     performanceObligations: pos,
     hasVariableConsideration: true,
-    variableConsiderationComponents: [slaComponent()],
+    variableConsiderationComponents: [slaComponent(), usageComponent()],
     contractBalances: {
       ...base.contractBalances,
       considerationEvents: [
         {
-          id: "bill-1",
+          id: "bill-y1",
           seq: 1,
           amountInput: "245,000.00",
-          unconditionalRightDate: "2027-01-01",
-          invoiceDate: "2027-01-01",
+          unconditionalRightDate: "2026-11-01",
+          invoiceDate: "2026-11-01",
         },
         {
-          id: "bill-2",
+          id: "bill-y2",
           seq: 2,
           amountInput: "245,000.00",
-          unconditionalRightDate: "2027-07-01",
-          invoiceDate: "2027-07-01",
+          unconditionalRightDate: "2027-11-01",
+          invoiceDate: "2027-11-01",
         },
       ],
       cashCollections: [],
@@ -195,7 +248,32 @@ export function withSupportHours(
   };
 }
 
-/** Mutation 3: a service-level credit is actually realized in one quarter. */
+/** Mutation 3: real Tier 2 usage is measured in one accounting month. */
+export function withUsageActual(
+  draft: WorkflowDraft,
+  month: string,
+  quantityInput: string,
+): WorkflowDraft {
+  return {
+    ...draft,
+    variableConsiderationComponents: draft.variableConsiderationComponents.map((component) =>
+      component.id === "vc-usage"
+        ? {
+            ...component,
+            usagePeriods: [
+              {
+                id: `vc-usage-p-${month}`,
+                month,
+                quantities: { "m-samples": quantityInput },
+              },
+            ],
+          }
+        : component,
+    ),
+  };
+}
+
+/** Mutation 4: a service-level credit is actually realized in one period. */
 export function withRealizedCredit(
   draft: WorkflowDraft,
   amountInput: string,
@@ -221,5 +299,56 @@ export function withRealizedCredit(
           }
         : component,
     ),
+  };
+}
+
+/**
+ * The complete R3 operational fact set that belongs to the accountant. Every
+ * field named in the closure patch is compared, not a sample of them.
+ */
+export function r3OperationalFacts(draft: WorkflowDraft) {
+  const po = (id: string) => draft.performanceObligations.find((row) => row.id === id)!;
+  const vc = (id: string) => draft.variableConsiderationComponents.find((row) => row.id === id)!;
+  const support = po("po-support");
+  const validation = po("po-validation");
+  const sla = vc("vc-sla");
+  const usage = vc("vc-usage");
+  return {
+    support: {
+      transferStatus: support.transferStatus,
+      recognitionDate: support.recognitionDate,
+      overTimeMeasure: support.overTimeMeasure,
+      totalExpectedUnitsInput: support.totalExpectedUnitsInput,
+      unitLabel: support.unitLabel,
+      progressEvents: support.progressEvents,
+    },
+    validation: {
+      transferStatus: validation.transferStatus,
+      recognitionDate: validation.recognitionDate,
+    },
+    sla: {
+      allocationTreatment: sla.allocationTreatment,
+      targetPoId: sla.targetPoId,
+      inception: sla.inception,
+      remeasurements: sla.remeasurements,
+      hasResolution: sla.hasResolution,
+      resolutionDate: sla.resolutionDate,
+      resolutionAmountInput: sla.resolutionAmountInput,
+      seriesPeriods: sla.seriesPeriods,
+      realizedEvents: sla.realizedEvents,
+      billOnRealization: sla.billOnRealization,
+    },
+    usage: {
+      allocationTreatment: usage.allocationTreatment,
+      targetPoId: usage.targetPoId,
+      meters: usage.meters,
+      usagePeriods: usage.usagePeriods,
+      seriesPeriods: usage.seriesPeriods,
+      billOnRealization: usage.billOnRealization,
+    },
+    billing: {
+      considerationEvents: draft.contractBalances.considerationEvents,
+      cashCollections: draft.contractBalances.cashCollections,
+    },
   };
 }
