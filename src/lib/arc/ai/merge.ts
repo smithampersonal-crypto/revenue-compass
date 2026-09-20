@@ -1434,7 +1434,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
     // A preserved manual performance obligation stays manual: ARC does not
     // claim ownership of a row the accountant built.
-    if (!manualHost) claimObject(aiPo.semanticKey, canonicalId, poSignatures.get(aiPo.semanticKey)!);
+    if (!manualHost)
+      claimObject(aiPo.semanticKey, canonicalId, poSignatures.get(aiPo.semanticKey)!);
   }
 
   /* ----------------------------------------------------------- recognition */

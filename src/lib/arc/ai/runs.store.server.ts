@@ -309,7 +309,9 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
           .eq("id", aiState.lastSuccessfulRunId)
           .maybeSingle();
         if (error || !data) return null;
-        const parsed = parseAiContractAnalysis((data as { result_metadata: unknown }).result_metadata);
+        const parsed = parseAiContractAnalysis(
+          (data as { result_metadata: unknown }).result_metadata,
+        );
         return parsed.ok ? parsed.analysis : null;
       };
 
