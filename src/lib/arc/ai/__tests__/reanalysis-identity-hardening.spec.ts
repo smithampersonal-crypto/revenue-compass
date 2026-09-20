@@ -266,7 +266,8 @@ describe("an ambiguous pairing is fail-closed", () => {
 
   it("raises a blocking review item instead of choosing", () => {
     expect(contested.length).toBeGreaterThan(0);
-    expect(contested.every((issue) => issue.blocking)).toBe(true);
+    // Red is ARC's blocking presentation state: the accountant must act.
+    expect(contested.every((issue) => issue.state === "red")).toBe(true);
   });
 
   it("creates no canonical row for the contested proposal", () => {
