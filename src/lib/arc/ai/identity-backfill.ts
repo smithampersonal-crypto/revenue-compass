@@ -48,7 +48,24 @@ export function identityBackfillRequired(objectProvenance: {
   return Object.values(objectProvenance).some(
     (provenance) =>
       provenance.identitySignature === undefined &&
-      identityKindOfCanonicalId(provenance.canonicalId) !== null,
+      (identityKindOfCanonicalId(provenance.canonicalId) !== null ||
+        // Phase L: a derived consideration event carries the identity of the
+        // billing SCHEDULE that produced it, and a legacy sidecar recorded
+        // none. Its projected collection inherits identity from the event and
+        // never needs one of its own.
+        provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)),
+  );
+}
+
+/**
+ * Phase L. Every billing-schedule identity derivable from a prior run's
+ * structured output, indexed by the billing-term key that run used.
+ */
+export function priorBillingIdentityIndex(
+  analysis: AiContractAnalysis,
+): Map<string, IdentitySignature> {
+  return new Map(
+    analysis.billingTerms.map((term) => [term.semanticKey, billingTermIdentity(term)] as const),
   );
 }
 
