@@ -1197,6 +1197,24 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: proposal.reviewState,
       label: "Recognition method",
     });
+    // Phase 9G-R3 L. The over-time MEASURE is its own AI-owned canonical fact,
+    // merged through the same provenance machinery: an accountant-owned measure
+    // is preserved, never silently overwritten by a later re-analysis.
+    if (mapping.overTimeMeasure !== undefined) {
+      mergeScalar<PoDraft["overTimeMeasure"]>({
+        key: fieldKeys.po(canonicalId, "overTimeMeasure"),
+        semanticKey: proposal.performanceObligationKey,
+        current: current().overTimeMeasure,
+        proposed: mapping.overTimeMeasure,
+        unclaimed: current().overTimeMeasure === undefined,
+        apply: (value) => update({ overTimeMeasure: value }),
+        section,
+        guidanceIds: proposal.guidanceIds,
+        citations: proposal.citations,
+        aiReviewState: proposal.reviewState,
+        label: "Measure of progress",
+      });
+    }
     // The rationale and the AI-derived service dates explain the AI method.
     // If the accountant owns the method, none of them may be attached to it.
     const methodIsAiOwned =
