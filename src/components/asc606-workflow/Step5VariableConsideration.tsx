@@ -243,7 +243,8 @@ export function Step5VariableConsideration({
                       usagePeriods: [
                         ...component.usagePeriods,
                         {
-                          id: `${component.id}-p${component.usagePeriods.length + 1}-${Date.now()}`,
+                          // Deterministic persisted identity: no timestamp.
+                          id: nextId(`${component.id}-p`, component.usagePeriods),
                           month: "",
                           quantities: {},
                         },
