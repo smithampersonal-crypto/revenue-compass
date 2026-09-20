@@ -349,7 +349,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // Fail closed. A legacy billing deletion that still needs its identity
   // reconstructed cannot be honoured without the prior structured result: the
   // renamed schedule would silently recreate what the accountant removed.
-  if (args.priorAnalysis == null) {
+  // This holds whether the prior result was absent OR present but SILENT about
+  // the billing term the deletion refers to — identity is never guessed from
+  // the canonical draft.
+  {
     const unupgraded = legacyBillingTombstones([...tombstones], tombstoneIdentities);
     if (unupgraded.length > 0) {
       throw new AiIdentityBackfillError(unupgraded.map((entry) => entry.alias));

@@ -19,7 +19,13 @@ import {
   parseBillingTombstoneAlias,
   priorAnalysisRequired,
 } from "../identity-backfill";
-import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
+import {
+  AiIdentityBackfillError,
+  createEmptyAiAnalysisState,
+  mergeAiAnalysis,
+  type AiAnalysisState,
+} from "../merge";
+
 import type { AiContractAnalysis } from "../schema";
 import { toPersistedAiState } from "../state-serialization";
 import { decodeTombstones } from "../tombstones";
@@ -222,5 +228,32 @@ describe("legacy billing deletions survive schedule renames", () => {
       ),
     ).toThrow();
     expect(legacy.draft.contractBalances.considerationEvents).toHaveLength(1);
+  });
+
+  it("fails closed when a valid prior result is SILENT about the legacy billing term", () => {
+    const legacy = prePatchDeletion();
+    const draftBefore = structuredClone(legacy.draft);
+    const stateBefore = structuredClone(legacy.state);
+
+    // A perfectly valid, schema-parsed prior analysis that simply does not
+    // contain the billing term the legacy deletion refers to.
+    const silentPrior = withBilling(driftRun1Analysis(), [
+      annualAdvanceTerm("some_unrelated_billing_schedule"),
+    ]);
+
+    expect(() =>
+      merge(
+        withBilling(driftRun2Analysis(), [annualAdvanceTerm(RUN2_KEY)]),
+        legacy.draft,
+        legacy.state,
+        DRIFT_RUN_2,
+        silentPrior,
+      ),
+    ).toThrow(AiIdentityBackfillError);
+
+    expect(legacy.draft.contractBalances.considerationEvents).toHaveLength(1);
+    expect(legacy.draft.contractBalances.cashCollections).toHaveLength(1);
+    expect(legacy.draft).toEqual(draftBefore);
+    expect(legacy.state).toEqual(stateBefore);
   });
 });
