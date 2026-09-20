@@ -163,8 +163,8 @@ describe("K4 — a service-level credit is actually realized", () => {
       true,
     );
     expect(
-      analyze(saveAndReload(withSupportHours(genomixR3Draft(), HOURS))).progressive!
-        .reconciliation!.reconciled,
+      analyze(saveAndReload(withSupportHours(genomixR3Draft(), HOURS))).progressive!.reconciliation!
+        .reconciled,
     ).toBe(true);
   });
 });
@@ -223,8 +223,9 @@ describe("K8 — AI re-analysis never overwrites an accountant's R3 facts", () =
     });
     const ratio = (d: WorkflowDraft) => {
       const result = analyze(d);
-      const allocated = result.progressive!.allocation!.find((row) => row.poId === "po-support")!
-        .allocatedCents;
+      const allocated = result.progressive!.allocation!.find(
+        (row) => row.poId === "po-support",
+      )!.allocatedCents;
       return recognizedFor(result, "po-support") / allocated;
     };
     // 80 of 200 contracted hours.

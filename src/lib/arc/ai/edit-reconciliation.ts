@@ -475,13 +475,7 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
     ]),
     {
       name: "usage",
-      fields: [
-        "meters",
-        "usagePeriods",
-        "seriesPeriods",
-        "realizedEvents",
-        "billOnRealization",
-      ],
+      fields: ["meters", "usagePeriods", "seriesPeriods", "realizedEvents", "billOnRealization"],
       project: vcUsageProjection,
     },
   ],

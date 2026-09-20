@@ -62,9 +62,7 @@ function draftWithUsage(): WorkflowDraft {
         includedQuantityInput: "1000",
       },
     ],
-    usagePeriods: [
-      { id: `${USAGE_ID}-p1`, month: "2027-02", quantities: { [METER_ID]: "1500" } },
-    ],
+    usagePeriods: [{ id: `${USAGE_ID}-p1`, month: "2027-02", quantities: { [METER_ID]: "1500" } }],
   };
   return {
     ...base,
@@ -214,11 +212,7 @@ describe("one R3 performance-obligation fact reopens only its own conclusion", (
   });
 
   it("recognition date", () => {
-    expectOnlyChanged(
-      base,
-      withValidationTransfer(base, "2027-03-15"),
-      VALIDATION_RECOGNITION,
-    );
+    expectOnlyChanged(base, withValidationTransfer(base, "2027-03-15"), VALIDATION_RECOGNITION);
   });
 
   it("measure of progress", () => {
@@ -285,7 +279,11 @@ describe("one R3 variable-consideration fact reopens only its own conclusion", (
   });
 
   it("a realized service-level amount", () => {
-    expectOnlyChanged(base, withRealizedCredit(base, "5,000.00", "q3", "2027-09-30"), SLA_OPERATIONAL);
+    expectOnlyChanged(
+      base,
+      withRealizedCredit(base, "5,000.00", "q3", "2027-09-30"),
+      SLA_OPERATIONAL,
+    );
   });
 
   it("the bill-on-realization judgment", () => {
