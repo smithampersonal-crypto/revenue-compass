@@ -352,7 +352,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // This holds whether the prior result was absent OR present but SILENT about
   // the billing term the deletion refers to — identity is never guessed from
   // the canonical draft.
-  {
+  if (args.priorAnalysis == null) {
     const unupgraded = legacyBillingTombstones([...tombstones], tombstoneIdentities);
     if (unupgraded.length > 0) {
       throw new AiIdentityBackfillError(unupgraded.map((entry) => entry.alias));
