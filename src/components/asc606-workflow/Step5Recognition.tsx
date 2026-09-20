@@ -52,7 +52,7 @@ export function Step5Recognition({
             }
           >
             <option value="">Select a method…</option>
-            <option value="over_time_ratable">Over time — daily ratable</option>
+            <option value="over_time_ratable">Over time</option>
             <option value="point_in_time">Point in time</option>
           </select>
         </Field>
