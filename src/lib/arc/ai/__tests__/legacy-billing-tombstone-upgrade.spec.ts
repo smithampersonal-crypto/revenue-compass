@@ -190,9 +190,9 @@ describe("legacy billing deletions survive schedule renames", () => {
 
     const saved = saveAndReload(second.aiState);
     const records = saved.tombstoneIdentities ?? [];
-    expect(records.some((r) => r.kind === "billing_event" && r.aliases.includes(LEGACY_EVENT))).toBe(
-      true,
-    );
+    expect(
+      records.some((r) => r.kind === "billing_event" && r.aliases.includes(LEGACY_EVENT)),
+    ).toBe(true);
     expect(
       records.some((r) => r.kind === "billing_collection" && r.aliases.includes(LEGACY_COLLECTION)),
     ).toBe(true);

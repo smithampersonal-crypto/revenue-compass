@@ -15,7 +15,11 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { reconcileAiEdits } from "@/lib/arc/ai/edit-reconciliation";
-import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "@/lib/arc/ai/merge";
+import {
+  createEmptyAiAnalysisState,
+  mergeAiAnalysis,
+  type AiAnalysisState,
+} from "@/lib/arc/ai/merge";
 import type { AiContractAnalysis } from "@/lib/arc/ai/schema";
 import { toPersistedAiState } from "@/lib/arc/ai/state-serialization";
 import { decodeTombstones } from "@/lib/arc/ai/tombstones";
