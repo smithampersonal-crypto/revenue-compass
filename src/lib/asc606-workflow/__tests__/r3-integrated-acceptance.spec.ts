@@ -46,6 +46,13 @@ function analyze(draft: WorkflowDraft) {
   return result;
 }
 
+/** Total revenue the progressive schedule recognizes for one obligation. */
+function recognizedFor(result: ReturnType<typeof analyze>, poId: string): number {
+  return result
+    .progressive!.recognition!.schedule.byPo.filter((row) => row.poId === poId)
+    .reduce((sum, row) => sum + row.revenueCents, 0);
+}
+
 /**
  * A real save/reload: the draft is validated for persistence, canonicalised,
  * serialised and parsed back — exactly the path the workspace uses. This is
@@ -54,8 +61,8 @@ function analyze(draft: WorkflowDraft) {
 function saveAndReload(draft: WorkflowDraft): WorkflowDraft {
   const validation = validateDraftForPersistence(draft);
   expect(validation.ok).toBe(true);
-  const serialized = serializeDraft(draft);
-  const parsed = parseCanonicalInputs(JSON.parse(serialized));
+  const stored = JSON.parse(JSON.stringify(toCanonicalInputs(draft))) as unknown;
+  const parsed = parseCanonicalInputs(stored);
   expect(parsed.ok).toBe(true);
   if (!parsed.ok) throw new Error("persistence round-trip failed");
   return parsed.draft;
@@ -112,13 +119,11 @@ describe("K1 — inception", () => {
   });
 
   it("recognizes nothing for an obligation that has not transferred", () => {
-    const rows = result.progressive!.recognition!.filter((row) => row.poId === "po-validation");
-    expect(rows.every((row) => row.recognizedCents === 0)).toBe(true);
+    expect(recognizedFor(result, "po-validation")).toBe(0);
   });
 
   it("recognizes nothing for support before any hours are incurred", () => {
-    const rows = result.progressive!.recognition!.filter((row) => row.poId === "po-support");
-    expect(rows.every((row) => row.recognizedCents === 0)).toBe(true);
+    expect(recognizedFor(result, "po-support")).toBe(0);
   });
 });
 
@@ -126,9 +131,7 @@ describe("K2 — the delivered obligation transfers", () => {
   it("recognizes the validation obligation on the accountant's transfer date", () => {
     const draft = saveAndReload(withValidationTransfer(genomixR3Draft(), "2027-02-15"));
     const result = analyze(draft);
-    const rows = result.progressive!.recognition!.filter((row) => row.poId === "po-validation");
-    const recognized = rows.reduce((sum, row) => sum + row.recognizedCents, 0);
-    expect(recognized).toBe(GENOMIX_VALIDATION_CENTS);
+    expect(recognizedFor(result, "po-validation")).toBe(GENOMIX_VALIDATION_CENTS);
   });
 });
 
@@ -138,9 +141,7 @@ describe("K3 — hours are incurred against the input measure", () => {
       withSupportHours(withValidationTransfer(genomixR3Draft(), "2027-02-15"), HOURS),
     );
     const result = analyze(draft);
-    const recognized = result
-      .progressive!.recognition!.filter((row) => row.poId === "po-support")
-      .reduce((sum, row) => sum + row.recognizedCents, 0);
+    const recognized = recognizedFor(result, "po-support");
     // 80 of 200 hours.
     expect(recognized).toBe((GENOMIX_SUPPORT_CENTS * 80) / 200);
     expect(recognized).toBeLessThan(GENOMIX_SUPPORT_CENTS);
@@ -149,7 +150,7 @@ describe("K3 — hours are incurred against the input measure", () => {
 
 describe("K4 — a service-level credit is actually realized", () => {
   const totalRecognized = (draft: WorkflowDraft) =>
-    analyze(draft).progressive!.recognition!.reduce((sum, row) => sum + row.recognizedCents, 0);
+    analyze(draft).progressive!.recognition!.schedule.totalCents;
 
   it("reduces recognized revenue once a credit has actually arisen", () => {
     const before = withSupportHours(withValidationTransfer(genomixR3Draft(), "2027-02-15"), HOURS);
@@ -215,13 +216,11 @@ describe("K8 — AI re-analysis never overwrites an accountant's R3 facts", () =
       guidancePack: guidancePackFixture(),
       priorContext: null,
     });
-    const recognizedFor = (d: WorkflowDraft, poId: string) =>
-      analyzeWorkflow(d)
-        .progressive?.recognition?.filter((row) => row.poId === poId)
-        .reduce((sum, row) => sum + row.recognizedCents, 0) ?? null;
-    expect(recognizedFor(merged.draft, "po-support")).toBe(recognizedFor(draft, "po-support"));
-    expect(recognizedFor(merged.draft, "po-validation")).toBe(
-      recognizedFor(draft, "po-validation"),
+    expect(recognizedFor(analyze(merged.draft), "po-support")).toBe(
+      recognizedFor(analyze(draft), "po-support"),
+    );
+    expect(recognizedFor(analyze(merged.draft), "po-validation")).toBe(
+      recognizedFor(analyze(draft), "po-validation"),
     );
   });
 
