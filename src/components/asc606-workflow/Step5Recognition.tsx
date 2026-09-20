@@ -3,14 +3,20 @@ import { formatCents, type RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import {
   materialRightStepPreviews,
+  nextId,
+  nextSeq,
   MATERIAL_RIGHT_STATUS_LABELS,
   type PoDraft,
+  type ProgressEventDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
 import { Field, inputClass, Notice, Section } from "./fields";
 import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
+
+const smallButtonClass =
+  "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";
 
 export function Step5Recognition({
   draft,
@@ -29,6 +35,8 @@ export function Step5Recognition({
       ...draft,
       performanceObligations: pos.map((po) => (po.id === id ? { ...po, ...values } : po)),
     });
+  const patchProgressEvents = (po: PoDraft, progressEvents: ProgressEventDraft[]) =>
+    patch(po.id, { progressEvents });
 
   const recognitionFields = (po: PoDraft, label: string) => (
     <>
