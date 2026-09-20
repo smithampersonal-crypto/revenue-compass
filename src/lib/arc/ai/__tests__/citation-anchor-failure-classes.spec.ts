@@ -65,7 +65,11 @@ const page2 = pages[1]!.anchors;
 
 /** A page long enough to expose selections beyond the allowed maximum. */
 const wideEvidence: AiDocumentEvidence[] = [
-  { ...evidence[0]!, pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }], pageCount: 1 } as AiDocumentEvidence,
+  {
+    ...evidence[0]!,
+    pages: [{ pageNumber: 1, text: "y ".repeat(600), readability: "text" }],
+    pageCount: 1,
+  } as AiDocumentEvidence,
 ];
 const widePage = buildCitationAnchorPages(wideEvidence)[0]!.anchors;
 
@@ -234,7 +238,10 @@ describe("every anchor failure class still fails closed", () => {
     const result = materializeAiCitationAnchors(analysis, evidence);
     expect(result.ok).toBe(false);
     const issues = (result as { ok: false; issues: CitationAnchorIssue[] }).issues;
-    expect(issues.map((issue) => issue.code)).toEqual(["anchor_unknown", "anchor_document_mismatch"]);
+    expect(issues.map((issue) => issue.code)).toEqual([
+      "anchor_unknown",
+      "anchor_document_mismatch",
+    ]);
     const serialized = JSON.stringify(issues);
     expect(serialized).not.toContain("SECTION");
     expect(serialized).not.toContain("245,000");

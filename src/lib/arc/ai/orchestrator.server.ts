@@ -39,10 +39,7 @@ export function logCitationAnchorDiagnostic(diagnostic: {
 }
 
 export async function createExecutionBoundaries(): Promise<
-  Pick<
-    AiExecutionDeps,
-    "buildPackage" | "analyzer" | "releaseBytes" | "onCitationAnchorDiagnostic"
-  >
+  Pick<AiExecutionDeps, "buildPackage" | "analyzer" | "releaseBytes" | "onCitationAnchorDiagnostic">
 > {
   const [
     { loadAuthorizedSelectedSources },
