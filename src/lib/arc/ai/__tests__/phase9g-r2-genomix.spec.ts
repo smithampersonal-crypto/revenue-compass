@@ -161,7 +161,7 @@ function runGenomix() {
 }
 
 describe("Phase 9G-R Task R2 — synthetic Genomix benchmark", () => {
-  it("is a schema-valid v5 analysis", () => {
+  it("is a schema-valid current analysis", () => {
     expect(parseAiContractAnalysis(genomixAnalysis()).ok).toBe(true);
   });
 
