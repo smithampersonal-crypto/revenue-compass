@@ -37,6 +37,11 @@ import {
   type AiRunStore,
   type AiRunRow,
 } from "./runs.handlers";
+import {
+  assessSafeReanalysis,
+  isChangedSourceReanalysis,
+  type PriorAnalysisLoad,
+} from "./safe-reanalysis";
 import { TerraAnalysisError, type TerraAnalyzer, type TerraAnchorDiagnostic } from "./terra.server";
 import type { AiPreflightResult, PriorAccountingContext } from "./types";
 
@@ -195,6 +200,14 @@ export const AI_PREFLIGHT_FAILED =
   "ARC could not prepare the AI analysis. No AI allowance was used.";
 export const AI_APPLY_FAILED =
   "ARC could not apply the AI analysis, so nothing was changed. Please try again.";
+/** Safe decline: a structurally unsafe re-analysis is expected, never a crash. */
+export const AI_REANALYSIS_DECLINED =
+  "The latest AI analysis described this contract differently, so ARC did not apply it. Your existing analysis has been preserved.";
+export const AI_REANALYSIS_SOURCE_CHANGED =
+  "The selected documents are not the ones this analysis is based on, so ARC did not apply a new AI analysis. Your existing analysis has been preserved.";
+/** Persisted failure codes for the two safe-decline conditions. */
+export const AI_REANALYSIS_DECLINED_CODE = "reanalysis_declined";
+export const AI_REANALYSIS_SOURCE_CHANGED_CODE = "reanalysis_source_changed";
 
 /* ------------------------------------------------------------ execution */
 
