@@ -1,591 +1,130 @@
-# Revenue Compass
+# ARC — Ayden’s Revenue Compass
 
-Lovable First Prompt — ASC 606 SaaS Revenue Recognition App
+**A portfolio-grade ASC 606 application that uses AI to interpret contracts, deterministic accounting engines to calculate the accounting, and accountant review controls to produce an auditable analysis.**
 
-I want to build a web application that demonstrates my technical accounting knowledge of ASC 606 as it applies to SaaS companies.
+> **AI interprets. Deterministic TypeScript calculates. The accountant remains authoritative.**
 
-I am a CPA/accountant with no formal computer science or software engineering background. The primary purpose of this project is to create a polished portfolio application that I can demonstrate to accounting and finance professionals at SaaS and technology companies.
+![ARC recruiter entry point](docs/assets/arc-entry-point.png)
 
-For now, do not build the application yet. First, help me create a detailed implementation plan for the MVP described below. Keep the architecture understandable and maintainable for a non-software-engineer. If there are technical decisions I need to make, recommend a sensible default and explain the decision in plain English.
+## Why I Built ARC
 
-1. Product concept
+I designed and built ARC as a portfolio project to demonstrate ASC 606 technical accounting, accounting-systems design, deterministic calculation logic, and controlled use of AI.
 
-The application should function as a simplified ASC 606 revenue recognition engine for SaaS contracts.
+The project reflects how I believe accounting automation should work: software can organize evidence, calculate repeatable outputs, and surface issues, but it should not obscure the judgments, controls, or audit trail that make the analysis reliable.
 
-The core workflow should be:
+## What ARC Does
 
-Enter contract information.
+ARC turns a SaaS contract into a structured ASC 606 workpaper:
 
-Apply the five-step ASC 606 revenue recognition framework.
+- accepts a PDF source document or manual contract entry;
+- organizes the five-step ASC 606 analysis;
+- separates contract facts from accountant-owned judgments;
+- calculates allocation, revenue recognition, balances, and journal entries deterministically;
+- links AI-assisted conclusions to source evidence;
+- identifies reconciliation and workflow issues; and
+- supports review and finalization of saved revisions.
 
-Identify performance obligations.
+## The Core Control Principle
 
-Determine the transaction price.
+ARC uses distinct responsibilities rather than treating AI as an accounting engine.
 
-Allocate the transaction price using relative standalone selling prices.
+| Responsibility                                                    | Owner                                                    |
+| ----------------------------------------------------------------- | -------------------------------------------------------- |
+| Extract and interpret contract language                           | AI, subject to structured output and citation validation |
+| Calculate allocation, recognition, balances, and journal entries  | Deterministic TypeScript engines                         |
+| Approve judgments, resolve uncertainty, and finalize the analysis | Accountant                                               |
 
-Determine the revenue recognition pattern for each performance obligation.
+The AI boundary expressly excludes revenue schedules, allocation results, journal entries, and internal record identifiers. Those outputs are derived by tested application logic after the contract facts and judgments have been structured.
 
-Generate a monthly revenue recognition schedule.
+![Synthetic AI review items with source-linked evidence](docs/assets/arc-ai-evidence-review.png)
 
-Generate a deferred revenue / contract asset waterfall based on the billing schedule.
+## 5-Minute Demo
 
-Generate the related journal entries.
+1. From Home, choose **Try the Sample** to open the fictional **Horizon Logistics** contract.
+2. Review the five-step analysis and the three performance obligations.
+3. Inspect source-linked AI conclusions and the accountant review controls.
+4. Open **Revenue Schedule** to see deterministic allocation and daily-to-monthly recognition results.
+5. Open **Contract Balances** and **Journal Entries** to trace billing, collections, revenue, receivables, contract assets, and contract liabilities.
+6. Finish in **Review & Finalize** to inspect validation, reconciliation, and finalization controls.
 
-Show the accounting judgments and reasoning used in the analysis.
+Horizon is intentionally synthetic. Its figures are designed to demonstrate the workflow without representing a real company or contract.
 
-The application should look like professional SaaS accounting software, not a generic AI chatbot or consumer application.
+## Accounting Capabilities
 
-2. Target user
+ARC v1 includes curated workflows for:
 
-The target user is a revenue accountant, senior accountant, accounting manager, controller, auditor, or technical accounting professional reviewing a SaaS customer contract.
+- ASC 606 contract criteria and documented conclusions;
+- promised goods and services, performance obligations, and distinctness judgments;
+- fixed and variable consideration;
+- relative standalone selling price allocation;
+- point-in-time and ratable over-time revenue recognition, including partial months;
+- billing events, cash collections, receivables, contract assets, and contract liabilities;
+- monthly revenue schedules and contract-balance rollforwards;
+- balanced illustrative journal entries;
+- contract modifications and material-right workflows; and
+- validation and reconciliation controls across the analysis.
 
-The key action is:
+![Horizon deterministic revenue schedule](docs/assets/arc-deterministic-revenue-schedule.png)
 
-Enter the facts of a SaaS contract and receive an organized ASC 606 analysis and revenue schedule that can be reviewed by an accountant.
+## Architecture
 
-3. MVP scope
+I designed ARC so interpretation, calculation, review, and persistence remain separate control layers.
 
-The first version should intentionally be narrow.
-
-The MVP SHOULD support:
-
-Fixed-fee SaaS subscriptions
-
-Multiple promised goods or services
-
-SaaS subscriptions
-
-Implementation services
-
-Training
-
-Support services
-
-Manual determination of whether a promised good or service is distinct
-
-Multiple performance obligations
-
-Standalone selling prices
-
-Relative SSP allocation
-
-Discounts allocated using relative SSP
-
-Over-time revenue recognition using a ratable time-elapsed method
-
-Point-in-time revenue recognition
-
-Mid-month contract start and end dates
-
-Upfront billing
-
-Monthly billing
-
-Quarterly billing
-
-Custom billing dates and amounts
-
-Revenue schedules
-
-Contract liability / deferred revenue schedules
-
-Contract asset schedules when revenue precedes billing
-
-Basic journal entries
-
-Accounting judgment notes
-
-Reconciliation and validation controls
-
-The MVP should NOT yet include:
-
-PDF contract uploads
-
-AI contract extraction
-
-Variable consideration
-
-Usage-based pricing
-
-Material rights
-
-Renewal options requiring material-right analysis
-
-Contract modifications
-
-Significant financing components
-
-Foreign currency
-
-Refund rights
-
-Cancellations or partial terminations
-
-Complex SSP estimation techniques
-
-Authentication or multiple users
-
-ERP integrations
-
-Design the architecture so those features could be added later, but do not build them into Version 1.
-
-4. ASC 606 workflow
-
-I want the application to visibly walk the accountant through all five ASC 606 steps.
-
-Step 1 — Identify the contract
-
-Provide inputs or checkboxes allowing the accountant to document whether:
-
-The parties approved the contract and are committed to perform.
-
-Each party's rights can be identified.
-
-Payment terms can be identified.
-
-The arrangement has commercial substance.
-
-Collection of consideration is probable.
-
-The application should show whether the arrangement qualifies for ASC 606 accounting based on the user's responses.
-
-Include an optional field for the accountant's analysis or judgment notes.
-
-Step 2 — Identify performance obligations
-
-Allow the user to enter individual promised goods or services.
-
-For each promise, capture:
-
-Description
-
-Standalone selling price
-
-Whether the item is distinct
-
-Accountant's reasoning
-
-Whether it represents a separate performance obligation
-
-Service start date, service end date, or point-in-time delivery date as applicable
-
-The application should NOT use AI to make the distinctness determination in the MVP. The accountant should make and document the judgment.
-
-Step 3 — Determine the transaction price
-
-For Version 1, use fixed consideration only.
-
-Capture:
-
-Total fixed contract consideration
-
-Billing schedule
-
-Billing dates
-
-Billing amounts
-
-Validate that the total scheduled billings equal the contractual billing amount.
-
-Step 4 — Allocate the transaction price
-
-For separate performance obligations, calculate the allocation using the relative standalone selling price method.
-
-For each performance obligation, display:
-
-Standalone selling price
-
-Total SSP
-
-Relative SSP percentage
-
-Allocated transaction price
-
-The application should perform this calculation deterministically using application logic, not AI.
-
-The total allocated transaction price must reconcile exactly to the total transaction price.
-
-Step 5 — Recognize revenue
-
-Allow two recognition patterns in Version 1:
-
-Over time — ratable
-
-Recognition start date
-
-Recognition end date
-
-Allocate revenue ratably over the service period
-
-The calculation should support mid-month periods by calculating revenue based on calendar days and aggregating the result into monthly reporting periods
-
-Point in time
-
-Recognition date
-
-Recognize the full allocated amount on the applicable date
-
-All revenue calculations must be performed deterministically by the application.
-
-5. Revenue schedule
-
-Generate a monthly revenue schedule showing at minimum:
-
-Month
-
-Revenue by performance obligation
-
-Total monthly revenue
-
-Cumulative revenue
-
-Include totals and validation controls.
-
-The sum of scheduled revenue across all periods must equal the transaction price.
-
-6. Deferred revenue / contract asset waterfall
-
-Keep billing and revenue recognition as separate calculations.
-
-For every monthly period, show:
-
-Beginning contract balance
-
-Billings
-
-Revenue recognized
-
-Ending contract balance
-
-Clearly identify whether the ending balance represents:
-
-Contract liability / deferred revenue, or
-
-Contract asset / unbilled revenue
-
-The waterfall must reconcile cumulative billings with cumulative revenue.
-
-7. Journal entries
-
-Generate illustrative journal entries based on the schedules.
-
-Examples include:
-
-Billing before revenue recognition:
-
-Dr. Accounts Receivable
-Cr. Deferred Revenue / Contract Liability
-
-Revenue recognition where deferred revenue exists:
-
-Dr. Deferred Revenue / Contract Liability
-Cr. Revenue
-
-Revenue recognition before billing where a contract asset exists:
-
-Dr. Contract Asset
-Cr. Revenue
-
-Do not attempt to model cash receipts in Version 1 unless needed for the basic workflow.
-
-Allow journal entries to be viewed by month.
-
-8. Accounting judgments
-
-Include a dedicated "Accounting Judgments" area.
-
-For each significant judgment, show:
-
-Accounting issue
-
-Accountant's conclusion
-
-Reasoning
-
-Relevant ASC 606 citation entered or selected by the accountant
-
-The application should emphasize that professional accounting judgment remains with the reviewer.
-
-Do not present the application as replacing professional judgment or as providing authoritative accounting advice.
-
-9. Validation controls
-
-Accounting controls are an important part of the application.
-
-Include validation checks such as:
-
-Total SSP must be greater than zero.
-
-Allocated transaction price must equal total transaction price.
-
-Total revenue scheduled must equal total allocated revenue.
-
-Total billings must reconcile to the entered billing amount.
-
-Recognition dates must be valid.
-
-Point-in-time recognition dates must be provided when applicable.
-
-Over-time performance obligations must have valid start and end dates.
-
-Ending contract balances must reconcile to cumulative billings less cumulative revenue.
-
-Invalid or incomplete performance obligations should be clearly flagged.
-
-I eventually want a visible validation status such as:
-
-All Accounting Checks Passed
-
-when all reconciliations succeed.
-
-10. Initial screens
-
-Please propose a clean application structure containing approximately these views:
-
-Dashboard
-
-Portfolio/demo introduction
-
-Existing/sample contracts
-
-"Create Contract" button
-
-Several fictional SaaS contracts eventually available as examples
-
-New Contract / ASC 606 Analysis
-
-Use a clear five-step workflow corresponding to ASC 606 Steps 1–5.
-
-The user should be able to move backward and forward without losing entered data.
-
-Contract Results
-
-Show:
-
-Contract summary
-
-ASC 606 conclusions
-
-Performance obligations
-
-SSP allocation
-
-Revenue schedule
-
-Deferred revenue / contract asset waterfall
-
-Journal entries
-
-Accounting judgments
-
-Validation results
-
-Use tabs or another clean navigation system if appropriate.
-
-11. Visual design
-
-Use a professional financial-software design.
-
-I want the visual style to feel appropriate for a modern SaaS accounting or finance application.
-
-Preferences:
-
-Clean light interface
-
-Professional rather than flashy
-
-Strong table design because financial schedules are central to the product
-
-Clear typography
-
-Neutral colors
-
-Subtle use of color for status, warnings, and validation results
-
-Responsive design
-
-Optimized primarily for desktop use but usable on tablets and mobile devices
-
-Avoid excessive animations
-
-Avoid gradients or overly decorative startup-style designs
-
-Prioritize accounting information density and readability
-
-12. Technology and architecture
-
-Recommend the simplest appropriate architecture for someone without a software engineering background.
-
-I am considering:
-
-Lovable for application development
-
-Supabase / PostgreSQL for the eventual backend and database
-
-GitHub for source control
-
-I expect to add an LLM API such as OpenAI or Anthropic later for contract extraction, but AI should NOT be part of the accounting calculation engine.
-
-The architecture should maintain a clear separation between:
-
-Contract facts and accounting judgments
-
-and
-
-Deterministic calculations
-
-Future architecture should eventually look conceptually like:
-
-Contract document
-→ AI extraction
-→ Structured contract data
-→ Accountant review / overrides
-→ Deterministic ASC 606 engine
-→ Revenue schedules and accounting outputs
-
-But Version 1 begins with manual contract input instead of contract documents or AI.
-
-13. Database planning
-
-Even if the first UI uses sample data, plan an eventual relational database structure that could reasonably contain entities such as:
-
-contracts
-
-contract_promises
-
-performance_obligations
-
-billing_events
-
-revenue_schedule
-
-accounting_judgments
-
-journal_entries
-
-Recommend an appropriate schema without making it unnecessarily complex.
-
-I want the database to eventually provide an opportunity for me to demonstrate basic SQL knowledge.
-
-14. Sample contract for development
-
-Use a fictional SaaS company and customer for all sample data.
-
-For example:
-
-Contract term: January 1, 2027 through December 31, 2027
-
-Contract consideration: $120,000
-
-Performance obligations:
-
-SaaS Platform Access
-
-SSP: $120,000
-
-Over-time recognition
-
-January 1 through December 31
-
-Customer Training
-
-SSP: $20,000
-
-Point-in-time recognition
-
-Training delivered January 15
-
-Assume both are distinct.
-
-Use reasonable fictional contractual pricing so that the application can demonstrate relative SSP allocation.
-
-All companies, customers, contracts, and data must be fictional.
-
-15. Important development principles
-
-Please follow these principles throughout the project:
-
-Do not overengineer the MVP.
-
-Build features in small, testable increments.
-
-Explain technical decisions to me in plain English.
-
-Keep accounting calculations deterministic and testable.
-
-Do not use AI to perform arithmetic or create the underlying revenue schedule.
-
-Separate billing from revenue recognition.
-
-Preserve an audit trail of important accounting judgments.
-
-Design calculations so they can later be unit tested.
-
-Keep future AI functionality separate from the accounting engine.
-
-Prioritize correctness and reconciliation over flashy features.
-
-Use fictional data only.
-
-Do not add features outside the defined MVP unless you first recommend them and explain why they are necessary.
-
-What I want from you now
-
-Do NOT write code yet.
-
-First provide:
-
-A concise summary of your understanding of the application.
-
-The proposed MVP architecture in plain English.
-
-The proposed pages and user flow.
-
-The proposed data model and major entities.
-
-How you would structure the deterministic ASC 606 calculation engine.
-
-The order in which you recommend building the features.
-
-Any accounting or technical assumptions that need to be resolved before implementation.
-
-Features you recommend explicitly postponing until after the MVP.
-
-Potential technical risks or areas where a non-developer is likely to encounter problems.
-
-A proposed set of development phases that lets us build and test one feature at a time.
-
-Do not start implementing until I review and approve the plan.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/e4b6223e-9304-456b-ab12-5d513a3223a6).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+```mermaid
+flowchart LR
+    A[PDF contract or manual facts] --> B[AI interpretation]
+    B --> C[Structured output with citations]
+    C --> D[Canonical accountant-owned draft]
+    D --> E[Deterministic TypeScript engines]
+    E --> F[Schedules, balances, and journals]
+    D --> G[Accountant review and finalization]
+    F --> G
+    H[Authentication, private document storage, and row-level access controls] --> D
+    I[Safe Re-analysis] --> D
 ```
 
-## Contract modifications (ASC 606-10-25-10 through 25-13)
+- **Contract input:** PDF source documents are stored separately from the structured analysis; manual entry remains available.
+- **AI interpretation:** GPT-5.6 Terra produces versioned, structured proposals and cited evidence. It does not calculate accounting outputs.
+- **Canonical workflow:** accepted facts and judgments enter an accountant-owned draft rather than becoming authoritative merely because the AI proposed them.
+- **Accounting engines:** TypeScript modules calculate allocation, recognition, balances, journals, modifications, and related reconciliations.
+- **Review and finalization:** unresolved review items and defined workflow warnings can block finalization without suppressing otherwise valid deterministic outputs.
+- **Persistence and security:** Supabase provides PostgreSQL persistence, authentication, private PDF storage, and row-level access controls; server-only credentials remain outside the browser.
 
-`src/lib/asc606-contract-modifications/` is a pure engine that derives the
-modification treatment (separate contract, prospective, cumulative catch-up, or
-mixed) from the accountant's judgments, preserves revenue recognized through the
-day before the effective date, and composes the post-modification schedule.
-A separate-contract modification is presented as two contracts: contract
-balances and journal entries are produced independently per contract by the
-existing Phase 3 and Phase 4 engines and aggregated gross. The
-`meridian` sample contract demonstrates the flow.
+## AI Safety & Auditability
+
+ARC is designed to fail safely when automation is uncertain.
+
+- **Evidence-bound conclusions:** text citations resolve to bounded PDF anchors before an AI response is accepted.
+- **Structured validation:** model output passes schema, reference-integrity, relationship, and citation checks before it can enter the workflow.
+- **Explicit review:** AI conclusions can require accountant confirmation or resolution; provenance is not treated as approval.
+- **No silent overwrite:** accountant-owned values and review decisions remain authoritative.
+- **Safe Re-analysis:** same-source re-analysis must preserve canonical structural identity. Changed sources, unavailable prior analysis, ambiguous routing, or structural mutation are declined while the previous analysis is preserved.
+- **Fail-closed controls:** invalid AI responses and unresolved finalization blockers do not become completed accounting conclusions.
+- **Privacy boundary:** source-document text and prompts are not persisted in run metadata; source links are short-lived and opened only on request.
+
+## Quality & Testing
+
+The current repository passes **2,592 automated tests across 200 test files**. The verification workflow also includes:
+
+- TypeScript type checking;
+- ESLint and formatting enforcement;
+- production builds;
+- a client-bundle audit for privileged key material; and
+- SQL suites covering row-level security, privileges, persistence, and concurrency behavior.
+
+Accounting tests emphasize exact monetary reconciliation, date boundaries, allocation integrity, schedule totals, balanced journal entries, modification treatment, and failure behavior—not only rendered UI states.
+
+## Technology
+
+- **Application:** React 19, TypeScript, TanStack Start and TanStack Router
+- **Interface:** Tailwind CSS and accessible component primitives
+- **Persistence:** Supabase PostgreSQL, Auth and private Storage
+- **AI:** OpenAI API with GPT-5.6 Terra, structured outputs and server-only credentials
+- **Documents:** PDF.js-based source review and citation navigation
+- **Verification:** Vitest, Testing Library, ESLint, TypeScript checks and SQL test suites
+
+## Scope
+
+ARC v1 is a portfolio application demonstrating curated ASC 606 workflows and accounting-control design. It is not a generalized commercial revenue subledger, does not claim to handle every contract pattern, and does not replace professional accounting judgment or authoritative accounting guidance.
+
+All companies, contracts, and screenshots shown in this repository are fictional.
