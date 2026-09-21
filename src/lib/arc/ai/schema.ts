@@ -677,14 +677,20 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
 export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisObjectSchema>;
 export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSchema>;
 /** Internal compatibility representation; v5 carries no synthesized presentation label. */
-export type AiContractAnalysis =
-  | AiContractAnalysisV6
-  | (AiContractAnalysisV5 & {
-      promises: Array<AiContractAnalysisV5["promises"][number] & { accountingLabel?: never }>;
-      performanceObligations: Array<
-        AiContractAnalysisV5["performanceObligations"][number] & { accountingLabel?: never }
-      >;
-    });
+export type AiContractAnalysis = Omit<
+  AiContractAnalysisV5,
+  "schemaVersion" | "promises" | "performanceObligations"
+> & {
+  schemaVersion: typeof AI_OUTPUT_SCHEMA_VERSION | typeof LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+  promises: Array<
+    AiContractAnalysisV5["promises"][number] & { accountingLabel?: string | undefined }
+  >;
+  performanceObligations: Array<
+    AiContractAnalysisV5["performanceObligations"][number] & {
+      accountingLabel?: string | undefined;
+    }
+  >;
+};
 
 /* ----------------------------------------------------- JSON Schema output */
 
