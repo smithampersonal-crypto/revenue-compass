@@ -3,8 +3,8 @@ import * as RechartsPrimitive from "recharts";
 
 import { cn } from "@/lib/utils";
 
-// Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: "", dark: ".dark" } as const;
+// ARC v1 has one polished light identity; charts use one corresponding palette.
+const THEMES = { light: "" } as const;
 
 export type ChartConfig = {
   [k in string]: {

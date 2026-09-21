@@ -14,7 +14,7 @@ const TOP_LEVEL_NAVIGATION = [
 export function AppHeader() {
   return (
     <header className="border-b border-border bg-card/70">
-      <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+      <div className="mx-auto grid min-h-16 max-w-7xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 px-4 py-3 sm:flex sm:flex-wrap sm:justify-between sm:px-6">
         <Link
           to="/"
           aria-label="Ayden's Revenue Compass home"
