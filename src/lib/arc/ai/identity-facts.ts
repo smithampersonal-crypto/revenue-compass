@@ -356,7 +356,12 @@ export function billingTermIdentityFacts(source: BillingTermIdentitySource): Ide
     },
     decisiveKeys: ["frequency", "billingTiming"],
     // Amount is positive economic evidence when equal, never a hard contradiction when different.
-    measureSources: [source.invoiceTrigger, source.amountOrRateInput],
+    measureSources: [
+      source.invoiceTrigger,
+      source.amountOrRateInput === null || source.amountOrRateInput === undefined
+        ? null
+        : `$${source.amountOrRateInput}`,
+    ],
     citations: source.citations,
     description: source.description,
   });
