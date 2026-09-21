@@ -27,6 +27,7 @@ import type { WorkflowDraft } from "@/lib/asc606-workflow/types";
 
 import type { AlignmentObjectKind, CitationSpan } from "./alignment-types";
 import {
+  assessIdentityEvidence,
   asIncumbent,
   billingTermIdentityFacts,
   buildIdentityFacts,
@@ -139,6 +140,39 @@ function obligationFacts(source: {
     measureSources: source.citations.map((citation) => citation.excerpt ?? null),
     description: source.description,
   });
+}
+
+/**
+ * A deterministic one-for-one correspondence between the new run's promises and
+ * the promises already inside the same canonical obligation. Admissibility comes
+ * from the frozen evidence rules; no score, threshold or ordering preference is
+ * used, and the answer is the same for any input order.
+ */
+function hasPerfectMatching(
+  proposals: readonly IdentityFacts[],
+  incumbents: readonly IncumbentIdentityFacts[],
+): boolean {
+  const admissible = proposals.map((proposal) =>
+    incumbents.map((incumbent) => assessIdentityEvidence(proposal, incumbent).admissible),
+  );
+  const assigned = new Array<number>(incumbents.length).fill(-1);
+
+  const augment = (proposalIndex: number, seen: boolean[]): boolean => {
+    for (let i = 0; i < incumbents.length; i += 1) {
+      if (!admissible[proposalIndex]![i] || seen[i]) continue;
+      seen[i] = true;
+      if (assigned[i] === -1 || augment(assigned[i]!, seen)) {
+        assigned[i] = proposalIndex;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (let p = 0; p < proposals.length; p += 1) {
+    if (!augment(p, new Array<boolean>(incumbents.length).fill(false))) return false;
+  }
+  return true;
 }
 
 /**
@@ -277,11 +311,22 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     proposalPoKey === null ? null : (poStage.exact.get(proposalPoKey) ?? null);
 
   /* ----------------------------------------------------------- 2. promises */
-  const proposalPromiseGroup: Record<string, string> = {};
-  const promiseProposals = input.analysis.promises.map((promise) => {
-    const owning = proposalPoCanonicalId(owningObligationKey(input.analysis, promise.semanticKey));
-    if (owning !== null) proposalPromiseGroup[promise.semanticKey] = owning;
-    return promiseIdentityFacts({
+  // Promises are members of an obligation, never standalone accounting objects,
+  // so what protects them is MEMBERSHIP CONTINUITY: inside each obligation that
+  // matched exactly, the new run's promises must correspond one-for-one with the
+  // promises already there. A recomposition (two promises described as one) or a
+  // member ARC cannot account for breaks the bijection and declines. Sibling
+  // promises that the evidence cannot tell apart are harmless here: any
+  // bijection preserves the same canonical structure.
+  const proposalPromisesByPo = new Map<string, IdentityFacts[]>();
+  for (const promise of input.analysis.promises) {
+    const owningKey = owningObligationKey(input.analysis, promise.semanticKey);
+    const owning = proposalPoCanonicalId(owningKey);
+    if (owning === null) {
+      // The promise belongs to no obligation ARC could match independently.
+      return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
+    }
+    const facts = promiseIdentityFacts({
       semanticKey: promise.semanticKey,
       promiseType: promise.promiseType,
       description: promise.description,
@@ -289,40 +334,42 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       citations: spansOf(promise.citations),
       owningObligationCanonicalId: owning,
     });
-  });
+    proposalPromisesByPo.set(owning, [...(proposalPromisesByPo.get(owning) ?? []), facts]);
+  }
 
-  const incumbentPromiseGroup: Record<string, string> = {};
-  const promiseIncumbents: IncumbentIdentityFacts[] = [];
+  const incumbentPromisesByPo = new Map<string, IncumbentIdentityFacts[]>();
   for (const promise of prior.promises) {
     const canonicalId = canonicalIdFor(state, promise.semanticKey);
     if (canonicalId === null) continue;
     const owningKey = owningObligationKey(prior, promise.semanticKey);
     const owning = owningKey === null ? null : (incumbentPoIdByKey.get(owningKey) ?? null);
-    if (owning !== null) incumbentPromiseGroup[canonicalId] = owning;
-    promiseIncumbents.push(
-      asIncumbent(
-        promiseIdentityFacts({
-          semanticKey: promise.semanticKey,
-          promiseType: promise.promiseType,
-          description: promise.description,
-          distinctConclusion: promise.distinctConclusion,
-          citations: spansOf(promise.citations),
-          owningObligationCanonicalId: owning,
-        }),
-        canonicalId,
-      ),
+    if (owning === null) continue;
+    const facts = asIncumbent(
+      promiseIdentityFacts({
+        semanticKey: promise.semanticKey,
+        promiseType: promise.promiseType,
+        description: promise.description,
+        distinctConclusion: promise.distinctConclusion,
+        citations: spansOf(promise.citations),
+        owningObligationCanonicalId: owning,
+      }),
+      canonicalId,
     );
+    incumbentPromisesByPo.set(owning, [...(incumbentPromisesByPo.get(owning) ?? []), facts]);
   }
 
-  const promiseStage = resolveStage({
-    objectKind: "promise",
-    proposals: promiseProposals,
-    incumbents: promiseIncumbents,
-    incumbentGroupKeyById: incumbentPromiseGroup,
-    proposalGroupKeyByRef: proposalPromiseGroup,
-  });
-  if (!promiseStage.ok) {
-    return { outcome: "decline", reason: promiseStage.reason, objectKind: "promise" };
+  for (const canonicalPoId of new Set([
+    ...proposalPromisesByPo.keys(),
+    ...incumbentPromisesByPo.keys(),
+  ])) {
+    const proposals = proposalPromisesByPo.get(canonicalPoId) ?? [];
+    const incumbents = incumbentPromisesByPo.get(canonicalPoId) ?? [];
+    if (proposals.length !== incumbents.length) {
+      return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
+    }
+    if (!hasPerfectMatching(proposals, incumbents)) {
+      return { outcome: "decline", reason: "unmatched", objectKind: "promise" };
+    }
   }
 
   /* ------------------------------------------- 3. variable consideration */
