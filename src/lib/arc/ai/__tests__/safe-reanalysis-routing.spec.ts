@@ -49,8 +49,9 @@ function assess(analysis: AiContractAnalysis) {
 
 /** A decline that changed nothing at all. */
 function expectSafeDecline(result: ReturnType<typeof assess>) {
-  console.log("REASON", JSON.stringify(result.decision));
   expect(result.decision.outcome).toBe("decline");
+  // Routing safety, not economic doubt, is what stops these runs.
+  expect(result.decision.reason).toBe("routing_unverified");
   expect(result.after).toBe(result.before);
   expect(result.draft.promises).toHaveLength(4);
   expect(result.draft.performanceObligations).toHaveLength(3);
@@ -163,6 +164,7 @@ describe("Safe Re-analysis — firewall identity must agree with production merg
 
     const result = assess(analysis);
     expect(result.decision.outcome).toBe("decline");
+    expect(result.decision.reason).toBe("routing_unverified");
     expect(structuralIds(result.draft).billingEvents).toEqual(billingBefore.billingEvents);
     expect(structuralIds(result.draft).projectedCollections).toEqual(
       billingBefore.projectedCollections,
@@ -205,6 +207,7 @@ describe("Safe Re-analysis — firewall identity must agree with production merg
     });
 
     expect(decision.outcome).toBe("decline");
+    expect(decision.reason).toBe("ambiguous");
     expect(decision.objectKind).toBe("promise");
   });
 
