@@ -260,6 +260,7 @@ describe("Genomix — a later run that recombines hosted platform and throughput
       currentAiState: aiState,
       currentSourceSetFingerprint: FINGERPRINT,
     });
+    console.log(JSON.stringify(decision));
     expect(decision.outcome).toBe("apply");
   });
 });
