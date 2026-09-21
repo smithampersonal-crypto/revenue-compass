@@ -61,6 +61,12 @@ export interface AiExecutionContext {
    * supplied only when the sidecar predates identity signatures.
    */
   priorAnalysis?: AiContractAnalysis | null;
+  /**
+   * ARC v1 Safe Re-analysis. Whether the REQUIRED prior immutable structured
+   * result was actually loaded and parsed. Only the trusted integration layer
+   * knows this; the pure safety gate must never infer it.
+   */
+  priorAnalysisLoad?: PriorAnalysisLoad | undefined;
   schemaVersion: string;
   /** Observed optimistic lock of the revision or temporary workspace. */
   lockVersion: number;
@@ -386,6 +392,21 @@ export async function executeAiRunHandler(
     // The one deterministic identity of the source set actually analyzed. It
     // is reused verbatim for the apply argument and the applied sidecar state.
     const currentSourceSetFingerprint = await sourceFingerprintOf(sources);
+
+    /* ------------------------- changed-source decline, BEFORE any payment */
+    // A document set that is not the one the current analysis rests on can
+    // never be applied, so it is refused here: no allowance is reserved and
+    // the model is never contacted.
+    if (isChangedSourceReanalysis(context.aiState, currentSourceSetFingerprint)) {
+      await deps.store.markFailure({
+        runId: run.id,
+        failureStage: "preflight_ready",
+        category: "preflight",
+        code: AI_REANALYSIS_SOURCE_CHANGED_CODE,
+        safeMessage: AI_REANALYSIS_SOURCE_CHANGED,
+      });
+      return finish(deps, caller, run.id);
+    }
 
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
