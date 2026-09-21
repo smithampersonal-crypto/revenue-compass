@@ -17,13 +17,13 @@
 
 ## Package 2A — Visual Identity & Spacing Hardening
 
-- [ ] Replace the forced dark palette with one light-only finance-forward semantic token set
-- [ ] Keep the interface white-first; derive restrained light tints rather than applying every source hex at full strength
-- [ ] Preserve green product identity while keeping amber warnings and red blocking states distinct
-- [ ] Increase breathing room only where it improves usability; preserve nested and table density where padding would reduce working width
-- [ ] Widen the analysis workspace at desktop sizes while preserving centered responsive layouts
-- [ ] Certify Home, Analysis, deterministic output, and Review & Finalize across three viewport widths
-- [ ] Run focused and full verification, package the repository, and report CI availability
+- [x] Replace the forced dark palette with one light-only finance-forward semantic token set
+- [x] Keep the interface white-first; derive restrained light tints rather than applying every source hex at full strength
+- [x] Preserve green product identity while keeping amber warnings and red blocking states distinct
+- [x] Increase breathing room only where it improves usability; preserve nested and table density where padding would reduce working width
+- [x] Widen the analysis workspace at desktop sizes while preserving centered responsive layouts
+- [x] Certify Home, Analysis, deterministic output, and Review & Finalize across three viewport widths
+- [x] Run focused and full verification, package the repository, and report CI availability
 
 ## Package 2A — Narrow Acceptance Patch
 
