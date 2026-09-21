@@ -244,7 +244,10 @@ describe("Genomix — a later run that recombines hosted platform and throughput
   it("keeps the canonical obligation membership the accountant relies on", () => {
     const { draft } = accountantState();
     const hosted = draft.performanceObligations[0]!;
-    expect(hosted.promiseIds).toHaveLength(2);
+    const members = draft.promises.filter(
+      (promise) => promise.performanceObligationId === hosted.id,
+    );
+    expect(members).toHaveLength(2);
   });
 
   it("still applies when the same run is repeated unchanged", () => {
