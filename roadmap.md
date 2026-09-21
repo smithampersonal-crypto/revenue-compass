@@ -9,11 +9,11 @@
 
 ## Package 2 — Portfolio / README Packaging
 
-- [ ] Replace the obsolete planning README with recruiter-first product documentation
-- [ ] Make Ayden’s authorship and contribution explicit in the purpose and architecture narrative
-- [ ] Capture three synthetic recruiter-story screenshots; scenarios may differ for clarity
-- [ ] Add the Horizon 5-minute walkthrough, compact architecture diagram, controls, scope, and verified quality claims
-- [ ] Verify documentation-only scope, package the repository, and report CI availability
+- [x] Replace the obsolete planning README with recruiter-first product documentation
+- [x] Make Ayden’s authorship and contribution explicit in the purpose and architecture narrative
+- [x] Capture three synthetic recruiter-story screenshots; scenarios may differ for clarity
+- [x] Add the Horizon 5-minute walkthrough, compact architecture diagram, controls, scope, and verified quality claims
+- [x] Verify documentation-only scope, package the repository, and report CI availability
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
