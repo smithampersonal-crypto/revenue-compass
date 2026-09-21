@@ -109,16 +109,16 @@ describe("identity graph — production Run 1 → Run B", () => {
       incumbents: run1Incumbents,
     });
     expect(renamed.alignments.map((alignment) => [...alignment.canonicalIds].sort())).toEqual(
-      runBProposals.map(
-        (proposal) => [...alignmentFor(result, proposal.ref).canonicalIds].sort(),
-      ),
+      runBProposals.map((proposal) => [...alignmentFor(result, proposal.ref).canonicalIds].sort()),
     );
   });
 
   it("never mutates its inputs", () => {
     const proposals = deepFreeze(runBFixture.promises.map((p) => promiseIdentityFacts(p)));
     const incumbents = deepFreeze(
-      run1Fixture.promises.map((p) => asIncumbent(promiseIdentityFacts(p), CANONICAL_IDS[p.semanticKey]!)),
+      run1Fixture.promises.map((p) =>
+        asIncumbent(promiseIdentityFacts(p), CANONICAL_IDS[p.semanticKey]!),
+      ),
     );
     const before = JSON.stringify([proposals, incumbents]);
     resolveIdentityGraph({ objectKind: "promise", proposals, incumbents });

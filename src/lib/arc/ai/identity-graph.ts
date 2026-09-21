@@ -130,10 +130,7 @@ function membersAreDistinguishable(signatures: readonly string[]): boolean {
   return new Set(signatures).size === signatures.length;
 }
 
-function evidenceCodesFor(
-  edges: readonly CandidateEdge[],
-  proposalKey: string,
-): readonly string[] {
+function evidenceCodesFor(edges: readonly CandidateEdge[], proposalKey: string): readonly string[] {
   const codes = new Set<string>();
   for (const edge of edges) {
     if (edge.proposalKey !== proposalKey) continue;

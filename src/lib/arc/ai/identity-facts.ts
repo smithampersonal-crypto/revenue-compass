@@ -130,7 +130,9 @@ function singular(unit: string): string {
  * Extracts objective contractual measures — currency amounts, percentages and quantity/unit pairs.
  * These are contractual facts stated in the text, not lexical similarity.
  */
-export function extractContractualMeasures(...texts: readonly (string | null | undefined)[]): string[] {
+export function extractContractualMeasures(
+  ...texts: readonly (string | null | undefined)[]
+): string[] {
   const found = new Set<string>();
   for (const text of texts) {
     if (text === null || text === undefined || text === "") continue;
@@ -173,13 +175,13 @@ function compact(
 export interface IdentityFactsInput {
   objectKind: AlignmentObjectKind;
   ref: string;
-  contractual?: Readonly<Record<string, string | number | null | undefined>>;
-  decisiveKeys?: readonly string[];
-  measureSources?: readonly (string | null | undefined)[];
-  judgments?: Readonly<Record<string, string | number | null | undefined>>;
-  citations?: readonly CitationSpan[];
-  relations?: readonly (string | null | undefined)[];
-  description?: string | null;
+  contractual?: Readonly<Record<string, string | number | null | undefined>> | undefined;
+  decisiveKeys?: readonly string[] | undefined;
+  measureSources?: readonly (string | null | undefined)[] | undefined;
+  judgments?: Readonly<Record<string, string | number | null | undefined>> | undefined;
+  citations?: readonly CitationSpan[] | undefined;
+  relations?: readonly (string | null | undefined)[] | undefined;
+  description?: string | null | undefined;
 }
 
 export function buildIdentityFacts(input: IdentityFactsInput): IdentityFacts {
@@ -192,7 +194,9 @@ export function buildIdentityFacts(input: IdentityFactsInput): IdentityFacts {
     measures: extractContractualMeasures(input.description, ...(input.measureSources ?? [])),
     judgments: compact(input.judgments),
     citations: (input.citations ?? []).map((citation) => ({ ...citation })),
-    relations: [...new Set((input.relations ?? []).filter((id): id is string => Boolean(id)))].sort(),
+    relations: [
+      ...new Set((input.relations ?? []).filter((id): id is string => Boolean(id))),
+    ].sort(),
     normalizedDescription: description === "" ? null : description,
   };
 }
@@ -204,9 +208,7 @@ export function asIncumbent(facts: IdentityFacts, canonicalId: string): Incumben
 
 /** True when this side carries prior AI-originated bounded excerpt evidence (from the prior analysis). */
 export function hasPriorSourceEvidence(facts: IdentityFacts): boolean {
-  return facts.citations.some(
-    (citation) => (citation.normalizedExcerpt ?? "").trim().length > 0,
-  );
+  return facts.citations.some((citation) => (citation.normalizedExcerpt ?? "").trim().length > 0);
 }
 
 export interface PromiseIdentitySource {
