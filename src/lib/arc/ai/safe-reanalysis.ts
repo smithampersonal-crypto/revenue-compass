@@ -332,12 +332,12 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
 
   /* ----------------------------------------------------------- 2. promises */
   // Promises are members of an obligation, never standalone accounting objects,
-  // so what protects them is MEMBERSHIP CONTINUITY: inside each obligation that
-  // matched exactly, the new run's promises must correspond one-for-one with the
-  // promises already there. A recomposition (two promises described as one) or a
-  // member ARC cannot account for breaks the bijection and declines. Sibling
-  // promises that the evidence cannot tell apart are harmless here: any
-  // bijection preserves the same canonical structure.
+  // so each promise is resolved INSIDE the obligation that matched exactly, and
+  // each one must reach a MUTUALLY UNIQUE exact incumbent. "Some bijection
+  // exists" is deliberately not enough: sibling canonical promises carry
+  // distinct accountant-owned facts, so two siblings the evidence cannot tell
+  // apart are ambiguous and decline rather than being paired arbitrarily.
+
   const proposalPromisesByPo = new Map<string, IdentityFacts[]>();
   for (const promise of input.analysis.promises) {
     const owningKey = owningObligationKey(input.analysis, promise.semanticKey);
