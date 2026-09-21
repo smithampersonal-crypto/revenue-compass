@@ -74,6 +74,20 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
       engineReason,
     };
   }
+  /*
+   * A series-period allocation whose target obligation is not classified as a
+   * series is an unresolved accounting contradiction. Outputs that do not
+   * depend on it remain available, but the draft is never reported complete.
+   */
+  if (result.workflowValidation.warnings.some((issue) => issue.id.startsWith("vc.series_period."))) {
+    return {
+      tone: "attention",
+      headline: "Series allocation conclusion requires review",
+      detail:
+        "A variable-consideration amount is allocated to a distinct period of a series while its target performance obligation is not classified as a Series. Review the performance-obligation classification, the allocation conclusion, or the target obligation.",
+      engineReason,
+    };
+  }
   return {
     tone: "ok",
     headline: "Draft complete",
@@ -82,3 +96,4 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
     engineReason,
   };
 }
+
