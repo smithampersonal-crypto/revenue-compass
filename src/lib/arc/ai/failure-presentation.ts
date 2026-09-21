@@ -50,6 +50,8 @@ export interface AiFailureFacts {
 
 export const AI_FAILURE_HEADLINE_FIRST_RUN = "AI analysis failed · Existing analysis unchanged";
 export const AI_FAILURE_HEADLINE_REANALYSIS = "Re-analysis failed · Previous analysis preserved";
+export const AI_REANALYSIS_DECLINED_HEADLINE =
+  "Re-analysis not applied · Previous analysis preserved";
 export const AI_ALLOWANCE_HEADLINE = "AI analysis not run · No analyses remaining";
 
 const ALLOWANCE_NOT_USED = "No AI allowance was used.";
@@ -163,7 +165,9 @@ export function presentAiFailure(facts: AiFailureFacts): AiFailurePresentation {
     headline:
       category === "allowance_exhausted"
         ? AI_ALLOWANCE_HEADLINE
-        : facts.hadPriorSuccessfulAnalysis
+        : category === "structurally_declined"
+          ? AI_REANALYSIS_DECLINED_HEADLINE
+          : facts.hadPriorSuccessfulAnalysis
           ? AI_FAILURE_HEADLINE_REANALYSIS
           : AI_FAILURE_HEADLINE_FIRST_RUN,
     whatHappened: copy.whatHappened,

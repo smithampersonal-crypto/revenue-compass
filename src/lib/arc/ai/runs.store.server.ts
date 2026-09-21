@@ -12,7 +12,7 @@
 
 import { parseCanonicalInputs, toCanonicalInputs } from "@/lib/arc/persistence/schema";
 
-import { priorAnalysisRequired } from "./identity-backfill";
+import type { PriorAnalysisLoad } from "./safe-reanalysis";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { toPersistedAiState } from "./state-serialization";
 import { normalizePersistedReviewItems } from "./review-normalization";
@@ -170,6 +170,11 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return data ?? null;
       };
 
+      const priorAnalysisFields = async (aiState: AiAnalysisState) => {
+        const prior = await priorAnalysis(aiState);
+        return { priorAnalysis: prior.analysis, priorAnalysisLoad: prior.load };
+      };
+
       if (caller.kind === "revision") {
         const { data, error } = await supabaseAdmin
           .from("analysis_revisions")
@@ -299,24 +304,39 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
        * written before this patch never recorded. It contributes no accounting
        * value and is absent whenever the run or its payload is unreadable.
        */
-      const priorAnalysis = async (aiState: AiAnalysisState) => {
-        if (aiState.lastSuccessfulRunId === null) return null;
+      const priorAnalysis = async (
+        aiState: AiAnalysisState,
+      ): Promise<{ analysis: AiContractAnalysis | null; load: PriorAnalysisLoad }> => {
+        // ARC v1 Safe Re-analysis. Once a run has been safely applied, the
+        // immutable structured result of that run is REQUIRED evidence, so it
+        // is always attempted and its real load state is reported upward. The
+        // pure gate never infers availability, and there is no fallback to
+        // semantic keys, descriptions or the mutable sidecar.
+        if (aiState.lastSuccessfulRunId === null) {
+          return { analysis: null, load: "not_required" };
+        }
         // Scoped to the canonical kinds R3 identity actually governs: billing,
         // cash and modification provenance never carry a signature, and
         // counting them would fetch the prior result on every run forever.
         // Phase L: a legacy billing deletion needs the prior result even when
         // no live billing provenance remains to ask for it.
-        if (!priorAnalysisRequired(aiState)) return null;
         const { data, error } = await supabaseAdmin
           .from("ai_runs")
           .select("result_metadata")
           .eq("id", aiState.lastSuccessfulRunId)
           .maybeSingle();
-        if (error || !data) return null;
+        if (error || !data) return { analysis: null, load: "unavailable" };
         const parsed = parseAiContractAnalysis(
           (data as { result_metadata: unknown }).result_metadata,
         );
-        return parsed.ok ? parsed.analysis : null;
+        return parsed.ok
+          ? { analysis: parsed.analysis, load: "loaded" }
+          : { analysis: null, load: "unavailable" };
+      };
+
+      const priorAnalysisFields = async (aiState: AiAnalysisState) => {
+        const prior = await priorAnalysis(aiState);
+        return { priorAnalysis: prior.analysis, priorAnalysisLoad: prior.load };
       };
 
       if (caller.kind === "revision") {
@@ -337,7 +357,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return {
           draft,
           aiState: revisionAiState,
-          priorAnalysis: await priorAnalysis(revisionAiState),
+          ...(await priorAnalysisFields(revisionAiState)),
           // An amendment is analyzed against the exact finalized revision it
           // supersedes. That history is trusted ARC context and read-only.
           priorContext: await loadPriorAccountingContext(
@@ -365,7 +385,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
       return {
         draft,
         aiState: guestAiState,
-        priorAnalysis: await priorAnalysis(guestAiState),
+        ...(await priorAnalysisFields(guestAiState)),
         priorContext: null,
         schemaVersion: data.schema_version,
         lockVersion: data.lock_version,
