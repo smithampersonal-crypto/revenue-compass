@@ -44,7 +44,7 @@ Each tranche is independently reviewable. Do not begin a later tranche until the
    - manual-from-start or accountant-edited labels are preserved;
    - a preserved label difference does not raise/carry a material accounting-review item;
    - provenance still records AI-drafted versus edited state.
-5. Remove PO `name` from AI object edit fingerprints and never add Promise `displayName`; retain detailed Promise `description` and all actual accounting fields. This prevents a label-only edit from marking the whole object materially modified while field provenance still protects the edited label.
+5. Apply the only authorized fingerprint-related change: exclude presentation-only Promise `displayName` and PO `name` from the applicable object/material edit projection so label changes cannot become accounting changes. Retain detailed Promise `description` and every actual accounting field. Do not change identity algorithms, source fingerprints, structural fingerprints, or accounting review-fingerprint semantics beyond this narrow presentation-label exclusion.
 
 ### 2C-C — Identity Firewall Verification
 
@@ -60,7 +60,7 @@ Audit and lock explicit exclusions in:
 - `src/lib/arc/ai/review-state.ts`
 - `src/lib/arc/ai/orchestrator.ts`
 
-`accountingLabel`, Promise `displayName`, and PO presentation `name` will be absent from identity facts/signatures, semantic matching, exact/subsumes/split resolution, graph membership, tombstones, source fingerprints, omission rules, structural topology, material review projections, and accounting readiness. Existing detailed descriptions remain only where already accepted as weak corroboration/material interpretation. No identity algorithm or Safe Re-analysis rule changes.
+`accountingLabel`, Promise `displayName`, and PO presentation `name` will be absent from identity facts/signatures, semantic matching, exact/subsumes/split resolution, graph membership, tombstones, source fingerprints, omission rules, structural topology, material review projections, and accounting readiness. Existing detailed descriptions remain only where already accepted as weak corroboration/material interpretation. Verification may add invariance tests, but implementation must not change identity algorithms, source fingerprints, structural fingerprints, Safe Re-analysis rules, or accounting review-fingerprint semantics beyond the narrow presentation-label exclusion in 2C-B.
 
 ### 2C-D — Deterministic Display Labels and Step 2
 
@@ -92,14 +92,14 @@ Audit and lock explicit exclusions in:
 
 ### 2C-F — Provenance and Presentation Copy
 
-1. Replace repeated provenance text with a compact Sparkles-style marker in `AiReviewTarget`; expose “AI drafted” or “AI drafted · edited” through visible/assistive label and tooltip. Manual and prior-finalized content remain unmarked; review/resolve markers still take precedence.
+1. Replace repeated provenance text with an icon-first compact Sparkles-style marker in `AiReviewTarget`. Do not show “AI drafted” text beside each field by default; preserve “AI drafted” and “AI drafted · edited” through accessible labels/tooltips and, if useful, a compact edited-state icon treatment. Manual and prior-finalized content remain unmarked; review/resolve markers still take precedence.
 2. Standardize approved structural titles to Title Case, including:
    - Revision Lifecycle, Revision History, AI Review;
    - Promised Goods and Services, Performance Obligation N, Assign Promises;
    - Transaction Price, Allocation Inputs, Transaction Price Allocation, Recognition Judgments;
    - Revenue Schedule, Contract Balances, Journal Entries, Source Documents, Review & Finalize;
    - Billing Schedule, Cash Collections, ASC 606 Reconciliation, Contract Modifications;
-   - related structural output titles such as Variable Consideration, Material Rights, Progressive Results, Engine Validation, and Journal Reconciliation.
+   - related structural output titles such as Variable Consideration, Material Rights, Progressive Results, Validation Checks, and Journal Reconciliation.
 3. Remove parenthetical/internal implementation wording from headings: “(engine output)”, “(engine-derived)”, “Engine allocation…”, and “read-only” in titles. Keep plain-language supporting text that deterministic engines own calculations.
 4. Keep ordinary field labels and helper text in sentence case; do not mechanically title-case all strings.
 
@@ -107,7 +107,7 @@ Audit and lock explicit exclusions in:
 
 1. Extend the existing exact money-input module—do not create another parser—with a display formatter that first uses `parseUsdToCents`, then emits grouped dollars and exactly preserved cents on blur.
 2. Invalid, blank, and incomplete edits remain untouched; typing is never reformatted; no cursor jumps, floating-point conversion, or rounding.
-3. Apply a shared money-input blur handler/component to fixed consideration, SSP/economic-benefit inputs, billing events, cash collections, modification consideration and SSP inputs, variable-consideration outcome/included/resolution amounts, VC rate amounts, and material-right exercise consideration. Exclude quantities, percentages, dates, IDs, and read-only calculated output.
+3. Apply a shared money-input blur handler/component only to fields whose existing domain is cent-denominated: fixed consideration, SSP/economic-benefit inputs, billing events, cash collections, modification consideration and SSP inputs, cent-denominated variable-consideration outcome/included/resolution amounts, and material-right exercise consideration. Audit VC/per-unit-rate domains before inclusion; any field that currently permits precision beyond cents is excluded and must never be rounded merely to add thousands separators. Also exclude quantities, percentages, dates, IDs, and read-only calculated output.
 
 ### 2C-H — AI Progress Presenter
 
@@ -133,8 +133,6 @@ Replace `AiAnalysisProgress`’s four cards with one compact status line—e.g. 
 2. Deduplicate within each review item by `(documentId, physical page)`, retaining the first citation index for the existing secure open action. Current anchored citations are single-page; a legacy multi-page citation remains one truthful range row. Do not mutate citations, anchors, excerpts, or immutable metadata.
 3. Render the category once in Title Case. When section and target collapse to the same phrase (notably Additional Topics Applied), suppress the duplicate rather than changing review meaning.
 4. Strengthen the existing `arc-review-focus` lifecycle without changing routing/selection or ~3.5-second cleanup: pale amber background, stronger amber border/ring, one short pulse/flourish, then static highlight until removal. Under `prefers-reduced-motion: reduce`, show the stronger static state with no animation. Preserve contextual “Review this item” / “Resolve this item” labels.
-5. Replace raw engine-check IDs/PASS tokens on Review & Finalize with grouped accountant-facing presentation only where an existing result is already available; retain every check and status.
-
 ### 2C-K — Verification and controlled live acceptance
 
 Run focused tests per tranche, then the complete repository verification and bundle audit. Run both GitHub Actions jobs if available; do not change CI.
@@ -175,11 +173,11 @@ The exact diff should stay within this surface; any newly discovered file must b
 - **Schema/prompt:** v6 required bounded labels; v10 exact rules/examples; descriptions unchanged; blank/overlong/extra fields rejected; v5 accepted only by legacy parser.
 - **Mapping/persistence:** Promise display name and PO name map from labels; detailed descriptions remain; old drafts load; present malformed display names fail closed; new drafts round-trip.
 - **Authority/provenance:** untouched labels refresh; edited/manual labels survive; no material review item from label-only drift; marker accessibility and manual-content exclusion.
-- **Identity/firewall:** label changes leave identity facts/signatures, material fingerprints, topology, omission, and structural decisions byte-equivalent; no duplicate/merge/split/decline.
+- **Identity/firewall:** label changes leave identity facts/signatures, source fingerprints, structural fingerprints/topology, omission, Safe Re-analysis, and accounting review-fingerprint decisions byte-equivalent; only the applicable presentation-label object/material edit projection excludes the label; no duplicate/merge/split/decline.
 - **Legacy:** immutable v5 prior result remains usable for same-source re-analysis without rewrite.
 - **Display dates:** over-time, point-in-time, missing, invalid, and irrelevant cases; no invented suffix.
 - **Auto-grow/layout:** initial measurement, changes, compact minimum, deliberate cap, unchanged value/provenance, Step 4 single heading/alignment, modification desktop/mobile alignment.
-- **Money:** `505001.96 → 505,001.96` on blur; exact cents unchanged; commas round-trip; invalid/blank/incomplete untouched; no on-change loop.
+- **Money:** `505001.96 → 505,001.96` on blur for cent-denominated fields; exact cents unchanged; commas round-trip; invalid/blank/incomplete untouched; no on-change loop; audited higher-precision rate fields are excluded and retain their full precision.
 - **Progress:** every existing stage maps correctly; no percentage; terminal/failure behavior unchanged.
 - **Balances:** no visible internal IDs; friendly relation values; grouped output accounts for every source issue.
 - **Evidence/review:** visible copy, layout, dedup key behavior across same/different documents, unchanged underlying citations, single category, focus duration, one-shot animation, reduced motion.
@@ -202,9 +200,10 @@ These are observed but excluded unless separately approved:
 1. Several raw HTML action buttons remain beside design-system buttons across workflow editors, producing small interaction-style differences.
 2. “Billing & Contract Balances” and “Billing, receivables and contract balances” coexist as names for the same workpaper family; Package 2C only changes the explicitly approved headings.
 3. Some output sections use dashed wrapper panels around supporting analyses while most sections use the shared Section treatment.
-4. Several helper sentences still use “engine” in body copy. They support the accepted deterministic-control story, so this plan removes the term only from structural headings and raw validation presentation.
+4. Several helper sentences still use “engine” in body copy. They support the accepted deterministic-control story, so this plan removes the term only from structural headings.
 5. The Source Documents route currently uses sentence-case `Source documents`; this plan changes the structural title only, without redesigning the accepted Package 2A.1 card.
+6. Replacing or grouping raw validation-check IDs and PASS/BLOCKING/WARNING tokens on Review & Finalize is not approved in Package 2C. It may be considered separately; current checks and status presentation remain unchanged.
 
 ## Frozen systems
 
-No changes to deterministic accounting engines, allocation/recognition/balance/journal/modification/variable-consideration conclusions, identity algorithms, Safe Re-analysis rules, citation-anchor semantics, fingerprints, document/storage architecture, persistence/database architecture, RLS, authentication, quotas, SMTP, domains, Excel export, Package 2A visual tokens, Package 2A.1 behavior, Package 2B screenshots/README, or Package 3. The sole AI expansion is additive `accountingLabel` for Promise and PO proposals.
+No changes to deterministic accounting engines, allocation/recognition/balance/journal/modification/variable-consideration conclusions, identity algorithms, source fingerprints, structural fingerprints, Safe Re-analysis rules, accounting review-fingerprint semantics, citation-anchor semantics, document/storage architecture, persistence/database architecture, RLS, authentication, quotas, SMTP, domains, Excel export, Package 2A visual tokens, Package 2A.1 behavior, Package 2B screenshots/README, or Package 3. The sole fingerprint adjustment is the narrow exclusion of presentation-only Promise `displayName` / PO `name` from the applicable object/material edit projection. The sole AI expansion is additive `accountingLabel` for Promise and PO proposals.
