@@ -2,10 +2,10 @@
 
 ## Package 1 — Recruiter First-Impression Hardening
 
-- [ ] Route the Home sample CTA to Horizon without changing other entry paths
-- [ ] Show the neutral starter state only when a manual draft has no meaningful contract/accounting input
-- [ ] Clarify temporary guest-session saving while preserving My Contracts messaging and authenticated copy
-- [ ] Run focused and full verification, package the repository, and report CI availability
+- [x] Route the Home sample CTA to Horizon without changing other entry paths
+- [x] Show the neutral starter state only when a manual draft has no meaningful contract/accounting input
+- [x] Clarify temporary guest-session saving while preserving My Contracts messaging and authenticated copy
+- [x] Run focused and full verification, package the repository, and report CI availability
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
