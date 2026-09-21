@@ -382,15 +382,17 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     ...proposalPromisesByPo.keys(),
     ...incumbentPromisesByPo.keys(),
   ])) {
-    const proposals = proposalPromisesByPo.get(canonicalPoId) ?? [];
-    const incumbents = incumbentPromisesByPo.get(canonicalPoId) ?? [];
-    if (proposals.length !== incumbents.length) {
-      return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
-    }
-    if (!hasPerfectMatching(proposals, incumbents)) {
-      return { outcome: "decline", reason: "unmatched", objectKind: "promise" };
+    const promiseStage = resolveStage({
+      objectKind: "promise",
+      proposals: proposalPromisesByPo.get(canonicalPoId) ?? [],
+      incumbents: incumbentPromisesByPo.get(canonicalPoId) ?? [],
+      routingSafe,
+    });
+    if (!promiseStage.ok) {
+      return { outcome: "decline", reason: promiseStage.reason, objectKind: "promise" };
     }
   }
+
 
   /* ------------------------------------------- 3. variable consideration */
   const vcProposals = input.analysis.transactionPrice.variableConsiderationComponents.map(
