@@ -575,12 +575,43 @@ describe("Source Documents workspace", () => {
     await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   });
 
-  it("never creates persistent document ownership for a sample analysis", async () => {
+  it("shows Horizon's static synthetic source document without persistent actions", async () => {
     renderWorkspace({ sample: "horizon" });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Horizon Logistics — SaaS Order Form & Billing Schedule",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Sample source document · Synthetic")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The Horizon analysis is pre-populated for demonstration. This synthetic source document is provided so you can trace the underlying contract terms.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View PDF" })).toHaveAttribute(
+      "href",
+      "/samples/horizon-logistics-saas-order-form.pdf",
+    );
+    expect(screen.queryByRole("button", { name: /upload pdf/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    expect(loadWorkspace).not.toHaveBeenCalled();
+    expect(initiate).not.toHaveBeenCalled();
+    expect(hardDelete).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing Source Documents state for non-Horizon samples", async () => {
+    renderWorkspace({ sample: "redwood" });
 
     expect(
       await screen.findByText("Source Documents are available for saved analyses."),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Horizon Logistics — SaaS Order Form & Billing Schedule",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "View PDF" })).not.toBeInTheDocument();
     expect(loadWorkspace).not.toHaveBeenCalled();
     expect(initiate).not.toHaveBeenCalled();
   });
