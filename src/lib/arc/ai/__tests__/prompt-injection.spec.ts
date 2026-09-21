@@ -185,7 +185,7 @@ describe("citation-mirror instructions", () => {
   it("defines anchorIds as an explicit enumeration rather than endpoint selectors", () => {
     const policy = instructions.slice(0, instructions.indexOf(AI_PROMPT_SECTIONS.guidance));
     expect(policy).toContain(
-      "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
+      "anchorIds is an explicit ordered list of every cited text segment, NOT a [start, end] range",
     );
     expect(policy).toContain('["P0001-S0015","P0001-S0016","P0001-S0017"]');
     expect(policy).toContain('["P0001-S0015","P0001-S0017"] is invalid');
