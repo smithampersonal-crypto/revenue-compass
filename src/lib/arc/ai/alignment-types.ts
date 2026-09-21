@@ -34,8 +34,16 @@ export type ProposalAlignmentRelation =
 
 /**
  * Ephemeral result of reconciling one AI proposal against canonical structure.
- * `canonicalIds` is empty for `unmatched`, exactly one for `exact`, and may hold several
- * for `subsumes` / `split_from` / `ambiguous`.
+ *
+ * Relation cardinalities are enforced:
+ *   - `exact`      — one proposal → exactly one canonical id.
+ *   - `subsumes`   — one proposal → two or more canonical ids.
+ *   - `split_from` — each proposal → exactly one canonical id. An N→1 split is represented as N
+ *                    separate alignments that each reference the SAME single incumbent canonical
+ *                    id; several canonical ids are never packed into one `split_from` alignment.
+ *   - `ambiguous`  — no canonical identity is selected (`canonicalIds` is empty); the candidates
+ *                    are retained diagnostically in `diagnostics.contendingCanonicalIds`.
+ *   - `unmatched`  — zero canonical ids.
  */
 export interface ProposalAlignment {
   objectKind: AlignmentObjectKind;
