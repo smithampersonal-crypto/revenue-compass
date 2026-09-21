@@ -14,6 +14,7 @@
  *   - Source evidence: exact normalized bounded-excerpt equality or strict normalized containment
  *     is STRONG. Same document/page overlap and partial lexical overlap are CORROBORATION ONLY.
  *     There is no percentage or fuzzy-similarity threshold anywhere in this file.
+ *   - Model-authored description text (exact equality or partial overlap) is CORROBORATION ONLY.
  *   - Cross-document continuity requires independent economic corroboration.
  *
  * Bounded excerpts are compared transiently. They arrive on `CitationSpan` values that the caller
@@ -41,7 +42,7 @@ export interface IdentityFacts {
   citations: readonly CitationSpan[];
   /** Resolved canonical graph relationships (member promise ids, target obligation id, ...). */
   relations: readonly string[];
-  /** Normalized description. Exact equality is strong; partial overlap is corroboration only. */
+  /** Normalized model-authored description. Corroboration only — never strong identity evidence. */
   normalizedDescription: string | null;
 }
 
