@@ -31,7 +31,6 @@ import {
   asIncumbent,
   billingTermIdentityFacts,
   buildIdentityFacts,
-  promiseIdentityFacts,
   variableConsiderationIdentityFacts,
   type IdentityFacts,
   type IncumbentIdentityFacts,
@@ -144,6 +143,35 @@ function obligationFacts(source: {
     objectKind: "performance_obligation",
     ref: source.semanticKey,
     judgments: { satisfactionPattern: source.satisfactionPattern },
+    citations: spansOf(source.citations),
+    measureSources: source.citations.map((citation) => citation.excerpt ?? null),
+    description: source.description,
+  });
+}
+
+/**
+ * Promise facts for WITHIN-OBLIGATION resolution.
+ *
+ * The owning obligation is deliberately NOT supplied as relation evidence: every
+ * promise in the group already shares it, so it discriminates nothing and would
+ * make each sibling pair mutually admissible. What identifies a promise here is
+ * the objective contractual language it quotes — stated fees, rates, quantities
+ * and terms — exactly as for obligations.
+ */
+function promiseFacts(source: {
+  semanticKey: string;
+  description: string;
+  promiseType: string;
+  distinctConclusion: string;
+  citations: readonly AiCitation[];
+}): IdentityFacts {
+  return buildIdentityFacts({
+    objectKind: "promise",
+    ref: source.semanticKey,
+    judgments: {
+      promiseType: source.promiseType,
+      distinctConclusion: source.distinctConclusion,
+    },
     citations: spansOf(source.citations),
     measureSources: source.citations.map((citation) => citation.excerpt ?? null),
     description: source.description,
@@ -346,18 +374,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       // The promise belongs to no obligation ARC could match independently.
       return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
     }
-    const facts = promiseIdentityFacts({
-      semanticKey: promise.semanticKey,
-      promiseType: promise.promiseType,
-      description: promise.description,
-      distinctConclusion: promise.distinctConclusion,
-      citations: spansOf(promise.citations),
-      // The owning obligation is NOT supplied as evidence here: every promise in
-      // this group already shares it, so it discriminates nothing and would make
-      // every sibling pair mutually admissible. Identity inside the group must
-      // come from the promise's own contractual evidence.
-      owningObligationCanonicalId: null,
-    });
+    const facts = promiseFacts(promise);
     proposalPromisesByPo.set(owning, [...(proposalPromisesByPo.get(owning) ?? []), facts]);
   }
 
@@ -369,14 +386,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     const owning = owningKey === null ? null : (incumbentPoIdByKey.get(owningKey) ?? null);
     if (owning === null) continue;
     const facts = asIncumbent(
-      promiseIdentityFacts({
-        semanticKey: promise.semanticKey,
-        promiseType: promise.promiseType,
-        description: promise.description,
-        distinctConclusion: promise.distinctConclusion,
-        citations: spansOf(promise.citations),
-        owningObligationCanonicalId: null,
-      }),
+      promiseFacts(promise),
       canonicalId,
     );
     incumbentPromisesByPo.set(owning, [...(incumbentPromisesByPo.get(owning) ?? []), facts]);
