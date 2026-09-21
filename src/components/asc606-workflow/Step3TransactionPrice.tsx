@@ -427,19 +427,40 @@ export function Step3TransactionPrice({
                     >
                       <option value="">Select a performance obligation…</option>
                       {draft.performanceObligations
-                        .filter((po) =>
-                          component.treatment === "usage_as_incurred" ||
-                          component.allocationTreatment === "specific_series_period"
-                            ? po.kind !== "material_right" && po.classification === "series"
-                            : true,
-                        )
-                        .map((po) => (
-                          <option key={po.id} value={po.id}>
-                            {po.name || `Performance obligation ${po.seq}`}
-                          </option>
-                        ))}
+                        .filter((po) => {
+                          const seriesOnly =
+                            component.treatment === "usage_as_incurred" ||
+                            component.allocationTreatment === "specific_series_period";
+                          if (!seriesOnly) return true;
+                          if (po.kind !== "material_right" && po.classification === "series") {
+                            return true;
+                          }
+                          /*
+                           * An already-linked obligation is never hidden merely
+                           * because it is ineligible: hiding it would display a
+                           * stored relationship as though none existed. It is
+                           * shown, marked ineligible, alongside the consistency
+                           * warning. The stored target is not changed.
+                           */
+                          return po.id === component.targetPoId;
+                        })
+                        .map((po) => {
+                          const seriesOnly =
+                            component.treatment === "usage_as_incurred" ||
+                            component.allocationTreatment === "specific_series_period";
+                          const ineligible =
+                            seriesOnly &&
+                            (po.kind === "material_right" || po.classification !== "series");
+                          const name = po.name || `Performance obligation ${po.seq}`;
+                          return (
+                            <option key={po.id} value={po.id}>
+                              {ineligible ? `${name} — not classified as a Series (ineligible)` : name}
+                            </option>
+                          );
+                        })}
                     </select>
                   </Field>
+
                   <JudgmentControl
                     name={`${component.id}-relates`}
                     legend={
