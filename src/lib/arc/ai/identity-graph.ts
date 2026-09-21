@@ -11,9 +11,12 @@
  *   M proposals ↔ N incumbents (M,N>1)  → ambiguous
  *   proposal with no edges              → unmatched
  *
- * A group relation is only accepted when its members rest on DISTINGUISHABLE evidence anchors. Two
- * members whose strong evidence is byte-identical are indistinguishable, so the grouping is not
- * uniquely supported and the component is ambiguous instead.
+ * A group relation (subsumes / split_from) is only accepted when BOTH hold:
+ *   1. the caller's `decompositionRules` prove the group is structurally supported (e.g. the
+ *      incumbents share one canonical performance obligation). Cardinality is never a proof, and
+ *      naming, ordering, counts and evidence-signature distinctness are never the group proof;
+ *   2. the members rest on DISTINGUISHABLE evidence anchors.
+ * Otherwise the component resolves to `ambiguous`.
  *
  * This module returns TOPOLOGY ONLY. It mints, deletes, merges, splits and updates nothing, and it
  * constructs no review items (Tranche 4).
@@ -28,10 +31,54 @@ import {
   type IncumbentIdentityFacts,
 } from "./identity-facts";
 
+/**
+ * Group-compatibility proof for decomposition. Cardinality plus distinguishable evidence is NOT a
+ * grouping proof: the caller must state, from canonical/structural facts, that the members really
+ * form one supported grouping. Absent rules, decomposition is refused (fail closed).
+ */
+export interface DecompositionRules {
+  /** May this single proposal subsume exactly these (2+) incumbents as one grouping? */
+  canSubsumes(proposalKey: string, canonicalIds: readonly string[]): boolean;
+  /** Do these (2+) proposals form one supported grouping corresponding to this incumbent? */
+  canSplitFrom(proposalKeys: readonly string[], canonicalId: string): boolean;
+}
+
+/**
+ * Structural group rules derived from canonical grouping keys (e.g. the canonical performance
+ * obligation each canonical promise belongs to). Never naming, ordering or counting.
+ */
+export function canonicalGroupDecompositionRules(options: {
+  incumbentGroupKeyById?: Readonly<Record<string, string>> | undefined;
+  proposalGroupKeyByRef?: Readonly<Record<string, string>> | undefined;
+}): DecompositionRules {
+  const sameGroup = (
+    keys: readonly string[],
+    lookup: Readonly<Record<string, string>> | undefined,
+  ): boolean => {
+    if (lookup === undefined) return false;
+    const groups = keys.map((key) => lookup[key]);
+    if (groups.some((group) => group === undefined)) return false;
+    return new Set(groups).size === 1;
+  };
+
+  return {
+    canSubsumes: (_proposalKey, canonicalIds) =>
+      sameGroup(canonicalIds, options.incumbentGroupKeyById),
+    canSplitFrom: (proposalKeys, canonicalId) => {
+      if (!sameGroup(proposalKeys, options.proposalGroupKeyByRef)) return false;
+      const incumbentGroup = options.incumbentGroupKeyById?.[canonicalId];
+      if (incumbentGroup === undefined) return true;
+      return options.proposalGroupKeyByRef?.[proposalKeys[0]!] === incumbentGroup;
+    },
+  };
+}
+
 export interface IdentityGraphInput {
   objectKind: AlignmentObjectKind;
   proposals: readonly IdentityFacts[];
   incumbents: readonly IncumbentIdentityFacts[];
+  /** Required for any 1:N or N:1 relation. Omitted ⇒ decomposition is refused. */
+  decompositionRules?: DecompositionRules | undefined;
 }
 
 export interface CandidateEdge {
@@ -48,10 +95,11 @@ export interface IdentityGraphResult {
   /** Incumbents no proposal represents. Reported only — nothing is ever auto-deleted. */
   omittedCanonicalIds: readonly string[];
   /**
-   * False when no incumbent carries prior AI-originated bounded excerpt evidence. Tranche 3 must
-   * fail closed rather than infer exact identity from insufficient information.
+   * Narrow diagnostic: at least one incumbent fact set carries a prior bounded excerpt. This does
+   * NOT assert that the prior immutable analysis was loaded and parsed — only the trusted caller
+   * knows that, and Tranche 3 must fail closed on its own explicit load/parse state.
    */
-  priorEvidenceAvailable: boolean;
+  hasAnyPriorBoundedExcerpt: boolean;
 }
 
 /** Builds every admissible proposal↔incumbent edge, in a deterministic, input-order-free order. */
@@ -180,7 +228,8 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
     if (proposalKeys.length === 1) {
       const proposalKey = proposalKeys[0]!;
       const signatures = canonicalIds.map((id) => anchorSignatureFor(edges, proposalKey, id));
-      if (membersAreDistinguishable(signatures)) {
+      const groupSupported = input.decompositionRules?.canSubsumes(proposalKey, canonicalIds) === true;
+      if (groupSupported && membersAreDistinguishable(signatures)) {
         push(proposalKey, "subsumes", canonicalIds);
       } else {
         push(
@@ -188,7 +237,9 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
           "ambiguous",
           [],
           canonicalIds,
-          "competing groupings rest on indistinguishable evidence",
+          groupSupported
+            ? "competing groupings rest on indistinguishable evidence"
+            : "grouping is not structurally supported by canonical group facts",
         );
         for (const id of canonicalIds) represented.add(id);
       }
@@ -198,7 +249,9 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
     if (canonicalIds.length === 1) {
       const canonicalId = canonicalIds[0]!;
       const signatures = proposalKeys.map((key) => anchorSignatureFor(edges, key, canonicalId));
-      if (membersAreDistinguishable(signatures)) {
+      const groupSupported =
+        input.decompositionRules?.canSplitFrom(proposalKeys, canonicalId) === true;
+      if (groupSupported && membersAreDistinguishable(signatures)) {
         for (const key of proposalKeys) push(key, "split_from", [canonicalId]);
       } else {
         for (const key of proposalKeys) {
@@ -207,7 +260,9 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
             "ambiguous",
             [],
             canonicalIds,
-            "contending proposals rest on indistinguishable evidence",
+            groupSupported
+              ? "contending proposals rest on indistinguishable evidence"
+              : "proposal group is not structurally supported by canonical group facts",
           );
         }
         represented.add(canonicalId);
@@ -238,6 +293,6 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
     alignments,
     edges,
     omittedCanonicalIds,
-    priorEvidenceAvailable: input.incumbents.some(hasPriorSourceEvidence),
+    hasAnyPriorBoundedExcerpt: input.incumbents.some(hasPriorSourceEvidence),
   };
 }
