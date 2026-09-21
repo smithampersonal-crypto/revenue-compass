@@ -85,8 +85,8 @@ function SourceDocumentsArea() {
                 Horizon Logistics — SaaS Order Form &amp; Billing Schedule
               </h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                This fictional order form supports the pre-populated Horizon case study and lets
-                you trace the contract terms behind the sample accounting.
+                This fictional order form supports the pre-populated Horizon case study and lets you
+                trace the contract terms behind the sample accounting.
               </p>
               <p className="mt-3 text-sm leading-6 text-foreground">
                 The Horizon analysis is pre-populated for demonstration. This synthetic source
