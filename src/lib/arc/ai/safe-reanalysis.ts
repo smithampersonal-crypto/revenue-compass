@@ -289,6 +289,13 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     return { outcome: "decline", reason: "prior_analysis_unavailable" };
   }
 
+  /**
+   * The routing guarantee applied to EVERY governed structural object below.
+   * See `routesToSameCanonicalObject`.
+   */
+  const routingSafe = (proposalKey: string, canonicalId: string): boolean =>
+    routesToSameCanonicalObject(state, proposalKey, canonicalId);
+
   /* ------------------------------------- 1. performance obligations, alone */
   // Resolved FIRST and with no relation evidence, so nothing downstream can
   // borrow the identity currently being tested as evidence for itself.
@@ -308,10 +315,12 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     objectKind: "performance_obligation",
     proposals: poProposals,
     incumbents: poIncumbents,
+    routingSafe,
   });
   if (!poStage.ok) {
     return { outcome: "decline", reason: poStage.reason, objectKind: "performance_obligation" };
   }
+
 
   /**
    * The ONLY admissible canonical relation for child objects: an obligation
