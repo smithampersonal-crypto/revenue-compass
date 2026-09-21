@@ -283,6 +283,11 @@ export interface PromiseIdentitySource {
   description?: string | null;
   distinctConclusion?: string | null;
   citations?: readonly CitationSpan[];
+  /**
+   * Canonical obligation this promise resolves into, supplied by the caller from ARC-owned
+   * canonical structure. Graph evidence — never model-authored text, never a semantic key.
+   */
+  owningObligationCanonicalId?: string | null;
 }
 
 export function promiseIdentityFacts(source: PromiseIdentitySource): IdentityFacts {
@@ -294,6 +299,7 @@ export function promiseIdentityFacts(source: PromiseIdentitySource): IdentityFac
       distinctConclusion: source.distinctConclusion,
     },
     citations: source.citations,
+    relations: [source.owningObligationCanonicalId],
     description: source.description,
   });
 }
