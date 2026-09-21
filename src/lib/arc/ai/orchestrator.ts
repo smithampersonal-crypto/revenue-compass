@@ -529,6 +529,29 @@ export async function executeAiRunHandler(
         return finish(deps, caller, run.id);
       }
 
+      /* ------------------------- post-merge structural backstop */
+      // Identity was governed before the merge; the OUTCOME is governed here.
+      // With an established AI baseline, a re-analysis may refresh facts but
+      // may not change canonical structural topology — no object appears,
+      // disappears or changes parent. A first run is exempt: it creates the
+      // structure. Declining here means `applyRun` is never called, so nothing
+      // is persisted and the previous analysis stands.
+      if (
+        latest.aiState.lastSuccessfulRunId !== null &&
+        detectsStructuralMutation(latest.draft, merged.draft)
+      ) {
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: AI_STRUCTURAL_MUTATION_CODE,
+          safeMessage: AI_REANALYSIS_DECLINED,
+        });
+        return finish(deps, caller, run.id);
+      }
+
+
+
       // Source freshness is a lifecycle concern, not merge policy: the merge
       // carries the previous state forward, and only a successful apply marks
       // the analyzed selection as current.
