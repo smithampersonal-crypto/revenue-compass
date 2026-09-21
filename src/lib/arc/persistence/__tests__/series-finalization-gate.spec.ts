@@ -125,7 +125,7 @@ describe("series-period consistency holds finalization only", () => {
 
   it("changing the allocation treatment restores finalization eligibility", () => {
     const resolved = patchVc(inconsistent(), "vc-sla", {
-      allocationTreatment: "entire_contract",
+      allocationTreatment: "general",
       targetPoId: "",
     });
     expect(
@@ -145,6 +145,6 @@ describe("series-period consistency holds finalization only", () => {
     const result = analyzeWorkflow(draft);
     expect(result.step1Conclusion).toBe("qualified");
     expect(result.adapterErrors).toEqual([]);
-    expect(result.performanceObligations ?? draft.performanceObligations).toBeTruthy();
+    expect(result.revenueSchedule ?? result.progressive).toBeTruthy();
   });
 });
