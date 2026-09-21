@@ -64,6 +64,37 @@ export type EvidenceCode =
   | "diagnostic_judgment_agreement"
   | "diagnostic_judgment_drift";
 
+/**
+ * Evidence classes. Source evidence can NEVER corroborate source evidence: an exact excerpt and the
+ * page overlap implied by that very citation are one signal, not two.
+ */
+export type EvidenceClass =
+  | "source"
+  | "economic_contractual"
+  | "graph"
+  | "model_description"
+  | "judgment";
+
+export const EVIDENCE_CLASS_BY_CODE: Readonly<Record<EvidenceCode, EvidenceClass>> = {
+  hard_contradiction_object_kind: "economic_contractual",
+  hard_contradiction_decisive_fact: "economic_contractual",
+  hard_contradiction_graph_disjoint: "graph",
+  strong_excerpt_equality: "source",
+  strong_excerpt_containment: "source",
+  strong_decisive_fact_agreement: "economic_contractual",
+  strong_description_equality: "model_description",
+  strong_shared_contractual_measure: "economic_contractual",
+  corroborating_page_overlap: "source",
+  corroborating_shared_relation: "graph",
+  corroborating_lexical_overlap: "model_description",
+  diagnostic_judgment_agreement: "judgment",
+  diagnostic_judgment_drift: "judgment",
+};
+
+export function evidenceClassOf(code: EvidenceCode): EvidenceClass {
+  return EVIDENCE_CLASS_BY_CODE[code];
+}
+
 /** A strong signal together with the concrete anchor it rests on (used to detect indistinguishable evidence). */
 export interface EvidenceAnchor {
   code: EvidenceCode;
@@ -78,6 +109,10 @@ export interface EvidenceAssessment {
   diagnostics: readonly EvidenceCode[];
   /** Sorted union of every code raised, for review/diagnostic surfaces. */
   codes: readonly EvidenceCode[];
+  /** Sorted distinct classes of the STRONG signals. */
+  strongClasses: readonly EvidenceClass[];
+  /** Sorted distinct classes of the corroborating signals. */
+  corroboratingClasses: readonly EvidenceClass[];
   /** Deterministic signature of the strong anchors; equal signatures mean indistinguishable evidence. */
   anchorSignature: string;
   sharesDocument: boolean;
