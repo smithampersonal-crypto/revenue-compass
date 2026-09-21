@@ -359,8 +359,6 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
     }
   }
 
-
-
   // ---- Step 4 -------------------------------------------------------------
   for (const po of standardPos) {
     const ssp = parseUsdToCents(po.sspInput);

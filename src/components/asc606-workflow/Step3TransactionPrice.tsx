@@ -454,7 +454,9 @@ export function Step3TransactionPrice({
                           const name = po.name || `Performance obligation ${po.seq}`;
                           return (
                             <option key={po.id} value={po.id}>
-                              {ineligible ? `${name} — not classified as a Series (ineligible)` : name}
+                              {ineligible
+                                ? `${name} — not classified as a Series (ineligible)`
+                                : name}
                             </option>
                           );
                         })}

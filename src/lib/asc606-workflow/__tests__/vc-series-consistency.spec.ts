@@ -31,7 +31,11 @@ function classify(draft: WorkflowDraft, poId: string, classification: PoDraft["c
   };
 }
 
-function patchVc(draft: WorkflowDraft, id: string, values: Partial<WorkflowDraft["variableConsiderationComponents"][number]>) {
+function patchVc(
+  draft: WorkflowDraft,
+  id: string,
+  values: Partial<WorkflowDraft["variableConsiderationComponents"][number]>,
+) {
   return {
     ...draft,
     variableConsiderationComponents: draft.variableConsiderationComponents.map((c) =>
@@ -108,9 +112,9 @@ describe("series-period variable consideration consistency", () => {
     analyzeWorkflow(before);
     expect(JSON.stringify(before)).toBe(snapshot);
     expect(before.variableConsiderationComponents[0]!.targetPoId).toBe("po-hosted");
-    expect(
-      before.performanceObligations.find((po) => po.id === "po-hosted")!.classification,
-    ).toBe("single_distinct");
+    expect(before.performanceObligations.find((po) => po.id === "po-hosted")!.classification).toBe(
+      "single_distinct",
+    );
   });
 
   it("Review & Finalize cannot imply completeness while the inconsistency stands", () => {

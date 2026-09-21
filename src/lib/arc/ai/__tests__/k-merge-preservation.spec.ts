@@ -507,4 +507,3 @@ describe("G5 — accounting authority after re-analysis", () => {
     expect(usageAt(L.second.draft)).toBe(77_500);
   });
 });
-

@@ -79,7 +79,9 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
    * series is an unresolved accounting contradiction. Outputs that do not
    * depend on it remain available, but the draft is never reported complete.
    */
-  if (result.workflowValidation.warnings.some((issue) => issue.id.startsWith("vc.series_period."))) {
+  if (
+    result.workflowValidation.warnings.some((issue) => issue.id.startsWith("vc.series_period."))
+  ) {
     return {
       tone: "attention",
       headline: "Series allocation conclusion requires review",
@@ -96,4 +98,3 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
     engineReason,
   };
 }
-
