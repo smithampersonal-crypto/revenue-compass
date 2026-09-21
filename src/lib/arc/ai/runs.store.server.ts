@@ -16,7 +16,7 @@ import type { PriorAnalysisLoad } from "./safe-reanalysis";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { toPersistedAiState } from "./state-serialization";
 import { normalizePersistedReviewItems } from "./review-normalization";
-import { parseAiContractAnalysis } from "./schema";
+import { parseAiContractAnalysis, type AiContractAnalysis } from "./schema";
 import { decodeTombstones } from "./tombstones";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
