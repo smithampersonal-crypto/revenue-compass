@@ -62,11 +62,7 @@ function expectSafeDecline(result: ReturnType<typeof assess>) {
 }
 
 /** Renames one promise's semantic key, keeping its obligation membership. */
-function renamePromise(
-  analysis: AiContractAnalysis,
-  from: string,
-  to: string,
-): AiContractAnalysis {
+function renamePromise(analysis: AiContractAnalysis, from: string, to: string): AiContractAnalysis {
   analysis.promises = analysis.promises.map((promise) =>
     promise.semanticKey === from ? { ...promise, semanticKey: to } : promise,
   );

@@ -64,7 +64,6 @@ export type SafeReanalysisDeclineReason =
    */
   | "routing_unverified";
 
-
 export interface SafeReanalysisDecision {
   outcome: "first_run" | "apply" | "decline";
   reason?: SafeReanalysisDeclineReason;
@@ -205,7 +204,6 @@ function routesToSameCanonicalObject(
   return direct.canonicalId === firewallCanonicalId;
 }
 
-
 /**
  * True when the accountant's canonical draft already carries structure ARC
  * governs. Scalar contract fields do not count: they are protected by the
@@ -285,7 +283,6 @@ function resolveStage(args: {
   return { ok: true, exact };
 }
 
-
 /* -------------------------------------------------------------- the gate */
 
 export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysisDecision {
@@ -349,7 +346,6 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     return { outcome: "decline", reason: poStage.reason, objectKind: "performance_obligation" };
   }
 
-
   /**
    * The ONLY admissible canonical relation for child objects: an obligation
    * mapping that was established independently, by exact mutual uniqueness, in
@@ -385,10 +381,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     const owningKey = owningObligationKey(prior, promise.semanticKey);
     const owning = owningKey === null ? null : (incumbentPoIdByKey.get(owningKey) ?? null);
     if (owning === null) continue;
-    const facts = asIncumbent(
-      promiseFacts(promise),
-      canonicalId,
-    );
+    const facts = asIncumbent(promiseFacts(promise), canonicalId);
     incumbentPromisesByPo.set(owning, [...(incumbentPromisesByPo.get(owning) ?? []), facts]);
   }
 
@@ -406,7 +399,6 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       return { outcome: "decline", reason: promiseStage.reason, objectKind: "promise" };
     }
   }
-
 
   /* ------------------------------------------- 3. variable consideration */
   const vcProposals = input.analysis.transactionPrice.variableConsiderationComponents.map(
@@ -498,11 +490,9 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       // Billing lineage is owned by the term key itself: a renamed key would
       // enter legacy billing reconciliation and risk a duplicate schedule, so
       // the exact incumbent must be the lineage this very key already owns.
-      routingSafe: (proposalKey, canonicalId) =>
-        canonicalId === `billing-schedule:${proposalKey}`,
+      routingSafe: (proposalKey, canonicalId) => canonicalId === `billing-schedule:${proposalKey}`,
     });
     if (!billingStage.ok) {
-
       return { outcome: "decline", reason: billingStage.reason, objectKind: "billing_term" };
     }
   }
