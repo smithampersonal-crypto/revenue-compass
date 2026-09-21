@@ -168,8 +168,8 @@ export function presentAiFailure(facts: AiFailureFacts): AiFailurePresentation {
         : category === "structurally_declined"
           ? AI_REANALYSIS_DECLINED_HEADLINE
           : facts.hadPriorSuccessfulAnalysis
-          ? AI_FAILURE_HEADLINE_REANALYSIS
-          : AI_FAILURE_HEADLINE_FIRST_RUN,
+            ? AI_FAILURE_HEADLINE_REANALYSIS
+            : AI_FAILURE_HEADLINE_FIRST_RUN,
     whatHappened: copy.whatHappened,
     impact: copy.extraImpact ? `${impactBase} ${copy.extraImpact}` : impactBase,
     whatYouCanDo: copy.whatYouCanDo,

@@ -104,7 +104,8 @@ function canonicalIdFor(state: AiAnalysisState, semanticKey: string): string | n
   const direct = state.objectProvenance[semanticKey];
   if (direct !== undefined) return direct.canonicalId;
   for (const provenance of Object.values(state.objectProvenance)) {
-    if ((provenance.previousSemanticKeys ?? []).includes(semanticKey)) return provenance.canonicalId;
+    if ((provenance.previousSemanticKeys ?? []).includes(semanticKey))
+      return provenance.canonicalId;
   }
   return null;
 }
@@ -285,12 +286,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     const canonicalId = canonicalIdFor(state, obligation.semanticKey);
     if (canonicalId === null) continue;
     incumbentPoIdByKey.set(obligation.semanticKey, canonicalId);
-    poIncumbents.push(
-      asIncumbent(
-        obligationFacts(obligation),
-        canonicalId,
-      ),
-    );
+    poIncumbents.push(asIncumbent(obligationFacts(obligation), canonicalId));
   }
 
   const poStage = resolveStage({
@@ -405,7 +401,8 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
           billingFrequency: component.billingFrequency,
           trigger: component.trigger,
           contractualRateOrAmountInput: component.contractualRateOrAmountInput,
-          targetCanonicalId: targetKey === null ? null : (incumbentPoIdByKey.get(targetKey) ?? null),
+          targetCanonicalId:
+            targetKey === null ? null : (incumbentPoIdByKey.get(targetKey) ?? null),
           citations: spansOf(component.citations),
         }),
         canonicalId,

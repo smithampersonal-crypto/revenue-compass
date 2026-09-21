@@ -69,9 +69,18 @@ function input(
 function baseline(): AiContractAnalysis {
   const analysis = fixtureMultiElementAnalysis();
   const quote = (page: number, excerpt: string) => [
-    { documentId: "doc-fixture-1", pageStart: page, pageEnd: page, evidenceMode: "text" as const, excerpt },
+    {
+      documentId: "doc-fixture-1",
+      pageStart: page,
+      pageEnd: page,
+      evidenceMode: "text" as const,
+      excerpt,
+    },
   ];
-  const platform = quote(2, "Vendor shall provide the hosted platform for an annual fee of $120,000.");
+  const platform = quote(
+    2,
+    "Vendor shall provide the hosted platform for an annual fee of $120,000.",
+  );
   const support = quote(4, "Premium support services are provided for an annual fee of $30,000.");
   analysis.promises[0]!.citations = platform;
   analysis.promises[1]!.citations = support;
@@ -248,8 +257,6 @@ describe("Safe Re-analysis — changed source", () => {
   });
 
   it("never short-circuits a run that has no baseline to protect", () => {
-    expect(
-      isChangedSourceReanalysis(createEmptyAiAnalysisState(), "sha256:anything"),
-    ).toBe(false);
+    expect(isChangedSourceReanalysis(createEmptyAiAnalysisState(), "sha256:anything")).toBe(false);
   });
 });

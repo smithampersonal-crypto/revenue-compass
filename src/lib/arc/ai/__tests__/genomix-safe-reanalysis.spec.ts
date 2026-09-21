@@ -21,7 +21,9 @@ const FINGERPRINT = "sha256:genomix-source-set";
 const DOC = "doc-fixture-1";
 
 function quote(page: number, excerpt: string) {
-  return [{ documentId: DOC, pageStart: page, pageEnd: page, evidenceMode: "text" as const, excerpt }];
+  return [
+    { documentId: DOC, pageStart: page, pageEnd: page, evidenceMode: "text" as const, excerpt },
+  ];
 }
 
 const HOSTED = quote(
@@ -53,7 +55,12 @@ function genomixAnalysis(): AiContractAnalysis {
   const ssp = base.sspAndAllocation.items[0]!;
 
   base.promises = [
-    { ...promise, semanticKey: "promise:hosted", description: "Hosted sequencing platform", citations: HOSTED },
+    {
+      ...promise,
+      semanticKey: "promise:hosted",
+      description: "Hosted sequencing platform",
+      citations: HOSTED,
+    },
     {
       ...promise,
       semanticKey: "promise:throughput",
@@ -119,7 +126,12 @@ function genomixAnalysis(): AiContractAnalysis {
       appliesToKey: "po:validation",
       observedAmountInput: "95000",
     },
-    { ...ssp, semanticKey: "ssp:support", appliesToKey: "po:support", observedAmountInput: "210000" },
+    {
+      ...ssp,
+      semanticKey: "ssp:support",
+      appliesToKey: "po:support",
+      observedAmountInput: "210000",
+    },
   ];
   base.transactionPrice.fixedConsiderationInput = "785000";
   base.transactionPrice.variableConsiderationComponents = [
@@ -236,9 +248,7 @@ describe("Genomix — a later run that recombines hosted platform and throughput
     expect(draft.promises).toHaveLength(4);
     expect(draft.performanceObligations).toHaveLength(3);
     expect(draft.variableConsiderationComponents).toHaveLength(2);
-    expect(draft.transactionPriceNotes).toBe(
-      "Expected hours agreed with the delivery lead: 300.",
-    );
+    expect(draft.transactionPriceNotes).toBe("Expected hours agreed with the delivery lead: 300.");
   });
 
   it("keeps the canonical obligation membership the accountant relies on", () => {
