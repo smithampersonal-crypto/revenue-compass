@@ -352,7 +352,11 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       description: promise.description,
       distinctConclusion: promise.distinctConclusion,
       citations: spansOf(promise.citations),
-      owningObligationCanonicalId: owning,
+      // The owning obligation is NOT supplied as evidence here: every promise in
+      // this group already shares it, so it discriminates nothing and would make
+      // every sibling pair mutually admissible. Identity inside the group must
+      // come from the promise's own contractual evidence.
+      owningObligationCanonicalId: null,
     });
     proposalPromisesByPo.set(owning, [...(proposalPromisesByPo.get(owning) ?? []), facts]);
   }
@@ -371,7 +375,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
         description: promise.description,
         distinctConclusion: promise.distinctConclusion,
         citations: spansOf(promise.citations),
-        owningObligationCanonicalId: owning,
+        owningObligationCanonicalId: null,
       }),
       canonicalId,
     );
