@@ -22,6 +22,8 @@ export type AiFailurePresentationCategory =
   | "arc_validation"
   | "workspace_conflict"
   | "unexpected_application"
+  /** Not a failure: ARC deliberately declined to apply a structurally unsafe result. */
+  | "structurally_declined"
   /** Not a failure of the system: an expected availability condition. */
   | "allowance_exhausted";
 
@@ -69,6 +71,7 @@ const CATEGORY_BY_CODE: Readonly<Record<string, Record<string, AiFailurePresenta
     combined_bytes_exceeded: "document_preparation",
     input_tokens_exceeded: "document_preparation",
     sources_changed: "workspace_conflict",
+    reanalysis_source_changed: "structurally_declined",
     allowance_exhausted: "allowance_exhausted",
   },
   api: {
@@ -89,6 +92,7 @@ const CATEGORY_BY_CODE: Readonly<Record<string, Record<string, AiFailurePresenta
     apply_failed: "unexpected_application",
     merge_failed: "unexpected_application",
     merged_draft_invalid: "unexpected_application",
+    reanalysis_declined: "structurally_declined",
   },
 };
 
@@ -123,6 +127,13 @@ const COPY: Readonly<Record<AiFailurePresentationCategory, CategoryCopy>> = {
   unexpected_application: {
     whatHappened: "ARC could not finish applying the AI analysis.",
     whatYouCanDo: "Try the analysis again. You can continue working manually in the meantime.",
+  },
+  structurally_declined: {
+    whatHappened:
+      "The latest AI analysis described this contract differently from your current analysis, so ARC did not apply it.",
+    extraImpact: "Nothing in your analysis was created, changed, merged or removed.",
+    whatYouCanDo:
+      "Review the contract yourself and adjust your analysis where you think it is needed, or start a new analysis if this contract really has changed.",
   },
   allowance_exhausted: {
     whatHappened: "You have used all of your AI analyses for now.",
