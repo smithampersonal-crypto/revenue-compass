@@ -302,7 +302,7 @@ export function BillingAndBalances({
                     data-testid={`cash-basis-${collection.id}`}
                     className={
                       isProjectedCollection(collection)
-                        ? "inline-block rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400"
+                        ? "inline-block rounded-md border border-warning/50 bg-warning/10 px-2 py-0.5 text-xs font-semibold text-warning-foreground"
                         : "inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground"
                     }
                   >
