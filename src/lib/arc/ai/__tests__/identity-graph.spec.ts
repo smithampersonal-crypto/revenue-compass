@@ -149,7 +149,11 @@ describe("identity graph — production Run 1 → Run B", () => {
     const renamed = resolveIdentityGraph({
       objectKind: "promise",
       proposals: runBFixture.promises.map((promise, index) =>
-        promiseIdentityFacts({ ...promise, semanticKey: `renamed_${index}` }),
+        promiseIdentityFacts({
+          ...promise,
+          semanticKey: `renamed_${index}`,
+          owningObligationCanonicalId: RUNB_OWNING_PO[promise.semanticKey] ?? null,
+        }),
       ),
       incumbents: run1Incumbents,
       decompositionRules: run1GroupRules,
