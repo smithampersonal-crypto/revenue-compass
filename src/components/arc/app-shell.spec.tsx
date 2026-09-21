@@ -87,7 +87,7 @@ describe("ARC app shell (Phase 5)", () => {
     expect(screen.queryByText("Source Documents")).not.toBeInTheDocument();
   });
 
-  it("offers one Redwood sample path and no legacy sample grid", async () => {
+  it("offers one Horizon sample path and no legacy sample grid", async () => {
     await renderAt("/");
     await screen.findByRole("heading", {
       level: 1,
@@ -98,10 +98,10 @@ describe("ARC app shell (Phase 5)", () => {
       .getAllByRole("link")
       .filter((link) => link.getAttribute("href")?.includes("sample="));
     expect(sampleLinks).toHaveLength(1);
-    expect(sampleLinks[0]).toHaveAttribute("href", "/analysis?sample=redwood");
+    expect(sampleLinks[0]).toHaveAttribute("href", "/analysis?sample=horizon");
     for (const hiddenSample of [
       "Apex Manufacturing",
-      "Horizon Logistics",
+      "Redwood Analytics",
       "Stellar",
       "Meridian Health",
     ]) {
@@ -121,7 +121,7 @@ describe("ARC app shell (Phase 5)", () => {
     await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/analysis");
-      expect(router.state.location.search).toEqual({ sample: "redwood" });
+      expect(router.state.location.search).toEqual({ sample: "horizon" });
     });
   });
 

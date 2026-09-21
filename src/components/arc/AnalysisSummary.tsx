@@ -12,6 +12,7 @@ import { listRevisionHistory } from "@/lib/arc/persistence/revisions.functions";
 import { FEATURES } from "@/lib/arc/features";
 
 const TONE_CLASS = {
+  neutral: "border-border bg-muted/40 text-muted-foreground",
   ok: "border-primary/35 bg-primary/10 text-primary",
   attention: "border-warning/35 bg-warning/10 text-warning-foreground",
   blocked: "border-destructive/40 bg-destructive/10 text-destructive",

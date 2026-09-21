@@ -115,6 +115,9 @@ describe("bare /analysis guest workspace", () => {
     await screen.findByText("Northwind");
     expect(screen.getByTestId("mode")).toHaveTextContent("guest");
     expect(resume).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Session saved")).toBeInTheDocument();
+    expect(screen.getByText("Changes are saved in this temporary workspace.")).toBeInTheDocument();
+    expect(screen.getByText(/not in My Contracts yet/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "edit" }));
     await waitFor(() => expect(saveGuest).toHaveBeenCalledTimes(1), { timeout: 3000 });

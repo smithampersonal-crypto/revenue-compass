@@ -50,7 +50,10 @@ function formatTime(at: string | null): string {
 }
 
 /** Maps a save status onto accountant-facing wording. */
-export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
+export function describeSaveStatus(
+  status: SaveStatus,
+  options: { temporary?: boolean } = {},
+): SaveStatusDescription {
   switch (status.kind) {
     case "off":
       return {
@@ -82,6 +85,14 @@ export function describeSaveStatus(status: SaveStatus): SaveStatusDescription {
       };
     case "saved": {
       const time = formatTime(status.at);
+      if (options.temporary) {
+        return {
+          label: "Session saved",
+          detail: "Changes are saved in this temporary workspace.",
+          tone: "ok",
+          action: "none",
+        };
+      }
       return {
         label: "Saved",
         detail: time ? `All changes saved at ${time}.` : "All changes saved.",

@@ -101,7 +101,7 @@ function Index() {
             </p>
             <Link
               to="/analysis"
-              search={{ sample: "redwood" }}
+              search={{ sample: "horizon" }}
               className="mt-5 inline-flex min-h-10 w-fit items-center justify-center rounded-md border border-input bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
             >
               Try the Sample

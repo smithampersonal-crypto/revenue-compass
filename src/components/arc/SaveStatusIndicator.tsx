@@ -23,7 +23,9 @@ export function SaveStatusIndicator() {
   const { persistence } = useAnalysis();
   if (!persistence.enabled) return null;
 
-  const description = describeSaveStatus(persistence.status);
+  const description = describeSaveStatus(persistence.status, {
+    temporary: persistence.mode === "guest",
+  });
 
   return (
     <div
