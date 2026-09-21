@@ -221,10 +221,26 @@ export interface IdentityFactsInput {
   contractual?: Readonly<Record<string, string | number | null | undefined>> | undefined;
   decisiveKeys?: readonly string[] | undefined;
   measureSources?: readonly (string | null | undefined)[] | undefined;
+  /** Pre-normalized objective economic measures (e.g. a contractual rate or formula). */
+  additionalMeasures?: readonly (string | null | undefined)[] | undefined;
   judgments?: Readonly<Record<string, string | number | null | undefined>> | undefined;
   citations?: readonly CitationSpan[] | undefined;
   relations?: readonly (string | null | undefined)[] | undefined;
   description?: string | null | undefined;
+}
+
+/**
+ * Normalizes a contractual rate / amount / formula so that superficial formatting ("1.35", "$1.35",
+ * "$ 1,350.00") does not create identity drift. Non-numeric formulas fall back to normalized text.
+ */
+export function normalizeEconomicRate(value: string | number | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (text === "") return null;
+  const numeric = text.replace(/[\s$,]/g, "");
+  if (/^-?\d+(\.\d+)?$/.test(numeric)) return String(Number(numeric));
+  const normalized = normalizeForComparison(text).replace(/[$,]/g, "").replace(/\s+/g, " ").trim();
+  return normalized === "" ? null : normalized;
 }
 
 export function buildIdentityFacts(input: IdentityFactsInput): IdentityFacts {
@@ -234,7 +250,14 @@ export function buildIdentityFacts(input: IdentityFactsInput): IdentityFacts {
     ref: input.ref,
     contractual: compact(input.contractual),
     decisiveKeys: [...(input.decisiveKeys ?? [])].sort(),
-    measures: extractContractualMeasures(input.description, ...(input.measureSources ?? [])),
+    measures: [
+      ...new Set([
+        ...extractContractualMeasures(input.description, ...(input.measureSources ?? [])),
+        ...(input.additionalMeasures ?? []).filter(
+          (measure): measure is string => typeof measure === "string" && measure !== "",
+        ),
+      ]),
+    ].sort(),
     judgments: compact(input.judgments),
     citations: (input.citations ?? []).map((citation) => ({ ...citation })),
     relations: [
