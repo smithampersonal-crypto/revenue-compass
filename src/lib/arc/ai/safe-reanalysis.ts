@@ -151,37 +151,32 @@ function obligationFacts(source: {
 }
 
 /**
- * A deterministic one-for-one correspondence between the new run's promises and
- * the promises already inside the same canonical obligation. Admissibility comes
- * from the frozen evidence rules; no score, threshold or ordering preference is
- * used, and the answer is the same for any input order.
+ * ROUTING SAFETY.
+ *
+ * The firewall and the production merge use deliberately different identity
+ * systems, so economic continuity alone is not enough: the merge must also be
+ * guaranteed to land this proposal on the very canonical object the firewall
+ * resolved. For v1 the only guarantee we accept is direct, ARC-owned canonical
+ * provenance for the proposal's CURRENT semantic key:
+ *
+ *   - no direct provenance (a new or renamed key, which would enter legacy
+ *     re-identification inside the merge) ⇒ decline;
+ *   - direct provenance pointing at a different canonical object ⇒ decline.
+ *
+ * Semantic-key stability never establishes identity by itself; it is only this
+ * final routing check, applied after economic identity has been established
+ * independently.
  */
-function hasPerfectMatching(
-  proposals: readonly IdentityFacts[],
-  incumbents: readonly IncumbentIdentityFacts[],
+function routesToSameCanonicalObject(
+  state: AiAnalysisState,
+  proposalKey: string,
+  firewallCanonicalId: string,
 ): boolean {
-  const admissible = proposals.map((proposal) =>
-    incumbents.map((incumbent) => assessIdentityEvidence(proposal, incumbent).admissible),
-  );
-  const assigned = new Array<number>(incumbents.length).fill(-1);
-
-  const augment = (proposalIndex: number, seen: boolean[]): boolean => {
-    for (let i = 0; i < incumbents.length; i += 1) {
-      if (!admissible[proposalIndex]![i] || seen[i]) continue;
-      seen[i] = true;
-      if (assigned[i] === -1 || augment(assigned[i]!, seen)) {
-        assigned[i] = proposalIndex;
-        return true;
-      }
-    }
-    return false;
-  };
-
-  for (let p = 0; p < proposals.length; p += 1) {
-    if (!augment(p, new Array<boolean>(incumbents.length).fill(false))) return false;
-  }
-  return true;
+  const direct = state.objectProvenance[proposalKey];
+  if (direct === undefined) return false;
+  return direct.canonicalId === firewallCanonicalId;
 }
+
 
 /**
  * True when the accountant's canonical draft already carries structure ARC
