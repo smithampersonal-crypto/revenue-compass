@@ -16,6 +16,7 @@ import {
   asIncumbent,
   hasPriorSourceEvidence,
   promiseIdentityFacts,
+  billingTermIdentityFacts,
   variableConsiderationIdentityFacts,
 } from "@/lib/arc/ai/identity-facts";
 import { run1Fixture, runBFixture } from "@/lib/arc/ai/__tests__/production-runs";
@@ -194,5 +195,148 @@ describe("identity facts — evidence sufficiency", () => {
     const before = JSON.stringify([left, right]);
     assessIdentityEvidence(left, right);
     expect(JSON.stringify([left, right])).toBe(before);
+  });
+});
+
+/* ------------------------------------------------------------------ Patch A */
+
+describe("identity facts — source evidence cannot corroborate itself", () => {
+  const sharedExcerpt =
+    "5.4 deliverables: provider shall perform the services described in the applicable statement of work.";
+  const citation = {
+    documentId: "71a48e73-7496-44c8-b611-2dca9d3ed256",
+    pageStart: 5,
+    pageEnd: 5,
+    normalizedExcerpt: sharedExcerpt,
+  };
+
+  const left = promiseIdentityFacts({
+    semanticKey: "left_deliverable",
+    promiseType: "support",
+    description: "Onsite instrument calibration visits.",
+    distinctConclusion: "yes",
+    citations: [citation],
+  });
+  const right = promiseIdentityFacts({
+    semanticKey: "right_deliverable",
+    promiseType: "support",
+    description: "Regulatory dossier authoring.",
+    distinctConclusion: "yes",
+    citations: [citation],
+  });
+
+  it("refuses identity when the only strong evidence is source and page overlap is its own citation", () => {
+    const assessment = assessIdentityEvidence(left, right);
+    expect(assessment.codes).toContain("strong_excerpt_equality");
+    expect(assessment.codes).toContain("corroborating_page_overlap");
+    expect(assessment.strongClasses).toEqual(["source"]);
+    expect(assessment.admissible).toBe(false);
+  });
+
+  it("admits exact excerpt equality plus a compatible objective contractual measure", () => {
+    const a = promiseIdentityFacts({
+      semanticKey: "support_a",
+      promiseType: "support",
+      description: "Dedicated engineering support, 40 hours annually.",
+      distinctConclusion: "yes",
+      citations: [citation],
+    });
+    const b = promiseIdentityFacts({
+      semanticKey: "support_b",
+      promiseType: "professional_service",
+      description: "Bioinformatics engineering support hours: 40 hours per year.",
+      distinctConclusion: "yes",
+      citations: [citation],
+    });
+    const assessment = assessIdentityEvidence(a, b);
+    expect(assessment.codes).toContain("strong_shared_contractual_measure");
+    expect(assessment.admissible).toBe(true);
+  });
+
+  it("admits exact source evidence plus a resolved canonical graph relationship", () => {
+    const a = variableConsiderationIdentityFacts({
+      semanticKey: "vc_a",
+      type: "usage",
+      description: "Overage charge.",
+      citations: [citation],
+      targetCanonicalId: "po-hosted",
+    });
+    const b = variableConsiderationIdentityFacts({
+      semanticKey: "vc_b",
+      type: "usage",
+      description: "Throughput overage billing.",
+      citations: [citation],
+      targetCanonicalId: "po-hosted",
+    });
+    const assessment = assessIdentityEvidence(a, b);
+    expect(assessment.codes).toContain("corroborating_shared_relation");
+    expect(assessment.admissible).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ Patch B */
+
+describe("identity facts — objective variable-consideration and billing taxonomy", () => {
+  const citation = {
+    documentId: "71a48e73-7496-44c8-b611-2dca9d3ed256",
+    pageStart: 3,
+    pageEnd: 3,
+    normalizedExcerpt:
+      "1. specimen tier overtaking: tier 2 overage billed quarterly at $1.35/sample.",
+  };
+
+  it("treats usage vs service_credit as a hard economic incompatibility", () => {
+    const usage = variableConsiderationIdentityFacts({
+      semanticKey: "vc_usage",
+      type: "usage",
+      description: "Per-sample overage.",
+      contractualRateOrAmountInput: "1.35",
+      targetCanonicalId: "po-hosted",
+      citations: [citation],
+    });
+    const credit = variableConsiderationIdentityFacts({
+      semanticKey: "vc_credit",
+      type: "service_credit",
+      description: "Per-sample overage.",
+      contractualRateOrAmountInput: "1.35",
+      targetCanonicalId: "po-hosted",
+      citations: [citation],
+    });
+    const assessment = assessIdentityEvidence(usage, credit);
+    expect(assessment.contradictions).toContain("hard_contradiction_decisive_fact");
+    expect(assessment.admissible).toBe(false);
+  });
+
+  it("does not disqualify a billing schedule because the amount changed", () => {
+    const base = {
+      semanticKey: "fixed_annual_advance_billing",
+      description: "Fixed annual contract value billed annually in advance.",
+      frequency: "annual",
+      billingTiming: "advance",
+      paymentTermsDays: 30,
+      citations: [citation],
+    } as const;
+    const assessment = assessIdentityEvidence(
+      billingTermIdentityFacts({ ...base, amountOrRateInput: "245000" }),
+      billingTermIdentityFacts({ ...base, amountOrRateInput: "250000" }),
+    );
+    expect(assessment.contradictions).toEqual([]);
+    expect(assessment.admissible).toBe(true);
+  });
+
+  it("treats a billing timing / frequency change as a hard contradiction", () => {
+    const base = {
+      semanticKey: "fixed_billing",
+      description: "Fixed contract value billed under the order-form schedule.",
+      paymentTermsDays: 30,
+      amountOrRateInput: "245000",
+      citations: [citation],
+    } as const;
+    const assessment = assessIdentityEvidence(
+      billingTermIdentityFacts({ ...base, frequency: "annual", billingTiming: "advance" }),
+      billingTermIdentityFacts({ ...base, frequency: "monthly", billingTiming: "arrears" }),
+    );
+    expect(assessment.contradictions).toContain("hard_contradiction_decisive_fact");
+    expect(assessment.admissible).toBe(false);
   });
 });
