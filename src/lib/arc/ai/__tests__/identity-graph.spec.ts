@@ -234,12 +234,32 @@ describe("identity graph — decomposition, contention and absence", () => {
   it("refuses a false subsumption over two indistinguishable incumbents", () => {
     const base = run1Fixture.promises[2]!;
     const incumbents = [
-      asIncumbent(promiseIdentityFacts({ ...base, semanticKey: "v1" }), "pr-v1"),
-      asIncumbent(promiseIdentityFacts({ ...base, semanticKey: "v2" }), "pr-v2"),
+      asIncumbent(
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "v1",
+          owningObligationCanonicalId: "po-validation",
+        }),
+        "pr-v1",
+      ),
+      asIncumbent(
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "v2",
+          owningObligationCanonicalId: "po-validation",
+        }),
+        "pr-v2",
+      ),
     ];
     const result = resolveIdentityGraph({
       objectKind: "promise",
-      proposals: [promiseIdentityFacts({ ...base, semanticKey: "combined" })],
+      proposals: [
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "combined",
+          owningObligationCanonicalId: "po-validation",
+        }),
+      ],
       incumbents,
     });
 
