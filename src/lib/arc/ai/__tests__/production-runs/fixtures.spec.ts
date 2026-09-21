@@ -186,9 +186,11 @@ describe("bounded excerpt relationships required by the future matcher", () => {
     expect(runBSla.includes(run1Sla)).toBe(true);
 
     const run1Usage = excerptAt(vc(run1Fixture, "throughput_overage").citations, 3);
-    const runBUsage = excerptAt(vc(runBFixture, "variable_throughput_overages").citations, 3);
-    expect(runBUsage).not.toBe(run1Usage);
-    expect(runBUsage.includes(run1Usage)).toBe(true);
+    const runBUsageExcerpts = vc(runBFixture, "variable_throughput_overages")
+      .citations.filter((c) => c.pageStart === 3)
+      .map((c) => c.normalizedExcerpt ?? "");
+    expect(runBUsageExcerpts).not.toContain(run1Usage);
+    expect(runBUsageExcerpts.some((e) => e.includes(run1Usage))).toBe(true);
   });
 
   it("keeps excerpts bounded — no full page corpus, prompts or credentials", () => {
