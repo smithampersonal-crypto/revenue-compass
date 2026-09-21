@@ -89,6 +89,8 @@ function harness(
     buildPackage?: AiExecutionDeps["buildPackage"];
     /** Source state already recorded on the accountant's sidecar. */
     priorSourceState?: AiAnalysisState["sourceState"];
+    /** Execution context overrides, for Safe Re-analysis conditions. */
+    contextOverrides?: Partial<AiExecutionContext>;
   } = {},
 ): Harness {
   const stages: AiRunStage[] = [];
@@ -131,6 +133,7 @@ function harness(
     lockVersion: 3,
     manuallyEnteredFacts: {},
     arcFactSignals: [],
+    ...options.contextOverrides,
   };
 
   const store: AiRunExecutionStore = {
@@ -614,6 +617,46 @@ describe("Phase 9F — AI run orchestration", () => {
     // The one live developer script is the only opt-in site.
     const script = read("scripts/phase9f-live.ts");
     expect(script).toContain("includeExcerptDiagnostics: true");
+  });
+
+  /* --------------------------------------------------- safe re-analysis */
+
+  describe("Safe Re-analysis protects the existing analysis", () => {
+    const baselineState = (fingerprint: string): AiAnalysisState => ({
+      ...createEmptyAiAnalysisState(),
+      lastSuccessfulRunId: "run-earlier",
+      sourceSetFingerprint: fingerprint,
+    });
+
+    it("refuses a changed document set before any allowance or model call", async () => {
+      const h = harness({ contextOverrides: { aiState: baselineState("c".repeat(64)) } });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+      expect(h.events).not.toContain("reserve");
+      expect(h.analyzeCalls).toBe(0);
+      expect(h.applied).toBeNull();
+      expect(h.failure?.code).toBe("reanalysis_source_changed");
+    });
+
+    it("declines to apply when the prior immutable result cannot be loaded", async () => {
+      const fingerprint = await computeSourceSetFingerprint([
+        { documentId: "doc-1", sha256: "a".repeat(64) },
+      ]);
+      const h = harness({
+        contextOverrides: {
+          aiState: baselineState(fingerprint),
+          priorAnalysis: null,
+          priorAnalysisLoad: "unavailable",
+        },
+      });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+      expect(h.analyzeCalls).toBe(1);
+      expect(h.applyAttempts).toBe(0);
+      expect(h.applied).toBeNull();
+      expect(h.restored).toBe(0);
+      expect(h.failure?.code).toBe("reanalysis_declined");
+    });
   });
 
   /* --------------------------------------------- source-state transitions */
