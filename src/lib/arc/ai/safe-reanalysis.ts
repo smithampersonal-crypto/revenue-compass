@@ -402,3 +402,20 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
 
   return { outcome: "apply" };
 }
+
+/**
+ * Early, pre-payment changed-source detection.
+ *
+ * A re-analysis of a document set that is not the one the current analysis
+ * rests on can never be applied, so it is refused BEFORE allowance is reserved
+ * and before the model is contacted: it costs neither quota nor a provider
+ * call. The apply-time gate re-checks the same fact defensively.
+ */
+export function isChangedSourceReanalysis(
+  state: Pick<AiAnalysisState, "lastSuccessfulRunId" | "sourceSetFingerprint">,
+  currentSourceSetFingerprint: string,
+): boolean {
+  if (state.lastSuccessfulRunId === null) return false;
+  if (state.sourceSetFingerprint === null) return false;
+  return state.sourceSetFingerprint !== currentSourceSetFingerprint;
+}
