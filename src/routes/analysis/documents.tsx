@@ -5,7 +5,10 @@ import { Notice, Section } from "@/components/asc606-workflow/fields";
 import { useAnalysis } from "@/components/arc/analysis-context";
 import { GuestSourceDocumentsWorkspace } from "@/components/arc/documents/GuestSourceDocumentsWorkspace";
 import { SourceDocumentsWorkspace } from "@/components/arc/documents/SourceDocumentsWorkspace";
+import { Button } from "@/components/ui/button";
 import { FEATURES } from "@/lib/arc/features";
+
+const HORIZON_SAMPLE_PDF = "/samples/horizon-logistics-saas-order-form.pdf";
 
 export const Route = createFileRoute("/analysis/documents")({
   head: () => ({
@@ -33,7 +36,7 @@ export const Route = createFileRoute("/analysis/documents")({
 });
 
 function SourceDocumentsArea() {
-  const { persistence } = useAnalysis();
+  const { persistence, sample } = useAnalysis();
   const navigate = useNavigate();
   // `upload=1` is an intent to open the existing upload step exactly once —
   // whether it arrives from Home, or from Analyze Contract while the visitor is
@@ -67,7 +70,41 @@ function SourceDocumentsArea() {
     );
   }
 
-  // Samples and in-memory analyses never own source documents.
+  // Horizon has one curated public reference document. It is static sample
+  // content only: it never enters ARC's uploaded-document architecture.
+  if (persistence.mode === "sample" && sample === "horizon") {
+    return (
+      <Section title="Source documents" description="Supporting documentation for this analysis.">
+        <article className="rounded-md border border-border bg-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 max-w-3xl">
+              <p className="text-xs font-semibold uppercase text-primary">
+                Sample source document · Synthetic
+              </p>
+              <h2 className="mt-2 text-base font-semibold text-foreground">
+                Horizon Logistics — SaaS Order Form &amp; Billing Schedule
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                This fictional order form supports the pre-populated Horizon case study and lets
+                you trace the contract terms behind the sample accounting.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-foreground">
+                The Horizon analysis is pre-populated for demonstration. This synthetic source
+                document is provided so you can trace the underlying contract terms.
+              </p>
+            </div>
+            <Button asChild>
+              <a href={HORIZON_SAMPLE_PDF} target="_blank" rel="noreferrer">
+                View PDF
+              </a>
+            </Button>
+          </div>
+        </article>
+      </Section>
+    );
+  }
+
+  // Other samples and in-memory analyses never own source documents.
   if (persistence.mode !== "contract") {
     return (
       <Section title="Source documents" description="Supporting documentation for this analysis.">
