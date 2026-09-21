@@ -40,7 +40,7 @@ function citationNodes(): Array<Record<string, unknown>> {
 
 describe("anchored provider schema", () => {
   it("bumps the output schema version", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v5");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v6");
   });
 
   it("counts the internal citation nodes and replaces exactly that many", () => {

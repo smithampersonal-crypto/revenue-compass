@@ -96,6 +96,7 @@ export function fixtureAAnalysis(): AiContractAnalysis {
     promises: [
       {
         semanticKey: "promise:saas",
+        accountingLabel: "Hosted SaaS Access",
         description: "Annual hosted SaaS service",
         promiseType: "hosted_service",
         otherPromiseTypeDescription: null,
@@ -112,6 +113,7 @@ export function fixtureAAnalysis(): AiContractAnalysis {
     performanceObligations: [
       {
         semanticKey: "po:saas",
+        accountingLabel: "Hosted SaaS Service Series",
         promiseKeys: ["promise:saas"],
         description: "SaaS subscription",
         groupingRationale: "Single distinct hosted service.",

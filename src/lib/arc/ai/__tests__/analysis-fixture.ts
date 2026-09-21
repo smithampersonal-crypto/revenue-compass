@@ -111,6 +111,7 @@ export function validAnalysisFixture(): AiContractAnalysis {
     promises: [
       {
         semanticKey: "promise:hosted-platform",
+        accountingLabel: "Hosted SaaS Access",
         description: "Access to the hosted variant-calling platform for the subscription term.",
         promiseType: "hosted_service",
         otherPromiseTypeDescription: null,
@@ -127,6 +128,7 @@ export function validAnalysisFixture(): AiContractAnalysis {
     performanceObligations: [
       {
         semanticKey: "po:hosted-platform",
+        accountingLabel: "Hosted SaaS Service Series",
         promiseKeys: ["promise:hosted-platform"],
         description: "Hosted platform access.",
         groupingRationale: "Single distinct hosted service.",

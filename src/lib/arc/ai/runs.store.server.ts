@@ -16,7 +16,7 @@ import type { PriorAnalysisLoad } from "./safe-reanalysis";
 import { createEmptyAiAnalysisState, type AiAnalysisState } from "./merge";
 import { toPersistedAiState } from "./state-serialization";
 import { normalizePersistedReviewItems } from "./review-normalization";
-import { parseAiContractAnalysis, type AiContractAnalysis } from "./schema";
+import { parsePersistedAiContractAnalysis, type AiContractAnalysis } from "./schema";
 import { decodeTombstones } from "./tombstones";
 import { computeSourceSetFingerprint, type AiSourceIdentity } from "./source-fingerprint";
 
@@ -317,12 +317,14 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         // no live billing provenance remains to ask for it.
         const { data, error } = await supabaseAdmin
           .from("ai_runs")
-          .select("result_metadata")
+          .select("result_metadata, output_schema_version")
           .eq("id", aiState.lastSuccessfulRunId)
           .maybeSingle();
         if (error || !data) return { analysis: null, load: "unavailable" };
-        const parsed = parseAiContractAnalysis(
-          (data as { result_metadata: unknown }).result_metadata,
+        const stored = data as { result_metadata: unknown; output_schema_version: unknown };
+        const parsed = parsePersistedAiContractAnalysis(
+          stored.result_metadata,
+          stored.output_schema_version,
         );
         return parsed.ok
           ? { analysis: parsed.analysis, load: "loaded" }

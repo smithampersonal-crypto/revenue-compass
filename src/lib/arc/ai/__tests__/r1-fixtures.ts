@@ -90,6 +90,7 @@ export function genomixR1Analysis(): AiContractAnalysis {
     promises: [
       {
         semanticKey: "promise:saas-platform",
+        accountingLabel: "Hosted SaaS Access",
         description: "Hosted platform access with included processing capacity",
         promiseType: "hosted_service",
         otherPromiseTypeDescription: null,
@@ -106,6 +107,7 @@ export function genomixR1Analysis(): AiContractAnalysis {
     performanceObligations: [
       {
         semanticKey: R1_SAAS_PO_KEY,
+        accountingLabel: "Hosted SaaS Service Series",
         promiseKeys: ["promise:saas-platform"],
         description: "Hosted platform subscription",
         groupingRationale: "Single distinct hosted service.",

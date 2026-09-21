@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AI_OUTPUT_SCHEMA_VERSION,
+  LEGACY_AI_OUTPUT_SCHEMA_VERSION,
   AI_REVIEW_STATES,
   FORBIDDEN_ENGINE_OUTPUT_KEYS,
   FORBIDDEN_MODEL_IDENTITY_KEYS,
@@ -10,6 +11,7 @@ import {
   collectCitations,
   collectGuidanceIds,
   parseAiContractAnalysis,
+  parsePersistedAiContractAnalysis,
 } from "../schema";
 
 import { validAnalysisFixture } from "./analysis-fixture";
@@ -34,12 +36,12 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("pins the output schema version to the 9C constant", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v5");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v6");
   });
 
   it("accepts only the authoritative schema version literal", () => {
     const good = validAnalysisFixture();
-    good.schemaVersion = "arc.ai.schema.v5";
+    good.schemaVersion = "arc.ai.schema.v6";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
     for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
@@ -47,6 +49,54 @@ describe("AiContractAnalysis schema", () => {
       bad.schemaVersion = wrong;
       expect(parseAiContractAnalysis(bad).ok).toBe(false);
     }
+  });
+
+  it("requires bounded nonblank accounting labels on every v6 Promise and PO", () => {
+    const missing = validAnalysisFixture() as unknown as {
+      promises: Array<Record<string, unknown>>;
+    };
+    delete missing.promises[0]!["accountingLabel"];
+    expect(parseAiContractAnalysis(missing).ok).toBe(false);
+
+    const blank = validAnalysisFixture();
+    blank.performanceObligations[0]!.accountingLabel = "   ";
+    expect(parseAiContractAnalysis(blank).ok).toBe(false);
+
+    const long = validAnalysisFixture();
+    long.promises[0]!.accountingLabel = "x".repeat(81);
+    expect(parseAiContractAnalysis(long).ok).toBe(false);
+  });
+
+  it("dispatches strict frozen v5 immutable results without synthesizing labels", () => {
+    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
+    legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+    const promises = legacy["promises"] as Array<Record<string, unknown>>;
+    const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
+    delete promises[0]!["accountingLabel"];
+    delete obligations[0]!["accountingLabel"];
+
+    expect(parseAiContractAnalysis(legacy).ok).toBe(false);
+    const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_AI_OUTPUT_SCHEMA_VERSION);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.analysis.promises[0]).not.toHaveProperty("accountingLabel");
+    expect(parsed.analysis.performanceObligations[0]).not.toHaveProperty("accountingLabel");
+  });
+
+  it("fails closed for unknown, mismatched, or malformed persisted versions", () => {
+    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
+    legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+    const promises = legacy["promises"] as Array<Record<string, unknown>>;
+    const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
+    delete promises[0]!["accountingLabel"];
+    delete obligations[0]!["accountingLabel"];
+
+    expect(parsePersistedAiContractAnalysis(legacy, AI_OUTPUT_SCHEMA_VERSION).ok).toBe(false);
+    legacy["schemaVersion"] = "arc.ai.schema.unknown";
+    expect(parsePersistedAiContractAnalysis(legacy).ok).toBe(false);
+    legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+    promises[0]!["unexpected"] = true;
+    expect(parsePersistedAiContractAnalysis(legacy).ok).toBe(false);
   });
 
   it("emits the version literal as a single-value enum on the wire", () => {
