@@ -107,8 +107,9 @@ describe("series-period consistency holds finalization only", () => {
     const unrelated: WorkflowIssue[] = [
       { id: "some.other.warning", step: "2a", severity: "warning", message: "Unrelated." },
     ];
-    expect(finalizationBlockingWorkflowWarnings({ issues: unrelated, warnings: unrelated } as never))
-      .toEqual([]);
+    expect(
+      finalizationBlockingWorkflowWarnings({ issues: unrelated, warnings: unrelated } as never),
+    ).toEqual([]);
 
     // And on a real draft that carries no consistency finding at all.
     const clean = analyzeWorkflow(completeGenomix());
@@ -127,9 +128,9 @@ describe("series-period consistency holds finalization only", () => {
       allocationTreatment: "entire_contract",
       targetPoId: "",
     });
-    expect(finalizationBlockingWorkflowWarnings(analyzeWorkflow(resolved).workflowValidation)).toEqual(
-      [],
-    );
+    expect(
+      finalizationBlockingWorkflowWarnings(analyzeWorkflow(resolved).workflowValidation),
+    ).toEqual([]);
     expect(clientGate(resolved).canFinalize).toBe(true);
   });
 
@@ -137,7 +138,9 @@ describe("series-period consistency holds finalization only", () => {
     const draft = inconsistent();
     const validation = validateWorkflow(draft);
     expect(validation.blocking).toEqual([]);
-    expect(validation.warnings.some((issue) => issue.id.startsWith("vc.series_period."))).toBe(true);
+    expect(validation.warnings.some((issue) => issue.id.startsWith("vc.series_period."))).toBe(
+      true,
+    );
 
     const result = analyzeWorkflow(draft);
     expect(result.step1Conclusion).toBe("qualified");

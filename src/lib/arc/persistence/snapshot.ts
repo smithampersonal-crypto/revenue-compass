@@ -159,7 +159,6 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
   const workpaper = buildWorkpaper(draft);
   const { workflow, balances, journals } = workpaper;
 
-
   /*
    * Finalization-only restriction: the series-period consistency findings stay
    * warnings for ordinary analysis, but an unresolved accounting contradiction
