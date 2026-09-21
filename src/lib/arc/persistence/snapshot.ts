@@ -14,6 +14,7 @@
 import {
   analyzeContractBalanceWorkflow,
   analyzeWorkflow,
+  finalizationBlockingWorkflowWarnings,
   type ContractBalanceWorkflowResult,
   type WorkflowAnalysisResult,
   type WorkflowDraft,
@@ -160,6 +161,17 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
 
   if (!workflow.finalized) {
     return { ok: false, issues: workflowIssues(workflow) };
+  }
+
+  /*
+   * Finalization-only restriction: the series-period consistency findings stay
+   * warnings for ordinary analysis, but an unresolved accounting contradiction
+   * must never be recorded as an immutable snapshot. The client gate uses the
+   * same helper; this server check is independent and authoritative.
+   */
+  const consistency = finalizationBlockingWorkflowWarnings(workflow.workflowValidation);
+  if (consistency.length > 0) {
+    return { ok: false, issues: consistency.map((issue) => issue.message) };
   }
 
   if (!balances.finalized) {

@@ -7,6 +7,7 @@ import { finalizeRevision, listRevisionHistory } from "@/lib/arc/persistence/rev
 import { describeRevisionStatus, finalizeGate } from "@/lib/arc/persistence/revision-history";
 import { aiReviewFinalizeBlock } from "@/lib/arc/ai/review-presentation";
 import { isWorkpaperComplete } from "@/lib/arc/persistence/snapshot";
+import { finalizationBlockingWorkflowWarnings } from "@/lib/asc606-workflow";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
 
 import { CreateRevisionAction } from "./CreateRevisionAction";
@@ -183,6 +184,9 @@ export function RevisionLifecyclePanel() {
     workpaperComplete: isWorkpaperComplete(workpaper),
     lockVersion: persistence.lockVersion,
     finalizing: persistence.finalizing,
+    // Unresolved series-period consistency findings hold finalization only;
+    // they remain ordinary warnings everywhere else in the analysis.
+    finalizationBlockingWarnings: finalizationBlockingWorkflowWarnings(result.workflowValidation),
   });
 
   const currentStatus = revision ? describeRevisionStatus(revision.status) : null;
