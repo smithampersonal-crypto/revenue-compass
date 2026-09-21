@@ -19,7 +19,7 @@ import { genomixR3Draft } from "./genomix-r3-fixture";
 const NOT_SERIES = "vc.series_period.target_not_series";
 const NO_TARGET = "vc.series_period.target_missing";
 
-const issueIds = (draft: WorkflowDraft) => validateWorkflow(draft).blocking.map((i) => i.id);
+const issueIds = (draft: WorkflowDraft) => validateWorkflow(draft).warnings.map((i) => i.id);
 
 /** Reclassifies one performance obligation, leaving every identity intact. */
 function classify(draft: WorkflowDraft, poId: string, classification: PoDraft["classification"]) {
@@ -52,7 +52,7 @@ describe("series-period variable consideration consistency", () => {
   });
 
   it("Genomix fresh-guest state: series-period VC targeting a non-series PO raises the issue", () => {
-    const issues = validateWorkflow(genomixInconsistent()).blocking;
+    const issues = validateWorkflow(genomixInconsistent()).warnings;
     const issue = issues.find((i) => i.id === NOT_SERIES);
     expect(issue).toBeDefined();
     expect(issue!.step).toBe("3");
@@ -62,7 +62,7 @@ describe("series-period variable consideration consistency", () => {
 
   it("raises a targeted issue when no target performance obligation is linked", () => {
     const draft = patchVc(genomixR3Draft(), "vc-sla", { targetPoId: null });
-    const issue = validateWorkflow(draft).blocking.find((i) => i.id === NO_TARGET);
+    const issue = validateWorkflow(draft).warnings.find((i) => i.id === NO_TARGET);
     expect(issue).toBeDefined();
     expect(issue!.message).toContain("no target performance obligation is currently linked");
   });
@@ -115,15 +115,17 @@ describe("series-period variable consideration consistency", () => {
 
   it("Review & Finalize cannot imply completeness while the inconsistency stands", () => {
     const result = analyzeWorkflow(genomixInconsistent());
-    expect(result.workflowValidation.blocking.some((i) => i.id === NOT_SERIES)).toBe(true);
-    expect(analysisStatus(result).tone).not.toBe("ok");
+    expect(result.workflowValidation.warnings.some((i) => i.id === NOT_SERIES)).toBe(true);
+    const status = analysisStatus(result);
+    expect(status.tone).not.toBe("ok");
+    expect(status.headline).toBe("Series allocation conclusion requires review");
   });
 
   it("leaves unrelated determinable outputs available", () => {
     const result = analyzeWorkflow(genomixInconsistent());
-    // The promise and obligation inventory the accountant entered is still
-    // presented; only the conclusions depending on the disputed fact are held.
-    expect(result.workflowValidation.blocking.length).toBeGreaterThan(0);
+    // The contradiction never suppresses unrelated deterministic accounting.
     expect(result.step1Conclusion).toBe("qualified");
+    expect(result.adapterErrors).toEqual([]);
+    expect(result.workflowValidation.blocking).toEqual([]);
   });
 });
