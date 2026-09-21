@@ -8,7 +8,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { buildAnalysisSummary } from "@/lib/arc/analysis-summary";
+import { buildAnalysisSummary, isPristineManualDraft } from "@/lib/arc/analysis-summary";
 import { FEATURES } from "@/lib/arc/features";
 import { formatCents } from "@/lib/asc606";
 import {
@@ -22,7 +22,7 @@ import { case7Draft } from "@/lib/asc606-workflow/__tests__/vc-fixtures";
 import { createDemoDraft, getDemoScenario } from "@/lib/demo-scenarios";
 import { routeTree } from "@/routeTree.gen";
 
-function summaryFor(draft: WorkflowDraft, origin: "manual" | "sample" = "manual") {
+function summaryFor(draft: WorkflowDraft, origin: "manual" | "sample" | "ai" = "manual") {
   return buildAnalysisSummary({
     draft,
     result: analyzeWorkflow(draft),
@@ -166,10 +166,40 @@ describe("Analysis summary view model (Phase 4)", () => {
     expect(summary.recognitionLabel).toBeNull();
   });
 
-  it("reports an outstanding-items state for an incomplete analysis", () => {
+  it("presents a pristine manual draft as a neutral place to begin", () => {
     const summary = summaryFor(createEmptyDraft());
-    expect(summary.statusTone).not.toBe("ok");
+    expect(summary.statusTone).toBe("neutral");
+    expect(summary.statusLabel).toBe("New Contract Analysis");
+    expect(summary.originDetail).toBe(
+      "Begin by entering the customer and contract terms in Step 1, or return Home to explore the sample contract.",
+    );
+    expect(summary.metrics).toEqual([]);
+  });
+
+  it("uses meaningful inputs rather than incidental draft metadata to identify pristine state", () => {
+    const withIncidentalMetadata = {
+      ...createEmptyDraft(),
+      updatedAt: "2026-09-21T00:00:00.000Z",
+    } as WorkflowDraft;
+    expect(isPristineManualDraft(withIncidentalMetadata)).toBe(true);
+
+    const meaningful = createEmptyDraft();
+    meaningful.contract.customerName = "Genomix";
+    expect(isPristineManualDraft(meaningful)).toBe(false);
+    expect(summaryFor(meaningful).statusLabel).toMatch(/outstanding analysis item|Needs attention/);
+  });
+
+  it("keeps real incomplete status for non-pristine drafts", () => {
+    const draft = createEmptyDraft();
+    draft.transactionPriceNotes = "Amount requires review.";
+    const summary = summaryFor(draft);
+    expect(summary.statusTone).not.toBe("neutral");
     expect(summary.statusLabel).toMatch(/outstanding analysis item|Needs attention/);
+  });
+
+  it("never applies the manual starter state to sample or AI origins", () => {
+    expect(summaryFor(createEmptyDraft(), "sample").statusLabel).not.toBe("New Contract Analysis");
+    expect(summaryFor(createEmptyDraft(), "ai").statusLabel).not.toBe("New Contract Analysis");
     expect(summaryFor(createDemoDraft("redwood"), "sample").statusLabel).toBe("Draft complete");
   });
 

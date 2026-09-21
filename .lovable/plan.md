@@ -10,7 +10,7 @@ Implement only the three accepted recruiter-facing corrections. No accounting, A
    - Update focused Home-route coverage to verify all three destinations.
 
 2. **Pristine manual starter state**
-   - Add a presentation-only pristine-draft predicate based on the complete canonical empty draft shape, combined with manual origin.
+   - Add a presentation-only semantic predicate over meaningful contract and accounting inputs, combined with manual origin. Ignore incidental metadata, runtime state, timestamps, persistence fields, and harmless schema defaults; fail closed once any meaningful input exists.
    - Render a neutral “New Contract Analysis” state with: “Begin by entering the customer and contract terms in Step 1, or return Home to explore the sample contract.”
    - Do not show the empty draft’s outstanding-item count or zero-obligation metric in this one state.
    - Restore ordinary validation/status presentation after any meaningful draft input; leave samples and AI-populated drafts unchanged.

@@ -24,7 +24,7 @@ export interface AnalysisSummaryModel {
   /** Short supporting sentence; null for an ordinary manual draft. */
   originDetail: string | null;
   statusLabel: string;
-  statusTone: AnalysisStatusTone;
+  statusTone: AnalysisStatusTone | "neutral";
   /** Contract identity fields, empty values omitted. */
   identity: SummaryMetric[];
   metrics: SummaryMetric[];
@@ -44,6 +44,36 @@ const RECOGNITION_LABELS = {
   over_time_ratable: "Over time",
   point_in_time: "Point in time",
 } as const;
+
+const PRISTINE_DETAIL =
+  "Begin by entering the customer and contract terms in Step 1, or return Home to explore the sample contract.";
+
+/**
+ * Presentation-only definition of an untouched workpaper. Only meaningful
+ * contract and accounting inputs participate; currency defaults and any
+ * incidental runtime or persistence metadata deliberately do not.
+ */
+export function isPristineManualDraft(draft: WorkflowDraft): boolean {
+  const contract = draft.contract;
+  return (
+    contract.customerName.trim() === "" &&
+    contract.contractNumber.trim() === "" &&
+    contract.executionDate.trim() === "" &&
+    Object.values(contract.criteria).every(
+      (criterion) => criterion.answer === null && criterion.rationale.trim() === "",
+    ) &&
+    draft.promises.length === 0 &&
+    draft.performanceObligations.length === 0 &&
+    draft.transactionPriceInput.trim() === "" &&
+    draft.transactionPriceNotes.trim() === "" &&
+    draft.hasVariableConsideration === false &&
+    draft.variableConsiderationComponents.length === 0 &&
+    draft.hasContractModifications === false &&
+    draft.contractModifications.length === 0 &&
+    draft.contractBalances.considerationEvents.length === 0 &&
+    draft.contractBalances.cashCollections.length === 0
+  );
+}
 
 function statusLabel(result: WorkflowAnalysisResult): {
   label: string;
@@ -99,7 +129,10 @@ export function buildAnalysisSummary({
   /** Present only for a saved contract revision. */
   persisted?: PersistedRevisionLabel | null;
 }): AnalysisSummaryModel {
-  const status = statusLabel(result);
+  const pristine = origin === "manual" && isPristineManualDraft(draft);
+  const status = pristine
+    ? { label: "New Contract Analysis", tone: "neutral" as const }
+    : statusLabel(result);
 
   const identity: SummaryMetric[] = [];
   if (draft.contract.customerName.trim() !== "") {
@@ -109,9 +142,9 @@ export function buildAnalysisSummary({
     identity.push({ label: "Contract", value: draft.contract.contractNumber.trim() });
   }
 
-  const metrics: SummaryMetric[] = [
-    { label: "Performance obligations", value: String(draft.performanceObligations.length) },
-  ];
+  const metrics: SummaryMetric[] = pristine
+    ? []
+    : [{ label: "Performance obligations", value: String(draft.performanceObligations.length) }];
 
   const hasMaterialRight = draft.performanceObligations.some((po) => po.kind === "material_right");
   const hasVariableConsideration =
@@ -157,9 +190,11 @@ export function buildAnalysisSummary({
 
   return {
     originLabel: originLabelFor(origin, persisted),
-    originDetail: scenario
-      ? "Fictional sample — edit any assumption to explore the accounting."
-      : null,
+    originDetail: pristine
+      ? PRISTINE_DETAIL
+      : scenario
+        ? "Fictional sample — edit any assumption to explore the accounting."
+        : null,
     statusLabel: status.label,
     statusTone: status.tone,
     identity,

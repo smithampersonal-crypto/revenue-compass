@@ -147,6 +147,19 @@ describe("save status wording", () => {
     );
   });
 
+  it("distinguishes a temporary guest save from an account-backed save", () => {
+    expect(describeSaveStatus({ kind: "saved", at: null }, { temporary: true })).toEqual({
+      label: "Session saved",
+      detail: "Changes are saved in this temporary workspace.",
+      tone: "ok",
+      action: "none",
+    });
+    expect(describeSaveStatus({ kind: "saved", at: null })).toMatchObject({
+      label: "Saved",
+      detail: "All changes saved.",
+    });
+  });
+
   it("offers retry for an ordinary save failure and reload only for a conflict", () => {
     const failed = describeSaveStatus({ kind: "error", message: "boom" });
     expect(failed.label).toBe("Save failed");
