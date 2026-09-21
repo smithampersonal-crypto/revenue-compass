@@ -61,7 +61,8 @@ describe("identity facts — evidence sufficiency", () => {
     const proposal = promiseIdentityFacts(runBSupport);
     const incumbent = promiseIdentityFacts(run1Support);
     expect(proposal.judgments["promiseType"]).toBe("support");
-    expect(incumbent.judgments["promiseType"]).toBe("professional_service");
+    // Judgment values are normalized for comparison; `professional_service` → `professional service`.
+    expect(incumbent.judgments["promiseType"]).toBe("professional service");
 
     const assessment = assessIdentityEvidence(proposal, incumbent);
     expect(assessment.admissible).toBe(true);
