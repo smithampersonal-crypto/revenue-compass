@@ -504,7 +504,21 @@ export function assessIdentityEvidence(
   const sharedRelations = intersect(left.relations, new Set(right.relations));
   if (left.relations.length > 0 && right.relations.length > 0) {
     if (sharedRelations.length === 0) contradictions.push("hard_contradiction_graph_disjoint");
-    else corroborating.push("corroborating_shared_relation");
+    else {
+      corroborating.push("corroborating_shared_relation");
+      // Both sides resolve to exactly one, identical canonical object: ARC-owned structural
+      // evidence, independent of model-authored text and of the source citations.
+      if (
+        left.relations.length === 1 &&
+        right.relations.length === 1 &&
+        left.relations[0] === right.relations[0]
+      ) {
+        strong.push({
+          code: "strong_resolved_canonical_relation",
+          anchor: `relation:${left.relations[0]}`,
+        });
+      }
+    }
   }
 
   // Source evidence: bounded excerpt equality / strict containment only.
