@@ -117,9 +117,7 @@ const anchors = buildCitationAnchorPages(evidence)[0]!.anchors;
 
 function citation(anchorIds: string[], evidenceMode = "text"): unknown {
   return {
-    citations: [
-      { documentId: "doc-master", pageStart: 1, pageEnd: 1, evidenceMode, anchorIds },
-    ],
+    citations: [{ documentId: "doc-master", pageStart: 1, pageEnd: 1, evidenceMode, anchorIds }],
   };
 }
 
