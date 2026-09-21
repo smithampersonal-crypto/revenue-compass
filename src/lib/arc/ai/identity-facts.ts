@@ -338,7 +338,22 @@ export function variableConsiderationIdentityFacts(
     description: source.description,
   });
 }
-...
+
+export interface BillingTermIdentitySource {
+  semanticKey: string;
+  description?: string | null;
+  frequency?: string | null;
+  billingTiming?: string | null;
+  invoiceTrigger?: string | null;
+  paymentTermsDays?: number | null;
+  amountOrRateInput?: string | null;
+  citations?: readonly CitationSpan[];
+  objectKind?: Extract<
+    AlignmentObjectKind,
+    "billing_term" | "consideration_event" | "projected_collection"
+  >;
+}
+
 /**
  * Billing schedule identity is defined by TIMING and FREQUENCY, not by amount. A renegotiated
  * amount on the same annual-advance schedule is the same schedule; annual advance → monthly
