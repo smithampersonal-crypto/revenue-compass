@@ -130,7 +130,9 @@ export function buildAnalysisSummary({
   persisted?: PersistedRevisionLabel | null;
 }): AnalysisSummaryModel {
   const pristine = origin === "manual" && isPristineManualDraft(draft);
-  const status = pristine ? { label: "New Contract Analysis", tone: "neutral" as const } : statusLabel(result);
+  const status = pristine
+    ? { label: "New Contract Analysis", tone: "neutral" as const }
+    : statusLabel(result);
 
   const identity: SummaryMetric[] = [];
   if (draft.contract.customerName.trim() !== "") {
