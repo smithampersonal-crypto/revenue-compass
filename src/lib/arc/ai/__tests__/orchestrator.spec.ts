@@ -697,7 +697,6 @@ describe("Phase 9F — AI run orchestration", () => {
       expect(h.failure?.code).toBe("structural_mutation_detected");
       expect(draft.contractModifications).toHaveLength(0);
     });
-
   });
 
   /* --------------------------------------------- source-state transitions */
