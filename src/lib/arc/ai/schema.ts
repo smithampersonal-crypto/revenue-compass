@@ -13,8 +13,10 @@
 
 import { z } from "zod";
 
-/** Single source of truth for the output-schema version (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
+/** Single source of truth for new-generation output (9C aligned). */
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v6";
+/** Frozen immutable-result version accepted only by persisted-result dispatch. */
+export const LEGACY_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -54,6 +56,7 @@ export const FORBIDDEN_ENGINE_OUTPUT_KEYS: readonly string[] = [
 /** Bounds protecting request/response size. Every array and string is capped. */
 export const AI_SCHEMA_BOUNDS = {
   semanticKey: 120,
+  accountingLabel: 80,
   shortText: 300,
   text: 2000,
   summary: 4000,
@@ -202,7 +205,7 @@ const contractAssessmentSchema = z
   })
   .strict();
 
-const promiseSchema = z
+const promiseSchemaV5 = z
   .object({
     semanticKey: semanticKeySchema,
     description: longText,
@@ -231,7 +234,11 @@ const promiseSchema = z
   })
   .strict();
 
-const performanceObligationSchema = z
+const promiseSchema = promiseSchemaV5.extend({
+  accountingLabel: z.string().trim().min(1).max(AI_SCHEMA_BOUNDS.accountingLabel),
+});
+
+const performanceObligationSchemaV5 = z
   .object({
     semanticKey: semanticKeySchema,
     promiseKeys: z.array(semanticKeySchema).max(AI_SCHEMA_BOUNDS.promises),
@@ -244,6 +251,10 @@ const performanceObligationSchema = z
     reviewState: reviewStateSchema,
   })
   .strict();
+
+const performanceObligationSchema = performanceObligationSchemaV5.extend({
+  accountingLabel: z.string().trim().min(1).max(AI_SCHEMA_BOUNDS.accountingLabel),
+});
 
 const variableComponentSchema = z
   .object({
@@ -500,20 +511,10 @@ const issueSchema = z
 
 /* ------------------------------------------------------------ root object */
 
-/** Plain object form — the JSON Schema is generated from exactly this. */
-export const aiContractAnalysisObjectSchema = z
-  .object({
-    // One authoritative version. The wire schema, the local validator and the
-    // ARC run provenance all read this same constant; a future schema change
-    // requires a deliberate code change here, never an environment override.
-    schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
+const analysisRootShape = {
     analysisSummary: z.string().min(1).max(AI_SCHEMA_BOUNDS.summary),
     logicalDocuments: z.array(logicalDocumentSchema).max(AI_SCHEMA_BOUNDS.documents),
     contractAssessment: contractAssessmentSchema,
-    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
-    performanceObligations: z
-      .array(performanceObligationSchema)
-      .max(AI_SCHEMA_BOUNDS.performanceObligations),
     transactionPrice: transactionPriceSchema,
     sspAndAllocation: sspAndAllocationSchema,
     recognitionProposals: z
@@ -524,6 +525,29 @@ export const aiContractAnalysisObjectSchema = z
     projectedCollectionAssumptions: projectedCollectionAssumptionsSchema,
     additionalTopics: z.array(additionalTopicSchema).max(AI_SCHEMA_BOUNDS.additionalTopics),
     issues: z.array(issueSchema).max(AI_SCHEMA_BOUNDS.issues),
+} as const;
+
+/** Frozen v5 object shape for immutable historical results only. */
+export const aiContractAnalysisV5ObjectSchema = z
+  .object({
+    schemaVersion: z.literal(LEGACY_AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    promises: z.array(promiseSchemaV5).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchemaV5)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
+  })
+  .strict();
+
+/** Plain v6 object form — the provider JSON Schema is generated from exactly this. */
+export const aiContractAnalysisObjectSchema = z
+  .object({
+    schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchema)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
   })
   .strict();
 
@@ -531,7 +555,10 @@ export const aiContractAnalysisObjectSchema = z
  * Local validation schema. ARC re-validates every response independently: a
  * response is never trusted merely because the API accepted the JSON schema.
  */
-export const aiContractAnalysisSchema = aiContractAnalysisObjectSchema.superRefine((value, ctx) => {
+function addAnalysisRefinements(
+  value: z.infer<typeof aiContractAnalysisV5ObjectSchema> | z.infer<typeof aiContractAnalysisObjectSchema>,
+  ctx: z.RefinementCtx,
+): void {
   const visitCitation = (citation: AiCitation, path: (string | number)[]) => {
     if (citation.pageEnd < citation.pageStart) {
       ctx.addIssue({
@@ -610,7 +637,13 @@ export const aiContractAnalysisSchema = aiContractAnalysisObjectSchema.superRefi
       });
     }
   });
-});
+}
+
+export const aiContractAnalysisV5Schema =
+  aiContractAnalysisV5ObjectSchema.superRefine(addAnalysisRefinements);
+
+export const aiContractAnalysisSchema =
+  aiContractAnalysisObjectSchema.superRefine(addAnalysisRefinements);
 
 /** Exactly zero, however the model spelled the decimal. */
 export function isZeroDecimal(value: string | null): boolean {
@@ -641,7 +674,17 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-export type AiContractAnalysis = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSchema>;
+/** Internal compatibility representation; v5 carries no synthesized presentation label. */
+export type AiContractAnalysis =
+  | AiContractAnalysisV6
+  | (AiContractAnalysisV5 & {
+      promises: Array<AiContractAnalysisV5["promises"][number] & { accountingLabel?: never }>;
+      performanceObligations: Array<
+        AiContractAnalysisV5["performanceObligations"][number] & { accountingLabel?: never }
+      >;
+    });
 
 /* ----------------------------------------------------- JSON Schema output */
 
@@ -875,7 +918,7 @@ export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProvid
 /** Safe parse helper used by the client after every generation. */
 export function parseAiContractAnalysis(
   value: unknown,
-): { ok: true; analysis: AiContractAnalysis } | { ok: false; issues: string[] } {
+): { ok: true; analysis: AiContractAnalysisV6 } | { ok: false; issues: string[] } {
   const result = aiContractAnalysisSchema.safeParse(value);
   if (result.success) return { ok: true, analysis: result.data };
   return {
@@ -884,6 +927,42 @@ export function parseAiContractAnalysis(
       .slice(0, 40)
       .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`),
   };
+}
+
+export type PersistedAiAnalysisParseResult =
+  | { ok: true; analysis: AiContractAnalysis }
+  | { ok: false; issues: string[] };
+
+function parseIssues(result: z.SafeParseError<unknown>): string[] {
+  return result.error.issues
+    .slice(0, 40)
+    .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`);
+}
+
+/**
+ * Explicit immutable-result dispatch. This never serves the live provider
+ * path: v6 generations use `parseAiContractAnalysis` above. Unknown versions,
+ * metadata/payload disagreement and malformed known payloads all fail closed.
+ */
+export function parsePersistedAiContractAnalysis(
+  value: unknown,
+  recordedVersion?: unknown,
+): PersistedAiAnalysisParseResult {
+  const payloadVersion =
+    value !== null && typeof value === "object"
+      ? (value as Record<string, unknown>)["schemaVersion"]
+      : undefined;
+  if (typeof recordedVersion === "string" && recordedVersion !== payloadVersion) {
+    return { ok: false, issues: ["schemaVersion: stored run metadata does not match result"] };
+  }
+  if (payloadVersion === AI_OUTPUT_SCHEMA_VERSION) return parseAiContractAnalysis(value);
+  if (payloadVersion === LEGACY_AI_OUTPUT_SCHEMA_VERSION) {
+    const result = aiContractAnalysisV5Schema.safeParse(value);
+    return result.success
+      ? { ok: true, analysis: result.data }
+      : { ok: false, issues: parseIssues(result) };
+  }
+  return { ok: false, issues: ["schemaVersion: unsupported immutable AI result version"] };
 }
 
 /** Every citation in an analysis, with a stable dotted location path. */

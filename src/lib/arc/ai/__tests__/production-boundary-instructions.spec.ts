@@ -79,9 +79,9 @@ describe("production execution boundary instructions", () => {
       expect(instructions).toContain(heading);
     }
     expect(instructions).toContain(`promptVersion: ${AI_LIMITS.promptVersion}`);
-    expect(instructions).toContain("promptVersion: arc.ai.prompt.v9");
+    expect(instructions).toContain("promptVersion: arc.ai.prompt.v10");
     expect(instructions).toContain(`outputSchemaVersion: ${AI_LIMITS.outputSchemaVersion}`);
-    expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v5");
+    expect(instructions).toContain("outputSchemaVersion: arc.ai.schema.v6");
 
     // Anchor-selection rules, not excerpt transcription.
     expect(instructions).toContain("anchorIds");
@@ -102,6 +102,16 @@ describe("production execution boundary instructions", () => {
     expect(instructions).not.toContain(
       "You are analyzing contract PDFs supplied by ARC (Ayden's Revenue Compass).",
     );
+  });
+
+  it("requires concise accounting labels while retaining detailed descriptions", async () => {
+    const request = await productionCanonicalRequest();
+    const instructions = request["instructions"] as string;
+    expect(instructions).toContain("return accountingLabel as a concise, neutral");
+    expect(instructions).toContain("Normally use 2–8 words");
+    expect(instructions).toContain("Keep the detailed interpretation and reasoning in description");
+    expect(instructions).toContain('"Hosted SaaS Access"');
+    expect(instructions).toContain('"promise:hosted-platform"');
   });
 
   it("carries the v8 Step 2 grouping rule for priced capacity and usage entitlements", async () => {
