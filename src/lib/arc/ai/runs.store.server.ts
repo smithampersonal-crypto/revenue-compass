@@ -170,11 +170,6 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         return data ?? null;
       };
 
-      const priorAnalysisFields = async (aiState: AiAnalysisState) => {
-        const prior = await priorAnalysis(aiState);
-        return { priorAnalysis: prior.analysis, priorAnalysisLoad: prior.load };
-      };
-
       if (caller.kind === "revision") {
         const { data, error } = await supabaseAdmin
           .from("analysis_revisions")
