@@ -481,8 +481,14 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       objectKind: "billing_term",
       proposals: input.analysis.billingTerms.map(billingFacts),
       incumbents: billingIncumbents,
+      // Billing lineage is owned by the term key itself: a renamed key would
+      // enter legacy billing reconciliation and risk a duplicate schedule, so
+      // the exact incumbent must be the lineage this very key already owns.
+      routingSafe: (proposalKey, canonicalId) =>
+        canonicalId === `billing-schedule:${proposalKey}`,
     });
     if (!billingStage.ok) {
+
       return { outcome: "decline", reason: billingStage.reason, objectKind: "billing_term" };
     }
   }
