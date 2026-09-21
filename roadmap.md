@@ -35,12 +35,12 @@
 
 ## Package 2A.1 — Horizon Sample Source Document
 
-- [ ] Add the supplied synthetic Horizon order form as a public static sample PDF without altering it
-- [ ] Show one read-only reference card only for `sample=horizon`, with compact pre-populated-demo disclosure
-- [ ] Keep the reference outside uploads, persistence, storage, AI, fingerprints, provenance, quotas, and Safe Re-analysis
-- [ ] Add focused Horizon/non-Horizon regressions while preserving guest and authenticated document behavior
-- [ ] Certify the Home → Horizon → Source Documents → View PDF flow and unchanged comparison flows
-- [ ] Run focused, adjacent, and full verification; package the clean repository; report CI availability
+- [x] Add the supplied synthetic Horizon order form as a public static sample PDF without altering it
+- [x] Show one read-only reference card only for `sample=horizon`, with compact pre-populated-demo disclosure
+- [x] Keep the reference outside uploads, persistence, storage, AI, fingerprints, provenance, quotas, and Safe Re-analysis
+- [x] Add focused Horizon/non-Horizon regressions while preserving guest and authenticated document behavior
+- [x] Certify the Home → Horizon → Source Documents → View PDF flow and unchanged comparison flows
+- [x] Run focused, adjacent, and full verification; package the clean repository; report CI availability
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
