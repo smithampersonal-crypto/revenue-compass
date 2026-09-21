@@ -68,6 +68,9 @@ export type EvidenceCode =
 /**
  * Evidence classes. Source evidence can NEVER corroborate source evidence: an exact excerpt and the
  * page overlap implied by that very citation are one signal, not two.
+ *
+ * `model_description` is AI/model-authored proposal language. It may support a match but can NEVER
+ * establish canonical economic identity, so it is never a strong evidence class.
  */
 export type EvidenceClass =
   "source" | "economic_contractual" | "graph" | "model_description" | "judgment";
@@ -79,14 +82,22 @@ export const EVIDENCE_CLASS_BY_CODE: Readonly<Record<EvidenceCode, EvidenceClass
   strong_excerpt_equality: "source",
   strong_excerpt_containment: "source",
   strong_decisive_fact_agreement: "economic_contractual",
-  strong_description_equality: "model_description",
+  strong_resolved_canonical_relation: "graph",
   strong_shared_contractual_measure: "economic_contractual",
   corroborating_page_overlap: "source",
   corroborating_shared_relation: "graph",
+  corroborating_description_equality: "model_description",
   corroborating_lexical_overlap: "model_description",
   diagnostic_judgment_agreement: "judgment",
   diagnostic_judgment_drift: "judgment",
 };
+
+/** Classes that may ever appear as STRONG evidence. Model-authored text is deliberately absent. */
+export const STRONG_EVIDENCE_CLASSES: readonly EvidenceClass[] = [
+  "source",
+  "economic_contractual",
+  "graph",
+];
 
 export function evidenceClassOf(code: EvidenceCode): EvidenceClass {
   return EVIDENCE_CLASS_BY_CODE[code];
