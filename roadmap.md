@@ -49,6 +49,15 @@
 - [x] Optimize and inspect the three PNGs for README-scale legibility, visual consistency, and privacy
 - [x] Confirm no application source, visual system, Package 2A.1 behavior, or product logic changed
 
+## Package 2C-A — AI Accounting Label Contract
+
+- [ ] Add strict schema v6 accounting labels for AI Promises and Performance Obligations
+- [ ] Update the trusted prompt to v10 while preserving the complete v9 citation contract
+- [ ] Add frozen strict v5 parsing and explicit immutable-run version dispatch without rewriting history
+- [ ] Add focused schema, prompt, and legacy parsing regressions
+- [ ] Record the approved legacy-v5-to-v6 same-source transition cases for 2C-B/2C-C without implementing them in 2C-A
+- [ ] Run focused and relevant full verification, package the clean repository, and stop for independent acceptance
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
