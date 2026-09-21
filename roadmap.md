@@ -17,13 +17,13 @@
 
 ## Package 2A — Visual Identity & Spacing Hardening
 
-- [x] Replace the forced dark palette with one light-only finance-forward semantic token set
-- [x] Keep the interface white-first; derive restrained light tints rather than applying every source hex at full strength
-- [x] Preserve green product identity while keeping amber warnings and red blocking states distinct
-- [x] Increase breathing room only where it improves usability; preserve nested and table density where padding would reduce working width
-- [x] Widen the analysis workspace at desktop sizes while preserving centered responsive layouts
-- [x] Certify Home, Analysis, deterministic output, and Review & Finalize across three viewport widths
-- [x] Run focused and full verification, package the repository, and report CI availability
+- [ ] Replace the forced dark palette with one light-only finance-forward semantic token set
+- [ ] Keep the interface white-first; derive restrained light tints rather than applying every source hex at full strength
+- [ ] Preserve green product identity while keeping amber warnings and red blocking states distinct
+- [ ] Increase breathing room only where it improves usability; preserve nested and table density where padding would reduce working width
+- [ ] Widen the analysis workspace at desktop sizes while preserving centered responsive layouts
+- [ ] Certify Home, Analysis, deterministic output, and Review & Finalize across three viewport widths
+- [ ] Run focused and full verification, package the repository, and report CI availability
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
