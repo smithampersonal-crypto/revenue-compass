@@ -479,6 +479,33 @@ export async function executeAiRunHandler(
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const latest = await deps.store.loadExecutionContext(caller);
 
+      /* ------------------------------------- Safe Re-analysis firewall */
+      // The single seam where a structurally unsafe result is refused. It
+      // mutates nothing: declining simply skips the merge and the apply, so
+      // canonical inputs, provenance, billing, the sidecar and
+      // `last_successful_run_id` all remain exactly as they were.
+      const safety = assessSafeReanalysis({
+        analysis: result.analysis,
+        priorAnalysis: latest.priorAnalysis ?? null,
+        priorAnalysisLoad: latest.priorAnalysisLoad,
+        currentDraft: latest.draft,
+        currentAiState: latest.aiState,
+        currentSourceSetFingerprint,
+      });
+      if (safety.outcome === "decline") {
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: AI_REANALYSIS_DECLINED_CODE,
+          safeMessage:
+            safety.reason === "source_changed"
+              ? AI_REANALYSIS_SOURCE_CHANGED
+              : AI_REANALYSIS_DECLINED,
+        });
+        return finish(deps, caller, run.id);
+      }
+
       let merged;
       try {
         merged = mergeAiAnalysis({
