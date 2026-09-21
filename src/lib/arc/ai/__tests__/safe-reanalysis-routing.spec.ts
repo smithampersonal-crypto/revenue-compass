@@ -49,6 +49,7 @@ function assess(analysis: AiContractAnalysis) {
 
 /** A decline that changed nothing at all. */
 function expectSafeDecline(result: ReturnType<typeof assess>) {
+  console.log("REASON", JSON.stringify(result.decision));
   expect(result.decision.outcome).toBe("decline");
   expect(result.after).toBe(result.before);
   expect(result.draft.promises).toHaveLength(4);
