@@ -69,11 +69,7 @@ export type EvidenceCode =
  * page overlap implied by that very citation are one signal, not two.
  */
 export type EvidenceClass =
-  | "source"
-  | "economic_contractual"
-  | "graph"
-  | "model_description"
-  | "judgment";
+  "source" | "economic_contractual" | "graph" | "model_description" | "judgment";
 
 export const EVIDENCE_CLASS_BY_CODE: Readonly<Record<EvidenceCode, EvidenceClass>> = {
   hard_contradiction_object_kind: "economic_contractual",
@@ -307,7 +303,9 @@ export interface VariableConsiderationIdentitySource {
  * accounting judgment: money flowing to the vendor on usage is not the same economic object as a
  * credit, penalty or rebate flowing back to the customer.
  */
-export function variableConsiderationEconomicEffect(type: string | null | undefined): string | null {
+export function variableConsiderationEconomicEffect(
+  type: string | null | undefined,
+): string | null {
   const normalized = normalizeForComparison(type).replace(/\s+/g, "_");
   if (normalized === "") return null;
   if (/(credit)/.test(normalized)) return "service_credit";

@@ -228,7 +228,8 @@ export function resolveIdentityGraph(input: IdentityGraphInput): IdentityGraphRe
     if (proposalKeys.length === 1) {
       const proposalKey = proposalKeys[0]!;
       const signatures = canonicalIds.map((id) => anchorSignatureFor(edges, proposalKey, id));
-      const groupSupported = input.decompositionRules?.canSubsumes(proposalKey, canonicalIds) === true;
+      const groupSupported =
+        input.decompositionRules?.canSubsumes(proposalKey, canonicalIds) === true;
       if (groupSupported && membersAreDistinguishable(signatures)) {
         push(proposalKey, "subsumes", canonicalIds);
       } else {
