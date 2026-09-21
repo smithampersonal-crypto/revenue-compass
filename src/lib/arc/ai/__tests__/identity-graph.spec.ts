@@ -41,10 +41,36 @@ const CANONICAL_IDS: Record<string, string> = {
   clinical_bioinformatics_engineering_support: "pr-support",
 };
 
+/** Resolved canonical obligation each Run-1 canonical promise belongs to (ARC-owned structure). */
+const RUN1_OWNING_PO: Record<string, string> = {
+  hosted_platform_access: "po-hosted",
+  included_throughput_capacity: "po-hosted",
+  gxp_validation_artifacts: "po-validation",
+  clinical_bioinformatics_engineering_support: "po-support",
+};
+
+/** Resolved canonical obligation each Run-B proposal promise maps into. */
+const RUNB_OWNING_PO: Record<string, string> = {
+  promise_hosted_platform_and_included_throughput: "po-hosted",
+  promise_validation_artifact_package: "po-validation",
+  promise_bioinformatics_engineering_support: "po-support",
+};
+
 const run1Incumbents: IncumbentIdentityFacts[] = run1Fixture.promises.map((promise) =>
-  asIncumbent(promiseIdentityFacts(promise), CANONICAL_IDS[promise.semanticKey]!),
+  asIncumbent(
+    promiseIdentityFacts({
+      ...promise,
+      owningObligationCanonicalId: RUN1_OWNING_PO[promise.semanticKey] ?? null,
+    }),
+    CANONICAL_IDS[promise.semanticKey]!,
+  ),
 );
-const runBProposals = runBFixture.promises.map((promise) => promiseIdentityFacts(promise));
+const runBProposals = runBFixture.promises.map((promise) =>
+  promiseIdentityFacts({
+    ...promise,
+    owningObligationCanonicalId: RUNB_OWNING_PO[promise.semanticKey] ?? null,
+  }),
+);
 
 /** Canonical PO membership of the Run-1 canonical promises (structural group facts, not naming). */
 const RUN1_PROMISE_PO: Record<string, string> = {
