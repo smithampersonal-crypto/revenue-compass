@@ -58,6 +58,14 @@
 - [x] Record the approved legacy-v5-to-v6 same-source transition cases for 2C-B/2C-C without implementing them in 2C-A
 - [x] Run focused and relevant full verification, package the clean repository, and stop for independent acceptance
 
+### Package 2C-A — Narrow Acceptance Patch
+
+- [x] Restore `@lovable.dev/vite-tanstack-config` to the accepted `^2.15.0` baseline in `package.json` and `bun.lock`
+- [x] Add `.env` / `.env.*` ignore rules (allowing `.env.example`) and exclude environment files from clean source archives
+- [x] Make the prompt version code-authoritative (`AI_PROMPT_VERSION`) and remove the `ARC_AI_PROMPT_VERSION` relabelling seam
+- [x] Add a hand-authored literal historical v5 fixture with rejection, dispatch, no-label-synthesis and fail-closed regressions
+- [ ] Untrack the previously committed `.env` (`git rm --cached .env`) — blocked: index changes are not permitted from this environment
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
