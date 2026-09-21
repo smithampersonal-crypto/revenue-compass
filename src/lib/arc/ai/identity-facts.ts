@@ -56,10 +56,11 @@ export type EvidenceCode =
   | "strong_excerpt_equality"
   | "strong_excerpt_containment"
   | "strong_decisive_fact_agreement"
-  | "strong_description_equality"
+  | "strong_resolved_canonical_relation"
   | "strong_shared_contractual_measure"
   | "corroborating_page_overlap"
   | "corroborating_shared_relation"
+  | "corroborating_description_equality"
   | "corroborating_lexical_overlap"
   | "diagnostic_judgment_agreement"
   | "diagnostic_judgment_drift";
