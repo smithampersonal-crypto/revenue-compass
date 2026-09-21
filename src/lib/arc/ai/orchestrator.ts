@@ -39,6 +39,7 @@ import {
 } from "./runs.handlers";
 import {
   assessSafeReanalysis,
+  detectsStructuralMutation,
   isChangedSourceReanalysis,
   type PriorAnalysisLoad,
 } from "./safe-reanalysis";
@@ -213,6 +214,8 @@ export const AI_REANALYSIS_SOURCE_CHANGED =
   "The selected documents are not the ones this analysis is based on, so ARC did not apply a new AI analysis. Your existing analysis has been preserved.";
 /** Persisted failure codes for the two safe-decline conditions. */
 export const AI_REANALYSIS_DECLINED_CODE = "reanalysis_declined";
+/** Post-merge backstop: the merged draft changed canonical structural topology. */
+export const AI_STRUCTURAL_MUTATION_CODE = "structural_mutation_detected";
 export const AI_REANALYSIS_SOURCE_CHANGED_CODE = "reanalysis_source_changed";
 
 /* ------------------------------------------------------------ execution */
