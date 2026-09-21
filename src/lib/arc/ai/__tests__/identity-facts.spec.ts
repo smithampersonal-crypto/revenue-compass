@@ -129,12 +129,12 @@ describe("identity facts — evidence sufficiency", () => {
     expect(assessment.codes).toContain("corroborating_shared_relation");
   });
 
-  it("flags a decisive contractual conflict as a hard contradiction", () => {
+  it("flags a decisive economic-effect conflict as a hard contradiction", () => {
     const run1Usage = run1Fixture.variableConsiderationComponents[0]!;
     const assessment = assessIdentityEvidence(
       variableConsiderationIdentityFacts({
         ...run1Usage,
-        contractualRateOrAmountInput: "2.10",
+        type: "service_credit",
         targetCanonicalId: "po-hosted",
       }),
       variableConsiderationIdentityFacts({ ...run1Usage, targetCanonicalId: "po-hosted" }),
