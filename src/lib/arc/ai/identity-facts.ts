@@ -537,15 +537,13 @@ export function assessIdentityEvidence(
     }
   }
 
-  // Exact normalized description equality is strong; partial overlap is corroboration only.
+  // Model-authored description text is proposal language: exact equality and partial overlap are
+  // both CORROBORATION ONLY and can never make a candidate admissible on their own.
   if (
     left.normalizedDescription !== null &&
     left.normalizedDescription === right.normalizedDescription
   ) {
-    strong.push({
-      code: "strong_description_equality",
-      anchor: `description:${left.normalizedDescription}`,
-    });
+    corroborating.push("corroborating_description_equality");
   } else {
     const shared = intersect(
       significantTokens(left.normalizedDescription),
