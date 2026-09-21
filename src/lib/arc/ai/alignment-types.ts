@@ -30,11 +30,7 @@ export type AlignmentObjectKind =
 
 /** Frozen alignment relation vocabulary. */
 export type ProposalAlignmentRelation =
-  | "exact"
-  | "subsumes"
-  | "split_from"
-  | "ambiguous"
-  | "unmatched";
+  "exact" | "subsumes" | "split_from" | "ambiguous" | "unmatched";
 
 /**
  * Ephemeral result of reconciling one AI proposal against canonical structure.

@@ -132,10 +132,7 @@ describe("decomposition drift", () => {
     const hosted = run1Fixture.performanceObligations.find(
       (p) => p.semanticKey === "po_hosted_platform_series",
     );
-    expect(hosted?.promiseKeys).toEqual([
-      "hosted_platform_access",
-      "included_throughput_capacity",
-    ]);
+    expect(hosted?.promiseKeys).toEqual(["hosted_platform_access", "included_throughput_capacity"]);
     expect(runAFixture.promises).toHaveLength(3);
     expect(runBFixture.promises).toHaveLength(3);
     expect(
@@ -169,10 +166,16 @@ describe("bounded excerpt relationships required by the future matcher", () => {
   it("preserves exact normalized equality where the production runs quoted the same span", () => {
     const run1Hosted = excerptAt(promise(run1Fixture, "hosted_platform_access").citations, 1);
     expect(
-      excerptAt(promise(runAFixture, "promise_hosted_platform_and_included_throughput").citations, 1),
+      excerptAt(
+        promise(runAFixture, "promise_hosted_platform_and_included_throughput").citations,
+        1,
+      ),
     ).toBe(run1Hosted);
     expect(
-      excerptAt(promise(runBFixture, "promise_hosted_platform_and_included_throughput").citations, 1),
+      excerptAt(
+        promise(runBFixture, "promise_hosted_platform_and_included_throughput").citations,
+        1,
+      ),
     ).toBe(run1Hosted);
     expect(excerptAt(billing(run1Fixture, "fixed_annual_advance_billing").citations, 3)).toBe(
       excerptAt(billing(runAFixture, "billing_fixed_annual_advance").citations, 3),
