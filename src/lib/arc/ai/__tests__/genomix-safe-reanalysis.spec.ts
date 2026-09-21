@@ -30,9 +30,11 @@ const HOSTED = quote(
   2,
   "Provider shall host the sequencing platform for an annual platform fee of $480,000.",
 );
+// Annex B, a page of its own: the throughput allowance is a separately stated
+// contractual term, so the two hosted-obligation promises are distinguishable.
 const THROUGHPUT = quote(
-  2,
-  "The platform fee includes an allowance of 12,000 samples per contract year.",
+  9,
+  "Annex B: the platform fee includes an allowance of 12,000 samples per contract year.",
 );
 const VALIDATION = quote(
   3,
@@ -270,7 +272,6 @@ describe("Genomix — a later run that recombines hosted platform and throughput
       currentAiState: aiState,
       currentSourceSetFingerprint: FINGERPRINT,
     });
-    console.log("DECISION", JSON.stringify(decision));
     expect(decision.outcome).toBe("apply");
   });
 });
