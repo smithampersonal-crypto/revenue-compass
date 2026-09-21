@@ -57,7 +57,14 @@ export type SafeReanalysisDeclineReason =
   /** A proposal corresponds to no existing canonical object. */
   | "unmatched"
   /** An existing canonical object is represented by no proposal. */
-  | "omitted_incumbent";
+  | "omitted_incumbent"
+  /**
+   * Economic continuity holds, but the UNCHANGED production merge would not be
+   * guaranteed to route this proposal to the same canonical object (a renamed
+   * or re-pointed semantic key). ARC declines rather than risk minting.
+   */
+  | "routing_unverified";
+
 
 export interface SafeReanalysisDecision {
   outcome: "first_run" | "apply" | "decline";
