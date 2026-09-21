@@ -27,11 +27,11 @@
 
 ## Package 2A — Narrow Acceptance Patch
 
-- [ ] Correct the visual-system test's final newline only
-- [ ] Give solid destructive controls a light foreground while retaining dark text on pale danger notices
-- [ ] Add the smallest focused regression for the destructive-token split
-- [ ] Capture an existing warning/blocking state and run the complete combined verification
-- [ ] Package the clean patched repository and report CI availability
+- [x] Correct the visual-system test's final newline only
+- [x] Give solid destructive controls a light foreground while retaining dark text on pale danger notices
+- [x] Add the smallest focused regression for the destructive-token split
+- [x] Capture an existing warning/blocking state and run the complete combined verification
+- [x] Package the clean patched repository and report CI availability
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
