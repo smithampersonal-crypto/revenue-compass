@@ -6,6 +6,7 @@
  * reachable from the browser.
  */
 
+import { AI_PROMPT_VERSION } from "./prompt";
 import { AI_OUTPUT_SCHEMA_VERSION } from "./schema";
 
 function numberFrom(value: string | undefined, fallback: number): number {
@@ -25,7 +26,13 @@ export const AI_LIMITS = {
   /** Phase 9C allowances. Server-controlled; the browser never supplies these. */
   guestRunLimit: numberFrom(process.env["ARC_AI_GUEST_RUN_LIMIT"], 3),
   userMonthlyRunLimit: numberFrom(process.env["ARC_AI_USER_MONTHLY_RUN_LIMIT"], 10),
-  promptVersion: process.env["ARC_AI_PROMPT_VERSION"] ?? "arc.ai.prompt.v10",
+  /**
+   * NOT environment-configurable. `ARC_AI_PROMPT_VERSION` was removed: a
+   * relabelling seam allowed a live run to record one prompt version while the
+   * model received the instruction body of another. Provenance now reads the
+   * same compiled constant the instruction builder emits.
+   */
+  promptVersion: AI_PROMPT_VERSION,
   /**
    * NOT environment-configurable. The recorded run provenance must state the
    * schema version the code actually enforces, so it reads the single

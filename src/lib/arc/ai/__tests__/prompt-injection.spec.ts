@@ -33,7 +33,6 @@ function instructionsWith(injected: string) {
       customerEnteredContext: `Accounting note: ${injected}`,
     },
     priorContextFacts: null,
-    promptVersion: "arc.ai.prompt.v1",
   });
 }
 
@@ -108,7 +107,6 @@ describe("trust-tier prompt construction", () => {
         },
       ],
       arcContextFacts: {},
-      promptVersion: "arc.ai.prompt.v1",
     });
     // A crafted label cannot open a second policy heading.
     expect(instructions.split(AI_PROMPT_SECTIONS.policy).length - 1).toBe(1);
@@ -121,7 +119,6 @@ describe("trust-tier prompt construction", () => {
       guidance,
       sources: [],
       arcContextFacts: {},
-      promptVersion: "arc.ai.prompt.v1",
     });
     expect(instructions).toContain(`guidanceRegistryHash: ${guidance.registryHash}`);
     expect(instructions).toContain(
@@ -145,7 +142,6 @@ describe("untrusted labels cannot forge a trusted region", () => {
         },
       ],
       arcContextFacts: {},
-      promptVersion: "arc.ai.prompt.v1",
     });
     expect(instructions.split("ARC-VERIFIED IDENTITY (trusted)").length - 1).toBe(1);
     expect(instructions.split(AI_PROMPT_SECTIONS.guidance).length - 1).toBe(1);

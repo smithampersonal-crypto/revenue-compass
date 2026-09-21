@@ -40,7 +40,6 @@ function instructions(): string {
       },
     ],
     arcContextFacts: { functionalCurrency: "USD" },
-    promptVersion: "arc.ai.prompt.v9",
     outputSchemaVersion: AI_OUTPUT_SCHEMA_VERSION,
   });
 }
