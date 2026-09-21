@@ -1,9 +1,11 @@
 # ARC v1 — Package 2: Portfolio / README Packaging
 
 ## Scope
+
 Replace the obsolete planning-oriented README with one concise, recruiter-first description of the ARC product that exists today. Add exactly three curated screenshots under `docs/assets/`. Do not change application behavior, product code, deployment, or architecture.
 
 ## Deliverables
+
 1. **Recruiter-first README**
    - Lead with “ARC — Ayden’s Revenue Compass” and the approved portfolio-grade positioning.
    - Place the core control principle near the top: “AI interprets. Deterministic TypeScript calculates. The accountant remains authoritative.”
@@ -27,6 +29,7 @@ Replace the obsolete planning-oriented README with one concise, recruiter-first 
    - Make Ayden’s contribution explicit: ARC is his portfolio project, designed and built to demonstrate ASC 606 technical accounting, accounting-systems design, deterministic calculation logic, and controlled use of AI.
 
 ## README Structure
+
 1. ARC — Ayden’s Revenue Compass
 2. Why I Built ARC
 3. What ARC Does
@@ -42,6 +45,7 @@ Replace the obsolete planning-oriented README with one concise, recruiter-first 
 The permanent Live Demo section is deferred to Package 3. Do not add the temporary Lovable URL or a visible placeholder.
 
 ## Technical Details
+
 - Inspect the live/local product before capture and use only synthetic sample data.
 - Verify every accounting, AI, security, technology, and testing claim against the current repository and latest successful checks.
 - Use the current verified test count only if it is re-run and still accurate; otherwise describe quality controls without a number.
@@ -49,6 +53,7 @@ The permanent Live Demo section is deferred to Package 3. Do not add the tempora
 - Limit changed files to `README.md` and three images under `docs/assets/`, unless an image optimization manifest already exists and is required by repository convention.
 
 ## Verification
+
 - Review the rendered README structure, links, image paths, Mermaid syntax, spelling, and image legibility.
 - Inspect all three final screenshots for sensitive or confusing content and confirm they represent current product behavior.
 - Confirm the repository diff contains documentation assets only.
@@ -56,4 +61,5 @@ The permanent Live Demo section is deferred to Package 3. Do not add the tempora
 - Create a clean repository ZIP and report the final commit SHA; report GitHub Actions exactly as available without changing CI.
 
 ## Explicitly Out of Scope
+
 - Application code, UI behavior, features, samples, product tests, AI prompts/model/schema, Safe Re-analysis, identity logic, accounting engines, persistence, authentication, RLS/database, SMTP, domains, deployment, and additional documentation pages.
