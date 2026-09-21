@@ -29,7 +29,7 @@ import type { AlignmentObjectKind, CitationSpan } from "./alignment-types";
 import {
   asIncumbent,
   billingTermIdentityFacts,
-  performanceObligationIdentityFacts,
+  buildIdentityFacts,
   promiseIdentityFacts,
   variableConsiderationIdentityFacts,
   type IdentityFacts,
@@ -114,6 +114,31 @@ function owningObligationKey(analysis: AiContractAnalysis, promiseKey: string): 
     obligation.promiseKeys.includes(promiseKey),
   );
   return owner?.semanticKey ?? null;
+}
+
+/**
+ * Obligation facts, built with the frozen fact builder.
+ *
+ * Obligations are resolved before anything else, so they carry no canonical
+ * relation evidence at all. What keeps them identifiable is the objective
+ * contractual prose they cite — stated fees, rates, quantities and terms —
+ * which is supplied here as measure sources. Lexical excerpt equality on its
+ * own remains insufficient, exactly as the frozen evidence rules require.
+ */
+function obligationFacts(source: {
+  semanticKey: string;
+  description: string;
+  satisfactionPattern: string;
+  citations: readonly AiCitation[];
+}): IdentityFacts {
+  return buildIdentityFacts({
+    objectKind: "performance_obligation",
+    ref: source.semanticKey,
+    judgments: { satisfactionPattern: source.satisfactionPattern },
+    citations: spansOf(source.citations),
+    measureSources: source.citations.map((citation) => citation.excerpt ?? null),
+    description: source.description,
+  });
 }
 
 /**
@@ -218,12 +243,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
   // Resolved FIRST and with no relation evidence, so nothing downstream can
   // borrow the identity currently being tested as evidence for itself.
   const poProposals = input.analysis.performanceObligations.map((obligation) =>
-    performanceObligationIdentityFacts({
-      semanticKey: obligation.semanticKey,
-      description: obligation.description,
-      satisfactionPattern: obligation.satisfactionPattern,
-      citations: spansOf(obligation.citations),
-    }),
+    obligationFacts(obligation),
   );
   const poIncumbents: IncumbentIdentityFacts[] = [];
   const incumbentPoIdByKey = new Map<string, string>();
@@ -233,12 +253,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     incumbentPoIdByKey.set(obligation.semanticKey, canonicalId);
     poIncumbents.push(
       asIncumbent(
-        performanceObligationIdentityFacts({
-          semanticKey: obligation.semanticKey,
-          description: obligation.description,
-          satisfactionPattern: obligation.satisfactionPattern,
-          citations: spansOf(obligation.citations),
-        }),
+        obligationFacts(obligation),
         canonicalId,
       ),
     );
