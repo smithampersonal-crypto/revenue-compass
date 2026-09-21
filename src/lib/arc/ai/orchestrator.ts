@@ -39,6 +39,7 @@ import {
 } from "./runs.handlers";
 import {
   assessSafeReanalysis,
+  detectsStructuralMutation,
   isChangedSourceReanalysis,
   type PriorAnalysisLoad,
 } from "./safe-reanalysis";
@@ -213,6 +214,8 @@ export const AI_REANALYSIS_SOURCE_CHANGED =
   "The selected documents are not the ones this analysis is based on, so ARC did not apply a new AI analysis. Your existing analysis has been preserved.";
 /** Persisted failure codes for the two safe-decline conditions. */
 export const AI_REANALYSIS_DECLINED_CODE = "reanalysis_declined";
+/** Post-merge backstop: the merged draft changed canonical structural topology. */
+export const AI_STRUCTURAL_MUTATION_CODE = "structural_mutation_detected";
 export const AI_REANALYSIS_SOURCE_CHANGED_CODE = "reanalysis_source_changed";
 
 /* ------------------------------------------------------------ execution */
@@ -525,6 +528,27 @@ export async function executeAiRunHandler(
           category: "application",
           code: error instanceof AiMergeError ? error.code : "merge_failed",
           safeMessage: AI_APPLY_FAILED,
+        });
+        return finish(deps, caller, run.id);
+      }
+
+      /* ------------------------- post-merge structural backstop */
+      // Identity was governed before the merge; the OUTCOME is governed here.
+      // With an established AI baseline, a re-analysis may refresh facts but
+      // may not change canonical structural topology — no object appears,
+      // disappears or changes parent. A first run is exempt: it creates the
+      // structure. Declining here means `applyRun` is never called, so nothing
+      // is persisted and the previous analysis stands.
+      if (
+        latest.aiState.lastSuccessfulRunId !== null &&
+        detectsStructuralMutation(latest.draft, merged.draft)
+      ) {
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: AI_STRUCTURAL_MUTATION_CODE,
+          safeMessage: AI_REANALYSIS_DECLINED,
         });
         return finish(deps, caller, run.id);
       }

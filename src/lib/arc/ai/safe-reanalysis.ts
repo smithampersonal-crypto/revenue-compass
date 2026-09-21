@@ -26,6 +26,7 @@
 import type { WorkflowDraft } from "@/lib/asc606-workflow/types";
 
 import type { AlignmentObjectKind, CitationSpan } from "./alignment-types";
+import { canonicalJson } from "./identity";
 import {
   assessIdentityEvidence,
   asIncumbent,
@@ -515,4 +516,51 @@ export function isChangedSourceReanalysis(
   if (state.lastSuccessfulRunId === null) return false;
   if (state.sourceSetFingerprint === null) return false;
   return state.sourceSetFingerprint !== currentSourceSetFingerprint;
+}
+
+/* ------------------------------------------- post-merge structural backstop */
+
+/**
+ * The canonical structural topology of a draft: which accounting objects exist
+ * and how they are attached to one another. Deliberately no values, dates,
+ * amounts, judgments or narrative — those may legitimately refresh.
+ */
+function structuralTopology(draft: WorkflowDraft): string {
+  const sorted = (values: readonly string[]) => [...values].sort();
+  return canonicalJson({
+    promises: sorted(draft.promises.map((promise) => promise.id)),
+    performanceObligations: sorted(draft.performanceObligations.map((po) => po.id)),
+    variableConsideration: sorted(draft.variableConsiderationComponents.map((vc) => vc.id)),
+    contractModifications: sorted(draft.contractModifications.map((mod) => mod.id)),
+    considerationEvents: sorted(draft.contractBalances.considerationEvents.map((ce) => ce.id)),
+    cashCollections: sorted(draft.contractBalances.cashCollections.map((cc) => cc.id)),
+    // Parentage: re-parenting changes no ID set at all, so it is compared
+    // explicitly rather than inferred from membership counts.
+    promiseParent: sorted(
+      draft.promises.map((promise) => `${promise.id}→${promise.performanceObligationId ?? "none"}`),
+    ),
+    variableConsiderationTarget: sorted(
+      draft.variableConsiderationComponents.map((vc) => `${vc.id}→${vc.targetPoId ?? "none"}`),
+    ),
+    collectionSource: sorted(
+      draft.contractBalances.cashCollections.map(
+        (cc) => `${cc.id}→${cc.considerationEventId ?? "none"}`,
+      ),
+    ),
+  });
+}
+
+/**
+ * Final deterministic backstop, applied AFTER the merge and BEFORE the apply.
+ *
+ * The pre-merge firewall governs identity; this governs outcome. Whatever the
+ * reason — a newly derived billing period, a modification the accountant never
+ * recorded, a re-parented promise — a re-analysis with an established AI
+ * baseline may not change canonical structural topology at all. A first run
+ * (no baseline) is exempt: it exists precisely to create that structure.
+ *
+ * Pure: compares two drafts and returns a verdict. It never repairs anything.
+ */
+export function detectsStructuralMutation(before: WorkflowDraft, after: WorkflowDraft): boolean {
+  return structuralTopology(before) !== structuralTopology(after);
 }

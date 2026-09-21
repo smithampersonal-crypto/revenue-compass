@@ -42,6 +42,8 @@ import {
 } from "../terra.server";
 import { computeSourceSetFingerprint } from "../source-fingerprint";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
+import { accountantState, genomixAnalysis } from "./genomix-fixtures";
+import type { AiContractAnalysis } from "../schema";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
 
@@ -91,6 +93,8 @@ function harness(
     priorSourceState?: AiAnalysisState["sourceState"];
     /** Execution context overrides, for Safe Re-analysis conditions. */
     contextOverrides?: Partial<AiExecutionContext>;
+    /** Structured result the fake model returns. */
+    analysis?: AiContractAnalysis;
   } = {},
 ): Harness {
   const stages: AiRunStage[] = [];
@@ -239,7 +243,7 @@ function harness(
       await request.onResponseReceived?.();
       events.push("response-received");
       return {
-        analysis: fixtureAAnalysis(),
+        analysis: options.analysis ?? fixtureAAnalysis(),
         responseId: "resp_fake",
         model: "gpt-5.6-terra",
         usage: { inputTokens: 10, outputTokens: 5, reasoningTokens: 1, totalTokens: 15 },
@@ -656,6 +660,42 @@ describe("Phase 9F — AI run orchestration", () => {
       expect(h.applied).toBeNull();
       expect(h.restored).toBe(0);
       expect(h.failure?.code).toBe("reanalysis_declined");
+    });
+
+    it("never applies a merge that would change canonical structure", async () => {
+      // Identity is clean, so the firewall permits the run; the merge then adds
+      // a contract modification the canonical analysis never carried. The
+      // post-merge backstop is the last thing standing between that and the
+      // accountant's structure.
+      const fingerprint = await computeSourceSetFingerprint([
+        { documentId: "doc-1", sha256: "a".repeat(64) },
+      ]);
+      const { draft, aiState } = accountantState();
+      const analysis = genomixAnalysis();
+      analysis.contractModifications = {
+        ...analysis.contractModifications,
+        hasModification: "yes",
+        effectiveDate: "2027-07-01",
+        addedGoodsOrServices: "An additional validation package.",
+        treatmentCandidate: "prospective",
+        rationale: "The parties added a distinct service at its standalone selling price.",
+      };
+
+      const h = harness({
+        analysis,
+        contextOverrides: {
+          draft,
+          aiState: { ...aiState, sourceSetFingerprint: fingerprint },
+          priorAnalysis: genomixAnalysis(),
+          priorAnalysisLoad: "loaded",
+        },
+      });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+
+      expect(h.applied).toBeNull();
+      expect(h.restored).toBe(0);
+      expect(h.failure?.code).toBe("structural_mutation_detected");
+      expect(draft.contractModifications).toHaveLength(0);
     });
   });
 
