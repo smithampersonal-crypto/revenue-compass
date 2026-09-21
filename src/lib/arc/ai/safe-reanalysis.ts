@@ -207,6 +207,8 @@ function resolveStage(args: {
   incumbents: readonly IncumbentIdentityFacts[];
   incumbentGroupKeyById?: Readonly<Record<string, string>> | undefined;
   proposalGroupKeyByRef?: Readonly<Record<string, string>> | undefined;
+  /** Merge-routing guarantee for every exact alignment. */
+  routingSafe?: (proposalKey: string, canonicalId: string) => boolean;
 }): StageResult {
   if (args.proposals.length === 0 && args.incumbents.length === 0) {
     return { ok: true, exact: new Map() };
@@ -242,8 +244,19 @@ function resolveStage(args: {
   // an apparent omission is never treated as continuity.
   if (result.omittedCanonicalIds.length > 0) return { ok: false, reason: "omitted_incumbent" };
 
+  // Economic continuity is necessary but not sufficient: the unchanged merge
+  // must be guaranteed to reach the same canonical object.
+  if (args.routingSafe !== undefined) {
+    for (const [proposalKey, canonicalId] of exact) {
+      if (!args.routingSafe(proposalKey, canonicalId)) {
+        return { ok: false, reason: "routing_unverified" };
+      }
+    }
+  }
+
   return { ok: true, exact };
 }
+
 
 /* -------------------------------------------------------------- the gate */
 
