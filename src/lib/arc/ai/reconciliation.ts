@@ -245,3 +245,34 @@ export function reconcileByIdentity(
   }
   return result;
 }
+
+/* ------------------------------------------- Phase L compatibility surface */
+
+/**
+ * Tranche 2 planned replacement surface. `reconcileByIdentity()` above remains the ONLY engine
+ * production callers use today; the graph engine below is pure, tested in isolation, and is wired
+ * into merge/tombstone recognition in Tranche 3. Re-exported here so the migration is a single
+ * import-site change rather than a scatter of new module paths.
+ */
+export {
+  assessIdentityEvidence,
+  asIncumbent,
+  buildIdentityFacts,
+  billingTermIdentityFacts,
+  extractContractualMeasures,
+  hasPriorSourceEvidence,
+  normalizeForComparison,
+  performanceObligationIdentityFacts,
+  promiseIdentityFacts,
+  variableConsiderationIdentityFacts,
+} from "./identity-facts";
+export type {
+  EvidenceAnchor,
+  EvidenceAssessment,
+  EvidenceCode,
+  IdentityFacts,
+  IdentityFactsInput,
+  IncumbentIdentityFacts,
+} from "./identity-facts";
+export { buildCandidateGraph, resolveIdentityGraph } from "./identity-graph";
+export type { CandidateEdge, IdentityGraphInput, IdentityGraphResult } from "./identity-graph";
