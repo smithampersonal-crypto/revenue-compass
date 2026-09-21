@@ -302,6 +302,23 @@ export interface VariableConsiderationIdentitySource {
   citations?: readonly CitationSpan[];
 }
 
+/**
+ * A variable-consideration component's ECONOMIC EFFECT is objective structural identity, not an
+ * accounting judgment: money flowing to the vendor on usage is not the same economic object as a
+ * credit, penalty or rebate flowing back to the customer.
+ */
+export function variableConsiderationEconomicEffect(type: string | null | undefined): string | null {
+  const normalized = normalizeForComparison(type).replace(/\s+/g, "_");
+  if (normalized === "") return null;
+  if (/(credit)/.test(normalized)) return "service_credit";
+  if (/(penalt|liquidated|damages)/.test(normalized)) return "penalty";
+  if (/(rebate|refund)/.test(normalized)) return "rebate";
+  if (/(discount)/.test(normalized)) return "discount";
+  if (/(bonus|incentive)/.test(normalized)) return "bonus";
+  if (/(usage|consumption|overage|volume|tier)/.test(normalized)) return "usage";
+  return normalized;
+}
+
 export function variableConsiderationIdentityFacts(
   source: VariableConsiderationIdentitySource,
 ): IdentityFacts {
@@ -309,33 +326,24 @@ export function variableConsiderationIdentityFacts(
     objectKind: "variable_consideration",
     ref: source.semanticKey,
     contractual: {
+      // Objective economic identity: direction/effect of the consideration, and its contractual rate.
+      economicEffect: variableConsiderationEconomicEffect(source.type),
       rate: source.contractualRateOrAmountInput,
       billingFrequency: source.billingFrequency,
     },
-    decisiveKeys: ["rate"],
+    decisiveKeys: ["economicEffect", "rate"],
     measureSources: [source.unitDescription, source.trigger],
-    judgments: { type: source.type },
     citations: source.citations,
     relations: [source.targetCanonicalId],
     description: source.description,
   });
 }
-
-export interface BillingTermIdentitySource {
-  semanticKey: string;
-  description?: string | null;
-  frequency?: string | null;
-  billingTiming?: string | null;
-  invoiceTrigger?: string | null;
-  paymentTermsDays?: number | null;
-  amountOrRateInput?: string | null;
-  citations?: readonly CitationSpan[];
-  objectKind?: Extract<
-    AlignmentObjectKind,
-    "billing_term" | "consideration_event" | "projected_collection"
-  >;
-}
-
+...
+/**
+ * Billing schedule identity is defined by TIMING and FREQUENCY, not by amount. A renegotiated
+ * amount on the same annual-advance schedule is the same schedule; annual advance → monthly
+ * arrears is a different schedule.
+ */
 export function billingTermIdentityFacts(source: BillingTermIdentitySource): IdentityFacts {
   return buildIdentityFacts({
     objectKind: source.objectKind ?? "billing_term",
@@ -346,8 +354,9 @@ export function billingTermIdentityFacts(source: BillingTermIdentitySource): Ide
       billingTiming: source.billingTiming,
       paymentTermsDays: source.paymentTermsDays,
     },
-    decisiveKeys: ["amount"],
-    measureSources: [source.invoiceTrigger],
+    decisiveKeys: ["frequency", "billingTiming"],
+    // Amount is positive economic evidence when equal, never a hard contradiction when different.
+    measureSources: [source.invoiceTrigger, source.amountOrRateInput],
     citations: source.citations,
     description: source.description,
   });
