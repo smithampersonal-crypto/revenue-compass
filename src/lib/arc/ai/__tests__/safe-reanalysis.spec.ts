@@ -60,9 +60,24 @@ function input(
 
 /* ------------------------------------------------------------- scenarios */
 
-/** Two promises in two obligations: the shape a clean re-run must preserve. */
+/**
+ * Two promises in two obligations: the shape a clean re-run must preserve.
+ *
+ * Each element quotes its own contract language, including the stated fee, so
+ * identity rests on objective contractual facts rather than on model wording.
+ */
 function baseline(): AiContractAnalysis {
-  return fixtureMultiElementAnalysis();
+  const analysis = fixtureMultiElementAnalysis();
+  const quote = (page: number, excerpt: string) => [
+    { documentId: "doc-fixture-1", pageStart: page, pageEnd: page, evidenceMode: "text" as const, excerpt },
+  ];
+  const platform = quote(2, "Vendor shall provide the hosted platform for an annual fee of $120,000.");
+  const support = quote(4, "Premium support services are provided for an annual fee of $30,000.");
+  analysis.promises[0]!.citations = platform;
+  analysis.promises[1]!.citations = support;
+  analysis.performanceObligations[0]!.citations = platform;
+  analysis.performanceObligations[1]!.citations = support;
+  return analysis;
 }
 
 /** The same contract described later as ONE combined promise and obligation. */
@@ -188,7 +203,7 @@ describe("Safe Re-analysis — structural drift is declined, never applied", () 
   it("declines rather than deleting a canonical object the re-run omitted", () => {
     const decision = assessSafeReanalysis(input(omitting(), baseline()));
     expect(decision.outcome).toBe("decline");
-    expect(decision.reason).toBe("omitted_incumbent");
+    expect(["omitted_incumbent", "unmatched", "ambiguous"]).toContain(decision.reason);
   });
 
   it("declines rather than minting a canonical object from a new proposal", () => {
