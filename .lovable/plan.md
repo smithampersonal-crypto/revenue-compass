@@ -1,118 +1,84 @@
-# Cross-Run Structural Identity — Implementation Plan (Corrected)
+# ARC v1 — Safe Re-analysis Closure
 
-Design Revision 3 + Amendment 3A are frozen. This revision folds in all ten repository-review corrections.
+Goal: a same-source re-analysis can never corrupt canonical accounting structure. When continuity is not cleanly exact, ARC declines structural application, preserves the existing analysis, and says so plainly.
 
-Governing invariant: on same-source re-analysis, absent an explicit accountant structural edit, the canonical ID sets for promises, POs, VC components, consideration events and projected collections are invariant. AI may change alignments (ephemeral), review state, exact-match aliases and eligible untouched AI-owned fields only.
+Scope is deliberately narrow: one new pure safety gate, one integration seam in the existing orchestrator, one prior-evidence loading correction, one message, and focused tests. The accepted Tranche-2 matcher is used as-is and not reopened. The retired Tranche 3–7 roadmap is not implemented.
 
-## Accepted corrections (binding)
+## Current Re-analyze control flow (traced)
 
-1. **Alignments are ephemeral.** `ProposalAlignment[]` lives only inside the pure `GraphReconciliationResult` during an apply/merge. It is never added to `AiAnalysisState`, never passed through `toPersistedAiState`, and needs no column. Durable consequences persist through what already exists: 1:1 alias continuity in `objectProvenance`, unresolved structural conclusions in `reviewItems`, immutable proposal history in `ai_runs.result_metadata`. Re-analysis recomputes topology from canonical state + current proposal, so Undo restores nothing extra. No `alignment-state.ts` persistence module — only a small pure types/helpers file.
-2. **Alignment vocabulary frozen:** `"exact" | "subsumes" | "split_from" | "ambiguous" | "unmatched"`. `unmapped_ai_proposal` stays a review reason code, never a relation. The earlier "unmapped" relation spelling is removed.
-3. **Citation overlap is corroboration, never sufficient identity.** No test or rule encodes `page intersection => exact`.
-4. **Fixtures keep bounded validated citation excerpts** from the immutable Run 1 / A / B structured outputs — only the excerpts the engine's normalized equality/strict-containment needs, never page corpus or prompt text — preserving the real equality/containment relationships. No hand-authored convenience drift.
-5. **Reset needs a trusted atomic server operation** (Tranche 6), not a client draft clear.
+```text
+startAiAnalysisHandler        create run, snapshot fingerprint + pre-run state
+executeAiRunHandler
+  loadExecutionContext        draft, aiState, priorContext, priorAnalysis, lockVersion
+  buildPackage                authorized sources, one canonical request, preflight
+  recordPreflight             currentSourceSetFingerprint computed here
+  reserveAllowance            the only allowance charge; enters "analyzing"
+  analyzer.analyze            the single model call
+  advanceStage -> applying
+  loop (max 3):
+    loadExecutionContext      newest draft
+    mergeAiAnalysis           <-- structural application happens here
+    applyRun                  atomic write; advances last_successful_run_id
+  markFailure                 on any failure: nothing written, baseline untouched
+```
 
-## Where merge.ts must shrink, not grow
+Key existing facts this design relies on:
+- `last_successful_run_id` advances **only** inside `applyRun`. A run that ends in `markFailure` therefore already leaves the reconciliation baseline untouched — no new lineage machinery is needed.
+- `currentSourceSetFingerprint` is already computed in the orchestrator before the model call; `aiState.sourceSetFingerprint` holds the fingerprint of the last safely applied run.
+- Prior immutable structured output is already read from `ai_runs.result_metadata` in `loadExecutionContext`.
+- `failure-presentation.ts` already owns all accountant-facing failure copy and already has the headline "Re-analysis failed · Previous analysis preserved".
 
-`merge.ts` keeps orchestration only and delegates to new pure modules:
+## Changes
 
-- `src/lib/arc/ai/identity-facts.ts` — build identity facts from proposals and incumbents.
-- `src/lib/arc/ai/identity-graph.ts` — candidate relation graph, sufficiency matrices, mutual uniqueness, decomposition.
-- `src/lib/arc/ai/structural-firewall.ts` — same-source zero-mutation gate, manual-first-run gate, omission symmetry, exact-match field-merge eligibility.
-- `src/lib/arc/ai/alignment-types.ts` — pure relation/result types only.
+### 1. Same-source gate + safety firewall (new pure module)
 
-All pure: no clock, randomness or I/O; inputs never mutated; input ordering cannot change outcomes.
+`src/lib/arc/ai/safe-reanalysis.ts` — pure, no I/O, no persistence.
 
----
+`assessSafeReanalysis(...)` takes: current `AiContractAnalysis`, canonical `WorkflowDraft`, current `AiAnalysisState`, prior `AiContractAnalysis | null`, an explicit `priorAnalysisLoad` status, the current source fingerprint, and the baseline fingerprint. It returns one of:
 
-## Tranche 1 — Bounded production fixtures + pure types
+- `{ outcome: "first_run" }` — no prior successful analysis: merge proceeds exactly as today.
+- `{ outcome: "apply" }` — same source, prior evidence loaded, and **every** governed object kind resolves to mutually unique `exact` alignments with no omitted incumbents.
+- `{ outcome: "decline", reason }` — everything else.
 
-Create: `src/lib/arc/ai/__tests__/production-runs/{run1,run-a,run-b}.fixture.ts`, `.../production-runs/index.ts`, `src/lib/arc/ai/alignment-types.ts`, `src/lib/arc/ai/__tests__/production-runs/fixtures.spec.ts`.
+Decline reasons (internal codes only): `source_changed`, `prior_analysis_unavailable`, `decomposition` (any `subsumes`/`split_from`), `ambiguous`, `unmatched`, `omitted_incumbent`.
 
-Fixtures carry semantic keys, promise types, citation document/page identity, the bounded validated excerpts required for equality/containment, normalized descriptions, VC rate/unit terms and billing terms from Runs 1/A/B as recorded.
+Facts are built with the accepted Tranche-2 builders (`promiseIdentityFacts`, `performanceObligationIdentityFacts`, `variableConsiderationIdentityFacts`, `billingTermIdentityFacts`) and resolved with `resolveIdentityGraph` + `canonicalGroupDecompositionRules`. Incumbent bounded excerpts come from the prior immutable analysis only; nothing is copied into `AiAnalysisState`, and no alignment is persisted.
 
-RED: fixture modules absent; assertions on Run 1 = 4 promises / 3 POs / 2 VC / 2 CE / 2 CC and on the real A/B drift (key rename, page 3 vs 1+3, `professional_service` ↔ `support`, 4↔3 decomposition, billing term rename) fail.
-Minimal: author fixtures + types. GREEN: fixtures spec. Regression: full suite unchanged (no production behavior touched). Checkpoint: commit.
+**Non-circularity:** `owningObligationCanonicalId` for incumbents is derived from canonical PO→promise membership in the `WorkflowDraft` plus `objectProvenance`, never from the proposal under test. For proposals it comes from the new analysis's own declared obligation grouping. A dedicated test asserts this.
 
-## Tranche 2 — Pure identity facts, candidate graph, decomposition
+### 2. Orchestrator integration
 
-Create: `identity-facts.ts`, `identity-graph.ts`, `__tests__/identity-facts.spec.ts`, `__tests__/identity-graph.spec.ts`. Modify: `reconciliation.ts` (kept exported as a compatibility surface until Tranche 3 removes its last caller — it is replaced, not evolved: the scalar first-corroborator rule cannot express 1:N/N:1).
+In `orchestrator.ts`, inside the apply loop and immediately before `mergeAiAnalysis`, call the gate with `latest.*` and `currentSourceSetFingerprint`. On `decline`, call the existing `markFailure` with `failureStage: "applying"`, `category: "application"`, `code: "reanalysis_declined"` and return — no merge, no `applyRun`, so canonical inputs, sidecar, `last_successful_run_id` and billing all stay exactly as they were. The attempted run remains in immutable history. On `apply`/`first_run`, existing merge semantics run unchanged.
 
-Interfaces: `IdentityFacts { anchors, boundedExcerpts, normalizedText, judgmentFacts, structuralMembership, terms }`; `CandidateEdge { proposalKey, canonicalId, signals, sufficiency }`; `resolveIdentityGraph(proposals, incumbents, rules): GraphReconciliationResult` with `alignments: ProposalAlignment[]`. Per Amendment 3A: document-ID mismatch is not a contradiction; judgments (promise type, satisfaction pattern) corroborate, never gate.
+### 3. Prior immutable evidence is required for same-source re-analysis
 
-RED tests, exactly as required: page 3 vs pages 1+3 **plus** matching contractual/economic/graph evidence → exact; same page/paragraph but objectively different deliverables → no exact match; taxonomy drift alone identifies nothing; false subsumption rejected or ambiguous; contention → ambiguous; permuted input ordering yields identical results; no draft mutation in this layer.
-GREEN: graph/facts specs. Regression: existing identity + reconciliation suites. Checkpoint: commit.
+`runs.store.server.ts`: when `lastSuccessfulRunId` is set, always attempt the `ai_runs.result_metadata` load (today it is skipped unless `priorAnalysisRequired`). `AiExecutionContext` gains `priorAnalysisLoad: "not_required" | "loaded" | "unavailable"` so the trusted layer — not the pure graph — reports whether the evidence really parsed. `unavailable` ⇒ decline. No fallback to semantic keys, descriptions or mutable sidecar state. `priorAnalysis` stays optional and the existing backfill path is unchanged.
 
-## Tranche 3 — Tombstone matching migration + firewall + merge integration
+### 4. Accountant-facing message
 
-Create: `structural-firewall.ts`, `__tests__/structural-firewall.spec.ts`, `__tests__/tombstone-drift.spec.ts`. Modify: `merge.ts`, `tombstones.ts`, `edit-reconciliation.ts`, `identity-backfill.ts`, `reconciliation.ts` (retire scalar path), `state-serialization.ts` only if the tombstone record shape changes shape-compatibly.
+`failure-presentation.ts`: new category `structurally_declined`, mapped from `application`/`reanalysis_declined`. Copy: "The latest AI analysis described this contract differently, so ARC did not apply it." Impact keeps the existing preserved-analysis wording; next step points at manual review or a new analysis. Headline reuses "Re-analysis failed · Previous analysis preserved". No new UI component — `AiAnalysisNotice` renders it already.
 
-Deleted-object recognition migrates off `signaturesIdentify()` onto the same facts/sufficiency engine for promise, PO, VC, billing-event and projected-collection tombstones, keeping fail-closed semantics: unique deleted identity → suppress the renamed proposal; multiple plausible → blocking ambiguity, nothing created; never resurrect because the model changed key, page set, taxonomy or decomposition.
+## Tests (RED first, then minimal implementation)
 
-Firewall rules: same-source run performs zero structural mutation; `subsumes`/`split_from` record topology only; `ambiguous`/`unmatched` mutate nothing and raise blocking review; incumbents covered by a decomposition alignment are never reported omitted; first AI run over manual structure is firewalled identically.
+New: `src/lib/arc/ai/__tests__/safe-reanalysis.spec.ts` and `src/lib/arc/ai/__tests__/genomix-safe-reanalysis.spec.ts`, plus additions to the existing orchestrator and failure-presentation suites.
 
-Positive field-merge tests (required): an `exact` alignment retains the canonical ID, accountant-owned/user-edited values survive, and an eligible untouched AI-owned field does update; `subsumes`, `split_from`, `ambiguous`, `unmatched` never fan fields into canonical rows.
+- Exact continuity: canonical IDs reused, eligible AI-owned fields refresh, accountant edits and actuals survive, no duplicates.
+- Decomposition firewall: 4→3 promise drift ⇒ decline; `subsumes` and `split_from` never mutate structure.
+- Ambiguity: `ambiguous`, `unmatched`, apparent omission ⇒ decline, nothing deleted or minted.
+- Prior result: fetched for same-source re-analysis; unavailable/malformed ⇒ fail closed; sidecar is not a substitute.
+- Source change: changed fingerprint ⇒ decline, no cross-document reconciliation, no automatic contract modification.
+- Lineage: a declined run leaves `last_successful_run_id` and the baseline untouched; the next re-analysis still compares from the last safely applied run.
+- Canonical graph evidence: relation comes from independent canonical structure; no circular inference.
+- Billing: no duplicate billing events or projected collections; unsafe billing continuity ⇒ existing structure preserved.
+- Matcher invariants: Run 1 → Run B topology, order invariance, input immutability unchanged.
+- Genomix integration regression: real canonical state (3 POs, 2 VC, 2 billing events, 2 projected collections, series conclusion, 2027-03-15 transfer, 300/150 hours, $1.35/sample, $1,500 SLA credit) + Hosted/Throughput drift ⇒ safe decline with every canonical fact byte-identical.
 
-RED: Run 1 → Run B currently mints duplicate POs/VCs; tombstone drift cases resurrect deleted rows.
-GREEN: firewall + tombstone-drift specs. Regression: all `src/lib/arc/ai/__tests__` suites. Checkpoint: commit.
+## Verification
 
-## Tranche 4 — Structural review lifecycle
+Focused specs → adjacent suites → full test suite → typecheck → lint → production build → bundle audit. No database-facing change, so no SQL suite run is required. Both GitHub Actions jobs must be green on the final revision; CI itself is not modified.
 
-Modify: `review-state.ts`, `review-normalization.ts`, `review-presentation.ts`, `review-dto.ts`; tests extend the existing `__tests__/review-state.spec.ts`, `__tests__/review-presentation.spec.ts`, `src/routes/analysis/ai-review-navigation.spec.tsx`, `ai-exact-target-coverage.spec.tsx` rather than creating parallel infrastructure.
+## Explicitly not included
 
-Reason codes `unmapped_ai_proposal`, `unsafe_semantic_relationship`, `ai_proposal_omitted` join existing R3 validation, fingerprints, carry/reopen, navigation and finalization blocking, reusing the existing manual_red / red-resolution machinery. **Review identity may not use `semanticKey`**: `targetKey` and material fingerprint derive deterministically from canonical anchors plus the proposal's material economic facts (anchors, bounded excerpts, terms, structural relationship); `semanticKey` is display/diagnostic only.
+No migration, no RLS change, no persistence-schema change, no prompt/model/output-schema change, no AI-call or quota change, no accounting-engine or deterministic-math change, no auth or deployment change, no generalized tombstone or reset machinery, no changed-source matching infrastructure. If any of these turns out to be genuinely unavoidable, work stops and the blocker is reported before implementing it.
 
-Required tests: same economic proposal with only a semantic-key rename → prior accountant disposition carries; materially changed economic scope/terms/relationship → review reopens. No new manual identity-remapping system.
-GREEN: review specs. Regression: navigation + finalization suites. Checkpoint: commit.
-
-## Tranche 5 — Billing lineage under the same matcher
-
-Modify: `billing-identity.ts`, billing passes in `merge.ts`; extend `__tests__/billing-lineage-identity.spec.ts`, `__tests__/legacy-billing-tombstone-upgrade.spec.ts`, `src/components/asc606-workflow/billing-event-deletion.spec.tsx`.
-
-Economic design is not reopened. Schedule identity adopts the new facts taxonomy so Run A's page-3 citation reconciles to Run 1's pages 1+3 when corroborating economic evidence agrees. Event/collection canonical IDs reused per deterministic schedule period; period-scoped tombstones and the actual-cash deletion guard unchanged.
-GREEN: new drift cases. Regression: every existing billing lineage/deletion/legacy-upgrade test green unchanged. Checkpoint: commit.
-
-## Tranche 6 — Atomic reset, manual-first, source-change
-
-Create: one narrow SQL routine migration adding `arc_reset_ai_analysis(...)` (no table or RLS redesign), `supabase/tests/phase9h_reset_epoch.sql`. Modify: `workspace.store.server.ts`, `workspace.handlers.ts`, `autosave.store.server.ts`, `restore.handlers.ts` as needed, `src/components/arc/analysis-context.tsx` for the Reset action.
-
-The RPC authorizes and locks the owned revision or guest workspace, checks the expected lock version, writes empty canonical inputs, atomically clears/resets the mutable `ai_analysis_state` (provenance, tombstones, reviews, `last_successful_run_id`), clears active source fingerprint/state and stale acknowledgement, increments the authoritative lock version, preserves immutable `ai_runs`, returns the new lock version, and is idempotent/response-loss safe. Includes security and rollback review.
-
-Also: empty draft with history is treated defensively (never a free bootstrap); a changed source fingerprint stages unmatched proposals for accountant review rather than auto-creating contract modifications.
-GREEN: reset specs + SQL suite. Regression: workspace, autosave, restore suites. Checkpoint: commit.
-
-## Tranche 7 — Production acceptance + property suite + full gates
-
-Create: `src/lib/arc/ai/__tests__/production-runs-reconciliation.spec.ts`.
-
-Sequential cases Run 1 → Run A, Run 1 → Run B, Run 1 → Run A → Run B, each asserting 4 promises, 3 POs, 2 VC components, 2 consideration events, 2 projected collections, identical canonical ID sets, all Phase L accountant facts preserved, no false omissions for decomposition-covered incumbents. Adversarial: false subsumption, contending proposals, judgment/taxonomy drift, cross-document evidence drift, fabricated same-source object → blocking review and zero rows, billing tombstone invariance. Deterministic seeded property test: perturbing keys, judgments, citation pages and decomposition over the same source always preserves the canonical ID sets.
-
-Final gate: focused tests, complete existing suite, typecheck, lint, production build, bundle audit, both GitHub CI jobs. GitHub green is not accepted as proof of the live regression — after deployment we Undo Run B and run one controlled live Genomix re-analysis.
-
----
-
-## Prevention of the observed live failures
-
-| Failure | Prevented by |
-| --- | --- |
-| Semantic-key drift | Keys are aliases; identity from facts (T2) |
-| Page 3 ↔ pages 1+3 | Anchors corroborate alongside economic evidence (T2/T5) |
-| professional_service ↔ support | Judgments corroborate, never gate (T2) |
-| 4 ↔ 3 promise decomposition | subsumes / split_from topology (T2/T3) |
-| $1.35 usage citation drift | Terms corroborate when anchors shift (T2) |
-| Billing schedule drift | Billing uses the same matcher (T5) |
-| Duplicate canonical rows | Same-source firewall: zero mutation (T3) |
-| False omission cards | Decomposition coverage suppresses omission (T3/T4) |
-| Tombstoned billing returning | Tombstone matching migrated to facts engine (T3/T5) |
-
-## Frozen scope
-
-Accounting engines, GPT-5.6 Terra, prompt v8, schema v5, PDF ingestion limits, quotas, table schema and RLS are unchanged. The only database change is the narrow reset routine in Tranche 6. If any tranche appears to need a model-contract change, work stops and it is flagged.
-
-## Risk areas
-
-1. Retiring `signaturesIdentify()` without weakening fail-closed deletion (T3 tombstone-drift tests run before the property suite).
-2. Review fingerprint churn reopening resolved items (explicit carry/reopen tests, T4).
-3. Reset RPC concurrency and idempotency under lock-version contention (SQL suite, T6).
-4. Fixture excerpt scope — bounded validated excerpts only, verified by a privacy assertion that no page corpus or prompt text enters the repo or the database.
-5. Property test must be seeded and deterministic.
+Stop after verification and await director acceptance.
