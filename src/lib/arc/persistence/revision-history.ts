@@ -6,6 +6,8 @@
  * the Finalize action may be offered.
  */
 
+import type { WorkflowIssue } from "@/lib/asc606-workflow";
+
 import type { SaveStatus } from "./save-status";
 import type { RevisionStatus } from "./revisions.functions";
 
@@ -55,6 +57,11 @@ export function finalizeGate(input: {
   lockVersion: number | null;
   /** True while a finalization request is already in flight. */
   finalizing?: boolean;
+  /**
+   * Warnings that block finalization only, from
+   * `finalizationBlockingWorkflowWarnings`. The server re-checks them.
+   */
+  finalizationBlockingWarnings?: WorkflowIssue[];
 }): FinalizeGate {
   if (input.finalizing) {
     return { canFinalize: false, reason: "This revision is being finalized." };
@@ -79,6 +86,9 @@ export function finalizeGate(input: {
       canFinalize: false,
       reason: "The ASC 606 analysis still has outstanding items, so it cannot be finalized yet.",
     };
+  }
+  if (input.finalizationBlockingWarnings && input.finalizationBlockingWarnings.length > 0) {
+    return { canFinalize: false, reason: input.finalizationBlockingWarnings[0]!.message };
   }
   if (!input.workpaperComplete) {
     return {

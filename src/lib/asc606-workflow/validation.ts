@@ -863,3 +863,24 @@ function validateRecognitionDates(po: PoDraft, label: string, add: AddIssue): vo
 
 /** Step 1 conclusion is derived, not validated; re-exported for convenience. */
 export { deriveStep1Conclusion };
+
+/**
+ * The series-period consistency findings stay ordinary warnings during
+ * analysis, so unrelated deterministic accounting remains available. They are
+ * nonetheless unresolved accounting contradictions, so an immutable snapshot
+ * must not be recorded while one stands.
+ *
+ * This is deliberately a fixed, explicit list — not a general warning policy.
+ */
+export const FINALIZATION_BLOCKING_WARNING_IDS = [
+  "vc.series_period.target_missing",
+  "vc.series_period.target_not_series",
+] as const;
+
+/** Warnings that block finalization only; empty means finalization is not held. */
+export function finalizationBlockingWorkflowWarnings(
+  validation: WorkflowValidationOutcome,
+): WorkflowIssue[] {
+  const blocking = new Set<string>(FINALIZATION_BLOCKING_WARNING_IDS);
+  return validation.warnings.filter((issue) => blocking.has(issue.id));
+}
