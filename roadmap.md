@@ -42,6 +42,13 @@
 - [x] Certify the Home → Horizon → Source Documents → View PDF flow and unchanged comparison flows
 - [x] Run focused, adjacent, and full verification; package the clean repository; report CI availability
 
+## Package 2B — README Screenshot Refresh
+
+- [x] Replace the three accepted README screenshots in place using current synthetic application states
+- [x] Preserve README prose, structure, image paths, and the Entry → AI evidence/control → deterministic output narrative
+- [x] Optimize and inspect the three PNGs for README-scale legibility, visual consistency, and privacy
+- [x] Confirm no application source, visual system, Package 2A.1 behavior, or product logic changed
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
