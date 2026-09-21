@@ -512,19 +512,19 @@ const issueSchema = z
 /* ------------------------------------------------------------ root object */
 
 const analysisRootShape = {
-    analysisSummary: z.string().min(1).max(AI_SCHEMA_BOUNDS.summary),
-    logicalDocuments: z.array(logicalDocumentSchema).max(AI_SCHEMA_BOUNDS.documents),
-    contractAssessment: contractAssessmentSchema,
-    transactionPrice: transactionPriceSchema,
-    sspAndAllocation: sspAndAllocationSchema,
-    recognitionProposals: z
-      .array(recognitionProposalSchema)
-      .max(AI_SCHEMA_BOUNDS.recognitionProposals),
-    contractModifications: contractModificationsSchema,
-    billingTerms: z.array(billingTermSchema).max(AI_SCHEMA_BOUNDS.billingTerms),
-    projectedCollectionAssumptions: projectedCollectionAssumptionsSchema,
-    additionalTopics: z.array(additionalTopicSchema).max(AI_SCHEMA_BOUNDS.additionalTopics),
-    issues: z.array(issueSchema).max(AI_SCHEMA_BOUNDS.issues),
+  analysisSummary: z.string().min(1).max(AI_SCHEMA_BOUNDS.summary),
+  logicalDocuments: z.array(logicalDocumentSchema).max(AI_SCHEMA_BOUNDS.documents),
+  contractAssessment: contractAssessmentSchema,
+  transactionPrice: transactionPriceSchema,
+  sspAndAllocation: sspAndAllocationSchema,
+  recognitionProposals: z
+    .array(recognitionProposalSchema)
+    .max(AI_SCHEMA_BOUNDS.recognitionProposals),
+  contractModifications: contractModificationsSchema,
+  billingTerms: z.array(billingTermSchema).max(AI_SCHEMA_BOUNDS.billingTerms),
+  projectedCollectionAssumptions: projectedCollectionAssumptionsSchema,
+  additionalTopics: z.array(additionalTopicSchema).max(AI_SCHEMA_BOUNDS.additionalTopics),
+  issues: z.array(issueSchema).max(AI_SCHEMA_BOUNDS.issues),
 } as const;
 
 /** Frozen v5 object shape for immutable historical results only. */
@@ -556,7 +556,9 @@ export const aiContractAnalysisObjectSchema = z
  * response is never trusted merely because the API accepted the JSON schema.
  */
 function addAnalysisRefinements(
-  value: z.infer<typeof aiContractAnalysisV5ObjectSchema> | z.infer<typeof aiContractAnalysisObjectSchema>,
+  value:
+    | z.infer<typeof aiContractAnalysisV5ObjectSchema>
+    | z.infer<typeof aiContractAnalysisObjectSchema>,
   ctx: z.RefinementCtx,
 ): void {
   const visitCitation = (citation: AiCitation, path: (string | number)[]) => {
@@ -936,8 +938,7 @@ export function parseAiContractAnalysis(
 }
 
 export type PersistedAiAnalysisParseResult =
-  | { ok: true; analysis: AiContractAnalysis }
-  | { ok: false; issues: string[] };
+  { ok: true; analysis: AiContractAnalysis } | { ok: false; issues: string[] };
 
 function parseIssues(result: z.SafeParseError<unknown>): string[] {
   return result.error.issues

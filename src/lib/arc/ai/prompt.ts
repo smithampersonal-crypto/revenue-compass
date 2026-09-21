@@ -155,7 +155,7 @@ function taskSection(promptVersion: string, outputSchemaVersion: string): string
     "- identify the logical documents and their precedence, remembering one PDF may contain several logical documents;",
     "- extract the relevant contract facts and perform the ASC 606 assessment;",
     "- identify candidate promises and propose distinctness and grouping into performance obligations;",
-    '- For every Promise and Performance Obligation, return accountingLabel as a concise, neutral, contract-supported noun phrase for an accountant-facing label. Normally use 2–8 words. Keep the detailed interpretation and reasoning in description and the rationale fields.',
+    "- For every Promise and Performance Obligation, return accountingLabel as a concise, neutral, contract-supported noun phrase for an accountant-facing label. Normally use 2–8 words. Keep the detailed interpretation and reasoning in description and the rationale fields.",
     "- accountingLabel must not contain dates, rationale, marketing language, ARC or contract record IDs, semantic keys, or sentence-like explanatory prose.",
     '- Good accountingLabel examples: "Hosted SaaS Access", "Implementation Training", "Premium Support", "Hosted SaaS Service Series".',
     '- Bad accountingLabel examples: "promise:hosted-platform", "12-month hosted SaaS access beginning July 1, 2027", "Best-in-class premium support that is distinct because the customer benefits on its own".',
