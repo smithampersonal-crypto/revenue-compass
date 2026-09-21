@@ -41,10 +41,36 @@ const CANONICAL_IDS: Record<string, string> = {
   clinical_bioinformatics_engineering_support: "pr-support",
 };
 
+/** Resolved canonical obligation each Run-1 canonical promise belongs to (ARC-owned structure). */
+const RUN1_OWNING_PO: Record<string, string> = {
+  hosted_platform_access: "po-hosted",
+  included_throughput_capacity: "po-hosted",
+  gxp_validation_artifacts: "po-validation",
+  clinical_bioinformatics_engineering_support: "po-support",
+};
+
+/** Resolved canonical obligation each Run-B proposal promise maps into. */
+const RUNB_OWNING_PO: Record<string, string> = {
+  promise_hosted_platform_and_included_throughput: "po-hosted",
+  promise_validation_artifact_package: "po-validation",
+  promise_bioinformatics_engineering_support: "po-support",
+};
+
 const run1Incumbents: IncumbentIdentityFacts[] = run1Fixture.promises.map((promise) =>
-  asIncumbent(promiseIdentityFacts(promise), CANONICAL_IDS[promise.semanticKey]!),
+  asIncumbent(
+    promiseIdentityFacts({
+      ...promise,
+      owningObligationCanonicalId: RUN1_OWNING_PO[promise.semanticKey] ?? null,
+    }),
+    CANONICAL_IDS[promise.semanticKey]!,
+  ),
 );
-const runBProposals = runBFixture.promises.map((promise) => promiseIdentityFacts(promise));
+const runBProposals = runBFixture.promises.map((promise) =>
+  promiseIdentityFacts({
+    ...promise,
+    owningObligationCanonicalId: RUNB_OWNING_PO[promise.semanticKey] ?? null,
+  }),
+);
 
 /** Canonical PO membership of the Run-1 canonical promises (structural group facts, not naming). */
 const RUN1_PROMISE_PO: Record<string, string> = {
@@ -123,7 +149,11 @@ describe("identity graph — production Run 1 → Run B", () => {
     const renamed = resolveIdentityGraph({
       objectKind: "promise",
       proposals: runBFixture.promises.map((promise, index) =>
-        promiseIdentityFacts({ ...promise, semanticKey: `renamed_${index}` }),
+        promiseIdentityFacts({
+          ...promise,
+          semanticKey: `renamed_${index}`,
+          owningObligationCanonicalId: RUNB_OWNING_PO[promise.semanticKey] ?? null,
+        }),
       ),
       incumbents: run1Incumbents,
       decompositionRules: run1GroupRules,
@@ -208,12 +238,32 @@ describe("identity graph — decomposition, contention and absence", () => {
   it("refuses a false subsumption over two indistinguishable incumbents", () => {
     const base = run1Fixture.promises[2]!;
     const incumbents = [
-      asIncumbent(promiseIdentityFacts({ ...base, semanticKey: "v1" }), "pr-v1"),
-      asIncumbent(promiseIdentityFacts({ ...base, semanticKey: "v2" }), "pr-v2"),
+      asIncumbent(
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "v1",
+          owningObligationCanonicalId: "po-validation",
+        }),
+        "pr-v1",
+      ),
+      asIncumbent(
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "v2",
+          owningObligationCanonicalId: "po-validation",
+        }),
+        "pr-v2",
+      ),
     ];
     const result = resolveIdentityGraph({
       objectKind: "promise",
-      proposals: [promiseIdentityFacts({ ...base, semanticKey: "combined" })],
+      proposals: [
+        promiseIdentityFacts({
+          ...base,
+          semanticKey: "combined",
+          owningObligationCanonicalId: "po-validation",
+        }),
+      ],
       incumbents,
     });
 

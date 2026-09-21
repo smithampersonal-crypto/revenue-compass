@@ -46,16 +46,30 @@ const runBSupport = promiseByKey(runBFixture, "promise_bioinformatics_engineerin
 const run1Hosted = promiseByKey(run1Fixture, "hosted_platform_access");
 
 describe("identity facts — evidence sufficiency", () => {
-  it("admits Run 1 Validation ↔ Run B Validation despite page 3 → pages 1+3 drift", () => {
+  it("admits Run 1 Validation ↔ Run B Validation on resolved canonical structure, not description text", () => {
+    // The independent evidence relied upon is the resolved canonical obligation the promise belongs
+    // to (ARC-owned graph structure). Identical model description text is corroboration only.
+    const assessment = assessIdentityEvidence(
+      promiseIdentityFacts({ ...runBValidation, owningObligationCanonicalId: "po-validation" }),
+      promiseIdentityFacts({ ...run1Validation, owningObligationCanonicalId: "po-validation" }),
+    );
+
+    expect(assessment.admissible).toBe(true);
+    expect(assessment.codes).toContain("strong_resolved_canonical_relation");
+    expect(assessment.codes).toContain("corroborating_description_equality");
+    expect(assessment.codes).toContain("corroborating_page_overlap");
+    expect(assessment.strongClasses).not.toContain("model_description");
+    expect(assessment.contradictions).toEqual([]);
+  });
+
+  it("does not admit Run 1 Validation ↔ Run B Validation on description text alone", () => {
     const assessment = assessIdentityEvidence(
       promiseIdentityFacts(runBValidation),
       promiseIdentityFacts(run1Validation),
     );
-
-    expect(assessment.admissible).toBe(true);
-    expect(assessment.codes).toContain("strong_description_equality");
-    expect(assessment.codes).toContain("corroborating_page_overlap");
-    expect(assessment.contradictions).toEqual([]);
+    expect(assessment.codes).toContain("corroborating_description_equality");
+    expect(assessment.strong).toEqual([]);
+    expect(assessment.admissible).toBe(false);
   });
 
   it("keeps Support identifiable despite professional_service → support taxonomy drift", () => {
@@ -129,12 +143,12 @@ describe("identity facts — evidence sufficiency", () => {
     expect(assessment.codes).toContain("corroborating_shared_relation");
   });
 
-  it("flags a decisive contractual conflict as a hard contradiction", () => {
+  it("flags a decisive economic-effect conflict as a hard contradiction", () => {
     const run1Usage = run1Fixture.variableConsiderationComponents[0]!;
     const assessment = assessIdentityEvidence(
       variableConsiderationIdentityFacts({
         ...run1Usage,
-        contractualRateOrAmountInput: "2.10",
+        type: "service_credit",
         targetCanonicalId: "po-hosted",
       }),
       variableConsiderationIdentityFacts({ ...run1Usage, targetCanonicalId: "po-hosted" }),
@@ -338,5 +352,116 @@ describe("identity facts — objective variable-consideration and billing taxono
     );
     expect(assessment.contradictions).toContain("hard_contradiction_decisive_fact");
     expect(assessment.admissible).toBe(false);
+  });
+});
+
+/* ------------------------------------------- Final acceptance patch — A / B */
+
+describe("identity facts — model description is corroboration, never strong identity", () => {
+  const page1 = (excerpt: string) => ({
+    documentId: "71a48e73-7496-44c8-b611-2dca9d3ed256",
+    pageStart: 1,
+    pageEnd: 1,
+    normalizedExcerpt: excerpt,
+  });
+
+  it("refuses identity from identical generic description plus page overlap", () => {
+    const a = promiseIdentityFacts({
+      semanticKey: "promise_a",
+      promiseType: "professional_service",
+      description: "Professional services",
+      distinctConclusion: "yes",
+      citations: [
+        page1("5.1 provider shall perform onsite laboratory instrument calibration visits."),
+      ],
+    });
+    const b = promiseIdentityFacts({
+      semanticKey: "promise_b",
+      promiseType: "professional_service",
+      description: "Professional services",
+      distinctConclusion: "yes",
+      citations: [page1("5.2 provider shall author the regulatory submission dossier.")],
+    });
+
+    const assessment = assessIdentityEvidence(a, b);
+    expect(assessment.codes).toContain("corroborating_description_equality");
+    expect(assessment.codes).not.toContain("strong_description_equality");
+    expect(assessment.strong).toEqual([]);
+    expect(assessment.strongClasses).not.toContain("model_description");
+    expect(assessment.admissible).toBe(false);
+  });
+
+  it("still reports description equality corroboratively beside sufficient contractual evidence", () => {
+    const excerpt =
+      "5.4 dedicated bioinformatics engineering support of 40 hours per contract year.";
+    const a = promiseIdentityFacts({
+      semanticKey: "support_a",
+      promiseType: "support",
+      description: "Engineering support, 40 hours annually.",
+      distinctConclusion: "yes",
+      citations: [page1(excerpt)],
+    });
+    const b = promiseIdentityFacts({
+      semanticKey: "support_b",
+      promiseType: "professional_service",
+      description: "Engineering support, 40 hours annually.",
+      distinctConclusion: "yes",
+      citations: [page1(excerpt)],
+    });
+
+    const assessment = assessIdentityEvidence(a, b);
+    expect(assessment.codes).toContain("corroborating_description_equality");
+    expect(assessment.codes).toContain("strong_shared_contractual_measure");
+    expect(assessment.admissible).toBe(true);
+  });
+});
+
+describe("identity facts — VC rate is positive evidence, never a hard veto", () => {
+  const citation = {
+    documentId: "71a48e73-7496-44c8-b611-2dca9d3ed256",
+    pageStart: 3,
+    pageEnd: 3,
+    normalizedExcerpt:
+      "1. specimen tier overtaking: tier 2 overage billed quarterly at $1.35/sample.",
+  };
+  const base = {
+    semanticKey: "vc_usage_overage",
+    type: "usage",
+    description: "Per-sample throughput overage.",
+    unitDescription: "per sample",
+    targetCanonicalId: "po-hosted",
+    citations: [citation],
+  } as const;
+
+  it("does not treat a changed contractual rate as a hard identity veto", () => {
+    const assessment = assessIdentityEvidence(
+      variableConsiderationIdentityFacts({ ...base, contractualRateOrAmountInput: "1.50" }),
+      variableConsiderationIdentityFacts({ ...base, contractualRateOrAmountInput: "1.35" }),
+    );
+    expect(assessment.contradictions).not.toContain("hard_contradiction_decisive_fact");
+    expect(assessment.contradictions).toEqual([]);
+  });
+
+  it("keeps usage → service_credit a hard contradiction", () => {
+    const assessment = assessIdentityEvidence(
+      variableConsiderationIdentityFacts({
+        ...base,
+        type: "service_credit",
+        contractualRateOrAmountInput: "1.35",
+      }),
+      variableConsiderationIdentityFacts({ ...base, contractualRateOrAmountInput: "1.35" }),
+    );
+    expect(assessment.contradictions).toContain("hard_contradiction_decisive_fact");
+    expect(assessment.admissible).toBe(false);
+  });
+
+  it("treats economically identical rate formatting variants as the same evidence", () => {
+    const assessment = assessIdentityEvidence(
+      variableConsiderationIdentityFacts({ ...base, contractualRateOrAmountInput: "$1.35" }),
+      variableConsiderationIdentityFacts({ ...base, contractualRateOrAmountInput: "1.35" }),
+    );
+    expect(assessment.contradictions).toEqual([]);
+    expect(assessment.codes).toContain("strong_shared_contractual_measure");
+    expect(assessment.admissible).toBe(true);
   });
 });
