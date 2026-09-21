@@ -365,13 +365,21 @@ export function variableConsiderationIdentityFacts(
     objectKind: "variable_consideration",
     ref: source.semanticKey,
     contractual: {
-      // Objective economic identity: direction/effect of the consideration, and its contractual rate.
+      // Only the direction/effect of the consideration is decisive economic identity. The rate is
+      // positive economic evidence when equal; a changed rate is a changed fact on the SAME
+      // component, never a different economic object.
       economicEffect: variableConsiderationEconomicEffect(source.type),
-      rate: source.contractualRateOrAmountInput,
+      rate: normalizeEconomicRate(source.contractualRateOrAmountInput),
       billingFrequency: source.billingFrequency,
     },
-    decisiveKeys: ["economicEffect", "rate"],
+    decisiveKeys: ["economicEffect"],
     measureSources: [source.unitDescription, source.trigger],
+    additionalMeasures: [
+      (() => {
+        const rate = normalizeEconomicRate(source.contractualRateOrAmountInput);
+        return rate === null ? null : `rate:${rate}`;
+      })(),
+    ],
     citations: source.citations,
     relations: [source.targetCanonicalId],
     description: source.description,
