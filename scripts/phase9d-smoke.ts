@@ -97,7 +97,6 @@ async function main(): Promise<void> {
             originalFilename: document.originalFilename,
           })),
           arcContextFacts: pkg.currentContext.manuallyEnteredFacts,
-          promptVersion: AI_LIMITS.promptVersion,
         }),
     },
     deps: {

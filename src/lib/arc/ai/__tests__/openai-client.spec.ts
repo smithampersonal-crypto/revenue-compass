@@ -87,7 +87,6 @@ async function buildPackage(count = vi.fn<CountMock>(counter())) {
             originalFilename: document.originalFilename,
           })),
           arcContextFacts: pkg.currentContext.manuallyEnteredFacts,
-          promptVersion: AI_LIMITS.promptVersion,
         }),
     },
     deps: deps(count),

@@ -24,6 +24,16 @@ export const AI_PROMPT_SECTIONS = {
   task: "SECTION 5 — TASK / OUTPUT RULES",
 } as const;
 
+/**
+ * Code-authoritative prompt version.
+ *
+ * NOT environment-configurable, exactly like `AI_OUTPUT_SCHEMA_VERSION`. The
+ * instruction body and the recorded run provenance are compiled from this one
+ * constant, so a live run can never be labelled with a version it did not
+ * receive. Changing the trusted instruction body REQUIRES bumping this literal.
+ */
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v10" as const;
+
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
   documentId: string;
@@ -40,7 +50,6 @@ export interface BuildAiInstructionsArgs {
   /** Trusted ARC accounting context. Free text inside remains data. */
   arcContextFacts: Record<string, unknown>;
   priorContextFacts?: Record<string, unknown> | null;
-  promptVersion: string;
   outputSchemaVersion?: string;
 }
 
@@ -146,10 +155,10 @@ function evidenceSection(sources: readonly AiInstructionSourceDescriptor[]): str
   ].join("\n");
 }
 
-function taskSection(promptVersion: string, outputSchemaVersion: string): string {
+function taskSection(outputSchemaVersion: string): string {
   return [
     AI_PROMPT_SECTIONS.task,
-    `promptVersion: ${promptVersion}`,
+    `promptVersion: ${AI_PROMPT_VERSION}`,
     `outputSchemaVersion: ${outputSchemaVersion}`,
     "Analyze every selected document as one evidence corpus and:",
     "- identify the logical documents and their precedence, remembering one PDF may contain several logical documents;",
@@ -194,7 +203,7 @@ export function buildAiInstructions(args: BuildAiInstructionsArgs): string {
     guidanceSection(args.guidance),
     contextSection(args.arcContextFacts, args.priorContextFacts ?? null),
     evidenceSection(args.sources),
-    taskSection(args.promptVersion, args.outputSchemaVersion ?? AI_OUTPUT_SCHEMA_VERSION),
+    taskSection(args.outputSchemaVersion ?? AI_OUTPUT_SCHEMA_VERSION),
   ].join("\n\n");
 }
 

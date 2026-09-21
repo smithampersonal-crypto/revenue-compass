@@ -198,7 +198,6 @@ export function arcCanonicalInstructions(
     arcContextFacts: requestPackage.currentContext as unknown as Record<string, unknown>,
     priorContextFacts:
       (requestPackage.priorContext as unknown as Record<string, unknown> | null) ?? null,
-    promptVersion: limits.promptVersion,
     outputSchemaVersion: limits.outputSchemaVersion,
   });
 }
