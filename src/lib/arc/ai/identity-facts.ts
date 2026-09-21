@@ -407,10 +407,14 @@ function significantTokens(value: string | null): Set<string> {
  * Sufficiency (no weighted score, no threshold):
  *   - Any hard contradiction rejects outright.
  *   - At least one STRONG signal is required; corroboration alone never identifies anything.
- *   - Same-document: one strong signal plus a source/graph corroborator, or two distinct strong
- *     signals.
- *   - Cross-document: two distinct strong signals, at least one of which is an objective
- *     contractual agreement (decisive fact or shared measure).
+ *   - Source evidence never corroborates source evidence. If every strong signal is of class
+ *     `source`, identity additionally requires corroboration from a non-source class (resolved
+ *     graph relation or objective contractual agreement). Exact excerpt equality plus the page
+ *     overlap of that same citation is therefore INADMISSIBLE on its own.
+ *   - Same-document (with at least one non-source strong signal): one strong signal plus a
+ *     source/graph corroborator, or two distinct strong CLASSES.
+ *   - Cross-document: two distinct strong classes, one of which is objective contractual
+ *     agreement (decisive fact or shared measure).
  */
 export function assessIdentityEvidence(
   left: IdentityFacts,
