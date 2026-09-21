@@ -159,9 +159,6 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
   const workpaper = buildWorkpaper(draft);
   const { workflow, balances, journals } = workpaper;
 
-  if (!workflow.finalized) {
-    return { ok: false, issues: workflowIssues(workflow) };
-  }
 
   /*
    * Finalization-only restriction: the series-period consistency findings stay
@@ -172,6 +169,10 @@ export function buildFinalizationSnapshot(draft: WorkflowDraft): FinalizationSna
   const consistency = finalizationBlockingWorkflowWarnings(workflow.workflowValidation);
   if (consistency.length > 0) {
     return { ok: false, issues: consistency.map((issue) => issue.message) };
+  }
+
+  if (!workflow.finalized) {
+    return { ok: false, issues: workflowIssues(workflow) };
   }
 
   if (!balances.finalized) {
