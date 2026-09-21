@@ -494,19 +494,29 @@ export function assessIdentityEvidence(
     diagnostics.push(a === b ? "diagnostic_judgment_agreement" : "diagnostic_judgment_drift");
   }
 
-  const distinctStrongCodes = new Set(strong.map((entry) => entry.code));
+  const strongClasses = new Set(strong.map((entry) => evidenceClassOf(entry.code)));
+  const corroboratingClasses = new Set(corroborating.map((code) => evidenceClassOf(code)));
+
   const hasSourceOrGraphCorroboration =
     corroborating.includes("corroborating_page_overlap") ||
     corroborating.includes("corroborating_shared_relation");
-  const hasObjectiveContractualAgreement =
-    distinctStrongCodes.has("strong_decisive_fact_agreement") ||
-    distinctStrongCodes.has("strong_shared_contractual_measure");
+  const hasObjectiveContractualAgreement = strongClasses.has("economic_contractual");
+  // Source evidence may never corroborate source evidence: the page overlap implied by an excerpt
+  // is the same signal as that excerpt. Source-only strong evidence therefore needs independent
+  // corroboration from a non-source class (objective contractual agreement or resolved graph).
+  const strongIsSourceOnly = strongClasses.size === 1 && strongClasses.has("source");
+  const nonSourceCorroboration =
+    corroboratingClasses.has("graph") || corroboratingClasses.has("economic_contractual");
 
   let admissible = false;
   if (contradictions.length === 0 && strong.length > 0) {
-    admissible = sharesDocument
-      ? hasSourceOrGraphCorroboration || distinctStrongCodes.size >= 2
-      : distinctStrongCodes.size >= 2 && hasObjectiveContractualAgreement;
+    if (strongIsSourceOnly) {
+      admissible = nonSourceCorroboration;
+    } else if (sharesDocument) {
+      admissible = hasSourceOrGraphCorroboration || strongClasses.size >= 2;
+    } else {
+      admissible = strongClasses.size >= 2 && hasObjectiveContractualAgreement;
+    }
   }
 
   const uniqueSorted = (codes: readonly EvidenceCode[]): EvidenceCode[] =>
@@ -527,6 +537,8 @@ export function assessIdentityEvidence(
       ...corroborating,
       ...diagnostics,
     ]),
+    strongClasses: [...strongClasses].sort(),
+    corroboratingClasses: [...corroboratingClasses].sort(),
     anchorSignature: strongSorted.map((entry) => `${entry.code}|${entry.anchor}`).join("||"),
     sharesDocument,
   };
