@@ -507,3 +507,12 @@ describe("G5 — accounting authority after re-analysis", () => {
     expect(usageAt(L.second.draft)).toBe(77_500);
   });
 });
+
+describe("TMP", () => {
+  it("dbg", () => {
+    const r = analyzeWorkflow(L.second.draft);
+    console.log(JSON.stringify(r.workflowValidation.blocking, null, 1));
+    console.log(JSON.stringify(L.second.draft.variableConsiderationComponents.map((c)=>({id:c.id,t:c.treatment,a:c.allocationTreatment,target:c.targetPoId}))));
+    console.log(JSON.stringify(L.second.draft.performanceObligations.map((p)=>({id:p.id,c:p.classification}))));
+  });
+});
