@@ -64,6 +64,33 @@ export type EvidenceCode =
   | "diagnostic_judgment_agreement"
   | "diagnostic_judgment_drift";
 
+/**
+ * Evidence classes. Source evidence can NEVER corroborate source evidence: an exact excerpt and the
+ * page overlap implied by that very citation are one signal, not two.
+ */
+export type EvidenceClass =
+  "source" | "economic_contractual" | "graph" | "model_description" | "judgment";
+
+export const EVIDENCE_CLASS_BY_CODE: Readonly<Record<EvidenceCode, EvidenceClass>> = {
+  hard_contradiction_object_kind: "economic_contractual",
+  hard_contradiction_decisive_fact: "economic_contractual",
+  hard_contradiction_graph_disjoint: "graph",
+  strong_excerpt_equality: "source",
+  strong_excerpt_containment: "source",
+  strong_decisive_fact_agreement: "economic_contractual",
+  strong_description_equality: "model_description",
+  strong_shared_contractual_measure: "economic_contractual",
+  corroborating_page_overlap: "source",
+  corroborating_shared_relation: "graph",
+  corroborating_lexical_overlap: "model_description",
+  diagnostic_judgment_agreement: "judgment",
+  diagnostic_judgment_drift: "judgment",
+};
+
+export function evidenceClassOf(code: EvidenceCode): EvidenceClass {
+  return EVIDENCE_CLASS_BY_CODE[code];
+}
+
 /** A strong signal together with the concrete anchor it rests on (used to detect indistinguishable evidence). */
 export interface EvidenceAnchor {
   code: EvidenceCode;
@@ -78,6 +105,10 @@ export interface EvidenceAssessment {
   diagnostics: readonly EvidenceCode[];
   /** Sorted union of every code raised, for review/diagnostic surfaces. */
   codes: readonly EvidenceCode[];
+  /** Sorted distinct classes of the STRONG signals. */
+  strongClasses: readonly EvidenceClass[];
+  /** Sorted distinct classes of the corroborating signals. */
+  corroboratingClasses: readonly EvidenceClass[];
   /** Deterministic signature of the strong anchors; equal signatures mean indistinguishable evidence. */
   anchorSignature: string;
   sharesDocument: boolean;
@@ -267,6 +298,25 @@ export interface VariableConsiderationIdentitySource {
   citations?: readonly CitationSpan[];
 }
 
+/**
+ * A variable-consideration component's ECONOMIC EFFECT is objective structural identity, not an
+ * accounting judgment: money flowing to the vendor on usage is not the same economic object as a
+ * credit, penalty or rebate flowing back to the customer.
+ */
+export function variableConsiderationEconomicEffect(
+  type: string | null | undefined,
+): string | null {
+  const normalized = normalizeForComparison(type).replace(/\s+/g, "_");
+  if (normalized === "") return null;
+  if (/(credit)/.test(normalized)) return "service_credit";
+  if (/(penalt|liquidated|damages)/.test(normalized)) return "penalty";
+  if (/(rebate|refund)/.test(normalized)) return "rebate";
+  if (/(discount)/.test(normalized)) return "discount";
+  if (/(bonus|incentive)/.test(normalized)) return "bonus";
+  if (/(usage|consumption|overage|volume|tier)/.test(normalized)) return "usage";
+  return normalized;
+}
+
 export function variableConsiderationIdentityFacts(
   source: VariableConsiderationIdentitySource,
 ): IdentityFacts {
@@ -274,12 +324,13 @@ export function variableConsiderationIdentityFacts(
     objectKind: "variable_consideration",
     ref: source.semanticKey,
     contractual: {
+      // Objective economic identity: direction/effect of the consideration, and its contractual rate.
+      economicEffect: variableConsiderationEconomicEffect(source.type),
       rate: source.contractualRateOrAmountInput,
       billingFrequency: source.billingFrequency,
     },
-    decisiveKeys: ["rate"],
+    decisiveKeys: ["economicEffect", "rate"],
     measureSources: [source.unitDescription, source.trigger],
-    judgments: { type: source.type },
     citations: source.citations,
     relations: [source.targetCanonicalId],
     description: source.description,
@@ -301,6 +352,11 @@ export interface BillingTermIdentitySource {
   >;
 }
 
+/**
+ * Billing schedule identity is defined by TIMING and FREQUENCY, not by amount. A renegotiated
+ * amount on the same annual-advance schedule is the same schedule; annual advance → monthly
+ * arrears is a different schedule.
+ */
 export function billingTermIdentityFacts(source: BillingTermIdentitySource): IdentityFacts {
   return buildIdentityFacts({
     objectKind: source.objectKind ?? "billing_term",
@@ -311,8 +367,14 @@ export function billingTermIdentityFacts(source: BillingTermIdentitySource): Ide
       billingTiming: source.billingTiming,
       paymentTermsDays: source.paymentTermsDays,
     },
-    decisiveKeys: ["amount"],
-    measureSources: [source.invoiceTrigger],
+    decisiveKeys: ["frequency", "billingTiming"],
+    // Amount is positive economic evidence when equal, never a hard contradiction when different.
+    measureSources: [
+      source.invoiceTrigger,
+      source.amountOrRateInput === null || source.amountOrRateInput === undefined
+        ? null
+        : `$${source.amountOrRateInput}`,
+    ],
     citations: source.citations,
     description: source.description,
   });
@@ -358,10 +420,14 @@ function significantTokens(value: string | null): Set<string> {
  * Sufficiency (no weighted score, no threshold):
  *   - Any hard contradiction rejects outright.
  *   - At least one STRONG signal is required; corroboration alone never identifies anything.
- *   - Same-document: one strong signal plus a source/graph corroborator, or two distinct strong
- *     signals.
- *   - Cross-document: two distinct strong signals, at least one of which is an objective
- *     contractual agreement (decisive fact or shared measure).
+ *   - Source evidence never corroborates source evidence. If every strong signal is of class
+ *     `source`, identity additionally requires corroboration from a non-source class (resolved
+ *     graph relation or objective contractual agreement). Exact excerpt equality plus the page
+ *     overlap of that same citation is therefore INADMISSIBLE on its own.
+ *   - Same-document (with at least one non-source strong signal): one strong signal plus a
+ *     source/graph corroborator, or two distinct strong CLASSES.
+ *   - Cross-document: two distinct strong classes, one of which is objective contractual
+ *     agreement (decisive fact or shared measure).
  */
 export function assessIdentityEvidence(
   left: IdentityFacts,
@@ -445,19 +511,29 @@ export function assessIdentityEvidence(
     diagnostics.push(a === b ? "diagnostic_judgment_agreement" : "diagnostic_judgment_drift");
   }
 
-  const distinctStrongCodes = new Set(strong.map((entry) => entry.code));
+  const strongClasses = new Set(strong.map((entry) => evidenceClassOf(entry.code)));
+  const corroboratingClasses = new Set(corroborating.map((code) => evidenceClassOf(code)));
+
   const hasSourceOrGraphCorroboration =
     corroborating.includes("corroborating_page_overlap") ||
     corroborating.includes("corroborating_shared_relation");
-  const hasObjectiveContractualAgreement =
-    distinctStrongCodes.has("strong_decisive_fact_agreement") ||
-    distinctStrongCodes.has("strong_shared_contractual_measure");
+  const hasObjectiveContractualAgreement = strongClasses.has("economic_contractual");
+  // Source evidence may never corroborate source evidence: the page overlap implied by an excerpt
+  // is the same signal as that excerpt. Source-only strong evidence therefore needs independent
+  // corroboration from a non-source class (objective contractual agreement or resolved graph).
+  const strongIsSourceOnly = strongClasses.size === 1 && strongClasses.has("source");
+  const nonSourceCorroboration =
+    corroboratingClasses.has("graph") || corroboratingClasses.has("economic_contractual");
 
   let admissible = false;
   if (contradictions.length === 0 && strong.length > 0) {
-    admissible = sharesDocument
-      ? hasSourceOrGraphCorroboration || distinctStrongCodes.size >= 2
-      : distinctStrongCodes.size >= 2 && hasObjectiveContractualAgreement;
+    if (strongIsSourceOnly) {
+      admissible = nonSourceCorroboration;
+    } else if (sharesDocument) {
+      admissible = hasSourceOrGraphCorroboration || strongClasses.size >= 2;
+    } else {
+      admissible = strongClasses.size >= 2 && hasObjectiveContractualAgreement;
+    }
   }
 
   const uniqueSorted = (codes: readonly EvidenceCode[]): EvidenceCode[] =>
@@ -478,6 +554,8 @@ export function assessIdentityEvidence(
       ...corroborating,
       ...diagnostics,
     ]),
+    strongClasses: [...strongClasses].sort(),
+    corroboratingClasses: [...corroboratingClasses].sort(),
     anchorSignature: strongSorted.map((entry) => `${entry.code}|${entry.anchor}`).join("||"),
     sharesDocument,
   };

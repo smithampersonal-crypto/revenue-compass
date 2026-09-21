@@ -9,7 +9,11 @@ import { describe, expect, it } from "vitest";
 
 import { asIncumbent, promiseIdentityFacts } from "@/lib/arc/ai/identity-facts";
 import type { IncumbentIdentityFacts } from "@/lib/arc/ai/identity-facts";
-import { buildCandidateGraph, resolveIdentityGraph } from "@/lib/arc/ai/identity-graph";
+import {
+  buildCandidateGraph,
+  canonicalGroupDecompositionRules,
+  resolveIdentityGraph,
+} from "@/lib/arc/ai/identity-graph";
 import { run1Fixture, runBFixture } from "@/lib/arc/ai/__tests__/production-runs";
 import type { FixturePromise } from "@/lib/arc/ai/__tests__/production-runs";
 
@@ -42,6 +46,18 @@ const run1Incumbents: IncumbentIdentityFacts[] = run1Fixture.promises.map((promi
 );
 const runBProposals = runBFixture.promises.map((promise) => promiseIdentityFacts(promise));
 
+/** Canonical PO membership of the Run-1 canonical promises (structural group facts, not naming). */
+const RUN1_PROMISE_PO: Record<string, string> = {
+  "pr-hosted": "po-hosted",
+  "pr-throughput": "po-hosted",
+  "pr-validation": "po-validation",
+  "pr-support": "po-support",
+};
+
+const run1GroupRules = canonicalGroupDecompositionRules({
+  incumbentGroupKeyById: RUN1_PROMISE_PO,
+});
+
 function alignmentFor(
   result: ReturnType<typeof resolveIdentityGraph>,
   proposalKey: string,
@@ -56,6 +72,7 @@ describe("identity graph — production Run 1 → Run B", () => {
     objectKind: "promise",
     proposals: runBProposals,
     incumbents: run1Incumbents,
+    decompositionRules: run1GroupRules,
   });
 
   it("resolves the combined hosted + included-throughput proposal as one subsumes relation", () => {
@@ -89,8 +106,9 @@ describe("identity graph — production Run 1 → Run B", () => {
     }
   });
 
-  it("reports that prior bounded source evidence was available", () => {
-    expect(result.priorEvidenceAvailable).toBe(true);
+  it("reports only that some incumbent carries a prior bounded excerpt", () => {
+    expect(result.hasAnyPriorBoundedExcerpt).toBe(true);
+    expect("priorEvidenceAvailable" in result).toBe(false);
   });
 
   it("is unaffected by semantic-key names and by input ordering", () => {
@@ -98,6 +116,7 @@ describe("identity graph — production Run 1 → Run B", () => {
       objectKind: "promise",
       proposals: [...runBProposals].reverse(),
       incumbents: [...run1Incumbents].reverse(),
+      decompositionRules: run1GroupRules,
     });
     expect(JSON.stringify(permuted.alignments)).toBe(JSON.stringify(result.alignments));
 
@@ -107,6 +126,7 @@ describe("identity graph — production Run 1 → Run B", () => {
         promiseIdentityFacts({ ...promise, semanticKey: `renamed_${index}` }),
       ),
       incumbents: run1Incumbents,
+      decompositionRules: run1GroupRules,
     });
     expect(renamed.alignments.map((alignment) => [...alignment.canonicalIds].sort())).toEqual(
       runBProposals.map((proposal) => [...alignmentFor(result, proposal.ref).canonicalIds].sort()),
@@ -121,7 +141,12 @@ describe("identity graph — production Run 1 → Run B", () => {
       ),
     );
     const before = JSON.stringify([proposals, incumbents]);
-    resolveIdentityGraph({ objectKind: "promise", proposals, incumbents });
+    resolveIdentityGraph({
+      objectKind: "promise",
+      proposals,
+      incumbents,
+      decompositionRules: run1GroupRules,
+    });
     expect(JSON.stringify([proposals, incumbents])).toBe(before);
   });
 });
@@ -135,6 +160,14 @@ describe("identity graph — decomposition, contention and absence", () => {
       objectKind: "promise",
       proposals: run1Fixture.promises.map((promise) => promiseIdentityFacts(promise)),
       incumbents,
+      decompositionRules: canonicalGroupDecompositionRules({
+        proposalGroupKeyByRef: {
+          hosted_platform_access: "po-hosted",
+          included_throughput_capacity: "po-hosted",
+          gxp_validation_artifacts: "po-validation",
+          clinical_bioinformatics_engineering_support: "po-support",
+        },
+      }),
     });
 
     const hosted = alignmentFor(result, "hosted_platform_access");
@@ -205,6 +238,7 @@ describe("identity graph — decomposition, contention and absence", () => {
       objectKind: "promise",
       proposals: [...runBProposals, fabricated],
       incumbents: run1Incumbents,
+      decompositionRules: run1GroupRules,
     });
 
     expect(alignmentFor(result, "promise_fabricated_training_workshop")).toEqual({
@@ -228,6 +262,7 @@ describe("identity graph — decomposition, contention and absence", () => {
       objectKind: "promise",
       proposals: runBProposals,
       incumbents: [...run1Incumbents, orphan],
+      decompositionRules: run1GroupRules,
     });
     expect(result.omittedCanonicalIds).toEqual(["pr-migration"]);
   });
@@ -242,5 +277,51 @@ describe("identity graph — decomposition, contention and absence", () => {
       (edge) => edge.proposalKey === "promise_hosted_platform_and_included_throughput",
     );
     expect(hostedEdges.map((edge) => edge.canonicalId)).toEqual(["pr-hosted", "pr-throughput"]);
+  });
+});
+
+/* ------------------------------------------------------------------ Patch C */
+
+describe("identity graph — decomposition requires real group support", () => {
+  it("refuses a 1:N grouping whose incumbents belong to different canonical POs", () => {
+    const combined = promiseIdentityFacts({
+      semanticKey: "promise_support_and_throughput_bundle",
+      promiseType: "bundle",
+      description:
+        "Dedicated clinical bioinformatics engineering support hours, stated as 40 hours annually, together with annual capacity of up to 50,000 samples under the high-throughput whole exome/genome tier.",
+      distinctConclusion: "yes",
+      citations: [{ documentId: "71a48e73-7496-44c8-b611-2dca9d3ed256", pageStart: 3, pageEnd: 3 }],
+    });
+
+    const incumbents = [
+      run1Incumbents.find((i) => i.canonicalId === "pr-support")!,
+      run1Incumbents.find((i) => i.canonicalId === "pr-throughput")!,
+    ];
+
+    const result = resolveIdentityGraph({
+      objectKind: "promise",
+      proposals: [combined],
+      incumbents,
+      decompositionRules: run1GroupRules,
+    });
+
+    const alignment = result.alignments[0]!;
+    expect(alignment.relation).toBe("ambiguous");
+    expect(alignment.canonicalIds).toEqual([]);
+    expect([...(alignment.diagnostics?.contendingCanonicalIds ?? [])].sort()).toEqual([
+      "pr-support",
+      "pr-throughput",
+    ]);
+  });
+
+  it("refuses decomposition entirely when no group rules are supplied", () => {
+    const result = resolveIdentityGraph({
+      objectKind: "promise",
+      proposals: runBProposals,
+      incumbents: run1Incumbents,
+    });
+    expect(alignmentFor(result, "promise_hosted_platform_and_included_throughput").relation).toBe(
+      "ambiguous",
+    );
   });
 });
