@@ -95,6 +95,7 @@ const CATEGORY_BY_CODE: Readonly<Record<string, Record<string, AiFailurePresenta
     merge_failed: "unexpected_application",
     merged_draft_invalid: "unexpected_application",
     reanalysis_declined: "structurally_declined",
+    structural_mutation_detected: "structurally_declined",
   },
 };
 
