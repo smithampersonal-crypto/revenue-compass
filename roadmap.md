@@ -15,6 +15,15 @@
 - [x] Add the Horizon 5-minute walkthrough, compact architecture diagram, controls, scope, and verified quality claims
 - [x] Verify documentation-only scope, package the repository, and report CI availability
 
+## Package 2A — Visual Identity & Spacing Hardening
+
+- [ ] Replace the forced dark palette with one light-only finance-forward semantic token set
+- [ ] Preserve green product identity while keeping amber warnings and red blocking states distinct
+- [ ] Increase major workspace breathing room without loosening dense accounting tables
+- [ ] Widen the analysis workspace at desktop sizes while preserving centered responsive layouts
+- [ ] Certify Home, Analysis, deterministic output, and Review & Finalize across three viewport widths
+- [ ] Run focused and full verification, package the repository, and report CI availability
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
