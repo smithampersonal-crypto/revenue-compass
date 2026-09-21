@@ -30,11 +30,9 @@ describe("ARC visual system", () => {
 
   it("separates filled destructive controls from pale danger notices", () => {
     expect(styles).toContain("--destructive-foreground: oklch(1 0 0)");
-    expect(workflowFields).toContain(
-      'border-destructive/40 bg-destructive/10 text-destructive"',
-    );
+    expect(workflowFields).toContain('border-destructive/40 bg-destructive/10 text-destructive"');
     expect(workflowFields).not.toContain(
-      'border-destructive/40 bg-destructive/10 text-destructive-foreground',
+      "border-destructive/40 bg-destructive/10 text-destructive-foreground",
     );
   });
 });
