@@ -31,7 +31,6 @@ import {
   asIncumbent,
   billingTermIdentityFacts,
   buildIdentityFacts,
-  promiseIdentityFacts,
   variableConsiderationIdentityFacts,
   type IdentityFacts,
   type IncumbentIdentityFacts,
@@ -57,7 +56,13 @@ export type SafeReanalysisDeclineReason =
   /** A proposal corresponds to no existing canonical object. */
   | "unmatched"
   /** An existing canonical object is represented by no proposal. */
-  | "omitted_incumbent";
+  | "omitted_incumbent"
+  /**
+   * Economic continuity holds, but the UNCHANGED production merge would not be
+   * guaranteed to route this proposal to the same canonical object (a renamed
+   * or re-pointed semantic key). ARC declines rather than risk minting.
+   */
+  | "routing_unverified";
 
 export interface SafeReanalysisDecision {
   outcome: "first_run" | "apply" | "decline";
@@ -144,36 +149,59 @@ function obligationFacts(source: {
 }
 
 /**
- * A deterministic one-for-one correspondence between the new run's promises and
- * the promises already inside the same canonical obligation. Admissibility comes
- * from the frozen evidence rules; no score, threshold or ordering preference is
- * used, and the answer is the same for any input order.
+ * Promise facts for WITHIN-OBLIGATION resolution.
+ *
+ * The owning obligation is deliberately NOT supplied as relation evidence: every
+ * promise in the group already shares it, so it discriminates nothing and would
+ * make each sibling pair mutually admissible. What identifies a promise here is
+ * the objective contractual language it quotes — stated fees, rates, quantities
+ * and terms — exactly as for obligations.
  */
-function hasPerfectMatching(
-  proposals: readonly IdentityFacts[],
-  incumbents: readonly IncumbentIdentityFacts[],
+function promiseFacts(source: {
+  semanticKey: string;
+  description: string;
+  promiseType: string;
+  distinctConclusion: string;
+  citations: readonly AiCitation[];
+}): IdentityFacts {
+  return buildIdentityFacts({
+    objectKind: "promise",
+    ref: source.semanticKey,
+    judgments: {
+      promiseType: source.promiseType,
+      distinctConclusion: source.distinctConclusion,
+    },
+    citations: spansOf(source.citations),
+    measureSources: source.citations.map((citation) => citation.excerpt ?? null),
+    description: source.description,
+  });
+}
+
+/**
+ * ROUTING SAFETY.
+ *
+ * The firewall and the production merge use deliberately different identity
+ * systems, so economic continuity alone is not enough: the merge must also be
+ * guaranteed to land this proposal on the very canonical object the firewall
+ * resolved. For v1 the only guarantee we accept is direct, ARC-owned canonical
+ * provenance for the proposal's CURRENT semantic key:
+ *
+ *   - no direct provenance (a new or renamed key, which would enter legacy
+ *     re-identification inside the merge) ⇒ decline;
+ *   - direct provenance pointing at a different canonical object ⇒ decline.
+ *
+ * Semantic-key stability never establishes identity by itself; it is only this
+ * final routing check, applied after economic identity has been established
+ * independently.
+ */
+function routesToSameCanonicalObject(
+  state: AiAnalysisState,
+  proposalKey: string,
+  firewallCanonicalId: string,
 ): boolean {
-  const admissible = proposals.map((proposal) =>
-    incumbents.map((incumbent) => assessIdentityEvidence(proposal, incumbent).admissible),
-  );
-  const assigned = new Array<number>(incumbents.length).fill(-1);
-
-  const augment = (proposalIndex: number, seen: boolean[]): boolean => {
-    for (let i = 0; i < incumbents.length; i += 1) {
-      if (!admissible[proposalIndex]![i] || seen[i]) continue;
-      seen[i] = true;
-      if (assigned[i] === -1 || augment(assigned[i]!, seen)) {
-        assigned[i] = proposalIndex;
-        return true;
-      }
-    }
-    return false;
-  };
-
-  for (let p = 0; p < proposals.length; p += 1) {
-    if (!augment(p, new Array<boolean>(incumbents.length).fill(false))) return false;
-  }
-  return true;
+  const direct = state.objectProvenance[proposalKey];
+  if (direct === undefined) return false;
+  return direct.canonicalId === firewallCanonicalId;
 }
 
 /**
@@ -205,6 +233,8 @@ function resolveStage(args: {
   incumbents: readonly IncumbentIdentityFacts[];
   incumbentGroupKeyById?: Readonly<Record<string, string>> | undefined;
   proposalGroupKeyByRef?: Readonly<Record<string, string>> | undefined;
+  /** Merge-routing guarantee for every exact alignment. */
+  routingSafe?: (proposalKey: string, canonicalId: string) => boolean;
 }): StageResult {
   if (args.proposals.length === 0 && args.incumbents.length === 0) {
     return { ok: true, exact: new Map() };
@@ -240,6 +270,16 @@ function resolveStage(args: {
   // an apparent omission is never treated as continuity.
   if (result.omittedCanonicalIds.length > 0) return { ok: false, reason: "omitted_incumbent" };
 
+  // Economic continuity is necessary but not sufficient: the unchanged merge
+  // must be guaranteed to reach the same canonical object.
+  if (args.routingSafe !== undefined) {
+    for (const [proposalKey, canonicalId] of exact) {
+      if (!args.routingSafe(proposalKey, canonicalId)) {
+        return { ok: false, reason: "routing_unverified" };
+      }
+    }
+  }
+
   return { ok: true, exact };
 }
 
@@ -274,6 +314,13 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     return { outcome: "decline", reason: "prior_analysis_unavailable" };
   }
 
+  /**
+   * The routing guarantee applied to EVERY governed structural object below.
+   * See `routesToSameCanonicalObject`.
+   */
+  const routingSafe = (proposalKey: string, canonicalId: string): boolean =>
+    routesToSameCanonicalObject(state, proposalKey, canonicalId);
+
   /* ------------------------------------- 1. performance obligations, alone */
   // Resolved FIRST and with no relation evidence, so nothing downstream can
   // borrow the identity currently being tested as evidence for itself.
@@ -293,6 +340,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     objectKind: "performance_obligation",
     proposals: poProposals,
     incumbents: poIncumbents,
+    routingSafe,
   });
   if (!poStage.ok) {
     return { outcome: "decline", reason: poStage.reason, objectKind: "performance_obligation" };
@@ -308,12 +356,12 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
 
   /* ----------------------------------------------------------- 2. promises */
   // Promises are members of an obligation, never standalone accounting objects,
-  // so what protects them is MEMBERSHIP CONTINUITY: inside each obligation that
-  // matched exactly, the new run's promises must correspond one-for-one with the
-  // promises already there. A recomposition (two promises described as one) or a
-  // member ARC cannot account for breaks the bijection and declines. Sibling
-  // promises that the evidence cannot tell apart are harmless here: any
-  // bijection preserves the same canonical structure.
+  // so each promise is resolved INSIDE the obligation that matched exactly, and
+  // each one must reach a MUTUALLY UNIQUE exact incumbent. "Some bijection
+  // exists" is deliberately not enough: sibling canonical promises carry
+  // distinct accountant-owned facts, so two siblings the evidence cannot tell
+  // apart are ambiguous and decline rather than being paired arbitrarily.
+
   const proposalPromisesByPo = new Map<string, IdentityFacts[]>();
   for (const promise of input.analysis.promises) {
     const owningKey = owningObligationKey(input.analysis, promise.semanticKey);
@@ -322,14 +370,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       // The promise belongs to no obligation ARC could match independently.
       return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
     }
-    const facts = promiseIdentityFacts({
-      semanticKey: promise.semanticKey,
-      promiseType: promise.promiseType,
-      description: promise.description,
-      distinctConclusion: promise.distinctConclusion,
-      citations: spansOf(promise.citations),
-      owningObligationCanonicalId: owning,
-    });
+    const facts = promiseFacts(promise);
     proposalPromisesByPo.set(owning, [...(proposalPromisesByPo.get(owning) ?? []), facts]);
   }
 
@@ -340,17 +381,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     const owningKey = owningObligationKey(prior, promise.semanticKey);
     const owning = owningKey === null ? null : (incumbentPoIdByKey.get(owningKey) ?? null);
     if (owning === null) continue;
-    const facts = asIncumbent(
-      promiseIdentityFacts({
-        semanticKey: promise.semanticKey,
-        promiseType: promise.promiseType,
-        description: promise.description,
-        distinctConclusion: promise.distinctConclusion,
-        citations: spansOf(promise.citations),
-        owningObligationCanonicalId: owning,
-      }),
-      canonicalId,
-    );
+    const facts = asIncumbent(promiseFacts(promise), canonicalId);
     incumbentPromisesByPo.set(owning, [...(incumbentPromisesByPo.get(owning) ?? []), facts]);
   }
 
@@ -358,13 +389,14 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     ...proposalPromisesByPo.keys(),
     ...incumbentPromisesByPo.keys(),
   ])) {
-    const proposals = proposalPromisesByPo.get(canonicalPoId) ?? [];
-    const incumbents = incumbentPromisesByPo.get(canonicalPoId) ?? [];
-    if (proposals.length !== incumbents.length) {
-      return { outcome: "decline", reason: "decomposition", objectKind: "promise" };
-    }
-    if (!hasPerfectMatching(proposals, incumbents)) {
-      return { outcome: "decline", reason: "unmatched", objectKind: "promise" };
+    const promiseStage = resolveStage({
+      objectKind: "promise",
+      proposals: proposalPromisesByPo.get(canonicalPoId) ?? [],
+      incumbents: incumbentPromisesByPo.get(canonicalPoId) ?? [],
+      routingSafe,
+    });
+    if (!promiseStage.ok) {
+      return { outcome: "decline", reason: promiseStage.reason, objectKind: "promise" };
     }
   }
 
@@ -414,7 +446,9 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     objectKind: "variable_consideration",
     proposals: vcProposals,
     incumbents: vcIncumbents,
+    routingSafe,
   });
+
   if (!vcStage.ok) {
     return { outcome: "decline", reason: vcStage.reason, objectKind: "variable_consideration" };
   }
@@ -453,6 +487,10 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       objectKind: "billing_term",
       proposals: input.analysis.billingTerms.map(billingFacts),
       incumbents: billingIncumbents,
+      // Billing lineage is owned by the term key itself: a renamed key would
+      // enter legacy billing reconciliation and risk a duplicate schedule, so
+      // the exact incumbent must be the lineage this very key already owns.
+      routingSafe: (proposalKey, canonicalId) => canonicalId === `billing-schedule:${proposalKey}`,
     });
     if (!billingStage.ok) {
       return { outcome: "decline", reason: billingStage.reason, objectKind: "billing_term" };
