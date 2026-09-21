@@ -85,19 +85,21 @@ describe("prompt contract — anchorIds is a list, never a range", () => {
 
 /* ------------------------------------------------------------ 2. validator */
 
+// Each clause is long enough (>80 chars) and newline-terminated so ARC's
+// deterministic segmenter emits exactly one anchor per clause.
 const PAGE_TEXT = [
-  "Clause one states the platform fee. ",
-  "Clause two states the throughput tier. ",
-  "Clause three states the validation package. ",
-  "Clause four states the support hours. ",
-  "Clause five states the governing exceptions. ",
-  "Clause six states the overage rate. ",
-  "Clause seven states the BAA execution. ",
-  "Clause eight states the cloud region. ",
-  "Clause nine states wire remittance in cash. ",
-  "Clause ten states the acceptance block. ",
-  "Clause eleven states the confidentiality footer. ",
-].join("");
+  "Clause one states the annual hosted platform subscription fee payable by the customer in advance.",
+  "Clause two states the contracted monthly throughput tier and the included sample processing volume.",
+  "Clause three states the validation package scope, deliverables, and the acceptance criteria applied.",
+  "Clause four states the committed support hours, escalation path, and the applicable response targets.",
+  "Clause five states the governing exceptions, limitations of liability, and the excluded circumstances.",
+  "Clause six states the per-sample overage rate applied to usage above the included processing volume.",
+  "Clause seven states the business associate agreement execution requirement between the two parties.",
+  "Clause eight states the designated cloud hosting region and the applicable data residency commitment.",
+  "Clause nine states that all remittance occurs by wire transfer in cash, and no other property changes hands.",
+  "Clause ten states the acceptance block, effective date, and the authorised signatories for each party.",
+  "Clause eleven states the confidentiality footer applicable to the entire contract package document set.",
+].join("\n");
 
 const evidence: AiDocumentEvidence[] = [
   {
