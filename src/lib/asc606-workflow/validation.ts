@@ -322,6 +322,42 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
       "This contract is marked as containing variable consideration, so at least one variable-consideration component must be described.",
     );
   }
+  /*
+   * Cross-field consistency only: allocating variable consideration to a
+   * distinct period of a series presupposes that the targeted obligation is
+   * itself classified as a series. ARC never decides which of the two
+   * judgments is wrong; it surfaces the contradiction for the accountant.
+   *
+   * The finding is a warning, not a blocking item, because an unresolved fact
+   * limits only the outputs that depend on it: suppressing the whole
+   * deterministic analysis would hide accounting that does not depend on this
+   * contradiction. Review & Finalize still refuses to report the draft as
+   * complete while the contradiction stands.
+   */
+  for (const component of draft.variableConsiderationComponents) {
+    if (component.allocationTreatment !== "specific_series_period") continue;
+    const label = component.description || component.id;
+    if (!component.targetPoId) {
+      add(
+        "vc.series_period.target_missing",
+        "3",
+        `Series allocation conclusion requires review. "${label}" is being allocated to a distinct period of a series, but no target performance obligation is currently linked. Review the performance-obligation classification, the variable-consideration allocation conclusion, or the target obligation.`,
+        "warning",
+      );
+      continue;
+    }
+    // A target id that names no obligation at all is already reported by the
+    // engine's orphan-identity check; it is not re-reported here.
+    const target = draft.performanceObligations.find((po) => po.id === component.targetPoId);
+    if (target && (target.kind === "material_right" || target.classification !== "series")) {
+      add(
+        "vc.series_period.target_not_series",
+        "3",
+        `Series allocation conclusion requires review. "${label}" is being allocated to a distinct period of a series, but its target performance obligation "${target.name || target.id}" is not currently classified as a Series. Review the performance-obligation classification, the variable-consideration allocation conclusion, or the target obligation.`,
+        "warning",
+      );
+    }
+  }
 
   // ---- Step 4 -------------------------------------------------------------
   for (const po of standardPos) {
