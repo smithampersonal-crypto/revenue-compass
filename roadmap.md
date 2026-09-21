@@ -7,6 +7,14 @@
 - [x] Clarify temporary guest-session saving while preserving My Contracts messaging and authenticated copy
 - [x] Run focused and full verification, package the repository, and report CI availability
 
+## Package 2 — Portfolio / README Packaging
+
+- [ ] Replace the obsolete planning README with recruiter-first product documentation
+- [ ] Make Ayden’s authorship and contribution explicit in the purpose and architecture narrative
+- [ ] Capture three synthetic recruiter-story screenshots; scenarios may differ for clarity
+- [ ] Add the Horizon 5-minute walkthrough, compact architecture diagram, controls, scope, and verified quality claims
+- [ ] Verify documentation-only scope, package the repository, and report CI availability
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall

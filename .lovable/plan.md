@@ -14,6 +14,7 @@ Replace the obsolete planning-oriented README with one concise, recruiter-first 
    - Capture the recruiter entry point.
    - Capture ASC 606 analysis with source-linked evidence/citations.
    - Capture one strong deterministic/control output, selected from schedules, balances/journals, or Review & Finalize based on which reads most clearly at README size.
+   - The screenshots may use different synthetic scenarios when that communicates the product more clearly—for example, Genomix for citations and Horizon for deterministic outputs.
    - Store only the final optimized images in `docs/assets/`; exclude private contract text, credentials, internal identifiers, and incidental browser chrome.
 
 3. **Guided portfolio walkthrough**
@@ -23,6 +24,7 @@ Replace the obsolete planning-oriented README with one concise, recruiter-first 
 4. **Compact architecture and control story**
    - Add one GitHub-renderable Mermaid diagram covering PDF input, GPT-5.6 Terra interpretation, structured cited output, the canonical accountant-owned draft, deterministic TypeScript engines, review/finalization, and persistence/security boundaries.
    - Explain provenance, citations, accountant authority, fail-closed behavior, and Safe Re-analysis without exposing internal implementation detail.
+   - Make Ayden’s contribution explicit: ARC is his portfolio project, designed and built to demonstrate ASC 606 technical accounting, accounting-systems design, deterministic calculation logic, and controlled use of AI.
 
 ## README Structure
 1. ARC — Ayden’s Revenue Compass
