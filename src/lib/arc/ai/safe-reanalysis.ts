@@ -440,7 +440,9 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     objectKind: "variable_consideration",
     proposals: vcProposals,
     incumbents: vcIncumbents,
+    routingSafe,
   });
+
   if (!vcStage.ok) {
     return { outcome: "decline", reason: vcStage.reason, objectKind: "variable_consideration" };
   }
