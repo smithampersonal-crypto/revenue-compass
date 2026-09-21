@@ -37,6 +37,11 @@ import {
   type AiRunStore,
   type AiRunRow,
 } from "./runs.handlers";
+import {
+  assessSafeReanalysis,
+  isChangedSourceReanalysis,
+  type PriorAnalysisLoad,
+} from "./safe-reanalysis";
 import { TerraAnalysisError, type TerraAnalyzer, type TerraAnchorDiagnostic } from "./terra.server";
 import type { AiPreflightResult, PriorAccountingContext } from "./types";
 
@@ -56,6 +61,12 @@ export interface AiExecutionContext {
    * supplied only when the sidecar predates identity signatures.
    */
   priorAnalysis?: AiContractAnalysis | null;
+  /**
+   * ARC v1 Safe Re-analysis. Whether the REQUIRED prior immutable structured
+   * result was actually loaded and parsed. Only the trusted integration layer
+   * knows this; the pure safety gate must never infer it.
+   */
+  priorAnalysisLoad?: PriorAnalysisLoad | undefined;
   schemaVersion: string;
   /** Observed optimistic lock of the revision or temporary workspace. */
   lockVersion: number;
@@ -195,6 +206,14 @@ export const AI_PREFLIGHT_FAILED =
   "ARC could not prepare the AI analysis. No AI allowance was used.";
 export const AI_APPLY_FAILED =
   "ARC could not apply the AI analysis, so nothing was changed. Please try again.";
+/** Safe decline: a structurally unsafe re-analysis is expected, never a crash. */
+export const AI_REANALYSIS_DECLINED =
+  "The latest AI analysis described this contract differently, so ARC did not apply it. Your existing analysis has been preserved.";
+export const AI_REANALYSIS_SOURCE_CHANGED =
+  "The selected documents are not the ones this analysis is based on, so ARC did not apply a new AI analysis. Your existing analysis has been preserved.";
+/** Persisted failure codes for the two safe-decline conditions. */
+export const AI_REANALYSIS_DECLINED_CODE = "reanalysis_declined";
+export const AI_REANALYSIS_SOURCE_CHANGED_CODE = "reanalysis_source_changed";
 
 /* ------------------------------------------------------------ execution */
 
@@ -374,6 +393,21 @@ export async function executeAiRunHandler(
     // is reused verbatim for the apply argument and the applied sidecar state.
     const currentSourceSetFingerprint = await sourceFingerprintOf(sources);
 
+    /* ------------------------- changed-source decline, BEFORE any payment */
+    // A document set that is not the one the current analysis rests on can
+    // never be applied, so it is refused here: no allowance is reserved and
+    // the model is never contacted.
+    if (isChangedSourceReanalysis(context.aiState, currentSourceSetFingerprint)) {
+      await deps.store.markFailure({
+        runId: run.id,
+        failureStage: "preflight_ready",
+        category: "preflight",
+        code: AI_REANALYSIS_SOURCE_CHANGED_CODE,
+        safeMessage: AI_REANALYSIS_SOURCE_CHANGED,
+      });
+      return finish(deps, caller, run.id);
+    }
+
     /* ------------------------------ allowance, which also enters analyzing */
     const owner = ownerArgs(caller);
     const reservation = await deps.store.reserveAllowance({
@@ -444,6 +478,33 @@ export async function executeAiRunHandler(
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const latest = await deps.store.loadExecutionContext(caller);
+
+      /* ------------------------------------- Safe Re-analysis firewall */
+      // The single seam where a structurally unsafe result is refused. It
+      // mutates nothing: declining simply skips the merge and the apply, so
+      // canonical inputs, provenance, billing, the sidecar and
+      // `last_successful_run_id` all remain exactly as they were.
+      const safety = assessSafeReanalysis({
+        analysis: result.analysis,
+        priorAnalysis: latest.priorAnalysis ?? null,
+        priorAnalysisLoad: latest.priorAnalysisLoad,
+        currentDraft: latest.draft,
+        currentAiState: latest.aiState,
+        currentSourceSetFingerprint,
+      });
+      if (safety.outcome === "decline") {
+        await deps.store.markFailure({
+          runId: run.id,
+          failureStage: "applying",
+          category: "application",
+          code: AI_REANALYSIS_DECLINED_CODE,
+          safeMessage:
+            safety.reason === "source_changed"
+              ? AI_REANALYSIS_SOURCE_CHANGED
+              : AI_REANALYSIS_DECLINED,
+        });
+        return finish(deps, caller, run.id);
+      }
 
       let merged;
       try {
