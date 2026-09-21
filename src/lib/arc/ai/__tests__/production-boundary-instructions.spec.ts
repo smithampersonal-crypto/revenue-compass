@@ -90,7 +90,7 @@ describe("production execution boundary instructions", () => {
     expect(instructions).toContain("ARC owns the excerpt");
     expect(instructions).toContain("never contain more than 3 ids");
     expect(instructions).toContain(
-      "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
+      "anchorIds is an explicit ordered list of every cited text segment, NOT a [start, end] range",
     );
     expect(instructions).toContain('["P0001-S0015","P0001-S0016","P0001-S0017"]');
     expect(instructions).toContain('["P0001-S0015","P0001-S0017"] is invalid');
@@ -135,9 +135,9 @@ describe("production execution boundary instructions", () => {
       "When the evidence does show that such an item transfers an additional distinct good or service, conclude it is a separate performance obligation",
     );
 
-    // The v7 anchor-enumeration rule survives the v8 bump.
+    // The anchor-enumeration rule survives the v9 bump.
     expect(instructions).toContain(
-      "anchorIds is an explicit list of every selected anchor, NOT a start/end range",
+      "anchorIds is an explicit ordered list of every cited text segment, NOT a [start, end] range",
     );
   });
 
