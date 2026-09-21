@@ -28,11 +28,11 @@ ARC turns a SaaS contract into a structured ASC 606 workpaper:
 
 ARC uses distinct responsibilities rather than treating AI as an accounting engine.
 
-| Responsibility | Owner |
-| --- | --- |
-| Extract and interpret contract language | AI, subject to structured output and citation validation |
-| Calculate allocation, recognition, balances, and journal entries | Deterministic TypeScript engines |
-| Approve judgments, resolve uncertainty, and finalize the analysis | Accountant |
+| Responsibility                                                    | Owner                                                    |
+| ----------------------------------------------------------------- | -------------------------------------------------------- |
+| Extract and interpret contract language                           | AI, subject to structured output and citation validation |
+| Calculate allocation, recognition, balances, and journal entries  | Deterministic TypeScript engines                         |
+| Approve judgments, resolve uncertainty, and finalize the analysis | Accountant                                               |
 
 The AI boundary expressly excludes revenue schedules, allocation results, journal entries, and internal record identifiers. Those outputs are derived by tested application logic after the contract facts and judgments have been structured.
 
