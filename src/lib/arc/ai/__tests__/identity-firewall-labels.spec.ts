@@ -414,11 +414,16 @@ describe("the historical object fingerprint stays contained", () => {
     };
   }
 
-  it("may flag historical object provenance as user-modified after a name-only edit", () => {
+  it("flags historical object provenance as user-modified after a name-only edit", () => {
     const first = run(fixtureAAnalysis());
     const second = run(relabelled(), renamedByAccountant(first), first.aiState, RUN_2);
-    // Whatever the historical fingerprint concludes, it is provenance only.
-    expect(typeof second.aiState.objectProvenance["po:saas"]?.userModified).toBe("boolean");
+    // Intentional historical behavior: `name` is still part of poFingerprintValue,
+    // so a name-only edit marks the OBJECT as user-modified. This is provenance
+    // only — the tests below prove it changes no identity, topology, structural
+    // mutation, review conclusion or applied AI-owned economics.
+    const provenance = second.aiState.objectProvenance["po:saas"];
+    expect(provenance?.userModified).toBe(true);
+    expect(provenance?.state).toBe("ai_generated_user_edited");
   });
 
   it("protects the accountant's label through field-level provenance", () => {

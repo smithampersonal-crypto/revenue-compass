@@ -988,6 +988,85 @@ describe("the composite Phase 5C modification target", () => {
       }),
     ).toEqual([]);
   });
+
+  describe("the modified performance obligation's presentation name", () => {
+    function draftWithModifiedPo(): WorkflowDraft {
+      const draft = draftWithModification();
+      draft.contractModifications[0]!.modifiedPerformanceObligations = [
+        {
+          ...createModifiedPoDraft(1, `${MOD_ID}-po-1`),
+          name: "Hosted platform access",
+          remainingGoodsDistinctFromTransferred: true,
+          remainingSspInput: "40000",
+          recognitionMethod: "over_time_ratable",
+        },
+      ];
+      return draft;
+    }
+
+    function reconcileFrom(mutate: (draft: WorkflowDraft) => void) {
+      const previous = draftWithModifiedPo();
+      const next = structuredClone(previous);
+      mutate(next);
+      const resolved = reviewItem({
+        id: "rev-5c-name",
+        targetKey: target,
+        state: "resolved",
+        resolution: {
+          kind: "affirmed",
+          at: NOW,
+          method: "individual",
+          reviewFingerprint: "rf-5c-name",
+        },
+        reviewFingerprint: "rf-5c-name",
+      });
+      return reconcileAiEdits({
+        previousDraft: previous,
+        nextDraft: next,
+        currentAiState: { ...createEmptyAiAnalysisState(), reviewItems: [resolved] },
+      });
+    }
+
+    it("does not move the material fingerprint when only the name changes", () => {
+      const previous = draftWithModifiedPo();
+      const next = structuredClone(previous);
+      next.contractModifications[0]!.modifiedPerformanceObligations[0]!.name =
+        "Accountant's workpaper label";
+      expect(canonicalReviewTargetFingerprint(next, target)).toBe(
+        canonicalReviewTargetFingerprint(previous, target),
+      );
+    });
+
+    it("does not reopen or clear the resolution on a name-only change", () => {
+      const result = reconcileFrom((draft) => {
+        draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.name =
+          "Accountant's workpaper label";
+      });
+      expect(result.reviewEvents.map((event) => event.type)).toEqual([]);
+      const item = result.aiState.reviewItems[0]!;
+      expect(item.state).toBe("resolved");
+      expect(item.resolution?.reviewFingerprint).toBe("rf-5c-name");
+    });
+
+    it("still reopens when a genuinely material nested field changes", () => {
+      for (const mutate of [
+        (draft: WorkflowDraft) => {
+          draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.remainingSspInput =
+            "55000";
+        },
+        (draft: WorkflowDraft) => {
+          draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.remainingGoodsDistinctFromTransferred = false;
+        },
+        (draft: WorkflowDraft) => {
+          draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.recognitionMethod =
+            "point_in_time";
+        },
+      ]) {
+        const result = reconcileFrom(mutate);
+        expect(result.reviewEvents.map((event) => event.type)).toEqual(["review_item_reopened"]);
+      }
+    });
+  });
 });
 
 describe("nested variable-consideration meter provenance", () => {
