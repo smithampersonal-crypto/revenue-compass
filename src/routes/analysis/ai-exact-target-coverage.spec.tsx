@@ -394,7 +394,8 @@ describe("inline markers and provenance on real accounting controls", () => {
       const anchor = container.querySelector(
         `#${CSS.escape(reviewTargetAnchorId(`billing:${BILLING}.invoiceDate`))}`,
       );
-      expect(anchor?.textContent).toContain("AI drafted");
+      expect(anchor?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
+      expect(anchor?.textContent).not.toContain("AI drafted");
     });
   });
 
@@ -442,13 +443,14 @@ describe("inline markers and provenance on real accounting controls", () => {
       const anchor = container.querySelector(
         `#${CSS.escape(reviewTargetAnchorId(`vc:${VC_ESTIMATED}.treatment`))}`,
       );
-      expect(anchor?.textContent).toContain("AI drafted · edited");
+      expect(anchor?.querySelector('[aria-label="AI drafted · edited"]')).not.toBeNull();
+      expect(anchor?.textContent).not.toContain("AI drafted · edited");
     });
     const anchor = container.querySelector(
       `#${CSS.escape(reviewTargetAnchorId(`vc:${VC_ESTIMATED}.treatment`))}`,
     )!;
     // The unrelated object badge must not leak into the field boundary.
-    expect(anchor.querySelector("span")?.textContent).not.toBe("AI drafted");
+    expect(anchor.querySelector('[aria-label="AI drafted"]')).toBeNull();
   });
 });
 
@@ -482,8 +484,10 @@ describe("deterministic AI meter fields are presented individually", () => {
     });
     const { container } = renderArea();
     await waitFor(() => {
-      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
-      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited");
+      expect(anchorOf(container, RATE)?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
+      expect(
+        anchorOf(container, UNIT)?.querySelector('[aria-label="AI drafted · edited"]'),
+      ).not.toBeNull();
     });
     expect(anchorOf(container, RATE)!.textContent).not.toContain("edited");
   });
@@ -498,7 +502,7 @@ describe("deterministic AI meter fields are presented individually", () => {
     const { container } = renderArea();
     await waitFor(() => {
       expect(anchorOf(container, UNIT)?.textContent).toContain("Your value preserved");
-      expect(anchorOf(container, RATE)?.textContent).toContain("AI drafted");
+      expect(anchorOf(container, RATE)?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
     });
   });
 
@@ -544,7 +548,9 @@ describe("deterministic AI meter fields are presented individually", () => {
     });
     const { container } = renderArea();
     await waitFor(() =>
-      expect(anchorOf(container, UNIT)?.textContent).toContain("AI drafted · edited"),
+      expect(
+        anchorOf(container, UNIT)?.querySelector('[aria-label="AI drafted · edited"]'),
+      ).not.toBeNull(),
     );
 
     for (const key of [
@@ -560,6 +566,6 @@ describe("deterministic AI meter fields are presented individually", () => {
     const anchor = anchorOf(container, UNIT) as HTMLElement;
     expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
     expect(container.querySelectorAll("[data-ai-review-target]").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("AI drafted · edited").length).toBe(1);
+    expect(screen.getAllByLabelText("AI drafted · edited")).toHaveLength(1);
   });
 });

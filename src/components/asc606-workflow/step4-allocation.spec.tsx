@@ -37,6 +37,10 @@ describe("Step 4 allocation presentation", () => {
       screen.getByRole("heading", { name: "Transaction Price Allocation" }),
     ).toBeInTheDocument();
     expect(screen.queryByText("Engine allocation (read-only)")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Final Allocation at Inception" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Final allocation at inception \(read-only\)/i)).toBeNull();
     expect(screen.queryByLabelText("SSP (USD) — Hosted SaaS Access")).toBeNull();
 
     const sspTarget = document.querySelector('[data-ai-review-target="po:po-saas.sspInput"]');

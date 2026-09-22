@@ -90,7 +90,8 @@ describe("Phase 3 — Revenue Schedule", () => {
     const result = analyzeWorkflow(createDemoDraft("apex"));
     expect(result.revenueSchedule).not.toBeNull();
     await renderAt("/analysis/schedule?sample=apex");
-    expect(await screen.findByText("Revenue schedule (engine output)")).toBeInTheDocument();
+    expect(await screen.findByText("Revenue Schedule")).toBeInTheDocument();
+    expect(screen.queryByText(/Revenue schedule \(engine output\)/i)).toBeNull();
     expect(
       screen.getAllByText(formatCents(result.revenueSchedule!.totalCents)).length,
     ).toBeGreaterThan(0);
@@ -138,10 +139,12 @@ describe("Phase 3 — supporting engine output", () => {
     const result = analyzeWorkflow(draft);
     expect(result.variableConsideration).not.toBeNull();
     render(<RevenueScheduleView draft={draft} result={result} />);
-    expect(screen.getByText("Variable consideration (engine output)")).toBeInTheDocument();
+    expect(screen.getByText("Variable Consideration")).toBeInTheDocument();
+    expect(screen.getByText("Allocation Layers")).toBeInTheDocument();
+    expect(screen.queryByText(/\(engine output\)/i)).toBeNull();
     // Reconciliation is centralized in Review & Finalize.
     expect(
-      screen.queryByText("Variable-consideration reconciliation (engine output)"),
+      screen.queryByText("Variable-Consideration Reconciliation"),
     ).not.toBeInTheDocument();
   });
 
@@ -152,7 +155,7 @@ describe("Phase 3 — supporting engine output", () => {
       <ReviewFinalizeView result={wp.workflow} balances={wp.balances} journals={wp.journals} />,
     );
     expect(
-      screen.getByText("Variable-consideration reconciliation (engine output)"),
+      screen.getByText("Variable-Consideration Reconciliation"),
     ).toBeInTheDocument();
   });
 
@@ -161,7 +164,8 @@ describe("Phase 3 — supporting engine output", () => {
     const result = analyzeWorkflow(draft);
     expect(result.lifecycle).not.toBeNull();
     render(<RevenueScheduleView draft={draft} result={result} />);
-    expect(screen.getByText("Material rights (engine output)")).toBeInTheDocument();
+    expect(screen.getByText("Material Rights")).toBeInTheDocument();
+    expect(screen.queryByText(/Material rights \(engine output\)/i)).toBeNull();
     expect(screen.getByText("Customer renewal option")).toBeInTheDocument();
     expect(screen.getByText("80.00%")).toBeInTheDocument();
   });
@@ -170,7 +174,7 @@ describe("Phase 3 — supporting engine output", () => {
 describe("Phase 3 — Contract Modification detail", () => {
   it("renders the detailed modification output exactly once, inside Additional Topics", async () => {
     await renderAt("/analysis?sample=meridian");
-    const headings = screen.getAllByText("Contract modification results (engine output)");
+    const headings = screen.getAllByText("Contract Modification Results");
     expect(headings).toHaveLength(1);
     const topic = document.getElementById("topic-modifications");
     expect(topic).not.toBeNull();
@@ -183,13 +187,14 @@ describe("Phase 3 — Contract Modification detail", () => {
 describe("Phase 3 — Contract Balances", () => {
   it("renders ordinary engine balance output", async () => {
     await renderAt("/analysis/balances?sample=horizon");
-    expect(await screen.findByText("Billing schedule (engine output)")).toBeInTheDocument();
-    expect(screen.getByText("Contract-balance reconciliation (engine output)")).toBeInTheDocument();
+    expect(await screen.findByText("Billing Schedule")).toBeInTheDocument();
+    expect(screen.getByText("Contract-Balance Reconciliation")).toBeInTheDocument();
+    expect(screen.queryByText(/\(engine output\)/i)).toBeNull();
   });
 
   it("shows separate group balances plus a gross combined presentation", async () => {
     await renderAt("/analysis/balances?sample=meridian");
-    const combined = await screen.findByText("Combined contract balances — gross presentation");
+    const combined = await screen.findByText("Combined Contract Balances — Gross Presentation");
     expect(combined).toBeInTheDocument();
     expect(screen.getByText(/Contract asset \(gross\)/)).toBeInTheDocument();
     expect(screen.getByText(/Contract liability \(gross\)/)).toBeInTheDocument();
@@ -213,7 +218,7 @@ describe("Phase 3 — Contract Balances", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(1);
+    expect(screen.getAllByText("Billing Schedule")).toHaveLength(1);
   });
 
   it("renders one billing schedule per engine group for Meridian", async () => {
@@ -228,7 +233,7 @@ describe("Phase 3 — Contract Balances", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getAllByText("Billing schedule (engine output)")).toHaveLength(
+    expect(screen.getAllByText("Billing Schedule")).toHaveLength(
       balances.grouped!.groups.length,
     );
   });
@@ -278,7 +283,7 @@ describe("Phase 3 — Journal Entries", () => {
     await renderAt("/analysis/journals?sample=meridian");
     const grouped = await screen.findAllByText(/Journal Entries — /);
     expect(grouped.length).toBeGreaterThan(1);
-    const reconciliation = screen.getByText("Combined journal reconciliation");
+    const reconciliation = screen.getByText("Combined Journal Reconciliation");
     expect(reconciliation).toBeInTheDocument();
     expect(screen.getByText("Overall grouped reconciliation")).toBeInTheDocument();
   });
@@ -296,7 +301,9 @@ describe("Phase 3 — Journal Entries", () => {
 describe("Phase 3 — Review & Finalize", () => {
   it("shows validation and reconciliation status in one place", async () => {
     await renderAt("/analysis/review?sample=horizon");
-    expect(await screen.findByText("Engine validation")).toBeInTheDocument();
+    expect(await screen.findByText("Validation Checks")).toBeInTheDocument();
+    expect(screen.getByText("Validation Checks Passed")).toBeInTheDocument();
+    expect(screen.queryByText(/Engine validation/i)).toBeNull();
     expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Billing and contract-balance workpaper")).toBeInTheDocument();
   });
