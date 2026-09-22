@@ -76,7 +76,9 @@ function legacyAnalysis(): AiContractAnalysis {
 
 function spans(analysis: AiContractAnalysis, kind: "promise" | "po") {
   const citations =
-    kind === "promise" ? analysis.promises[0]!.citations : analysis.performanceObligations[0]!.citations;
+    kind === "promise"
+      ? analysis.promises[0]!.citations
+      : analysis.performanceObligations[0]!.citations;
   return citations.map((citation) => ({
     documentId: citation.documentId,
     pageStart: citation.pageStart,
@@ -181,14 +183,19 @@ describe("identity facts and signatures ignore presentation labels", () => {
   it("produces identical identity signatures across label variants", () => {
     expect(promiseSignatureOf(relabelled())).toEqual(promiseSignatureOf(fixtureAAnalysis()));
     expect(poSignatureOf(relabelled())).toEqual(poSignatureOf(fixtureAAnalysis()));
-    expect(signaturesIdentify(promiseSignatureOf(relabelled()), promiseSignatureOf(fixtureAAnalysis()))).toBe(
+    expect(
+      signaturesIdentify(promiseSignatureOf(relabelled()), promiseSignatureOf(fixtureAAnalysis())),
+    ).toBe(true);
+    expect(signaturesIdentify(poSignatureOf(relabelled()), poSignatureOf(fixtureAAnalysis()))).toBe(
       true,
     );
-    expect(signaturesIdentify(poSignatureOf(relabelled()), poSignatureOf(fixtureAAnalysis()))).toBe(true);
   });
 
   it("puts neither the promise displayName nor the obligation name into a signature", () => {
-    const serialized = JSON.stringify([promiseSignatureOf(relabelled()), poSignatureOf(relabelled())]);
+    const serialized = JSON.stringify([
+      promiseSignatureOf(relabelled()),
+      poSignatureOf(relabelled()),
+    ]);
     expect(serialized).not.toContain(OTHER_PROMISE_LABEL);
     expect(serialized).not.toContain(OTHER_PO_LABEL);
   });
@@ -211,9 +218,9 @@ describe("label-only drift keeps exact canonical matching", () => {
     const second = run(relabelled(), first.draft, first.aiState, RUN_2);
     expect(second.draft.promises).toHaveLength(1);
     expect(second.draft.performanceObligations).toHaveLength(1);
-    expect(new Set(Object.values(second.aiState.objectProvenance).map((p) => p.canonicalId)).size).toBe(
-      new Set(Object.values(first.aiState.objectProvenance).map((p) => p.canonicalId)).size,
-    );
+    expect(
+      new Set(Object.values(second.aiState.objectProvenance).map((p) => p.canonicalId)).size,
+    ).toBe(new Set(Object.values(first.aiState.objectProvenance).map((p) => p.canonicalId)).size);
   });
 
   it("leaves every economic value in the canonical draft unchanged", () => {
@@ -343,7 +350,9 @@ describe("tombstones are unaffected by presentation labels", () => {
     };
     const labelled = run(relabelled(), deleted, first.aiState, RUN_2);
     const unlabelled = run(fixtureAAnalysis(), deleted, first.aiState, RUN_2);
-    expect([...labelled.aiState.tombstones].sort()).toEqual([...unlabelled.aiState.tombstones].sort());
+    expect([...labelled.aiState.tombstones].sort()).toEqual(
+      [...unlabelled.aiState.tombstones].sort(),
+    );
     expect(topology(labelled.draft)).toEqual(topology(unlabelled.draft));
   });
 });
