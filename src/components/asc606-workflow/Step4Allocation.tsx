@@ -4,12 +4,13 @@ import { formatBasisPoints, materialRightSspCents } from "@/lib/asc606-material-
 import {
   parsePercentToBps,
   parseUsdToCents,
+  performanceObligationDisplayLabel,
   previewAllocation,
   type PoDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, Notice, Section, td, th } from "./fields";
+import { Field, inputClass, IssueList, NarrativeTextarea, Notice, Section, td, th } from "./fields";
 
 /** Display-only helper: the estimated SSP is calculated by the engine. */
 function estimatedMaterialRightSsp(po: PoDraft): string {
@@ -49,7 +50,9 @@ export function Step4Allocation({
         {pos.map((po) =>
           po.kind === "material_right" ? (
             <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
-              <p className="text-sm font-semibold">{po.name || `PO ${po.seq}`} — material right</p>
+              <p className="text-sm font-semibold">
+                {performanceObligationDisplayLabel(po)} — Material Right
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Economic benefit of the option (USD)">
                   <input
@@ -68,10 +71,8 @@ export function Step4Allocation({
                   />
                 </Field>
               </div>
-              <Field label="SSP basis / documentation">
-                <textarea
-                  className={inputClass}
-                  rows={2}
+              <Field label="SSP Basis / Documentation">
+                <NarrativeTextarea
                   value={po.sspBasis}
                   onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
                 />
@@ -82,39 +83,40 @@ export function Step4Allocation({
               </p>
             </div>
           ) : (
-            <div
-              key={po.id}
-              className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
-            >
-              <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
-                <Field label={`SSP (USD) — ${po.name || `PO ${po.seq}`}`}>
-                  <input
-                    className={inputClass}
-                    inputMode="decimal"
-                    value={po.sspInput}
-                    onChange={(e) => patch(po.id, { sspInput: e.target.value })}
-                  />
-                </Field>
-              </AiReviewTarget>
-              <AiReviewTarget targetKey={`po:${po.id}.sspBasis`}>
-                <Field label="SSP basis / documentation">
-                  <textarea
-                    className={inputClass}
-                    rows={2}
-                    value={po.sspBasis}
-                    onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
-                  />
-                </Field>
-              </AiReviewTarget>
+            <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
+              <p className="text-sm font-semibold">{performanceObligationDisplayLabel(po)}</p>
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+                <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
+                  <Field label="SSP (USD)">
+                    <input
+                      className={inputClass}
+                      inputMode="decimal"
+                      value={po.sspInput}
+                      onChange={(e) => patch(po.id, { sspInput: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+                <AiReviewTarget targetKey={`po:${po.id}.sspBasis`}>
+                  <Field label="SSP Basis / Documentation">
+                    <NarrativeTextarea
+                      value={po.sspBasis}
+                      onChange={(e) => patch(po.id, { sspBasis: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
+              </div>
             </div>
           ),
         )}
 
-        <h3 className="text-sm font-semibold">
-          {preview.variable
-            ? "Engine allocation — general (relative SSP) layer (read-only)"
-            : "Engine allocation (read-only)"}
-        </h3>
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">Transaction Price Allocation</h3>
+          <p className="text-xs text-muted-foreground">
+            {preview.variable
+              ? "Deterministically calculated from the accountant's inputs. This table shows the general relative-SSP layer before any applicable specific allocation below and is not directly editable."
+              : "Deterministically calculated from the accountant's inputs and not directly editable."}
+          </p>
+        </div>
         {preview.rows ? (
           <table className="w-full border-collapse text-sm">
             <thead>

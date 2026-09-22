@@ -28,7 +28,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, JudgmentControl, Notice, Section, inputClass } from "./fields";
+import { Field, JudgmentControl, NarrativeTextarea, Notice, Section, inputClass } from "./fields";
 
 const SCOPE_EFFECTS: { value: ScopeEffect; label: string }[] = [
   { value: "unchanged", label: "Unchanged — same goods or services at the same price" },
@@ -216,9 +216,7 @@ export function ContractModifications({
                     />
                   </AiReviewTarget>
                   <Field label="Approval and enforceability rationale">
-                    <textarea
-                      className={inputClass}
-                      rows={2}
+                    <NarrativeTextarea
                       value={mod.approvalRationale}
                       onChange={(e) => setMod(mod.id, { approvalRationale: e.target.value })}
                     />
@@ -226,9 +224,7 @@ export function ContractModifications({
 
                   <AiReviewTarget targetKey={`modification:${mod.id}.scopeChangeDescription`}>
                     <Field label="Description of the change in scope, price, or both">
-                      <textarea
-                        className={inputClass}
-                        rows={2}
+                      <NarrativeTextarea
                         value={mod.scopeChangeDescription}
                         onChange={(e) => setMod(mod.id, { scopeChangeDescription: e.target.value })}
                       />
@@ -244,9 +240,7 @@ export function ContractModifications({
                     />
                   </AiReviewTarget>
                   <Field label="Rationale for the standalone-selling-price conclusion">
-                    <textarea
-                      className={inputClass}
-                      rows={2}
+                    <NarrativeTextarea
                       value={mod.priceReflectsSspRationale}
                       onChange={(e) =>
                         setMod(mod.id, { priceReflectsSspRationale: e.target.value })
@@ -281,9 +275,7 @@ export function ContractModifications({
                       </select>
                     </Field>
                     <Field label="Allocation policy rationale">
-                      <textarea
-                        className={inputClass}
-                        rows={2}
+                      <NarrativeTextarea
                         value={mod.mixedAllocationPolicyRationale}
                         onChange={(e) =>
                           setMod(mod.id, { mixedAllocationPolicyRationale: e.target.value })
@@ -498,9 +490,7 @@ export function ContractModifications({
                               }
                             />
                             <Field label="Added-goods distinctness rationale">
-                              <textarea
-                                className={inputClass}
-                                rows={2}
+                              <NarrativeTextarea
                                 value={po.addedGoodsDistinctnessRationale}
                                 onChange={(e) =>
                                   setPo(mod.id, po.id, {
@@ -521,9 +511,7 @@ export function ContractModifications({
                           }
                         />
                         <Field label="Remaining-goods distinctness rationale">
-                          <textarea
-                            className={inputClass}
-                            rows={2}
+                          <NarrativeTextarea
                             value={po.remainingDistinctnessRationale}
                             onChange={(e) =>
                               setPo(mod.id, po.id, {
@@ -533,9 +521,7 @@ export function ContractModifications({
                           />
                         </Field>
                         <Field label="Recognition rationale">
-                          <textarea
-                            className={inputClass}
-                            rows={2}
+                          <NarrativeTextarea
                             value={po.recognitionRationale}
                             onChange={(e) =>
                               setPo(mod.id, po.id, { recognitionRationale: e.target.value })

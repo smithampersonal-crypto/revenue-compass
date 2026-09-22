@@ -95,6 +95,14 @@
 - [x] Add the three approved Horizon presentation labels without changing detailed interpretations or economics
 - [x] Run focused and full verification, inspect the diff, package the clean repository, and stop before 2C-E
 
+## Package 2C-E — Narrative Fields + Step 4
+
+- [x] Add one controlled auto-growing workflow narrative textarea with a compact minimum and 304px cap
+- [x] Apply it only to the approved accounting narrative and documentation fields
+- [x] Give each Step 4 obligation one concise heading and aligned SSP/documentation controls
+- [x] Rename only the primary Step 4 result heading to Transaction Price Allocation
+- [x] Run focused and full verification, live-check Horizon, package the clean repository, and stop before 2C-F
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall

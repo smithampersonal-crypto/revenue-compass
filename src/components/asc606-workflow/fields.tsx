@@ -1,4 +1,11 @@
-import type { ReactNode } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from "react";
 
 import type { Judgment } from "@/lib/asc606-workflow";
 
@@ -7,6 +14,64 @@ export const inputClass =
 export const th =
   "border-b border-border bg-muted/70 px-3 py-2 text-left text-xs font-semibold text-muted-foreground";
 export const td = "border-b border-border/70 px-3 py-2 align-top tabular-nums";
+
+export const NARRATIVE_TEXTAREA_MAX_HEIGHT = 304;
+const NARRATIVE_TEXTAREA_MIN_HEIGHT = 72;
+
+/** Controlled textarea for accounting narratives; display sizing never changes its value. */
+export const NarrativeTextarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function NarrativeTextarea({ className, rows = 2, style, value, ...props }, forwardedRef) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const measuredWidthRef = useRef<number | null>(null);
+
+  const resize = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    const nextHeight = Math.max(
+      NARRATIVE_TEXTAREA_MIN_HEIGHT,
+      Math.min(textarea.scrollHeight, NARRATIVE_TEXTAREA_MAX_HEIGHT),
+    );
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY =
+      textarea.scrollHeight > NARRATIVE_TEXTAREA_MAX_HEIGHT ? "auto" : "hidden";
+  }, []);
+
+  useLayoutEffect(() => {
+    resize();
+  }, [resize, value]);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea || typeof ResizeObserver === "undefined") return;
+    measuredWidthRef.current = textarea.getBoundingClientRect().width;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width === undefined || width === measuredWidthRef.current) return;
+      measuredWidthRef.current = width;
+      resize();
+    });
+    observer.observe(textarea);
+    return () => observer.disconnect();
+  }, [resize]);
+
+  return (
+    <textarea
+      {...props}
+      ref={(node) => {
+        textareaRef.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      }}
+      rows={rows}
+      value={value}
+      className={`${inputClass} resize-none ${className ?? ""}`}
+      style={{ ...style, minHeight: NARRATIVE_TEXTAREA_MIN_HEIGHT }}
+    />
+  );
+});
 
 export function Field({
   label,

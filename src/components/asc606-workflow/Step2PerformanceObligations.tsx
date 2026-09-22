@@ -15,7 +15,7 @@ import {
   type WorkflowIssue,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, Notice, Section } from "./fields";
+import { Field, inputClass, IssueList, NarrativeTextarea, Notice, Section } from "./fields";
 
 const CLASSIFICATIONS: PoClassification[] = ["single_distinct", "bundle_not_distinct", "series"];
 
@@ -147,9 +147,7 @@ export function Step2PerformanceObligations({
               ) : (
                 <AiReviewTarget targetKey={`po:${po.id}.classificationRationale`}>
                   <Field label="Classification rationale">
-                    <textarea
-                      className={inputClass}
-                      rows={2}
+                    <NarrativeTextarea
                       value={po.classificationRationale}
                       onChange={(e) => patch(po.id, { classificationRationale: e.target.value })}
                     />

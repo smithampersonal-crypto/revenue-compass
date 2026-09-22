@@ -44,6 +44,11 @@ describe("Step 2 display labels", () => {
     expect(descriptionTarget).not.toBeNull();
     if (!nameTarget || !descriptionTarget) return;
 
+    expect(
+      within(descriptionTarget as HTMLElement).getByLabelText("Description / Interpretation")
+        .tagName,
+    ).toBe("TEXTAREA");
+
     fireEvent.change(within(nameTarget as HTMLElement).getByLabelText("Name"), {
       target: { value: "Cloud Access" },
     });
