@@ -301,8 +301,10 @@ function byIdentity(value: unknown, fields: readonly string[]): Row[] {
     .map((row) => pick((row ?? {}) as Row, fields))
     .sort((a, b) => String(a["id"] ?? "").localeCompare(String(b["id"] ?? "")));
 }
+// `name` is deliberately absent: the modified-PO name is a presentation /
+// workpaper label (Package 2C). A label-only change must never move the
+// material accounting-review fingerprint or reopen a resolved review item.
 const MODIFIED_PO_FIELDS = [
-  "name",
   "status",
   "sourcePoId",
   "scopeEffect",
