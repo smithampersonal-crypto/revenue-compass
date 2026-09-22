@@ -144,9 +144,7 @@ describe("Phase 3 — supporting engine output", () => {
     expect(screen.getByText("Allocation Layers")).toBeInTheDocument();
     expect(screen.queryByText(/\(engine output\)/i)).toBeNull();
     // Reconciliation is centralized in Review & Finalize.
-    expect(
-      screen.queryByText("Variable-Consideration Reconciliation"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Variable-Consideration Reconciliation")).not.toBeInTheDocument();
   });
 
   it("keeps variable-consideration reconciliation in Review & Finalize", () => {
@@ -155,9 +153,7 @@ describe("Phase 3 — supporting engine output", () => {
     render(
       <ReviewFinalizeView result={wp.workflow} balances={wp.balances} journals={wp.journals} />,
     );
-    expect(
-      screen.getByText("Variable-Consideration Reconciliation"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Variable-Consideration Reconciliation")).toBeInTheDocument();
   });
 
   it("retains the material-right lifecycle output on the Revenue Schedule", () => {
@@ -234,9 +230,7 @@ describe("Phase 3 — Contract Balances", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getAllByText("Billing Schedule")).toHaveLength(
-      balances.grouped!.groups.length,
-    );
+    expect(screen.getAllByText("Billing Schedule")).toHaveLength(balances.grouped!.groups.length);
   });
 
   it("renders each balance blocking issue exactly once when blocked", () => {

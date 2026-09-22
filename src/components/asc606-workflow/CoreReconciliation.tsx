@@ -10,7 +10,7 @@ import { Notice, Section, td } from "./fields";
 export function CoreReconciliation({ analysis }: { analysis: WorkflowAnalysisResult["analysis"] }) {
   if (!analysis) {
     return (
-        <Section title="ASC 606 Reconciliation">
+      <Section title="ASC 606 Reconciliation">
         <Notice tone="warning">
           No reconciliation is available until the outstanding analysis items are resolved.
         </Notice>
