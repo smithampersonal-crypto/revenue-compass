@@ -127,8 +127,8 @@
 
 ## Package 2C-F.1 — Inline Provenance Presentation Refinement
 
-- [ ] Move ordinary field provenance into Field and JudgmentControl label lines through fail-safe exact-target context
-- [ ] Suppress only ordinary object-level provenance presentation while retaining object review markers
-- [ ] Keep the discovered material-right provenance coverage gaps unchanged and report their exact affected inputs
-- [ ] Add the single conditional workspace legend and focused presentation regressions
-- [ ] Run focused and full verification, smoke-test Horizon Step 2, package the clean repository, and stop before 2C-H
+- [x] Move ordinary field provenance into Field and JudgmentControl label lines through fail-safe exact-target context
+- [x] Suppress only ordinary object-level provenance presentation while retaining object review markers
+- [x] Keep the discovered material-right provenance coverage gaps unchanged and report their exact affected inputs
+- [x] Add the single conditional workspace legend and focused presentation regressions
+- [x] Run focused and full verification, smoke-test Horizon Step 2, package the clean repository, and stop before 2C-H
