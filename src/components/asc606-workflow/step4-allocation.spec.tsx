@@ -33,7 +33,9 @@ describe("Step 4 allocation presentation", () => {
     const state = mount(initial);
 
     expect(screen.getByText("Hosted SaaS Access · 7/1/2027–6/30/2028")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Transaction Price Allocation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Transaction Price Allocation" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Engine allocation (read-only)")).toBeNull();
     expect(screen.queryByLabelText("SSP (USD) — Hosted SaaS Access")).toBeNull();
 

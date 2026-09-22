@@ -45,7 +45,8 @@ describe("Step 2 display labels", () => {
     if (!nameTarget || !descriptionTarget) return;
 
     expect(
-      within(descriptionTarget as HTMLElement).getByLabelText("Description / Interpretation").tagName,
+      within(descriptionTarget as HTMLElement).getByLabelText("Description / Interpretation")
+        .tagName,
     ).toBe("TEXTAREA");
 
     fireEvent.change(within(nameTarget as HTMLElement).getByLabelText("Name"), {

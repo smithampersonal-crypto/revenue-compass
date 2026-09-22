@@ -42,7 +42,9 @@ describe("NarrativeTextarea", () => {
             value={value}
             onChange={(event) => setValue(event.target.value)}
           />
-          <button type="button" onClick={() => setValue("Programmatically supplied long text")}>Fill</button>
+          <button type="button" onClick={() => setValue("Programmatically supplied long text")}>
+            Fill
+          </button>
         </>
       );
     }

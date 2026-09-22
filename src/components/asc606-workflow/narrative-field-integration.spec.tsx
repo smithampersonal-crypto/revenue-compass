@@ -47,7 +47,9 @@ describe("workflow narrative fields", () => {
     const notesTarget = document.querySelector('[data-ai-review-target="transactionPrice.notes"]');
     expect(notesTarget).not.toBeNull();
     if (!notesTarget) return;
-    const notes = within(notesTarget as HTMLElement).getByLabelText("Transaction price notes (optional)");
+    const notes = within(notesTarget as HTMLElement).getByLabelText(
+      "Transaction price notes (optional)",
+    );
     expect(notes.tagName).toBe("TEXTAREA");
     fireEvent.change(notes, { target: { value: "Detailed transaction-price support." } });
     expect(state.draft.transactionPriceNotes).toBe("Detailed transaction-price support.");
