@@ -30,10 +30,10 @@ export function JournalEntriesView({
   journals: ArcJournalSnapshot | null;
 }) {
   const sourceNames = new Map<string, string>([
+    ...result.revenueSources.map((source) => [source.id, source.name] as const),
     ...draft.performanceObligations.map(
       (po) => [po.id, performanceObligationDisplayLabel(po)] as const,
     ),
-    ...result.revenueSources.map((source) => [source.id, source.name] as const),
   ]);
 
   // Presentation only: which cash rows the accountant's recorded canonical

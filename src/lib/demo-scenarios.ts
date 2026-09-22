@@ -199,7 +199,7 @@ function redwood(): WorkflowDraft {
   const po = overTimePo(
     1,
     "po-saas",
-    "Hosted SaaS Access",
+    "SaaS subscription",
     "120,000.00",
     "2027-01-01",
     "2027-12-31",
@@ -218,7 +218,7 @@ function apex(): WorkflowDraft {
   const saas = overTimePo(
     1,
     "po-saas",
-    "SaaS subscription",
+    "Hosted SaaS Access",
     "120,000.00",
     "2027-01-01",
     "2027-12-31",
@@ -267,9 +267,27 @@ function horizon(): WorkflowDraft {
     transactionPriceInput: "153,000.00",
     transactionPriceNotes: "Fixed fee for the bundled subscription, training and premium support.",
     promises: [
-      distinctPromise(1, "promise-saas", "Hosted SaaS subscription", saas.id, "Hosted SaaS Access"),
-      distinctPromise(2, "promise-training", "Implementation training", training.id, "Implementation Training"),
-      distinctPromise(3, "promise-support", "Premium support services", support.id, "Premium Support"),
+      distinctPromise(
+        1,
+        "promise-saas",
+        "Hosted SaaS subscription",
+        saas.id,
+        "Hosted SaaS Access",
+      ),
+      distinctPromise(
+        2,
+        "promise-training",
+        "Implementation training",
+        training.id,
+        "Implementation Training",
+      ),
+      distinctPromise(
+        3,
+        "promise-support",
+        "Premium support services",
+        support.id,
+        "Premium Support",
+      ),
     ],
     performanceObligations: [saas, training, support],
     contractBalances: {
