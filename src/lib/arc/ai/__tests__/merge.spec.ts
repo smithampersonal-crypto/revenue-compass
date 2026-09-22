@@ -73,6 +73,8 @@ function manualEquivalent(): WorkflowDraft {
     promises: [
       {
         ...createPromiseDraft(1, PROMISE_ID),
+        // Package 2C-B: the additive presentation label.
+        displayName: "Hosted SaaS Access",
         description: "Annual hosted SaaS service",
         capableOfBeingDistinct: true,
         distinctWithinContractContext: true,
