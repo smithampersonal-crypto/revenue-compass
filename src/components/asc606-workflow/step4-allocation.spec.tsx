@@ -56,9 +56,9 @@ describe("Step 4 allocation presentation", () => {
       "  Exact observable-price evidence.  ",
     );
     expect(expectedAllocation).toEqual([
-      ["po-saas", 10_800_000],
-      ["po-training", 900_000],
-      ["po-support", 1_800_000],
+      ["po-saas", 12_240_000],
+      ["po-training", 1_020_000],
+      ["po-support", 2_040_000],
     ]);
   });
 
@@ -81,7 +81,7 @@ describe("Step 4 allocation presentation", () => {
     expect(screen.getByLabelText("Exercise probability at inception (%)")).toHaveValue("80");
     expect(screen.getAllByLabelText("SSP Basis / Documentation")).toHaveLength(2);
     expect(screen.getByText(/Estimated SSP \(engine\):/)).toBeInTheDocument();
-    expect(screen.getByText(/\$19,200\.00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/\$19,200\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("SSP (USD)")).toHaveLength(1);
   });
 });

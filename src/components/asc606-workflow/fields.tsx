@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useImperativeHandle,
   useLayoutEffect,
   useRef,
   type ReactNode,
@@ -26,8 +25,6 @@ export const NarrativeTextarea = forwardRef<
 >(function NarrativeTextarea({ className, rows = 2, style, value, ...props }, forwardedRef) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const measuredWidthRef = useRef<number | null>(null);
-
-  useImperativeHandle(forwardedRef, () => textareaRef.current as HTMLTextAreaElement);
 
   const resize = useCallback(() => {
     const textarea = textareaRef.current;
@@ -63,7 +60,11 @@ export const NarrativeTextarea = forwardRef<
   return (
     <textarea
       {...props}
-      ref={textareaRef}
+      ref={(node) => {
+        textareaRef.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      }}
       rows={rows}
       value={value}
       className={`${inputClass} resize-none ${className ?? ""}`}
