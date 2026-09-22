@@ -70,7 +70,7 @@ describe("formatting-only blur is not an accountant edit", () => {
     expect(within(target).getByLabelText("AI drafted")).toBeInTheDocument();
     expect(within(target).queryByLabelText("AI drafted · edited")).toBeNull();
 
-    const input = within(target).getByLabelText("Fixed consideration (USD)") as HTMLInputElement;
+    const input = within(target).getByLabelText(/Fixed consideration \(USD\)/) as HTMLInputElement;
     expect(input.value).toBe("505,001.96");
 
     fireEvent.focus(input);
@@ -90,7 +90,7 @@ describe("formatting-only blur is not an accountant edit", () => {
     const state = mountStep(Step3TransactionPrice, initial, (node) => (
       <AiReviewTargetProvider workspace={aiWorkspace}>{node}</AiReviewTargetProvider>
     ));
-    const input = screen.getByLabelText("Fixed consideration (USD)") as HTMLInputElement;
+    const input = screen.getByLabelText(/Fixed consideration \(USD\)/) as HTMLInputElement;
 
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "600000" } });
@@ -171,12 +171,13 @@ describe("eligible USD fields format on blur without changing their state paths"
     const base = createEmptyDraft();
     const initial: WorkflowDraft = {
       ...base,
+      hasContractModifications: true,
       contractModifications: [
         { ...createModificationDraft(1), considerationMagnitudeInput: "505001.96" },
       ],
     };
     const state = mountStep(ContractModifications, initial);
-    const input = screen.getByLabelText("Change in consideration (USD)") as HTMLInputElement;
+    const input = screen.getByLabelText(/Change in consideration \(USD\)/) as HTMLInputElement;
     expect(input.value).toBe("505,001.96");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "1.005" } });
