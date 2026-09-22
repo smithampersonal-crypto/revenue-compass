@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
 import { createDemoDraft } from "@/lib/demo-scenarios";
@@ -13,7 +13,7 @@ function mount(
   Component: (props: {
     draft: WorkflowDraft;
     onChange: (draft: WorkflowDraft) => void;
-  }) => React.ReactNode,
+  }) => ReactNode,
 ) {
   const initial = createDemoDraft("horizon");
   const state: { draft: WorkflowDraft } = { draft: initial };
