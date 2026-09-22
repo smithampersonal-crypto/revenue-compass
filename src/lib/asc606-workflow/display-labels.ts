@@ -56,9 +56,7 @@ export function promiseDisplayLabel(
   >[],
 ): string {
   const base = promiseBaseLabel(promise);
-  const assigned = performanceObligations.find(
-    (po) => po.id === promise.performanceObligationId,
-  );
+  const assigned = performanceObligations.find((po) => po.id === promise.performanceObligationId);
   const suffix = assigned ? recognitionSuffix(assigned) : null;
   return suffix ? `${base} · ${suffix}` : base;
 }

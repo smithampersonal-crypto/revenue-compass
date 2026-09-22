@@ -188,9 +188,7 @@ export function Step2PerformanceObligations({
               return (
                 <div key={promise.id} className="grid gap-2 sm:grid-cols-2 sm:items-center">
                   <div className="text-sm">
-                    <span className="font-medium">
-                      {promiseLabel}
-                    </span>
+                    <span className="font-medium">{promiseLabel}</span>
                     <span className="text-muted-foreground">
                       {" "}
                       —{" "}

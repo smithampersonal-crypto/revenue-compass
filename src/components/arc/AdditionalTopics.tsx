@@ -146,11 +146,9 @@ export function AdditionalTopics({
               ))}
               {materialRightPos.map((po) => (
                 <li key={po.id}>
-                  <span className="font-medium">
-                    {performanceObligationDisplayLabel(po)}
-                  </span>{" "}
-                  — material-right performance obligation (
-                  {po.materialRightStatus.replace(/_/g, " ")})
+                  <span className="font-medium">{performanceObligationDisplayLabel(po)}</span> —
+                  material-right performance obligation ({po.materialRightStatus.replace(/_/g, " ")}
+                  )
                 </li>
               ))}
             </ul>

@@ -267,13 +267,7 @@ function horizon(): WorkflowDraft {
     transactionPriceInput: "153,000.00",
     transactionPriceNotes: "Fixed fee for the bundled subscription, training and premium support.",
     promises: [
-      distinctPromise(
-        1,
-        "promise-saas",
-        "Hosted SaaS subscription",
-        saas.id,
-        "Hosted SaaS Access",
-      ),
+      distinctPromise(1, "promise-saas", "Hosted SaaS subscription", saas.id, "Hosted SaaS Access"),
       distinctPromise(
         2,
         "promise-training",

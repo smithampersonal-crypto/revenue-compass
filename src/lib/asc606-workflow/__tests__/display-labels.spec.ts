@@ -19,9 +19,7 @@ function po() {
 
 describe("deterministic display labels", () => {
   it("renders valid over-time and point-in-time recognition dates", () => {
-    expect(performanceObligationDisplayLabel(po())).toBe(
-      "Hosted SaaS Access · 7/1/2027–6/30/2028",
-    );
+    expect(performanceObligationDisplayLabel(po())).toBe("Hosted SaaS Access · 7/1/2027–6/30/2028");
     expect(
       performanceObligationDisplayLabel({
         ...po(),
@@ -39,9 +37,7 @@ describe("deterministic display labels", () => {
     ["impossible date", { serviceStart: "2027-02-30" }],
     ["no recognition method", { recognitionMethod: null }],
   ])("returns the base name for %s", (_case, patch) => {
-    expect(performanceObligationDisplayLabel({ ...po(), ...patch })).toBe(
-      "Hosted SaaS Access",
-    );
+    expect(performanceObligationDisplayLabel({ ...po(), ...patch })).toBe("Hosted SaaS Access");
   });
 
   it("returns the base name when a point-in-time recognition date is missing", () => {
@@ -86,9 +82,9 @@ describe("deterministic display labels", () => {
     expect(promiseDisplayLabel({ ...promise, performanceObligationId: null }, [assigned])).toBe(
       "Hosted SaaS Access",
     );
-    expect(promiseDisplayLabel({ ...promise, performanceObligationId: "po-2" }, [assigned, other])).toBe(
-      "Hosted SaaS Access · 1/1/2028–12/31/2028",
-    );
+    expect(
+      promiseDisplayLabel({ ...promise, performanceObligationId: "po-2" }, [assigned, other]),
+    ).toBe("Hosted SaaS Access · 1/1/2028–12/31/2028");
   });
 
   it("falls back to sequence labels rather than detailed prose", () => {
