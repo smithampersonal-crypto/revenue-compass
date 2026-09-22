@@ -100,9 +100,7 @@ describe("Phase 3 — Revenue Schedule", () => {
     const result = analyzeWorkflow(draft);
     render(<RevenueScheduleView draft={draft} result={result} />);
     for (const po of draft.performanceObligations) {
-      expect(
-        screen.getAllByText(performanceObligationDisplayLabel(po)).length,
-      ).toBeGreaterThan(0);
+      expect(screen.getAllByText(performanceObligationDisplayLabel(po)).length).toBeGreaterThan(0);
     }
   });
 
