@@ -93,7 +93,7 @@
 - [x] Separate Promise Name from Description / Interpretation and adopt concise dated headings throughout Step 2
 - [x] Adopt the helper narrowly in existing PO/Promise selectors, summaries, schedule, journals and recognition headings
 - [x] Add the three approved Horizon presentation labels without changing detailed interpretations or economics
-- [ ] Run focused and full verification, inspect the diff, package the clean repository, and stop before 2C-E
+- [x] Run focused and full verification, inspect the diff, package the clean repository, and stop before 2C-E
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
