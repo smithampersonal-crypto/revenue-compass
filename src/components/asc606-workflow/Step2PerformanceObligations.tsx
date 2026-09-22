@@ -60,7 +60,7 @@ export function Step2PerformanceObligations({
 
         <IssueList
           tone="warning"
-          title="Classification warnings (non-blocking)"
+          title="Classification Warnings (Non-Blocking)"
           issues={warnings}
         />
 

@@ -38,6 +38,8 @@ describe("Step 2 performance obligations warnings", () => {
       />,
     );
     expect(screen.getByText("Recorded Step 2B warning")).toBeInTheDocument();
+    expect(screen.getByText("Classification Warnings (Non-Blocking)")).toBeInTheDocument();
+    expect(screen.queryByText("Classification warnings (non-blocking)")).toBeNull();
     expect(validateWorkflow).not.toHaveBeenCalled();
   });
 });

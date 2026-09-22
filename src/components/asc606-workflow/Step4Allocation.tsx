@@ -146,7 +146,7 @@ export function Step4Allocation({
           </table>
         ) : (
           <IssueList
-            title="Allocation is not available yet"
+            title="Allocation Is Not Available Yet"
             issues={preview.issues.map((message, index) => ({ id: String(index), message }))}
           />
         )}
