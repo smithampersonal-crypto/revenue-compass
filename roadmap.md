@@ -64,7 +64,7 @@
 - [x] Add `.env` / `.env.*` ignore rules (allowing `.env.example`) and exclude environment files from clean source archives
 - [x] Make the prompt version code-authoritative (`AI_PROMPT_VERSION`) and remove the `ARC_AI_PROMPT_VERSION` relabelling seam
 - [x] Add a hand-authored literal historical v5 fixture with rejection, dispatch, no-label-synthesis and fail-closed regressions
-- [ ] Untrack the previously committed `.env` (`git rm --cached .env`) — blocked: index changes are not permitted from this environment
+- [x] Untrack the previously committed `.env` — deleted and committed on GitHub `main` by the repository owner; `git ls-files .env` now returns nothing and the ignore rules prevent recommitting
 
 ## Package 2C-B — Canonical Presentation Labels
 
