@@ -97,6 +97,13 @@ export interface PromiseDraft {
   id: string;
   seq: number;
   kind: PromiseKind;
+  /**
+   * Package 2C-B. Optional concise accountant-facing label for this promise.
+   * Presentation only: it carries no accounting judgment, is never an input to
+   * the deterministic engine, and is absent on every draft written before the
+   * label capability existed. `description` remains the detailed interpretation.
+   */
+  displayName?: string;
   description: string;
   /** Customer options only: accountant judgment that a material right exists. */
   conveysMaterialRight: Judgment;
