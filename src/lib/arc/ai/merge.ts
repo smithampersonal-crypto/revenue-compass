@@ -1507,17 +1507,25 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     };
     const current = () => draft.performanceObligations.find((po) => po.id === canonicalId)!;
 
+    // Package 2C-B. The canonical performance obligation name is the concise
+    // accountant-facing label. The detailed AI interpretation is NOT discarded:
+    // it stays in the immutable run result, in `poMaterial()` below, and in the
+    // review/provenance material — it is simply no longer the workpaper name.
+    // A v5 analysis has no label, so its long description remains the name
+    // exactly as before.
+    const poLabel = (aiPo.accountingLabel ?? "").trim();
     mergeText({
       key: fieldKeys.po(canonicalId, "name"),
       semanticKey: aiPo.semanticKey,
       current: current().name,
-      proposed: aiPo.description,
+      proposed: poLabel !== "" ? poLabel : aiPo.description,
       apply: (value) => update({ name: value }),
       section,
       guidanceIds: aiPo.guidanceIds,
       citations: aiPo.citations,
       aiReviewState: aiPo.reviewState,
       label: "Performance obligation name",
+      presentationOnly: true,
     });
 
     // Promise → PO relationships always travel through canonical IDs; a Terra
