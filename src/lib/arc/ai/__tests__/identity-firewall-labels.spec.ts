@@ -428,6 +428,13 @@ describe("the historical object fingerprint stays contained", () => {
     expect(issueKeys(renamed.issues)).toEqual(issueKeys(untouched.issues));
     expect(detectsStructuralMutation(first.draft, renamed.draft)).toBe(false);
   });
+
+  it("still applies every AI-owned economic value despite the flag", () => {
+    const first = run(fixtureAAnalysis());
+    const renamed = run(relabelled(), renamedByAccountant(first), first.aiState, RUN_2);
+    const untouched = run(relabelled(), first.draft, first.aiState, RUN_2);
+    expect(withoutLabels(renamed.draft)).toEqual(withoutLabels(untouched.draft));
+  });
 });
 
 /* ------------------------------------------ legacy v5 → first v6 transition */
