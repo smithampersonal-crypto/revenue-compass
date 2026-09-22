@@ -51,14 +51,15 @@ describe("deterministic display labels", () => {
   });
 
   it("never infers recognition dates from prose", () => {
+    const proseOnly = {
+      ...po(),
+      name: "Access from 7/1/2027 through 6/30/2028",
+      serviceStart: "",
+      serviceEnd: "",
+      recognitionRationale: "Recognize from 7/1/2027 through 6/30/2028.",
+    };
     expect(
-      performanceObligationDisplayLabel({
-        ...po(),
-        name: "Access from 7/1/2027 through 6/30/2028",
-        serviceStart: "",
-        serviceEnd: "",
-        recognitionRationale: "Recognize from 7/1/2027 through 6/30/2028.",
-      }),
+      performanceObligationDisplayLabel(proseOnly),
     ).toBe("Access from 7/1/2027 through 6/30/2028");
   });
 
