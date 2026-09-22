@@ -1235,6 +1235,27 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: aiPromise.reviewState,
       label: "Promise description",
     });
+
+    // Package 2C-B. The concise accountant-facing label is additive and
+    // presentation-only: `description` above stays the detailed interpretation.
+    // A v5 analysis carries no label at all, so nothing is written and the
+    // optional canonical field simply stays absent.
+    const promiseLabel = (aiPromise.accountingLabel ?? "").trim();
+    if (promiseLabel !== "") {
+      mergeText({
+        key: fieldKeys.promise(canonicalId, "displayName"),
+        semanticKey: aiPromise.semanticKey,
+        current: current().displayName ?? "",
+        proposed: promiseLabel,
+        apply: (value) => update({ displayName: value }),
+        section,
+        guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
+        aiReviewState: aiPromise.reviewState,
+        label: "Promise label",
+        presentationOnly: true,
+      });
+    }
     for (const spec of [
       {
         field: "capableOfBeingDistinct" as const,
