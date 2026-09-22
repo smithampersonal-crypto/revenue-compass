@@ -330,6 +330,23 @@ describe("Phase 3 — Review & Finalize", () => {
     expect(screen.getByText("Validation Checks Require Attention")).toBeInTheDocument();
   });
 
+  it("uses recruiter-facing copy when analysis inputs cannot be assembled", () => {
+    const draft = createDemoDraft("horizon");
+    const wp = buildWorkpaper(draft);
+    render(
+      <ReviewFinalizeView
+        result={{
+          ...wp.workflow,
+          adapterErrors: ["Synthetic adapter fixture."],
+        }}
+        balances={wp.balances}
+        journals={wp.journals}
+      />,
+    );
+    expect(screen.getByText("Analysis Inputs Could Not Be Assembled")).toBeInTheDocument();
+    expect(screen.queryByText("Engine Input Could Not Be Assembled")).toBeNull();
+  });
+
   it("uses Journal Validation Checks for blocked journal output", () => {
     render(
       <JournalEntryOutputs
@@ -362,6 +379,10 @@ describe("Phase 3 — Review & Finalize", () => {
     );
     expect(screen.getByText("Journal Validation Checks")).toBeInTheDocument();
     expect(screen.queryByText("Journal engine validation")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Journal Entries — Reconciliation" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Journal Entries — reconciliation")).toBeNull();
   });
 
   it("never exposes legacy finalized-analysis wording for a blocked draft", () => {
