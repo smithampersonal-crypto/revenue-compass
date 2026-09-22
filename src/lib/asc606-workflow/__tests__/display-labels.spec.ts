@@ -58,9 +58,9 @@ describe("deterministic display labels", () => {
       serviceEnd: "",
       recognitionRationale: "Recognize from 7/1/2027 through 6/30/2028.",
     };
-    expect(
-      performanceObligationDisplayLabel(proseOnly),
-    ).toBe("Access from 7/1/2027 through 6/30/2028");
+    expect(performanceObligationDisplayLabel(proseOnly)).toBe(
+      "Access from 7/1/2027 through 6/30/2028",
+    );
   });
 
   it("uses only the assigned PO recognition facts for a promise", () => {
