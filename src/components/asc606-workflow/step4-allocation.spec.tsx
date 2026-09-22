@@ -78,6 +78,12 @@ describe("Step 4 allocation presentation", () => {
     expect(screen.queryByText(/\(read-only\)/i)).toBeNull();
   });
 
+  it("uses Title Case when allocation cannot yet be produced", () => {
+    mount(createEmptyDraft());
+    expect(screen.getByText("Allocation Is Not Available Yet")).toBeInTheDocument();
+    expect(screen.queryByText("Allocation is not available yet")).toBeNull();
+  });
+
   it("retains material-right inputs and deterministic estimated SSP without raw SSP editing", () => {
     const initial = createDemoDraft("redwood");
     const right = {
