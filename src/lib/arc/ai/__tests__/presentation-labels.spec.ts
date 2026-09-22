@@ -213,10 +213,10 @@ describe("presentation-label ownership", () => {
       })),
     };
     const second = run(relabelled(), edited, first.aiState, RUN_2);
-    const labelItems = second.reviewItems.filter(
+    const labelItems = second.issues.filter(
       (item) =>
-        item.targetKey === `promise:${PROMISE_ID}:displayName` ||
-        item.targetKey === `po:${PO_ID}:name`,
+        item.targetKey === `promise:${PROMISE_ID}.displayName` ||
+        item.targetKey === `po:${PO_ID}.name`,
     );
     expect(labelItems).toEqual([]);
   });
@@ -234,7 +234,7 @@ describe("the label is excluded from the material accounting projection", () => 
         name: "A different workpaper name",
       })),
     };
-    const key = `po:${PO_ID}:classification`;
+    const key = `po:${PO_ID}.classification`;
     expect(classifyReviewTarget(renamed, key)).toEqual(classifyReviewTarget(first.draft, key));
   });
 
@@ -247,7 +247,7 @@ describe("the label is excluded from the material accounting projection", () => 
         displayName: "A different promise label",
       })),
     };
-    const key = `promise:${PROMISE_ID}:description`;
+    const key = `promise:${PROMISE_ID}.description`;
     expect(classifyReviewTarget(relabelled, key)).toEqual(classifyReviewTarget(first.draft, key));
   });
 });
@@ -294,10 +294,10 @@ describe("legacy v5 baseline meeting its first v6 re-analysis", () => {
   it("creates no material accounting review item merely from the new label capability", () => {
     const first = run(legacyAnalysis());
     const second = run(fixtureAAnalysis(), first.draft, first.aiState, RUN_2);
-    const labelItems = second.reviewItems.filter(
+    const labelItems = second.issues.filter(
       (item) =>
-        item.targetKey === `promise:${PROMISE_ID}:displayName` ||
-        item.targetKey === `po:${PO_ID}:name`,
+        item.targetKey === `promise:${PROMISE_ID}.displayName` ||
+        item.targetKey === `po:${PO_ID}.name`,
     );
     expect(labelItems).toEqual([]);
   });
