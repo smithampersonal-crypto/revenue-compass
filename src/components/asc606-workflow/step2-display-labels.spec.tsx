@@ -96,7 +96,9 @@ describe("Step 2 display labels", () => {
         [`promise:${promise.id}.displayName`]: { state: "ai_generated_untouched" },
         [`promise:${promise.id}.description`]: { state: "ai_generated_user_edited" },
         [`promise:${promise.id}.capableOfBeingDistinct`]: { state: "ai_generated_untouched" },
-        [`promise:${promise.id}.distinctWithinContractContext`]: { state: "ai_generated_untouched" },
+        [`promise:${promise.id}.distinctWithinContractContext`]: {
+          state: "ai_generated_untouched",
+        },
       },
       objectProvenance: {
         [promise.id]: {
@@ -129,7 +131,9 @@ describe("Step 2 display labels", () => {
       `[data-ai-review-target="promise:${promise.id}.distinctWithinContractContext"]`,
     ) as HTMLElement;
 
-    expect(within(name).getByLabelText("AI drafted").closest("label")?.textContent).toContain("Name");
+    expect(within(name).getByLabelText("AI drafted").closest("label")?.textContent).toContain(
+      "Name",
+    );
     expect(
       within(description).getByLabelText("AI drafted · edited").closest("label")?.textContent,
     ).toContain("Description / Interpretation");
@@ -139,7 +143,7 @@ describe("Step 2 display labels", () => {
     expect(within(context).getByLabelText("AI drafted").closest("legend")?.textContent).toContain(
       "Distinct within the context of the contract?",
     );
-    expect(card.querySelector(':scope > [data-ai-provenance-marker]')).toBeNull();
-    expect(card.querySelector(':scope > div.mb-1')).toBeNull();
+    expect(card.querySelector(":scope > [data-ai-provenance-marker]")).toBeNull();
+    expect(card.querySelector(":scope > div.mb-1")).toBeNull();
   });
 });

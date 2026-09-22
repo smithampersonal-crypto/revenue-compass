@@ -195,7 +195,11 @@ describe("AiReviewTarget", () => {
 
   it("puts provenance inline with a JudgmentControl legend", () => {
     harness(
-      { fieldProvenance: { "contract.criteria.approved.answer": { state: "ai_generated_untouched" } } },
+      {
+        fieldProvenance: {
+          "contract.criteria.approved.answer": { state: "ai_generated_untouched" },
+        },
+      },
       <AiReviewTarget targetKey="contract.criteria.approved.answer">
         <JudgmentControl
           name="approved"
@@ -263,14 +267,22 @@ describe("AiReviewTarget", () => {
         },
       },
       <AiReviewTarget targetKey="po:po-17" canonicalObjectId="po-17">
-        <Field label="Object-adjacent label"><input /></Field>
+        <Field label="Object-adjacent label">
+          <input />
+        </Field>
         <AiReviewTarget targetKey="po:po-17.name">
-          <Field label="Name"><input /></Field>
+          <Field label="Name">
+            <input />
+          </Field>
         </AiReviewTarget>
-        <Field label="Object-adjacent label after child"><input /></Field>
+        <Field label="Object-adjacent label after child">
+          <input />
+        </Field>
       </AiReviewTarget>,
     );
-    expect(screen.getByLabelText("AI drafted · edited").closest("label")?.textContent).toContain("Name");
+    expect(screen.getByLabelText("AI drafted · edited").closest("label")?.textContent).toContain(
+      "Name",
+    );
     expect(screen.queryByLabelText("AI drafted")).toBeNull();
   });
 
@@ -283,7 +295,9 @@ describe("AiReviewTarget", () => {
         },
       },
       <AiReviewTarget targetKey="vc:vc-1.treatment" canonicalObjectId="vc-1">
-        <Field label="Treatment"><input /></Field>
+        <Field label="Treatment">
+          <input />
+        </Field>
       </AiReviewTarget>,
     );
     expect(screen.getByLabelText("AI drafted · edited")).toHaveAttribute(

@@ -122,9 +122,11 @@
 - [ ] GitHub Actions rerun — blocked: `gh` CLI unavailable in this sandbox
 
 ## Package 2C-G — Money Input Formatting
+
 - [x] Completed and accepted; preserve the exact parser, canonical values, provenance behavior, and blur-only presentation formatting
 
 ## Package 2C-F.1 — Inline Provenance Presentation Refinement
+
 - [ ] Move ordinary field provenance into Field and JudgmentControl label lines through fail-safe exact-target context
 - [ ] Suppress only ordinary object-level provenance presentation while retaining object review markers
 - [ ] Keep the discovered material-right provenance coverage gaps unchanged and report their exact affected inputs

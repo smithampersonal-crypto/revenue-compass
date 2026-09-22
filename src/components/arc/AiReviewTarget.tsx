@@ -149,27 +149,27 @@ export function AiReviewTarget({
     <ExactTargetProvenanceLabelContext.Provider value={compactFieldBadge}>
       <ProvenanceLabelContext.Provider value={commonLabelBadge}>
         <div id={anchorId} className={className} data-ai-review-target={targetKey}>
-      {marker || visibleBoundaryBadge ? (
-        <div className="mb-1 flex items-center gap-2">
-          {marker ? (
-            <span
-              className={
-                openItem?.severity === "red"
-                  ? "rounded-full border border-destructive px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive"
-                  : "rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
-              }
-            >
-              {marker}
-            </span>
+          {marker || visibleBoundaryBadge ? (
+            <div className="mb-1 flex items-center gap-2">
+              {marker ? (
+                <span
+                  className={
+                    openItem?.severity === "red"
+                      ? "rounded-full border border-destructive px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive"
+                      : "rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
+                  }
+                >
+                  {marker}
+                </span>
+              ) : null}
+              {visibleBoundaryBadge ? (
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {visibleBoundaryBadge}
+                </span>
+              ) : null}
+            </div>
           ) : null}
-          {visibleBoundaryBadge ? (
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              {visibleBoundaryBadge}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      {children}
+          {children}
         </div>
       </ProvenanceLabelContext.Provider>
     </ExactTargetProvenanceLabelContext.Provider>
