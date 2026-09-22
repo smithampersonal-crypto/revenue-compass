@@ -77,6 +77,14 @@
 - [x] Legacy v5 to first v6 transition regressions: label refresh, edited-name survival, new promise label, stable IDs/topology, no material review item
 - [x] Full verification: 204 files / 2627 tests, typecheck clean, lint 0 errors, production build and bundle audit clean
 
+## Package 2C-C — Identity Firewall Verification
+
+- [x] Audit identity, identity-facts, reconciliation, identity-backfill, identity-graph, safe-reanalysis, merge, edit-reconciliation, review-state and orchestrator by tracing inputs
+- [x] Add label-invariance regressions: identity facts/signatures, exact matching, graph relations, Safe Re-analysis decisions, tombstones, structural mutation, source fingerprints, material review, legacy v5 to v6
+- [x] Prove historical `poFingerprintValue` containment: object `userModified` affects provenance and DTOs only, never identity, topology, tombstones, structural decisions or applied economics
+- [x] No production identity code changed
+- [ ] Reported for direction: `MODIFIED_PO_FIELDS` still carries the presentation `name` inside the modification scope material projection (`edit-reconciliation.ts`) — not changed in 2C-C
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
