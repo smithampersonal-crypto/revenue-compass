@@ -1055,8 +1055,7 @@ describe("the composite Phase 5C modification target", () => {
             "55000";
         },
         (draft: WorkflowDraft) => {
-          draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.remainingGoodsDistinctFromTransferred =
-            false;
+          draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.remainingGoodsDistinctFromTransferred = false;
         },
         (draft: WorkflowDraft) => {
           draft.contractModifications[0]!.modifiedPerformanceObligations[0]!.recognitionMethod =
