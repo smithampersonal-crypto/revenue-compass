@@ -55,11 +55,9 @@ export function Step4Allocation({
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Economic benefit of the option (USD)">
-                  <input
-                    className={inputClass}
-                    inputMode="decimal"
+                  <UsdMoneyInput
                     value={po.benefitAmountInput}
-                    onChange={(e) => patch(po.id, { benefitAmountInput: e.target.value })}
+                    onValueChange={(next) => patch(po.id, { benefitAmountInput: next })}
                   />
                 </Field>
                 <Field label="Exercise probability at inception (%)">
@@ -88,11 +86,9 @@ export function Step4Allocation({
               <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
                 <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
                   <Field label="SSP (USD)">
-                    <input
-                      className={inputClass}
-                      inputMode="decimal"
+                    <UsdMoneyInput
                       value={po.sspInput}
-                      onChange={(e) => patch(po.id, { sspInput: e.target.value })}
+                      onValueChange={(next) => patch(po.id, { sspInput: next })}
                     />
                   </Field>
                 </AiReviewTarget>

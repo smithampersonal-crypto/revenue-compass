@@ -181,11 +181,10 @@ export function ContractModifications({
                         hint="Enter the amount as a positive number and choose the direction."
                       >
                         <div className="flex gap-2">
-                          <input
-                            className={inputClass}
+                          <UsdMoneyInput
                             value={mod.considerationMagnitudeInput}
-                            onChange={(e) =>
-                              setMod(mod.id, { considerationMagnitudeInput: e.target.value })
+                            onValueChange={(next) =>
+                              setMod(mod.id, { considerationMagnitudeInput: next })
                             }
                             placeholder="0.00"
                           />
@@ -386,11 +385,10 @@ export function ContractModifications({
                             label="Remaining standalone selling price (USD)"
                             hint="Standalone selling price of the goods or services still to be transferred."
                           >
-                            <input
-                              className={inputClass}
+                            <UsdMoneyInput
                               value={po.remainingSspInput}
-                              onChange={(e) =>
-                                setPo(mod.id, po.id, { remainingSspInput: e.target.value })
+                              onValueChange={(next) =>
+                                setPo(mod.id, po.id, { remainingSspInput: next })
                               }
                             />
                           </Field>
@@ -407,11 +405,10 @@ export function ContractModifications({
                             label="Modified total standalone selling price (USD)"
                             hint="Standalone selling price of the full modified obligation."
                           >
-                            <input
-                              className={inputClass}
+                            <UsdMoneyInput
                               value={po.totalModifiedSspInput}
-                              onChange={(e) =>
-                                setPo(mod.id, po.id, { totalModifiedSspInput: e.target.value })
+                              onValueChange={(next) =>
+                                setPo(mod.id, po.id, { totalModifiedSspInput: next })
                               }
                             />
                           </Field>

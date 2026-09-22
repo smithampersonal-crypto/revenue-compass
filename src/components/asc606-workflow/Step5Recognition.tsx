@@ -358,12 +358,10 @@ export function Step5Recognition({
                         />
                       </Field>
                       <Field label="New consideration on exercise (USD)">
-                        <input
-                          className={inputClass}
-                          inputMode="decimal"
+                        <UsdMoneyInput
                           value={po.exerciseConsiderationInput}
-                          onChange={(e) =>
-                            patch(po.id, { exerciseConsiderationInput: e.target.value })
+                          onValueChange={(next) =>
+                            patch(po.id, { exerciseConsiderationInput: next })
                           }
                         />
                       </Field>

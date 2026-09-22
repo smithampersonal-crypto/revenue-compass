@@ -131,14 +131,12 @@ export function Step3TransactionPrice({
               />
             </Field>
             <Field label="Amount (USD)">
-              <input
-                className={inputClass}
-                inputMode="decimal"
+              <UsdMoneyInput
                 value={outcome.amountInput}
-                onChange={(e) =>
+                onValueChange={(next) =>
                   patchAssessment(component, assessment.id, {
                     outcomes: assessment.outcomes.map((o) =>
-                      o.id === outcome.id ? { ...o, amountInput: e.target.value } : o,
+                      o.id === outcome.id ? { ...o, amountInput: next } : o,
                     ),
                   })
                 }
@@ -216,12 +214,10 @@ export function Step3TransactionPrice({
           label="Amount included after the constraint (USD)"
           hint="The accountant decides how much is included; the engine never constrains automatically."
         >
-          <input
-            className={inputClass}
-            inputMode="decimal"
+          <UsdMoneyInput
             value={assessment.includedInput}
-            onChange={(e) =>
-              patchAssessment(component, assessment.id, { includedInput: e.target.value })
+            onValueChange={(next) =>
+              patchAssessment(component, assessment.id, { includedInput: next })
             }
           />
         </Field>
@@ -251,11 +247,9 @@ export function Step3TransactionPrice({
       <div className="grid gap-4 sm:grid-cols-2">
         <AiReviewTarget targetKey="transactionPrice.input">
           <Field label="Fixed consideration (USD)" hint="Example: 120,000.00">
-            <input
-              className={inputClass}
-              inputMode="decimal"
+            <UsdMoneyInput
               value={draft.transactionPriceInput}
-              onChange={(e) => onChange({ ...draft, transactionPriceInput: e.target.value })}
+              onValueChange={(next) => onChange({ ...draft, transactionPriceInput: next })}
             />
           </Field>
         </AiReviewTarget>

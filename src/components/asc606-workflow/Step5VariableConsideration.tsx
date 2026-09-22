@@ -162,12 +162,10 @@ export function Step5VariableConsideration({
                       />
                     </Field>
                     <Field label="Actual amount (USD)">
-                      <input
-                        className={inputClass}
-                        inputMode="decimal"
+                      <UsdMoneyInput
                         value={component.resolutionAmountInput}
-                        onChange={(e) =>
-                          patch(component.id, { resolutionAmountInput: e.target.value })
+                        onValueChange={(next) =>
+                          patch(component.id, { resolutionAmountInput: next })
                         }
                       />
                     </Field>
@@ -442,14 +440,12 @@ function SeriesPeriodControls({
                 />
               </Field>
               <Field label="Amount (USD)">
-                <input
-                  className={inputClass}
-                  inputMode="decimal"
+                <UsdMoneyInput
                   value={event.amountInput}
-                  onChange={(e) =>
+                  onValueChange={(next) =>
                     setEvents(
                       events.map((row) =>
-                        row.id === event.id ? { ...row, amountInput: e.target.value } : row,
+                        row.id === event.id ? { ...row, amountInput: next } : row,
                       ),
                     )
                   }
