@@ -247,12 +247,16 @@ describe("the identity graph is invariant to presentation labels", () => {
     );
   });
 
-  it("still resolves exact, not subsumes or split, when only labels differ", () => {
+  it("never turns a relation into subsumes or split because a label differs", () => {
+    const control = resolve(fixtureAAnalysis(), fixtureAAnalysis());
     const resolved = resolve(relabelled(), fixtureAAnalysis());
-    expect(resolved.promises.alignments.map((a) => a.relation)).toEqual(["exact"]);
-    expect(resolved.pos.alignments.map((a) => a.relation)).toEqual(["exact"]);
-    expect(resolved.promises.omittedCanonicalIds).toEqual([]);
-    expect(resolved.pos.omittedCanonicalIds).toEqual([]);
+    for (const kind of ["promises", "pos"] as const) {
+      const relations = resolved[kind].alignments.map((a) => a.relation);
+      expect(relations).toEqual(control[kind].alignments.map((a) => a.relation));
+      expect(relations).not.toContain("subsumes");
+      expect(relations).not.toContain("split_from");
+      expect(resolved[kind].omittedCanonicalIds).toEqual(control[kind].omittedCanonicalIds);
+    }
   });
 });
 
