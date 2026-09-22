@@ -10,7 +10,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
+import { Field, inputClass, JudgmentControl, NarrativeTextarea, Notice, Section } from "./fields";
 
 export function Step2Promises({
   draft,
@@ -79,8 +79,7 @@ export function Step2Promises({
                 </AiReviewTarget>
                 <AiReviewTarget targetKey={`promise:${promise.id}.description`}>
                   <Field label="Description / Interpretation">
-                    <input
-                      className={inputClass}
+                    <NarrativeTextarea
                       value={promise.description}
                       onChange={(e) => patch(promise.id, { description: e.target.value })}
                     />
@@ -98,9 +97,7 @@ export function Step2Promises({
                     </AiReviewTarget>
                     <AiReviewTarget targetKey={`promise:${promise.id}.materialRightRationale`}>
                       <Field label="Material-right rationale">
-                        <textarea
-                          className={inputClass}
-                          rows={2}
+                        <NarrativeTextarea
                           value={promise.materialRightRationale}
                           onChange={(e) =>
                             patch(promise.id, { materialRightRationale: e.target.value })
@@ -140,9 +137,7 @@ export function Step2Promises({
                 {promise.kind === "customer_option" ? null : (
                   <AiReviewTarget targetKey={`promise:${promise.id}.distinctRationale`}>
                     <Field label="Distinctness rationale">
-                      <textarea
-                        className={inputClass}
-                        rows={2}
+                      <NarrativeTextarea
                         value={promise.distinctRationale}
                         onChange={(e) => patch(promise.id, { distinctRationale: e.target.value })}
                       />

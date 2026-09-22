@@ -11,7 +11,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, Notice, td, th } from "./fields";
+import { Field, inputClass, IssueList, NarrativeTextarea, Notice, td, th } from "./fields";
 
 const buttonClass =
   "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";
@@ -173,9 +173,7 @@ export function Step5VariableConsideration({
                     </Field>
                     <div className="sm:col-span-2">
                       <Field label="Resolution rationale">
-                        <textarea
-                          className={inputClass}
-                          rows={2}
+                        <NarrativeTextarea
                           value={component.resolutionRationale}
                           onChange={(e) =>
                             patch(component.id, { resolutionRationale: e.target.value })

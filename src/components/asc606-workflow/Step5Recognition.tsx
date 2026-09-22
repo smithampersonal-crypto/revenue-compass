@@ -12,7 +12,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, Notice, Section } from "./fields";
+import { Field, inputClass, NarrativeTextarea, Notice, Section } from "./fields";
 import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
 
@@ -266,9 +266,7 @@ export function Step5Recognition({
 
       <AiReviewTarget targetKey={`po:${po.id}.recognitionRationale`}>
         <Field label="Recognition rationale">
-          <textarea
-            className={inputClass}
-            rows={2}
+          <NarrativeTextarea
             value={po.recognitionRationale}
             onChange={(e) => patch(po.id, { recognitionRationale: e.target.value })}
           />

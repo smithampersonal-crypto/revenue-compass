@@ -25,7 +25,7 @@ import type {
   VcEffect,
 } from "@/lib/asc606-variable-consideration";
 
-import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
+import { Field, inputClass, JudgmentControl, NarrativeTextarea, Notice, Section } from "./fields";
 
 const buttonClass =
   "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";
@@ -226,9 +226,7 @@ export function Step3TransactionPrice({
           />
         </Field>
         <Field label="Constraint rationale (ASC 606-10-32-11)">
-          <textarea
-            className={inputClass}
-            rows={2}
+          <NarrativeTextarea
             value={assessment.constraintRationale}
             onChange={(e) =>
               patchAssessment(component, assessment.id, { constraintRationale: e.target.value })
@@ -237,9 +235,7 @@ export function Step3TransactionPrice({
         </Field>
       </div>
       <Field label="Evidence supporting this assessment (optional)">
-        <textarea
-          className={inputClass}
-          rows={2}
+        <NarrativeTextarea
           value={assessment.evidence}
           onChange={(e) => patchAssessment(component, assessment.id, { evidence: e.target.value })}
         />
@@ -265,9 +261,7 @@ export function Step3TransactionPrice({
         </AiReviewTarget>
         <AiReviewTarget targetKey="transactionPrice.notes">
           <Field label="Transaction price notes (optional)">
-            <textarea
-              className={inputClass}
-              rows={2}
+            <NarrativeTextarea
               value={draft.transactionPriceNotes}
               onChange={(e) => onChange({ ...draft, transactionPriceNotes: e.target.value })}
             />
@@ -488,9 +482,7 @@ export function Step3TransactionPrice({
               ) : null}
 
               <Field label="Allocation rationale">
-                <textarea
-                  className={inputClass}
-                  rows={2}
+                <NarrativeTextarea
                   value={component.allocationRationale}
                   onChange={(e) =>
                     patchComponent(component.id, { allocationRationale: e.target.value })

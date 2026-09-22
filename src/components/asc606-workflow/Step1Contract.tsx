@@ -1,7 +1,7 @@
 import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { deriveStep1Conclusion, STEP1_CRITERIA, type WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, JudgmentControl, Notice, Section } from "./fields";
+import { Field, inputClass, JudgmentControl, NarrativeTextarea, Notice, Section } from "./fields";
 
 export function Step1Contract({
   draft,
@@ -83,9 +83,7 @@ export function Step1Contract({
                 </AiReviewTarget>
                 <AiReviewTarget targetKey={`contract.criteria.${criterion.id}.rationale`}>
                   <Field label="Rationale / comment">
-                    <textarea
-                      className={inputClass}
-                      rows={2}
+                    <NarrativeTextarea
                       value={answer.rationale}
                       onChange={(e) =>
                         set({
