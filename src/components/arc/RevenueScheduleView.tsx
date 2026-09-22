@@ -1,5 +1,9 @@
 import { formatCents } from "@/lib/asc606";
-import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+import {
+  performanceObligationDisplayLabel,
+  type WorkflowAnalysisResult,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import { MaterialRightLifecycleOutputs } from "@/components/asc606-workflow/MaterialRightLifecycleOutputs";
 import { Notice, Section, td, th } from "@/components/asc606-workflow/fields";
@@ -21,10 +25,17 @@ export function RevenueScheduleView({
   result: WorkflowAnalysisResult;
 }) {
   const { revenueSchedule } = result;
+  const poById = new Map(draft.performanceObligations.map((po) => [po.id, po]));
   const columns =
     result.revenueSources.length > 0
-      ? result.revenueSources.map((source) => ({ id: source.id, name: source.name }))
-      : draft.performanceObligations.map((po) => ({ id: po.id, name: po.name || po.id }));
+      ? result.revenueSources.map((source) => {
+          const po = poById.get(source.id);
+          return { id: source.id, name: po ? performanceObligationDisplayLabel(po) : source.name };
+        })
+      : draft.performanceObligations.map((po) => ({
+          id: po.id,
+          name: performanceObligationDisplayLabel(po),
+        }));
 
   return (
     <div className="space-y-6">

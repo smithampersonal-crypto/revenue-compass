@@ -87,6 +87,14 @@
 - [x] Acceptance patch: strengthened the historical `poFingerprintValue` regression to assert object `userModified === true` and `ai_generated_user_edited` after a PO-name-only edit
 - [x] Acceptance patch: restored the frozen `@lovable.dev/vite-tanstack-config` `^2.15.0` / resolved `2.15.0` baseline
 
+## Package 2C-D — Deterministic Display Labels + Step 2
+
+- [x] Add one browser-safe deterministic Promise/PO display-label helper using the existing ISO calendar utilities
+- [x] Separate Promise Name from Description / Interpretation and adopt concise dated headings throughout Step 2
+- [x] Adopt the helper narrowly in existing PO/Promise selectors, summaries, schedule, journals and recognition headings
+- [x] Add the three approved Horizon presentation labels without changing detailed interpretations or economics
+- [x] Run focused and full verification, inspect the diff, package the clean repository, and stop before 2C-E
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall

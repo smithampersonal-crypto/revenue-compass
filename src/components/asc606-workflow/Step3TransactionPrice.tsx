@@ -10,6 +10,7 @@ import {
   nextId,
   nextSeq,
   parseUsdToCents,
+  performanceObligationDisplayLabel,
   previewVcMeasurement,
   VC_ALLOCATION_TREATMENT_LABELS,
   VC_EFFECT_LABELS,
@@ -451,7 +452,7 @@ export function Step3TransactionPrice({
                           const ineligible =
                             seriesOnly &&
                             (po.kind === "material_right" || po.classification !== "series");
-                          const name = po.name || `Performance obligation ${po.seq}`;
+                          const name = performanceObligationDisplayLabel(po);
                           return (
                             <option key={po.id} value={po.id}>
                               {ineligible

@@ -11,3 +11,4 @@ export * from "./analysis";
 export * from "./presentation";
 export * from "./contract-balances";
 export * from "./r3-adapter";
+export * from "./display-labels";

@@ -43,7 +43,7 @@ describe("series-period target visibility", () => {
   it("shows an incompatible existing target instead of hiding the relationship", () => {
     const state = mount(inconsistent());
     const option = screen.getByRole("option", {
-      name: /Hosted SaaS platform — not classified as a Series \(ineligible\)/,
+      name: /Hosted SaaS platform · 1\/1\/2027–12\/31\/2027 — not classified as a Series \(ineligible\)/,
     }) as HTMLOptionElement;
     expect(option.value).toBe("po-hosted");
     const select = option.closest("select") as HTMLSelectElement;
@@ -54,6 +54,8 @@ describe("series-period target visibility", () => {
 
   it("labels an eligible series target plainly", () => {
     mount(genomixR3Draft());
-    expect(screen.getByRole("option", { name: "Hosted SaaS platform" })).toBeDefined();
+    expect(
+      screen.getByRole("option", { name: "Hosted SaaS platform · 1/1/2027–12/31/2027" }),
+    ).toBeDefined();
   });
 });

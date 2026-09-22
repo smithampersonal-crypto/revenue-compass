@@ -73,6 +73,50 @@ describe("demo scenarios", () => {
 
   it("Horizon: advance billing, contract asset and liability", () => {
     const draft = createDemoDraft("horizon");
+    expect(draft.promises.map(({ displayName }) => displayName)).toEqual([
+      "Hosted SaaS Access",
+      "Implementation Training",
+      "Premium Support",
+    ]);
+    expect(draft.performanceObligations.map(({ name }) => name)).toEqual([
+      "Hosted SaaS Access",
+      "Implementation Training",
+      "Premium Support",
+    ]);
+    expect(draft.promises.map(({ description }) => description)).toEqual([
+      "Hosted SaaS subscription",
+      "Implementation training",
+      "Premium support services",
+    ]);
+    expect(
+      draft.performanceObligations.map(
+        ({ sspInput, recognitionMethod, serviceStart, serviceEnd }) => ({
+          sspInput,
+          recognitionMethod,
+          serviceStart,
+          serviceEnd,
+        }),
+      ),
+    ).toEqual([
+      {
+        sspInput: "144,000.00",
+        recognitionMethod: "over_time_ratable",
+        serviceStart: "2027-07-01",
+        serviceEnd: "2028-06-30",
+      },
+      {
+        sspInput: "12,000.00",
+        recognitionMethod: "over_time_ratable",
+        serviceStart: "2027-07-10",
+        serviceEnd: "2027-07-11",
+      },
+      {
+        sspInput: "24,000.00",
+        recognitionMethod: "over_time_ratable",
+        serviceStart: "2027-07-01",
+        serviceEnd: "2028-06-30",
+      },
+    ]);
     const revenue = analyzeWorkflow(draft);
     expect(revenue.finalized).toBe(true);
     expect(revenue.analysis!.revenueSchedule!.totalCents).toBe(15_300_000);

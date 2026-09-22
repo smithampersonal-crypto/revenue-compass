@@ -16,6 +16,7 @@ import {
   createMaterialRightPoDraft,
   createPoDraft,
   createPromiseDraft,
+  performanceObligationDisplayLabel,
   type PoDraft,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
@@ -95,12 +96,12 @@ describe("Phase 3 — Revenue Schedule", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("labels revenue-source columns from engine-supplied identities", () => {
+  it("labels revenue-source columns from canonical presentation metadata", () => {
     const draft = createDemoDraft("apex");
     const result = analyzeWorkflow(draft);
     render(<RevenueScheduleView draft={draft} result={result} />);
-    for (const source of result.revenueSources) {
-      expect(screen.getAllByText(source.name).length).toBeGreaterThan(0);
+    for (const po of draft.performanceObligations) {
+      expect(screen.getAllByText(performanceObligationDisplayLabel(po)).length).toBeGreaterThan(0);
     }
   });
 
