@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
-import { AiInlineProvenanceMarker, AiReviewTarget } from "@/components/arc/AiReviewTarget";
+import {
+  AiExactTargetProvenanceMarker,
+  AiInlineProvenanceMarker,
+  AiReviewTarget,
+} from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
   createVcAssessmentDraft,
@@ -104,7 +108,7 @@ export function Step3TransactionPrice({
       <div className="flex items-center justify-between">
         <p className="inline-flex items-center gap-1 text-sm font-semibold">
           {title}
-          <AiInlineProvenanceMarker />
+          <AiExactTargetProvenanceMarker />
         </p>
         {onRemove ? (
           <button type="button" className={buttonClass} onClick={onRemove}>

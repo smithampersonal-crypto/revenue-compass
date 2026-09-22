@@ -1,4 +1,4 @@
-import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
+import { AiExactTargetProvenanceMarker, AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
   draftRequiresProgressive,
@@ -345,7 +345,10 @@ function SeriesPeriodControls({
     <div className="space-y-4" data-testid={`series-periods-${component.id}`}>
       <AiReviewTarget targetKey={`vc:${component.id}.seriesPeriods`}>
         <div className="space-y-2">
-          <p className="text-sm font-medium">Distinct service periods</p>
+          <p className="inline-flex items-center gap-1 text-sm font-medium">
+            Distinct service periods
+            <AiExactTargetProvenanceMarker />
+          </p>
           <p className="text-xs text-muted-foreground">
             Declare the service periods this amount can be attributed to. Periods are never
             generated automatically.
@@ -427,7 +430,10 @@ function SeriesPeriodControls({
 
       <AiReviewTarget targetKey={`vc:${component.id}.realizedEvents`}>
         <div className="space-y-2">
-          <p className="text-sm font-medium">Amounts actually realized</p>
+          <p className="inline-flex items-center gap-1 text-sm font-medium">
+            Amounts actually realized
+            <AiExactTargetProvenanceMarker />
+          </p>
           <p className="text-xs text-muted-foreground">
             Record an amount only once it has actually arisen, and attribute it to the service
             period it belongs to.
