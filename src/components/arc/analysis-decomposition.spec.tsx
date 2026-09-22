@@ -91,7 +91,7 @@ describe("Phase 3 — Revenue Schedule", () => {
     const result = analyzeWorkflow(createDemoDraft("apex"));
     expect(result.revenueSchedule).not.toBeNull();
     await renderAt("/analysis/schedule?sample=apex");
-    expect(await screen.findByText("Revenue Schedule")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Revenue Schedule" })).toBeInTheDocument();
     expect(screen.queryByText(/Revenue schedule \(engine output\)/i)).toBeNull();
     expect(
       screen.getAllByText(formatCents(result.revenueSchedule!.totalCents)).length,

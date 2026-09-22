@@ -484,12 +484,14 @@ describe("deterministic AI meter fields are presented individually", () => {
     });
     const { container } = renderArea();
     await waitFor(() => {
-      expect(anchorOf(container, RATE)?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
+      const rateAnchor = anchorOf(container, RATE);
+      const unitAnchor = anchorOf(container, UNIT);
+      expect(rateAnchor?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
       expect(
-        anchorOf(container, UNIT)?.querySelector('[aria-label="AI drafted · edited"]'),
+        unitAnchor?.querySelector('[aria-label="AI drafted · edited"]'),
       ).not.toBeNull();
+      expect(rateAnchor?.querySelector('[aria-label="AI drafted · edited"]')).toBeNull();
     });
-    expect(anchorOf(container, RATE)!.textContent).not.toContain("edited");
   });
 
   it("badges a preserved user override on the unit alone", async () => {
@@ -553,19 +555,21 @@ describe("deterministic AI meter fields are presented individually", () => {
       ).not.toBeNull(),
     );
 
-    for (const key of [
-      `vc:${VC_USAGE}.meter.name`,
-      RATE,
-      `vc:${VC_USAGE}.meter.rateQuantityInput`,
-      UNIT,
-    ]) {
-      expect(container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`).length).toBe(
-        1,
-      );
-    }
-    const anchor = anchorOf(container, UNIT) as HTMLElement;
-    expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
-    expect(container.querySelectorAll("[data-ai-review-target]").length).toBeGreaterThan(0);
-    expect(screen.getAllByLabelText("AI drafted · edited")).toHaveLength(1);
+    await waitFor(() => {
+      for (const key of [
+        `vc:${VC_USAGE}.meter.name`,
+        RATE,
+        `vc:${VC_USAGE}.meter.rateQuantityInput`,
+        UNIT,
+      ]) {
+        expect(container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`)).toHaveLength(
+          1,
+        );
+      }
+      const anchor = anchorOf(container, UNIT) as HTMLElement;
+      expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
+      expect(container.querySelectorAll("[data-ai-review-target]").length).toBeGreaterThan(0);
+      expect(screen.getAllByLabelText("AI drafted · edited")).toHaveLength(1);
+    });
   });
 });
