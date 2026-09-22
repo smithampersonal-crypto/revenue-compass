@@ -176,7 +176,7 @@ export function Step2PerformanceObligations({
         </button>
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Assign promises</h3>
+          <h3 className="text-sm font-semibold">Assign Promises</h3>
           {draft.promises.length === 0 ? (
             <Notice>Identify promises in Step 2A first.</Notice>
           ) : (

@@ -10,7 +10,7 @@ import { Section, td } from "./fields";
 export function GroupedJournalReconciliation({ grouped }: { grouped: GroupedJournalAnalysis }) {
   return (
     <Section
-      title="Combined journal reconciliation"
+      title="Combined Journal Reconciliation"
       description="Each contract's journal entries are generated and reconciled independently. No combined journal is created and no contract is netted against another."
     >
       <table className="w-full border-collapse text-sm">

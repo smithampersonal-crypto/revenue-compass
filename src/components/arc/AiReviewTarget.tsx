@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { PencilLine, Sparkles } from "lucide-react";
 
 import type {
   AiFieldProvenanceDto,
@@ -73,6 +74,7 @@ export function AiReviewTarget({
       ? (workspace?.objectProvenance[canonicalObjectId]?.state ?? null)
       : null;
   const badge = marker === null && provenanceState ? provenanceBadgeLabel(provenanceState) : null;
+  const compactAiBadge = badge === "AI drafted" || badge === "AI drafted · edited";
 
   return (
     <div id={anchorId} className={className} data-ai-review-target={targetKey}>
@@ -89,7 +91,20 @@ export function AiReviewTarget({
               {marker}
             </span>
           ) : null}
-          {badge ? (
+          {compactAiBadge ? (
+            <span
+              aria-label={badge}
+              title={badge}
+              tabIndex={0}
+              className="inline-flex h-5 min-w-5 items-center justify-center gap-0.5 rounded border border-border bg-muted px-1 text-muted-foreground"
+              data-ai-provenance-marker
+            >
+              <Sparkles aria-hidden="true" size={12} strokeWidth={1.75} />
+              {badge === "AI drafted · edited" ? (
+                <PencilLine aria-hidden="true" size={10} strokeWidth={1.75} />
+              ) : null}
+            </span>
+          ) : badge ? (
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
               {badge}
             </span>

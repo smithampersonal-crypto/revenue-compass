@@ -38,7 +38,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
   if (!analysis) {
     return (
       <Section
-        title="Progressive results"
+        title="Progressive Results"
         description="These results are calculated from the facts entered. Something required is missing or unusable, so they are unavailable."
       >
         <div className="space-y-2" data-testid="progressive-outputs-blocked">
@@ -65,7 +65,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
 
   return (
     <Section
-      title="Progressive results"
+      title="Progressive Results"
       description="Everything that can be determined today is calculated now. A fact that has not happened yet limits only the output that depends on it."
     >
       <div className="space-y-4" data-testid="progressive-outputs">
@@ -114,7 +114,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {/* ---- Step 5 schedule and pending components --------------------- */}
         <div className="rounded-md border border-border p-3">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold">Revenue schedule</p>
+            <p className="text-sm font-semibold">Revenue Schedule</p>
             {recognition ? <StateBadge state={recognition.state} /> : null}
           </div>
           {recognition && recognition.schedule.byMonth.length > 0 ? (
@@ -145,7 +145,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {/* ---- Billing, independent of recognition readiness -------------- */}
         <div className="rounded-md border border-border p-3">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold">Billing schedule</p>
+            <p className="text-sm font-semibold">Billing Schedule</p>
             <StateBadge state={billing.state} />
           </div>
           <ul className="mt-2 space-y-1 text-sm">
@@ -169,7 +169,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {balances ? (
           <div className="rounded-md border border-border p-3">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">Contract balances</p>
+              <p className="text-sm font-semibold">Contract Balances</p>
               <StateBadge state={balances.state} />
             </div>
             <p className="mt-1 text-sm">
@@ -183,7 +183,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {balances === null && analysis.balances !== null ? (
           <div className="rounded-md border border-border p-3">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">Contract balances</p>
+              <p className="text-sm font-semibold">Contract Balances</p>
               <StateBadge state="blocked" />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -195,7 +195,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {journals === null && analysis.journals !== null ? (
           <div className="rounded-md border border-border p-3">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">Journal entries</p>
+              <p className="text-sm font-semibold">Journal Entries</p>
               <StateBadge state="blocked" />
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -207,7 +207,7 @@ export function ProgressiveOutputs({ draft }: { draft: WorkflowDraft }) {
         {journals ? (
           <div className="rounded-md border border-border p-3">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold">Journal entries</p>
+              <p className="text-sm font-semibold">Journal Entries</p>
               <StateBadge state={journals.state} />
             </div>
             <p className="mt-1 text-sm">

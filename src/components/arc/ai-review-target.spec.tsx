@@ -110,7 +110,7 @@ describe("AiReviewTarget", () => {
     expect(screen.queryByText("Review")).toBeNull();
   });
 
-  it("badges AI-drafted, edited and preserved provenance, and leaves manual input unbadged", () => {
+  it("uses compact accessible markers for AI provenance and leaves manual input unmarked", () => {
     harness(
       {
         fieldProvenance: {
@@ -135,8 +135,16 @@ describe("AiReviewTarget", () => {
         </AiReviewTarget>
       </>,
     );
-    expect(screen.getByText("AI drafted")).toBeInTheDocument();
-    expect(screen.getByText("AI drafted · edited")).toBeInTheDocument();
+    const drafted = screen.getByLabelText("AI drafted");
+    const edited = screen.getByLabelText("AI drafted · edited");
+    expect(drafted).toHaveAttribute("title", "AI drafted");
+    expect(edited).toHaveAttribute("title", "AI drafted · edited");
+    expect(drafted).toHaveAttribute("data-ai-provenance-marker");
+    expect(edited).toHaveAttribute("data-ai-provenance-marker");
+    expect(drafted).toHaveTextContent("");
+    expect(edited).toHaveTextContent("");
+    expect(drafted.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(1);
+    expect(edited.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(2);
     expect(screen.getByText("Your value preserved")).toBeInTheDocument();
     expect(screen.queryByText(/manual/i)).toBeNull();
   });
@@ -152,7 +160,7 @@ describe("AiReviewTarget", () => {
       </AiReviewTarget>,
     );
     expect(screen.getByText("Review")).toBeInTheDocument();
-    expect(screen.queryByText("AI drafted")).toBeNull();
+    expect(screen.queryByLabelText("AI drafted")).toBeNull();
   });
 
   it("binds object provenance by canonical id, never by position", () => {
@@ -166,7 +174,7 @@ describe("AiReviewTarget", () => {
         <div>Performance obligation</div>
       </AiReviewTarget>,
     );
-    expect(screen.getByText("AI drafted")).toBeInTheDocument();
+    expect(screen.getByLabelText("AI drafted")).toHaveAttribute("title", "AI drafted");
   });
 
   it("shows the field's own provenance, never the parent object's", () => {
@@ -181,8 +189,11 @@ describe("AiReviewTarget", () => {
         <div>Treatment</div>
       </AiReviewTarget>,
     );
-    expect(screen.getByText("AI drafted · edited")).toBeInTheDocument();
-    expect(screen.queryByText("AI drafted")).toBeNull();
+    expect(screen.getByLabelText("AI drafted · edited")).toHaveAttribute(
+      "title",
+      "AI drafted · edited",
+    );
+    expect(screen.queryByLabelText("AI drafted")).toBeNull();
   });
 
   it("owns exactly one canonical target key", () => {

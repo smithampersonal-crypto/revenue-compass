@@ -115,7 +115,7 @@ export function JournalEntryOutputs({
               journal entries are presented.
             </Notice>
             <IssueList
-              title="Journal engine validation"
+              title="Journal Validation Checks"
               issues={validation.results
                 .filter((check) => !check.passed)
                 .map((check) => ({ id: check.id, message: check.message }))}

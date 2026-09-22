@@ -12,7 +12,7 @@ export function CombinedContractBalances({ grouped }: { grouped: GroupedContract
   if (!grouped.combinedMonthly) return null;
   return (
     <Section
-      title="Combined contract balances — gross presentation"
+      title="Combined Contract Balances — Gross Presentation"
       description="The sum of each contract's separately determined balances. Contract assets and contract liabilities are added gross and are never offset against each other."
     >
       <div className="overflow-x-auto">

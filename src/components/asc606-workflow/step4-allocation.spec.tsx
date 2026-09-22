@@ -9,6 +9,7 @@ import {
   previewAllocation,
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
+import { case7Draft } from "@/lib/asc606-workflow/__tests__/vc-fixtures";
 
 import { Step4Allocation } from "./Step4Allocation";
 
@@ -62,6 +63,19 @@ describe("Step 4 allocation presentation", () => {
       ["po-training", 1_020_000],
       ["po-support", 2_040_000],
     ]);
+  });
+
+  it("uses clean structural headings for variable-consideration allocation", () => {
+    mount(case7Draft());
+    expect(
+      screen.getByRole("heading", {
+        name: "Variable Consideration Allocated to a Specific Performance Obligation",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Final Allocation at Inception" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\(read-only\)/i)).toBeNull();
   });
 
   it("retains material-right inputs and deterministic estimated SSP without raw SSP editing", () => {

@@ -40,7 +40,7 @@ export function RevenueScheduleView({
   return (
     <div className="space-y-6">
       {revenueSchedule ? (
-        <Section title="Revenue schedule (engine output)">
+        <Section title="Revenue Schedule">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -81,7 +81,7 @@ export function RevenueScheduleView({
           </div>
         </Section>
       ) : (
-        <Section title="Revenue schedule">
+        <Section title="Revenue Schedule">
           <Notice tone="warning">
             No revenue schedule is available until the outstanding analysis items are resolved.
           </Notice>
@@ -91,7 +91,7 @@ export function RevenueScheduleView({
       {result.variableConsideration ? (
         <div className="space-y-6 rounded-lg border border-dashed border-border p-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Supporting analysis — Variable Consideration
+            Supporting Analysis — Variable Consideration
           </h2>
           <VariableConsiderationOutputs
             vc={result.variableConsideration}
@@ -103,7 +103,7 @@ export function RevenueScheduleView({
       {result.lifecycle ? (
         <div className="space-y-6 rounded-lg border border-dashed border-border p-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Supporting analysis — Material Rights
+            Supporting Analysis — Material Rights
           </h2>
           <MaterialRightLifecycleOutputs lifecycle={result.lifecycle} />
         </div>

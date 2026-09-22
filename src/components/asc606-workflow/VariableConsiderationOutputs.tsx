@@ -20,7 +20,7 @@ export function VariableConsiderationOutputs({
   return (
     <>
       <Section
-        title="Variable consideration (engine output)"
+        title="Variable Consideration"
         description="Each component, the amount included after the accountant's constraint conclusion, and its allocation treatment."
       >
         <table className="w-full border-collapse text-sm">
@@ -58,7 +58,7 @@ export function VariableConsiderationOutputs({
         {vc.changeEvents.length > 0 ? (
           <table className="w-full border-collapse text-sm">
             <caption className="mb-1 text-left text-sm font-semibold">
-              Dated changes in the transaction price
+              Dated Changes in the Transaction Price
             </caption>
             <thead>
               <tr>
@@ -88,7 +88,7 @@ export function VariableConsiderationOutputs({
         {vc.usagePeriods.length > 0 ? (
           <table className="w-full border-collapse text-sm">
             <caption className="mb-1 text-left text-sm font-semibold">
-              Usage-as-incurred consideration
+              Usage-as-Incurred Consideration
             </caption>
             <thead>
               <tr>
@@ -112,7 +112,7 @@ export function VariableConsiderationOutputs({
 
       {layers ? (
         <Section
-          title="Allocation layers (engine output)"
+          title="Allocation Layers"
           description="The relative-SSP allocation of the general pool, the amounts allocated entirely to a specific item under the allocation exception, and the resulting allocation."
         >
           <table className="w-full border-collapse text-sm">
@@ -145,7 +145,7 @@ export function VariableConsiderationOutputs({
           {layers.specific.length > 0 ? (
             <table className="w-full border-collapse text-sm">
               <caption className="mb-1 text-left text-sm font-semibold">
-                Amounts allocated entirely to a specific item (allocation exception)
+                Amounts Allocated Entirely to a Specific Item (Allocation Exception)
               </caption>
               <thead>
                 <tr>
@@ -181,7 +181,7 @@ export function VariableConsiderationOutputs({
 /** Reconciliation only; Review & Finalize is its central home. */
 export function VariableConsiderationReconciliation({ vc }: { vc: VariableConsiderationAnalysis }) {
   return (
-    <Section title="Variable-consideration reconciliation (engine output)">
+    <Section title="Variable-Consideration Reconciliation">
       <table className="w-full border-collapse text-sm">
         <tbody>
           <tr>
