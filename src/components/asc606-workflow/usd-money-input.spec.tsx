@@ -12,7 +12,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { UsdMoneyInput } from "./fields";
 
-function Harness({ initial, onValueChange }: { initial: string; onValueChange?: (v: string) => void }) {
+function Harness({
+  initial,
+  onValueChange,
+}: {
+  initial: string;
+  onValueChange?: (v: string) => void;
+}) {
   const [value, setValue] = useState(initial);
   return (
     <UsdMoneyInput

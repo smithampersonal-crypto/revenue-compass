@@ -58,7 +58,10 @@ describe("formatting-only blur is not an accountant edit", () => {
   };
 
   it("keeps AI provenance, the canonical value and the accounting results intact", () => {
-    const initial: WorkflowDraft = { ...createDemoDraft("horizon"), transactionPriceInput: "505001.96" };
+    const initial: WorkflowDraft = {
+      ...createDemoDraft("horizon"),
+      transactionPriceInput: "505001.96",
+    };
     const before = analyzeWorkflow(initial);
     const state = mountStep(Step3TransactionPrice, initial, (node) => (
       <AiReviewTargetProvider workspace={aiWorkspace}>{node}</AiReviewTargetProvider>
@@ -86,7 +89,10 @@ describe("formatting-only blur is not an accountant edit", () => {
   });
 
   it("still records a real accountant edit through the ordinary state path", () => {
-    const initial: WorkflowDraft = { ...createDemoDraft("horizon"), transactionPriceInput: "505001.96" };
+    const initial: WorkflowDraft = {
+      ...createDemoDraft("horizon"),
+      transactionPriceInput: "505001.96",
+    };
     const state = mountStep(Step3TransactionPrice, initial, (node) => (
       <AiReviewTargetProvider workspace={aiWorkspace}>{node}</AiReviewTargetProvider>
     ));
