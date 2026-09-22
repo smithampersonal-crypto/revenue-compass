@@ -126,6 +126,7 @@ describe("object provenance is measured against the pre-merge draft", () => {
     const first = run(fixtureAAnalysis());
     const renamed = fixtureAAnalysis();
     renamed.performanceObligations[0]!.description = "Hosted platform subscription";
+    renamed.performanceObligations[0]!.accountingLabel = "Hosted platform subscription";
     const second = run(renamed, first.draft, first.aiState, RUN_2);
 
     const po = second.draft.performanceObligations[0]!;
@@ -147,6 +148,7 @@ describe("object provenance is measured against the pre-merge draft", () => {
     };
     const renamed = fixtureAAnalysis();
     renamed.performanceObligations[0]!.description = "Hosted platform subscription";
+    renamed.performanceObligations[0]!.accountingLabel = "Hosted platform subscription";
     const second = run(renamed, edited, first.aiState, RUN_2);
 
     expect(second.draft.performanceObligations[0]!.name).toBe("Accountant's own PO name");
