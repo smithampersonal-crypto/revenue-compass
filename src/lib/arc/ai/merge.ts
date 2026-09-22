@@ -683,7 +683,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       lastAiRunId: prior.lastAiRunId,
       valueFingerprint: prior.valueFingerprint,
     };
-    if (differs) {
+    if (differs && input.presentationOnly !== true) {
       raise({
         targetKey: input.key,
         section: input.section,
