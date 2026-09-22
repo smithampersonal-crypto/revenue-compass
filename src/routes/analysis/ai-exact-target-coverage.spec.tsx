@@ -487,9 +487,7 @@ describe("deterministic AI meter fields are presented individually", () => {
       const rateAnchor = anchorOf(container, RATE);
       const unitAnchor = anchorOf(container, UNIT);
       expect(rateAnchor?.querySelector('[aria-label="AI drafted"]')).not.toBeNull();
-      expect(
-        unitAnchor?.querySelector('[aria-label="AI drafted · edited"]'),
-      ).not.toBeNull();
+      expect(unitAnchor?.querySelector('[aria-label="AI drafted · edited"]')).not.toBeNull();
       expect(rateAnchor?.querySelector('[aria-label="AI drafted · edited"]')).toBeNull();
     });
   });
@@ -562,9 +560,9 @@ describe("deterministic AI meter fields are presented individually", () => {
         `vc:${VC_USAGE}.meter.rateQuantityInput`,
         UNIT,
       ]) {
-        expect(container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`)).toHaveLength(
-          1,
-        );
+        expect(
+          container.querySelectorAll(`#${CSS.escape(reviewTargetAnchorId(key))}`),
+        ).toHaveLength(1);
       }
       const anchor = anchorOf(container, UNIT) as HTMLElement;
       expect((anchor.querySelector("input") as HTMLInputElement).value).toBe("API call");
