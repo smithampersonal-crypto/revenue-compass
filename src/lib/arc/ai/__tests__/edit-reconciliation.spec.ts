@@ -998,7 +998,7 @@ describe("the composite Phase 5C modification target", () => {
           name: "Hosted platform access",
           remainingGoodsDistinctFromTransferred: true,
           remainingSspInput: "40000",
-          recognitionMethod: "ratable",
+          recognitionMethod: "over_time_ratable",
         },
       ];
       return draft;
