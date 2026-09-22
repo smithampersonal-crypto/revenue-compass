@@ -218,7 +218,7 @@ function apex(): WorkflowDraft {
   const saas = overTimePo(
     1,
     "po-saas",
-    "Hosted SaaS Access",
+    "SaaS subscription",
     "120,000.00",
     "2027-01-01",
     "2027-12-31",
@@ -241,7 +241,7 @@ function horizon(): WorkflowDraft {
   const saas = overTimePo(
     1,
     "po-saas",
-    "SaaS subscription",
+    "Hosted SaaS Access",
     "144,000.00",
     "2027-07-01",
     "2028-06-30",

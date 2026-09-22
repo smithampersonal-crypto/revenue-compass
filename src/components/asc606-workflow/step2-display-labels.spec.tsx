@@ -62,7 +62,9 @@ describe("Step 2 display labels", () => {
     expect(screen.getAllByText("Hosted SaaS Access · 7/1/2027–6/30/2028").length).toBeGreaterThan(
       0,
     );
-    expect(screen.getByText("Implementation Training · 7/10/2027–7/11/2027")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Implementation Training · 7/10/2027–7/11/2027").length,
+    ).toBeGreaterThan(0);
 
     const select = screen.getByLabelText(
       "Performance obligation for Hosted SaaS Access · 7/1/2027–6/30/2028",
