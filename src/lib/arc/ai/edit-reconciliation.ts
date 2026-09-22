@@ -436,7 +436,12 @@ const MATERIAL_GROUPS: Record<ObjectFamily, readonly MaterialGroup[]> = {
     plainGroup("assignment", ["performanceObligationId"]),
   ],
   po: [
-    plainGroup("classification", ["kind", "name", "classification", "classificationRationale"]),
+    // Package 2C-B. `name` is the presentation label of a performance
+    // obligation, not an accounting conclusion, so it is deliberately absent
+    // from every material group: renaming an obligation can never look like a
+    // material accounting edit. The same reasoning keeps the promise
+    // `displayName` out of the promise groups below.
+    plainGroup("classification", ["kind", "classification", "classificationRationale"]),
     plainGroup("ssp", ["sspInput", "sspBasis"]),
     {
       name: "recognition",

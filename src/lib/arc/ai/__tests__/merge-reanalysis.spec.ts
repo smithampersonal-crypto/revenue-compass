@@ -94,6 +94,7 @@ describe("Fixture C — re-analysis preserves user work", () => {
   function secondRun(): AiContractAnalysis {
     const analysis = fixtureAAnalysis();
     analysis.performanceObligations[0]!.description = "Hosted platform subscription";
+    analysis.performanceObligations[0]!.accountingLabel = "Hosted platform subscription";
     analysis.promises[0]!.description = "Hosted platform access";
     analysis.transactionPrice.fixedConsiderationInput = "150000";
     analysis.billingTerms[0]!.amountOrRateInput = "150000";

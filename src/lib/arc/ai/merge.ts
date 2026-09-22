@@ -589,6 +589,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     citations?: readonly AiCitation[];
     aiReviewState?: AiReviewState | null;
     label: string;
+    /**
+     * Package 2C-B. This field is a presentation label, not an accounting
+     * conclusion. Ownership is unchanged — an untouched AI label refreshes and
+     * a manual or accountant-edited label is still preserved — but a label
+     * difference never raises a review item, because a wording drift is not an
+     * accounting matter for the accountant to reconcile.
+     */
+    presentationOnly?: boolean;
   }
 
   /**
@@ -610,7 +618,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         lastAiRunId: prior?.lastAiRunId ?? null,
         valueFingerprint: fingerprint,
       };
-      if (differs) {
+      if (differs && input.presentationOnly !== true) {
         raise({
           targetKey: input.key,
           section: input.section,
@@ -675,7 +683,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       lastAiRunId: prior.lastAiRunId,
       valueFingerprint: prior.valueFingerprint,
     };
-    if (differs) {
+    if (differs && input.presentationOnly !== true) {
       raise({
         targetKey: input.key,
         section: input.section,
@@ -1227,6 +1235,27 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       aiReviewState: aiPromise.reviewState,
       label: "Promise description",
     });
+
+    // Package 2C-B. The concise accountant-facing label is additive and
+    // presentation-only: `description` above stays the detailed interpretation.
+    // A v5 analysis carries no label at all, so nothing is written and the
+    // optional canonical field simply stays absent.
+    const promiseLabel = (aiPromise.accountingLabel ?? "").trim();
+    if (promiseLabel !== "") {
+      mergeText({
+        key: fieldKeys.promise(canonicalId, "displayName"),
+        semanticKey: aiPromise.semanticKey,
+        current: current().displayName ?? "",
+        proposed: promiseLabel,
+        apply: (value) => update({ displayName: value }),
+        section,
+        guidanceIds: aiPromise.guidanceIds,
+        citations: aiPromise.citations,
+        aiReviewState: aiPromise.reviewState,
+        label: "Promise label",
+        presentationOnly: true,
+      });
+    }
     for (const spec of [
       {
         field: "capableOfBeingDistinct" as const,
@@ -1478,17 +1507,25 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     };
     const current = () => draft.performanceObligations.find((po) => po.id === canonicalId)!;
 
+    // Package 2C-B. The canonical performance obligation name is the concise
+    // accountant-facing label. The detailed AI interpretation is NOT discarded:
+    // it stays in the immutable run result, in `poMaterial()` below, and in the
+    // review/provenance material — it is simply no longer the workpaper name.
+    // A v5 analysis has no label, so its long description remains the name
+    // exactly as before.
+    const poLabel = (aiPo.accountingLabel ?? "").trim();
     mergeText({
       key: fieldKeys.po(canonicalId, "name"),
       semanticKey: aiPo.semanticKey,
       current: current().name,
-      proposed: aiPo.description,
+      proposed: poLabel !== "" ? poLabel : aiPo.description,
       apply: (value) => update({ name: value }),
       section,
       guidanceIds: aiPo.guidanceIds,
       citations: aiPo.citations,
       aiReviewState: aiPo.reviewState,
       label: "Performance obligation name",
+      presentationOnly: true,
     });
 
     // Promise → PO relationships always travel through canonical IDs; a Terra

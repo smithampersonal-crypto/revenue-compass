@@ -43,6 +43,13 @@ const promiseSchema = z.object({
   id,
   seq,
   kind: z.enum(["good_or_service", "customer_option"]),
+  /**
+   * Package 2C-B additive presentation label. Optional, so a stored
+   * `arc.workflow.v1` draft written before the label existed still parses
+   * unchanged; when present it is validated as a string and a malformed value
+   * fails closed rather than being silently stripped.
+   */
+  displayName: text.optional(),
   description: text,
   conveysMaterialRight: judgment,
   materialRightRationale: text,

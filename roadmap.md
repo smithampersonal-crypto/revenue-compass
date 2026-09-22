@@ -66,6 +66,17 @@
 - [x] Add a hand-authored literal historical v5 fixture with rejection, dispatch, no-label-synthesis and fail-closed regressions
 - [ ] Untrack the previously committed `.env` (`git rm --cached .env`) — blocked: index changes are not permitted from this environment
 
+## Package 2C-B — Canonical Presentation Labels
+
+- [x] Add optional `PromiseDraft.displayName` while `description` stays the detailed interpretation
+- [x] Accept `displayName` in canonical persistence validation backward-compatibly (absent loads, malformed fails closed)
+- [x] Map AI Promise `accountingLabel` to `displayName` and AI PO `accountingLabel` to `PoDraft.name`
+- [x] Keep the detailed PO interpretation in the immutable run result and AI review/provenance material
+- [x] Presentation-label provenance: untouched AI labels refresh, manual and accountant-edited labels survive
+- [x] Exclude the presentation PO `name` from the material accounting-edit projection so a rename is never a material edit
+- [x] Legacy v5 to first v6 transition regressions: label refresh, edited-name survival, new promise label, stable IDs/topology, no material review item
+- [x] Full verification: 204 files / 2627 tests, typecheck clean, lint 0 errors, production build and bundle audit clean
+
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
 - [x] Defensive fingerprint re-check at the apply firewall
