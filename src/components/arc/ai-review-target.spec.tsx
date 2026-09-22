@@ -11,7 +11,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { AiReviewTarget, AiReviewTargetProvider } from "./AiReviewTarget";
+import { AiProvenanceLegend, AiReviewTarget, AiReviewTargetProvider } from "./AiReviewTarget";
 import { Field, JudgmentControl } from "@/components/asc606-workflow/fields";
 import type { AiReviewItemDto } from "@/lib/arc/ai/review-dto";
 import { reviewTargetAnchorId } from "@/lib/arc/ai/review-presentation";
@@ -57,6 +57,38 @@ function harness(
 }
 
 describe("AiReviewTarget", () => {
+  it("shows one workspace legend only when AI-generated field provenance exists", () => {
+    const aiWorkspace = {
+      reviewItems: [],
+      fieldProvenance: {
+        "contract.customerName": { state: "ai_generated_untouched" },
+        "contract.contractNumber": { state: "ai_generated_user_edited" },
+      },
+      objectProvenance: {},
+    } as never;
+    const { rerender } = render(<AiProvenanceLegend workspace={aiWorkspace} />);
+    expect(screen.getAllByText("AI drafted · Hover for provenance")).toHaveLength(1);
+
+    rerender(
+      <AiProvenanceLegend
+        workspace={
+          {
+            reviewItems: [],
+            fieldProvenance: { "contract.currency": { state: "manual_from_start" } },
+            objectProvenance: {
+              "po-1": {
+                canonicalId: "po-1",
+                state: "ai_generated_untouched",
+                userModified: false,
+              },
+            },
+          } as never
+        }
+      />,
+    );
+    expect(screen.queryByText("AI drafted · Hover for provenance")).toBeNull();
+  });
+
   it("renders a stable exact anchor for the canonical target", () => {
     const { container } = harness(
       {},
