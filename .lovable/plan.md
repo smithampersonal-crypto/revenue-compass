@@ -19,11 +19,12 @@ Refine only the accepted provenance presentation. Keep every provenance value, o
 3. **Object and custom targets**
    - Stop rendering ordinary object-level AI provenance as a standalone badge; retain object provenance data and all object-level yellow/red review markers.
    - Step 2 Promise and Performance Obligation cards will therefore lose their floating object badge while their exact field labels and judgment legends retain provenance.
-   - For non-`Field`/non-`JudgmentControl` targets, use the same marker only where an existing visible label is an obvious direct placement. Do not introduce a generalized layout framework. Composite/group targets without one canonical label will retain their provenance data and review anchors but will not gain a replacement standalone ordinary-AI row.
+   - For non-`Field`/non-`JudgmentControl` targets, add the shared marker only to obvious existing labels already inside the exact target: the two feature checkboxes, variable-consideration treatment heading, inception-assessment heading, usage-period/service-period group headings, and modification facts heading. Do not introduce new targets or a generalized layout framework. Composite/group targets without one canonical label retain provenance data and review anchors but do not gain a replacement standalone ordinary-AI row.
+   - The audit found pre-existing material-right inputs without exact `AiReviewTarget` boundaries. This package will report those coverage gaps rather than alter target ownership outside the authorized presentation refinement.
 
 4. **Single workspace legend**
-   - Add one restrained `AI drafted · Hover for provenance` legend beside the editable analysis heading.
-   - Show it once only when the current workspace contains at least one `ai_generated_untouched` or `ai_generated_user_edited` field provenance entry; hide it for manual-only workspaces.
+   - Add one restrained `AI drafted · Hover for provenance` legend beside the persistent main editable-workspace heading in the analysis layout.
+   - Derive visibility directly from `ai.workspace.fieldProvenance`: show it once only when at least one field is `ai_generated_untouched` or `ai_generated_user_edited`; ignore object-only provenance and hide it for manual-only workspaces.
 
 5. **Focused regressions**
    - Update the provenance component tests for inline Field and JudgmentControl placement, edited/untouched accessibility, manual omission, preserved-value behavior, review precedence, and removal of ordinary object badges.
