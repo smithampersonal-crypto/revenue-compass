@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { ContractBalancesView } from "@/components/arc/ContractBalancesView";
 import { RevenueScheduleView } from "@/components/arc/RevenueScheduleView";
 import { ReviewFinalizeView } from "@/components/arc/ReviewFinalizeView";
+import { JournalEntryOutputs } from "@/components/asc606-workflow/JournalEntryOutputs";
 import { formatCents } from "@/lib/asc606";
 import {
   analyzeContractBalanceWorkflow,
@@ -305,7 +306,68 @@ describe("Phase 3 — Review & Finalize", () => {
     expect(screen.getByText("Validation Checks Passed")).toBeInTheDocument();
     expect(screen.queryByText(/Engine validation/i)).toBeNull();
     expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
-    expect(screen.getByText("Billing and contract-balance workpaper")).toBeInTheDocument();
+    expect(screen.getByText("Billing and Contract-Balance Workpaper")).toBeInTheDocument();
+  });
+
+  it("uses accountant-facing validation copy when deterministic checks require attention", () => {
+    const draft = createDemoDraft("horizon");
+    const wp = buildWorkpaper(draft);
+    const failedCheck = {
+      id: "presentation.fixture",
+      category: "inputs" as const,
+      severity: "blocking" as const,
+      passed: false,
+      message: "Synthetic validation fixture.",
+    };
+    render(
+      <ReviewFinalizeView
+        result={{
+          ...wp.workflow,
+          engineValidation: {
+            status: "attention",
+            results: [failedCheck],
+            blockingFailures: [failedCheck],
+          },
+        }}
+        balances={wp.balances}
+        journals={wp.journals}
+      />,
+    );
+    expect(screen.getByText("Validation Checks Require Attention")).toBeInTheDocument();
+  });
+
+  it("uses Journal Validation Checks for blocked journal output", () => {
+    render(
+      <JournalEntryOutputs
+        analysis={{
+          validation: {
+            status: "attention",
+            results: [
+              {
+                id: "journal.fixture",
+                category: "phase3",
+                severity: "blocking",
+                message: "Synthetic journal validation fixture.",
+                passed: false,
+              },
+            ],
+            blockingFailures: [],
+          },
+          entries: null,
+          ledgerByMonth: null,
+          reconciliation: {
+            allEntriesBalanced: null,
+            monthlyBalancesTie: null,
+            revenueByPoTies: null,
+            sourceEventsComplete: null,
+            reconciled: null,
+          },
+        }}
+        poNames={new Map()}
+      />,
+    );
+    expect(screen.getByText("Journal Validation Checks")).toBeInTheDocument();
+    expect(screen.queryByText("Journal engine validation")).toBeNull();
   });
 
   it("never exposes legacy finalized-analysis wording for a blocked draft", () => {

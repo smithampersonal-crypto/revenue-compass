@@ -48,16 +48,16 @@ export function ReviewFinalizeView({
       </Section>
 
       <IssueList
-        title="Workflow items requiring attention"
+        title="Workflow Items Requiring Attention"
         issues={result.workflowValidation.blocking}
       />
       <IssueList
-        title="Workflow warnings"
+        title="Workflow Warnings"
         tone="warning"
         issues={result.workflowValidation.warnings}
       />
       <IssueList
-        title="Engine input could not be assembled"
+        title="Engine Input Could Not Be Assembled"
         issues={result.adapterErrors.map((message, index) => ({ id: String(index), message }))}
       />
 
@@ -89,7 +89,7 @@ export function ReviewFinalizeView({
 
       {modification ? (
         <Section
-          title="Contract modification status"
+          title="Contract Modification Status"
           description="Summary only. The full modification workpaper is presented under Additional Topics Applied → Contract Modifications."
         >
           <table className="w-full border-collapse text-sm">
@@ -144,7 +144,7 @@ export function ReviewFinalizeView({
       ) : null}
 
       <Section
-        title="Billing and contract-balance workpaper"
+        title="Billing and Contract-Balance Workpaper"
         description="Detailed schedules remain in the Contract Balances area."
       >
         {balances.finalized ? (
@@ -203,7 +203,7 @@ export function ReviewFinalizeView({
               The Billing &amp; Contract Balances workpaper is incomplete.
             </Notice>
             <IssueList
-              title="Outstanding billing and contract-balance items"
+              title="Outstanding Billing and Contract-Balance Items"
               tone="warning"
               issues={balances.validation.blocking}
             />
@@ -215,7 +215,7 @@ export function ReviewFinalizeView({
         <GroupedJournalReconciliation grouped={grouped} />
       ) : (
         <Section
-          title="Journal reconciliation"
+          title="Journal Reconciliation"
           description="Detailed entries remain in the Journal Entries area."
         >
           {ordinaryJournals ? (
