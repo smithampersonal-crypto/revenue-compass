@@ -105,10 +105,10 @@
 
 ## Package 2C-F — Provenance + Presentation Copy
 
-- [ ] Replace repeated visible AI provenance text with compact, accessible icon-first markers
-- [ ] Remove implementation terminology from the approved structural headings and apply Title Case
-- [ ] Update exact-target and focused presentation-copy regressions without changing accounting expectations
-- [ ] Run focused and full verification, smoke-test Horizon, package the clean repository, and stop before 2C-G
+- [x] Replace repeated visible AI provenance text with compact, accessible icon-first markers
+- [x] Remove implementation terminology from the approved structural headings and apply Title Case
+- [x] Update exact-target and focused presentation-copy regressions without changing accounting expectations
+- [x] Run focused and full verification, smoke-test Horizon, package the clean repository, and stop before 2C-G
 
 - [x] Pure safety firewall `src/lib/arc/ai/safe-reanalysis.ts` (same-source gate + exact-continuity decision)
 - [x] Early changed-source short circuit BEFORE `reserveAllowance` / `analyzer.analyze` (no quota, no Terra call)
