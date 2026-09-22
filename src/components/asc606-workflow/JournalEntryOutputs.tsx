@@ -124,7 +124,7 @@ export function JournalEntryOutputs({
         )}
       </Section>
 
-      <Section title={`${title} — reconciliation`}>
+      <Section title={`${title} — Reconciliation`}>
         <table className="w-full border-collapse text-sm">
           <tbody>
             <tr>

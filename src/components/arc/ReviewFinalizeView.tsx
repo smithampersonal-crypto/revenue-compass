@@ -57,7 +57,7 @@ export function ReviewFinalizeView({
         issues={result.workflowValidation.warnings}
       />
       <IssueList
-        title="Engine Input Could Not Be Assembled"
+        title="Analysis Inputs Could Not Be Assembled"
         issues={result.adapterErrors.map((message, index) => ({ id: String(index), message }))}
       />
 
