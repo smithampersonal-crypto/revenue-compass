@@ -1,4 +1,4 @@
-import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
+import { AiExactTargetProvenanceMarker, AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import { formatCents, type RecognitionMethod } from "@/lib/asc606";
 import type { MaterialRightStatus } from "@/lib/asc606-material-rights";
 import {
@@ -105,8 +105,9 @@ export function Step5Recognition({
 
               <AiReviewTarget targetKey={`po:${po.id}.progressEvents`}>
                 <div className="space-y-2" data-testid={`progress-events-${po.id}`}>
-                  <p className="text-sm font-medium">
+                  <p className="inline-flex items-center gap-1 text-sm font-medium">
                     Actual {po.unitLabel || "units"} incurred to date
+                    <AiExactTargetProvenanceMarker />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Enter only effort that has actually been incurred. Future effort is never

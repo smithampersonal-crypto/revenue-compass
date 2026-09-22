@@ -28,6 +28,8 @@ export type AiReviewTargetWorkspace = {
 };
 
 const TargetContext = createContext<AiReviewTargetWorkspace | null>(null);
+const ProvenanceLabelContext = createContext<string | null>(null);
+const ExactTargetProvenanceLabelContext = createContext<string | null>(null);
 
 export function AiReviewTargetProvider({
   workspace,
@@ -47,6 +49,68 @@ export function AiReviewTargetProvider({
  */
 function isFieldTarget(targetKey: string): boolean {
   return targetKey.includes(".");
+}
+
+/** Quiet metadata for the exact field target currently in scope. */
+export function AiInlineProvenanceMarker() {
+  const label = useContext(ProvenanceLabelContext);
+  if (label !== "AI drafted" && label !== "AI drafted · edited") return null;
+
+  return (
+    <span
+      aria-label={label}
+      title={label}
+      tabIndex={0}
+      className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground/80"
+      data-ai-provenance-marker
+    >
+      <Sparkles aria-hidden="true" size={12} strokeWidth={1.75} />
+      {label === "AI drafted · edited" ? (
+        <PencilLine aria-hidden="true" size={9} strokeWidth={1.75} />
+      ) : null}
+    </span>
+  );
+}
+
+/** Marker for an existing custom label owned by a composite exact target. */
+export function AiExactTargetProvenanceMarker() {
+  const label = useContext(ExactTargetProvenanceLabelContext);
+  if (label !== "AI drafted" && label !== "AI drafted · edited") return null;
+
+  return (
+    <span
+      aria-label={label}
+      title={label}
+      tabIndex={0}
+      className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground/80"
+      data-ai-provenance-marker
+    >
+      <Sparkles aria-hidden="true" size={12} strokeWidth={1.75} />
+      {label === "AI drafted · edited" ? (
+        <PencilLine aria-hidden="true" size={9} strokeWidth={1.75} />
+      ) : null}
+    </span>
+  );
+}
+
+function isCompositeFieldTarget(targetKey: string): boolean {
+  return /\.(?:inception|phase5cFacts|progressEvents|realizedEvents|seriesPeriods|servicePeriod|usagePeriods(?:\.|$))/.test(
+    targetKey,
+  );
+}
+
+export function AiProvenanceLegend({ workspace }: { workspace: AiReviewTargetWorkspace | null }) {
+  const hasAiFieldProvenance = Object.values(workspace?.fieldProvenance ?? {}).some(
+    ({ state }) => state === "ai_generated_untouched" || state === "ai_generated_user_edited",
+  );
+  if (!hasAiFieldProvenance) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+      <Sparkles aria-hidden="true" size={12} strokeWidth={1.75} />
+      AI drafted · Hover for provenance
+    </span>
+  );
 }
 
 export function AiReviewTarget({
@@ -74,44 +138,40 @@ export function AiReviewTarget({
       ? (workspace?.objectProvenance[canonicalObjectId]?.state ?? null)
       : null;
   const badge = marker === null && provenanceState ? provenanceBadgeLabel(provenanceState) : null;
-  const compactAiBadge = badge === "AI drafted" || badge === "AI drafted · edited";
+  const fieldBadge = isFieldTarget(targetKey) ? badge : null;
+  const compactFieldBadge =
+    fieldBadge === "AI drafted" || fieldBadge === "AI drafted · edited" ? fieldBadge : null;
+  const commonLabelBadge = isCompositeFieldTarget(targetKey) ? null : compactFieldBadge;
+  const visibleBoundaryBadge =
+    fieldBadge !== "AI drafted" && fieldBadge !== "AI drafted · edited" ? fieldBadge : null;
 
   return (
-    <div id={anchorId} className={className} data-ai-review-target={targetKey}>
-      {marker || badge ? (
-        <div className="mb-1 flex items-center gap-2">
-          {marker ? (
-            <span
-              className={
-                openItem?.severity === "red"
-                  ? "rounded-full border border-destructive px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive"
-                  : "rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
-              }
-            >
-              {marker}
-            </span>
-          ) : null}
-          {compactAiBadge ? (
-            <span
-              aria-label={badge}
-              title={badge}
-              tabIndex={0}
-              className="inline-flex h-5 min-w-5 items-center justify-center gap-0.5 rounded border border-border bg-muted px-1 text-muted-foreground"
-              data-ai-provenance-marker
-            >
-              <Sparkles aria-hidden="true" size={12} strokeWidth={1.75} />
-              {badge === "AI drafted · edited" ? (
-                <PencilLine aria-hidden="true" size={10} strokeWidth={1.75} />
+    <ExactTargetProvenanceLabelContext.Provider value={compactFieldBadge}>
+      <ProvenanceLabelContext.Provider value={commonLabelBadge}>
+        <div id={anchorId} className={className} data-ai-review-target={targetKey}>
+          {marker || visibleBoundaryBadge ? (
+            <div className="mb-1 flex items-center gap-2">
+              {marker ? (
+                <span
+                  className={
+                    openItem?.severity === "red"
+                      ? "rounded-full border border-destructive px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-destructive"
+                      : "rounded-full border border-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary"
+                  }
+                >
+                  {marker}
+                </span>
               ) : null}
-            </span>
-          ) : badge ? (
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              {badge}
-            </span>
+              {visibleBoundaryBadge ? (
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {visibleBoundaryBadge}
+                </span>
+              ) : null}
+            </div>
           ) : null}
+          {children}
         </div>
-      ) : null}
-      {children}
-    </div>
+      </ProvenanceLabelContext.Provider>
+    </ExactTargetProvenanceLabelContext.Provider>
   );
 }

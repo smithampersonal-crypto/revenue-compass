@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 
-import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
+import {
+  AiExactTargetProvenanceMarker,
+  AiInlineProvenanceMarker,
+  AiReviewTarget,
+} from "@/components/arc/AiReviewTarget";
 import { formatCents } from "@/lib/asc606";
 import {
   createVcAssessmentDraft,
@@ -102,7 +106,10 @@ export function Step3TransactionPrice({
   ) => (
     <div key={assessment.id} className="space-y-3 rounded-md border border-border p-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">{title}</p>
+        <p className="inline-flex items-center gap-1 text-sm font-semibold">
+          {title}
+          <AiExactTargetProvenanceMarker />
+        </p>
         {onRemove ? (
           <button type="button" className={buttonClass} onClick={onRemove}>
             Remove
@@ -288,6 +295,7 @@ export function Step3TransactionPrice({
             onChange={(e) => onChange({ ...draft, hasVariableConsideration: e.target.checked })}
           />
           This contract contains variable consideration
+          <AiInlineProvenanceMarker />
         </label>
       </AiReviewTarget>
 
@@ -319,10 +327,11 @@ export function Step3TransactionPrice({
             >
               <div className="flex items-center justify-between">
                 <AiReviewTarget targetKey={`vc:${component.id}.treatment`}>
-                  <p className="text-sm font-semibold">
+                  <p className="inline-flex items-center gap-1 text-sm font-semibold">
                     {component.treatment === "estimated"
                       ? "Estimated variable consideration"
                       : "Usage as incurred"}
+                    <AiInlineProvenanceMarker />
                   </p>
                 </AiReviewTarget>
                 <button

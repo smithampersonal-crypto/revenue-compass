@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createDemoDraft } from "@/lib/demo-scenarios";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
+import { AiReviewTargetProvider } from "@/components/arc/AiReviewTarget";
 
 import { Step2PerformanceObligations } from "./Step2PerformanceObligations";
 import { Step2Promises } from "./Step2Promises";
@@ -83,5 +84,66 @@ describe("Step 2 display labels", () => {
 
     fireEvent.change(select, { target: { value: "po-training" } });
     expect(state.draft.promises[0]?.performanceObligationId).toBe("po-training");
+  });
+
+  it("presents Promise field and judgment provenance inline without a floating object badge", () => {
+    const initial = createDemoDraft("horizon");
+    const promise = initial.promises[0];
+    if (!promise) throw new Error("Horizon promise missing");
+    const workspace = {
+      reviewItems: [],
+      fieldProvenance: {
+        [`promise:${promise.id}.displayName`]: { state: "ai_generated_untouched" },
+        [`promise:${promise.id}.description`]: { state: "ai_generated_user_edited" },
+        [`promise:${promise.id}.capableOfBeingDistinct`]: { state: "ai_generated_untouched" },
+        [`promise:${promise.id}.distinctWithinContractContext`]: {
+          state: "ai_generated_untouched",
+        },
+      },
+      objectProvenance: {
+        [promise.id]: {
+          canonicalId: promise.id,
+          state: "ai_generated_untouched",
+          userModified: false,
+        },
+      },
+    } as never;
+
+    render(
+      <AiReviewTargetProvider workspace={workspace}>
+        <Step2Promises draft={initial} onChange={() => {}} />
+      </AiReviewTargetProvider>,
+    );
+
+    const card = document.querySelector(
+      `[data-ai-review-target="promise:${promise.id}"]`,
+    ) as HTMLElement;
+    const name = card.querySelector(
+      `[data-ai-review-target="promise:${promise.id}.displayName"]`,
+    ) as HTMLElement;
+    const description = card.querySelector(
+      `[data-ai-review-target="promise:${promise.id}.description"]`,
+    ) as HTMLElement;
+    const capable = card.querySelector(
+      `[data-ai-review-target="promise:${promise.id}.capableOfBeingDistinct"]`,
+    ) as HTMLElement;
+    const context = card.querySelector(
+      `[data-ai-review-target="promise:${promise.id}.distinctWithinContractContext"]`,
+    ) as HTMLElement;
+
+    expect(within(name).getByLabelText("AI drafted").closest("label")?.textContent).toContain(
+      "Name",
+    );
+    expect(
+      within(description).getByLabelText("AI drafted · edited").closest("label")?.textContent,
+    ).toContain("Description / Interpretation");
+    expect(within(capable).getByLabelText("AI drafted").closest("legend")?.textContent).toContain(
+      "Capable of being distinct?",
+    );
+    expect(within(context).getByLabelText("AI drafted").closest("legend")?.textContent).toContain(
+      "Distinct within the context of the contract?",
+    );
+    expect(card.querySelector(":scope > [data-ai-provenance-marker]")).toBeNull();
+    expect(card.querySelector(":scope > div.mb-1")).toBeNull();
   });
 });

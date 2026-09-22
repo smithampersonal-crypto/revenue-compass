@@ -5,6 +5,7 @@ import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
 import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
+import { AiProvenanceLegend } from "@/components/arc/AiReviewTarget";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
@@ -126,7 +127,10 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
           >
             ← Back to Home
           </Link>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">ASC 606 Analysis</h1>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">ASC 606 Analysis</h1>
+            <AiProvenanceLegend workspace={ai.workspace} />
+          </div>
           <p className="text-sm text-muted-foreground">
             Enter and review the accounting judgments. All accounting judgments are yours;
             allocation, revenue recognition and reconciliation amounts are produced by the
