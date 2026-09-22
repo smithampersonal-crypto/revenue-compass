@@ -120,3 +120,13 @@
 - [x] Tests: safe-reanalysis unit, orchestrator integration, Genomix regression, circular-inference regression
 - [x] Full verification: 194 files / 2542 tests, typecheck clean, lint 0 errors, production build OK
 - [ ] GitHub Actions rerun — blocked: `gh` CLI unavailable in this sandbox
+
+## Package 2C-G — Money Input Formatting
+- [x] Completed and accepted; preserve the exact parser, canonical values, provenance behavior, and blur-only presentation formatting
+
+## Package 2C-F.1 — Inline Provenance Presentation Refinement
+- [ ] Move ordinary field provenance into Field and JudgmentControl label lines through fail-safe exact-target context
+- [ ] Suppress only ordinary object-level provenance presentation while retaining object review markers
+- [ ] Keep the discovered material-right provenance coverage gaps unchanged and report their exact affected inputs
+- [ ] Add the single conditional workspace legend and focused presentation regressions
+- [ ] Run focused and full verification, smoke-test Horizon Step 2, package the clean repository, and stop before 2C-H
