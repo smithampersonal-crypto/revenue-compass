@@ -313,6 +313,26 @@ describe("every exact registry target has a real production anchor", () => {
 });
 
 describe("inline markers and provenance on real accounting controls", () => {
+  it("shows the workspace legend once for AI field provenance and not for manual-only provenance", async () => {
+    aiState = workspace({
+      fieldProvenance: {
+        "contract.customerName": { state: "ai_generated_untouched" },
+        "contract.currency": { state: "manual_from_start" },
+      } as never,
+    });
+    const first = renderArea();
+    await waitFor(() =>
+      expect(screen.getAllByText("AI drafted · Hover for provenance")).toHaveLength(1),
+    );
+    first.unmount();
+
+    aiState = workspace({
+      fieldProvenance: { "contract.currency": { state: "manual_from_start" } } as never,
+    });
+    renderArea();
+    await waitFor(() => expect(screen.queryByText("AI drafted · Hover for provenance")).toBeNull());
+  });
+
   it("marks the promise distinctness judgment for review", async () => {
     aiState = workspace({
       reviewItems: [reviewItem(`promise:${PROMISE_GS}.capableOfBeingDistinct`, "step_2", "yellow")],
