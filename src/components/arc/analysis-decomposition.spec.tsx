@@ -308,7 +308,7 @@ describe("Phase 3 — Review & Finalize", () => {
     const wp = buildWorkpaper(draft);
     const failedCheck = {
       id: "presentation.fixture",
-      category: "inputs" as const,
+      category: "contract" as const,
       severity: "blocking" as const,
       passed: false,
       message: "Synthetic validation fixture.",
