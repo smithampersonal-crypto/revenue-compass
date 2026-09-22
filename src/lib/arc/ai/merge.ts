@@ -589,6 +589,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     citations?: readonly AiCitation[];
     aiReviewState?: AiReviewState | null;
     label: string;
+    /**
+     * Package 2C-B. This field is a presentation label, not an accounting
+     * conclusion. Ownership is unchanged — an untouched AI label refreshes and
+     * a manual or accountant-edited label is still preserved — but a label
+     * difference never raises a review item, because a wording drift is not an
+     * accounting matter for the accountant to reconcile.
+     */
+    presentationOnly?: boolean;
   }
 
   /**
