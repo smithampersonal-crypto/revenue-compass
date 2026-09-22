@@ -30,14 +30,14 @@ describe("workflow narrative fields", () => {
   it("preserves Step 1 rationale target and exact canonical value", () => {
     const state = mount(Step1Contract);
     const target = document.querySelector(
-      '[data-ai-review-target="contract.criteria.approval.rationale"]',
+      '[data-ai-review-target="contract.criteria.approval_and_commitment.rationale"]',
     );
     expect(target).not.toBeNull();
     if (!target) return;
     const textarea = within(target as HTMLElement).getByLabelText("Rationale / comment");
     expect(textarea.tagName).toBe("TEXTAREA");
     fireEvent.change(textarea, { target: { value: "  Exact approval rationale.  " } });
-    expect(state.draft.contract.criteria.approval.rationale).toBe(
+    expect(state.draft.contract.criteria.approval_and_commitment.rationale).toBe(
       "  Exact approval rationale.  ",
     );
   });
