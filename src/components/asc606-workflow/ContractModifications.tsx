@@ -21,6 +21,7 @@ import {
   nextModificationId,
   createModifiedPoDraft,
   nextModifiedPoId,
+  performanceObligationDisplayLabel,
   type Judgment,
   type ModificationDraft,
   type ModifiedPoDraft,
@@ -306,7 +307,7 @@ export function ContractModifications({
                               })
                             }
                           />
-                          {po.name || po.id}
+                          {performanceObligationDisplayLabel(po)}
                         </label>
                       ))}
                       {draft.performanceObligations.length === 0 ? (
@@ -358,7 +359,7 @@ export function ContractModifications({
                                   <option value="">Select…</option>
                                   {draft.performanceObligations.map((original) => (
                                     <option key={original.id} value={original.id}>
-                                      {original.name || original.id}
+                                      {performanceObligationDisplayLabel(original)}
                                     </option>
                                   ))}
                                 </select>

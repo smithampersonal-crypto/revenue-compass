@@ -2,6 +2,7 @@ import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
 import {
   createPromiseDraft,
   derivePromiseDistinct,
+  promiseDisplayLabel,
   nextId,
   nextSeq,
   type PromiseDraft,
@@ -42,7 +43,9 @@ export function Step2Promises({
             >
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-semibold">Promise {promise.seq}</span>
+                  <span className="text-sm font-semibold">
+                    {promiseDisplayLabel(promise, draft.performanceObligations)}
+                  </span>
                   <button
                     type="button"
                     className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
@@ -65,8 +68,17 @@ export function Step2Promises({
                     </select>
                   </Field>
                 </AiReviewTarget>
+                <AiReviewTarget targetKey={`promise:${promise.id}.displayName`}>
+                  <Field label="Name">
+                    <input
+                      className={inputClass}
+                      value={promise.displayName ?? ""}
+                      onChange={(e) => patch(promise.id, { displayName: e.target.value })}
+                    />
+                  </Field>
+                </AiReviewTarget>
                 <AiReviewTarget targetKey={`promise:${promise.id}.description`}>
-                  <Field label="Description of the promised good or service">
+                  <Field label="Description / Interpretation">
                     <input
                       className={inputClass}
                       value={promise.description}

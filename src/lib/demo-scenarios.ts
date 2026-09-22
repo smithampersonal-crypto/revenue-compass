@@ -101,9 +101,16 @@ function base(customer: string, contractNumber: string): WorkflowDraft {
   };
 }
 
-function distinctPromise(seq: number, id: string, description: string, poId: string): PromiseDraft {
+function distinctPromise(
+  seq: number,
+  id: string,
+  description: string,
+  poId: string,
+  displayName?: string,
+): PromiseDraft {
   return {
     ...createPromiseDraft(seq, id),
+    ...(displayName === undefined ? {} : { displayName }),
     description,
     capableOfBeingDistinct: true,
     distinctWithinContractContext: true,
@@ -192,7 +199,7 @@ function redwood(): WorkflowDraft {
   const po = overTimePo(
     1,
     "po-saas",
-    "SaaS subscription",
+    "Hosted SaaS Access",
     "120,000.00",
     "2027-01-01",
     "2027-12-31",
@@ -242,7 +249,7 @@ function horizon(): WorkflowDraft {
   const training = overTimePo(
     2,
     "po-training",
-    "Training",
+    "Implementation Training",
     "12,000.00",
     "2027-07-10",
     "2027-07-11",
@@ -260,9 +267,9 @@ function horizon(): WorkflowDraft {
     transactionPriceInput: "153,000.00",
     transactionPriceNotes: "Fixed fee for the bundled subscription, training and premium support.",
     promises: [
-      distinctPromise(1, "promise-saas", "Hosted SaaS subscription", saas.id),
-      distinctPromise(2, "promise-training", "Implementation training", training.id),
-      distinctPromise(3, "promise-support", "Premium support services", support.id),
+      distinctPromise(1, "promise-saas", "Hosted SaaS subscription", saas.id, "Hosted SaaS Access"),
+      distinctPromise(2, "promise-training", "Implementation training", training.id, "Implementation Training"),
+      distinctPromise(3, "promise-support", "Premium support services", support.id, "Premium Support"),
     ],
     performanceObligations: [saas, training, support],
     contractBalances: {

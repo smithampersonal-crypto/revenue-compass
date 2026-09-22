@@ -1,5 +1,9 @@
-import { isProjectedCollection } from "@/lib/asc606-workflow";
-import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+import {
+  isProjectedCollection,
+  performanceObligationDisplayLabel,
+  type WorkflowAnalysisResult,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 
 import type { ArcJournalSnapshot } from "@/lib/arc/persistence/snapshot";
 
@@ -26,7 +30,9 @@ export function JournalEntriesView({
   journals: ArcJournalSnapshot | null;
 }) {
   const sourceNames = new Map<string, string>([
-    ...draft.performanceObligations.map((po) => [po.id, po.name || po.id] as const),
+    ...draft.performanceObligations.map(
+      (po) => [po.id, performanceObligationDisplayLabel(po)] as const,
+    ),
     ...result.revenueSources.map((source) => [source.id, source.name] as const),
   ]);
 

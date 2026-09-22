@@ -5,6 +5,7 @@ import {
   materialRightStepPreviews,
   nextId,
   nextSeq,
+  performanceObligationDisplayLabel,
   MATERIAL_RIGHT_STATUS_LABELS,
   type PoDraft,
   type ProgressEventDraft,
@@ -288,7 +289,7 @@ export function Step5Recognition({
         {pos.map((po) => (
           <div key={po.id} className="space-y-3 rounded-md border border-border p-3">
             <p className="text-sm font-semibold">
-              {po.name || `Performance obligation ${po.seq}`}
+              {performanceObligationDisplayLabel(po)}
               {po.kind === "material_right" ? " — material right" : ""}
             </p>
 

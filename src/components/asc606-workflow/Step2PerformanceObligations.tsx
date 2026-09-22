@@ -6,7 +6,9 @@ import {
   derivePromiseDistinct,
   nextId,
   nextSeq,
+  performanceObligationDisplayLabel,
   PO_CLASSIFICATION_LABELS,
+  promiseDisplayLabel,
   type PerformanceObligationKind,
   type PoDraft,
   type WorkflowDraft,
@@ -66,7 +68,9 @@ export function Step2PerformanceObligations({
           <AiReviewTarget key={po.id} targetKey={`po:${po.id}`} canonicalObjectId={po.id}>
             <div className="space-y-3 rounded-md border border-border p-3">
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold">Performance obligation {po.seq}</span>
+                <span className="text-sm font-semibold">
+                  {performanceObligationDisplayLabel(po)}
+                </span>
                 <button
                   type="button"
                   className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
@@ -180,11 +184,12 @@ export function Step2PerformanceObligations({
           ) : (
             draft.promises.map((promise) => {
               const distinct = derivePromiseDistinct(promise);
+              const promiseLabel = promiseDisplayLabel(promise, pos);
               return (
                 <div key={promise.id} className="grid gap-2 sm:grid-cols-2 sm:items-center">
                   <div className="text-sm">
                     <span className="font-medium">
-                      {promise.description || `Promise ${promise.seq}`}
+                      {promiseLabel}
                     </span>
                     <span className="text-muted-foreground">
                       {" "}
@@ -204,7 +209,7 @@ export function Step2PerformanceObligations({
                   </div>
                   <AiReviewTarget targetKey={`promise:${promise.id}.performanceObligationId`}>
                     <select
-                      aria-label={`Performance obligation for ${promise.description || promise.id}`}
+                      aria-label={`Performance obligation for ${promiseLabel}`}
                       className={inputClass}
                       value={promise.performanceObligationId ?? ""}
                       onChange={(e) =>
@@ -221,7 +226,7 @@ export function Step2PerformanceObligations({
                       <option value="">Unassigned</option>
                       {pos.map((po) => (
                         <option key={po.id} value={po.id}>
-                          {po.name || `Performance obligation ${po.seq}`}
+                          {performanceObligationDisplayLabel(po)}
                         </option>
                       ))}
                     </select>

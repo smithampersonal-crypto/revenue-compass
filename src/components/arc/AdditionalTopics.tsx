@@ -1,7 +1,12 @@
 import { ContractModificationOutputs } from "@/components/asc606-workflow/ContractModificationOutputs";
 import { ContractModifications } from "@/components/asc606-workflow/ContractModifications";
 import { judgmentLabel, Notice } from "@/components/asc606-workflow/fields";
-import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+import {
+  performanceObligationDisplayLabel,
+  promiseDisplayLabel,
+  type WorkflowAnalysisResult,
+  type WorkflowDraft,
+} from "@/lib/asc606-workflow";
 import { Button } from "@/components/ui/button";
 
 import { AccordionSection } from "./AccordionSection";
@@ -134,7 +139,7 @@ export function AdditionalTopics({
               {materialRightPromises.map((promise) => (
                 <li key={promise.id}>
                   <span className="font-medium">
-                    {promise.description || `Promise ${promise.seq}`}
+                    {promiseDisplayLabel(promise, draft.performanceObligations)}
                   </span>{" "}
                   — conveys a material right: {judgmentLabel(promise.conveysMaterialRight)}
                 </li>
@@ -142,7 +147,7 @@ export function AdditionalTopics({
               {materialRightPos.map((po) => (
                 <li key={po.id}>
                   <span className="font-medium">
-                    {po.name || `Performance obligation ${po.seq}`}
+                    {performanceObligationDisplayLabel(po)}
                   </span>{" "}
                   — material-right performance obligation (
                   {po.materialRightStatus.replace(/_/g, " ")})
