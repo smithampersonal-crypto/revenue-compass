@@ -62,11 +62,11 @@ export function ReviewFinalizeView({
       />
 
       {result.engineValidation ? (
-        <Section title="Engine validation">
+        <Section title="Validation Checks">
           <p className="text-sm font-semibold">
             {result.engineValidation.status === "passed"
-              ? "Engine Validation Passed"
-              : "Engine Validation Requires Attention"}
+              ? "Validation Checks Passed"
+              : "Validation Checks Require Attention"}
           </p>
           <ul className="mt-2 space-y-1 text-sm">
             {result.engineValidation.results.map((check) => (

@@ -34,11 +34,11 @@ export function ContractModificationOutputs({
 
   return (
     <Section
-      title="Contract modification results (engine output)"
+      title="Contract Modification Results"
       description="Derived ASC 606 modification treatment, preserved historical revenue, and the allocation applied from the effective date forward."
     >
       <div className="space-y-1 text-sm">
-        <h3 className="text-base font-semibold">Modification and scope</h3>
+        <h3 className="text-base font-semibold">Modification and Scope</h3>
         <p>
           <span className="font-semibold">Modification effective date: </span>
           {event?.modificationDate ?? "—"}
@@ -59,7 +59,7 @@ export function ContractModificationOutputs({
 
       {classification ? (
         <div className="space-y-1 text-sm">
-          <h3 className="text-base font-semibold">Judgments and derived treatment</h3>
+          <h3 className="text-base font-semibold">Judgments and Derived Treatment</h3>
           <p>
             <span className="font-semibold">Approved and enforceable: </span>
             {classification.approvedAndEnforceable ? "Yes" : "No"}
@@ -154,7 +154,7 @@ export function ContractModificationOutputs({
       {historical.length > 0 ? (
         <div className="overflow-x-auto">
           <h3 className="mb-2 text-base font-semibold">
-            Revenue preserved through the day before the effective date
+            Revenue Preserved Through the Day Before the Effective Date
           </h3>
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -229,7 +229,7 @@ export function ContractModificationOutputs({
 
       {catchUpEvents.length > 0 ? (
         <div className="overflow-x-auto">
-          <h3 className="mb-2 text-base font-semibold">Cumulative catch-up adjustments</h3>
+          <h3 className="mb-2 text-base font-semibold">Cumulative Catch-Up Adjustments</h3>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -259,7 +259,7 @@ export function ContractModificationOutputs({
 
       {revenueSources.length > 0 ? (
         <div className="overflow-x-auto">
-          <h3 className="mb-2 text-base font-semibold">Revenue source audit trail</h3>
+          <h3 className="mb-2 text-base font-semibold">Revenue Source Audit Trail</h3>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -295,7 +295,7 @@ export function ContractModificationOutputs({
 
       {segments.length > 0 ? (
         <div className="overflow-x-auto">
-          <h3 className="mb-2 text-base font-semibold">Accounting segments</h3>
+          <h3 className="mb-2 text-base font-semibold">Accounting Segments</h3>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -325,7 +325,7 @@ export function ContractModificationOutputs({
 
       {groups.length > 0 ? (
         <div className="space-y-1 text-sm">
-          <h3 className="text-base font-semibold">Contract presentation groups</h3>
+          <h3 className="text-base font-semibold">Contract Presentation Groups</h3>
           <ul className="list-disc pl-5">
             {groups.map((group) => (
               <li key={group.id}>

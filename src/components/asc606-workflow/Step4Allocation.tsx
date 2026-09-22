@@ -154,7 +154,7 @@ export function Step4Allocation({
         {preview.variable && preview.variable.finalAllocations ? (
           <>
             <h3 className="text-sm font-semibold">
-              Variable consideration allocated to a specific performance obligation (read-only)
+              Variable Consideration Allocated to a Specific Performance Obligation
             </h3>
             {preview.variable.specific.length === 0 ? (
               <Notice>
@@ -182,7 +182,7 @@ export function Step4Allocation({
               </table>
             )}
 
-            <h3 className="text-sm font-semibold">Final allocation at inception (read-only)</h3>
+            <h3 className="text-sm font-semibold">Final Allocation at Inception</h3>
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>

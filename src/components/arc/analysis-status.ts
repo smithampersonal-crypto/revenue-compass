@@ -60,7 +60,7 @@ export function analysisStatus(result: WorkflowAnalysisResult): AnalysisStatus {
   if (result.engineValidation && result.engineValidation.status !== "passed") {
     return {
       tone: "blocked",
-      headline: "Engine validation requires attention",
+      headline: "Validation checks require attention",
       detail:
         "The deterministic engine reported blocking validation items. Review the items below.",
       engineReason,

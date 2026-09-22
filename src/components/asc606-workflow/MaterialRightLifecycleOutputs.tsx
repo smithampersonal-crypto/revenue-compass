@@ -16,7 +16,7 @@ export function MaterialRightLifecycleOutputs({
 }) {
   return (
     <Section
-      title="Material rights (engine output)"
+      title="Material Rights"
       description="Customer options that convey a material right, their inception measurement and their lifecycle outcome."
     >
       <div className="overflow-x-auto">
@@ -91,7 +91,7 @@ export function MaterialRightReconciliation({
 }) {
   const { totals, reconciliation } = lifecycle;
   return (
-    <Section title="Material-right reconciliation (engine output)">
+    <Section title="Material-Right Reconciliation">
       <table className="w-full border-collapse text-sm">
         <tbody>
           <tr>

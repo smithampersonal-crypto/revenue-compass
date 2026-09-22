@@ -13,7 +13,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
 
   return (
     <div className="space-y-6">
-      <Section title="Billing schedule (engine output)">
+      <Section title="Billing Schedule">
         {billingSchedule ? (
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -46,7 +46,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
         )}
       </Section>
 
-      <Section title="Monthly contract-balance rollforward (engine output)">
+      <Section title="Monthly Contract-Balance Rollforward">
         {monthly ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
@@ -88,7 +88,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
       </Section>
 
       {monthly ? (
-        <Section title="Cumulative amounts (engine output)">
+        <Section title="Cumulative Amounts">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -116,7 +116,7 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
         </Section>
       ) : null}
 
-      <Section title="Contract-balance reconciliation (engine output)">
+      <Section title="Contract-Balance Reconciliation">
         <table className="w-full border-collapse text-sm">
           <tbody>
             <tr>
