@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { createDemoDraft } from "@/lib/demo-scenarios";
 import {
+  createEmptyDraft,
   createMaterialRightPoDraft,
   previewAllocation,
   type WorkflowDraft,
