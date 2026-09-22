@@ -12,7 +12,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, NarrativeTextarea, Notice, Section } from "./fields";
+import { Field, inputClass, NarrativeTextarea, Notice, Section, UsdMoneyInput } from "./fields";
 import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
 
@@ -358,12 +358,10 @@ export function Step5Recognition({
                         />
                       </Field>
                       <Field label="New consideration on exercise (USD)">
-                        <input
-                          className={inputClass}
-                          inputMode="decimal"
+                        <UsdMoneyInput
                           value={po.exerciseConsiderationInput}
-                          onChange={(e) =>
-                            patch(po.id, { exerciseConsiderationInput: e.target.value })
+                          onValueChange={(next) =>
+                            patch(po.id, { exerciseConsiderationInput: next })
                           }
                         />
                       </Field>

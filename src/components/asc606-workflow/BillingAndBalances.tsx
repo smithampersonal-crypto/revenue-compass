@@ -14,7 +14,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, Notice, Section } from "./fields";
+import { Field, inputClass, IssueList, Notice, Section, UsdMoneyInput } from "./fields";
 
 /**
  * Post-ASC-606 accounting workpaper stage. React collects input strings and
@@ -188,10 +188,9 @@ export function BillingAndBalances({
                   {(event.amountSource ?? "manual") === "manual" ? (
                     <AiReviewTarget targetKey={`billing:${event.id}.amountInput`}>
                       <Field label="Amount (USD)">
-                        <input
-                          className={inputClass}
+                        <UsdMoneyInput
                           value={event.amountInput}
-                          onChange={(e) => updateEvent(event.id, { amountInput: e.target.value })}
+                          onValueChange={(next) => updateEvent(event.id, { amountInput: next })}
                           placeholder="60,000.00"
                         />
                       </Field>
@@ -337,10 +336,9 @@ export function BillingAndBalances({
                   </Field>
                   <AiReviewTarget targetKey={`cash:${collection.id}.amountInput`}>
                     <Field label="Amount (USD)">
-                      <input
-                        className={inputClass}
+                      <UsdMoneyInput
                         value={collection.amountInput}
-                        onChange={(e) => updateCash(collection.id, { amountInput: e.target.value })}
+                        onValueChange={(next) => updateCash(collection.id, { amountInput: next })}
                         placeholder="60,000.00"
                       />
                     </Field>

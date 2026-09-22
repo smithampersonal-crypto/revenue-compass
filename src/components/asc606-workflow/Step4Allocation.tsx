@@ -10,7 +10,17 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, NarrativeTextarea, Notice, Section, td, th } from "./fields";
+import {
+  Field,
+  inputClass,
+  IssueList,
+  NarrativeTextarea,
+  Notice,
+  Section,
+  td,
+  th,
+  UsdMoneyInput,
+} from "./fields";
 
 /** Display-only helper: the estimated SSP is calculated by the engine. */
 function estimatedMaterialRightSsp(po: PoDraft): string {
@@ -55,11 +65,9 @@ export function Step4Allocation({
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Economic benefit of the option (USD)">
-                  <input
-                    className={inputClass}
-                    inputMode="decimal"
+                  <UsdMoneyInput
                     value={po.benefitAmountInput}
-                    onChange={(e) => patch(po.id, { benefitAmountInput: e.target.value })}
+                    onValueChange={(next) => patch(po.id, { benefitAmountInput: next })}
                   />
                 </Field>
                 <Field label="Exercise probability at inception (%)">
@@ -88,11 +96,9 @@ export function Step4Allocation({
               <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
                 <AiReviewTarget targetKey={`po:${po.id}.sspInput`}>
                   <Field label="SSP (USD)">
-                    <input
-                      className={inputClass}
-                      inputMode="decimal"
+                    <UsdMoneyInput
                       value={po.sspInput}
-                      onChange={(e) => patch(po.id, { sspInput: e.target.value })}
+                      onValueChange={(next) => patch(po.id, { sspInput: next })}
                     />
                   </Field>
                 </AiReviewTarget>

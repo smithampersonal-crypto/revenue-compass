@@ -118,3 +118,21 @@ export function parseUsageQuantity(raw: string): QuantityInputResult {
   }
   return { ok: true, value: Number(big) };
 }
+
+/**
+ * Presentation-only formatter used when a USD money input loses focus.
+ *
+ * Delegates entirely to parseUsdToCents so there is exactly one interpretation
+ * of a valid USD string. Invalid or incomplete input is returned unchanged —
+ * the validation layer, not the display, tells the accountant what is wrong.
+ * No parseFloat, no decimal-dollar arithmetic, no rounding, and no "$".
+ */
+export function formatUsdInputForBlur(raw: string): string {
+  const parsed = parseUsdToCents(raw);
+  if (!parsed.ok) return raw;
+  const cents = parsed.cents;
+  const whole = String(Math.floor(cents / 100));
+  const fraction = String(cents % 100).padStart(2, "0");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${grouped}.${fraction}`;
+}

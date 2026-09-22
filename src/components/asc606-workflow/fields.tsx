@@ -3,11 +3,14 @@ import {
   useCallback,
   useLayoutEffect,
   useRef,
+  useState,
+  type InputHTMLAttributes,
   type ReactNode,
   type TextareaHTMLAttributes,
 } from "react";
 
 import type { Judgment } from "@/lib/asc606-workflow";
+import { formatUsdInputForBlur } from "@/lib/asc606-workflow/money-input";
 
 export const inputClass =
   "min-h-10 w-full rounded-md border border-input bg-muted/45 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
@@ -189,3 +192,47 @@ export function IssueList({
     </Notice>
   );
 }
+
+/**
+ * Controlled USD amount input.
+ *
+ * While the accountant is editing, the field shows exactly what they typed.
+ * Once it loses focus the value is displayed with thousands separators, using
+ * the shared exact parser. That formatting is presentation state only: the
+ * canonical draft string is never rewritten just to show commas, so focusing
+ * and blurring an untouched AI-populated amount is not an accountant edit.
+ */
+export const UsdMoneyInput = forwardRef<
+  HTMLInputElement,
+  Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> & {
+    value: string;
+    onValueChange: (value: string) => void;
+  }
+>(function UsdMoneyInput(
+  { value, onValueChange, className, onFocus, onBlur, inputMode = "decimal", ...props },
+  ref,
+) {
+  const [typed, setTyped] = useState<string | null>(null);
+
+  return (
+    <input
+      {...props}
+      ref={ref}
+      inputMode={inputMode}
+      className={className ?? inputClass}
+      value={typed ?? formatUsdInputForBlur(value)}
+      onFocus={(event) => {
+        setTyped(value);
+        onFocus?.(event);
+      }}
+      onChange={(event) => {
+        setTyped(event.target.value);
+        onValueChange(event.target.value);
+      }}
+      onBlur={(event) => {
+        setTyped(null);
+        onBlur?.(event);
+      }}
+    />
+  );
+});
