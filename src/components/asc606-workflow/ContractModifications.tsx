@@ -28,7 +28,15 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, JudgmentControl, NarrativeTextarea, Notice, Section, inputClass } from "./fields";
+import {
+  Field,
+  JudgmentControl,
+  NarrativeTextarea,
+  Notice,
+  Section,
+  inputClass,
+  UsdMoneyInput,
+} from "./fields";
 
 const SCOPE_EFFECTS: { value: ScopeEffect; label: string }[] = [
   { value: "unchanged", label: "Unchanged — same goods or services at the same price" },

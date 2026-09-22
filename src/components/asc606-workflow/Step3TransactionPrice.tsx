@@ -25,7 +25,15 @@ import type {
   VcEffect,
 } from "@/lib/asc606-variable-consideration";
 
-import { Field, inputClass, JudgmentControl, NarrativeTextarea, Notice, Section } from "./fields";
+import {
+  Field,
+  inputClass,
+  JudgmentControl,
+  NarrativeTextarea,
+  Notice,
+  Section,
+  UsdMoneyInput,
+} from "./fields";
 
 const buttonClass =
   "rounded-md border border-border px-2 py-1 text-sm font-medium text-foreground hover:bg-accent";

@@ -12,7 +12,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, NarrativeTextarea, Notice, Section } from "./fields";
+import { Field, inputClass, NarrativeTextarea, Notice, Section, UsdMoneyInput } from "./fields";
 import { ProgressiveOutputs } from "./ProgressiveOutputs";
 import { Step5VariableConsideration } from "./Step5VariableConsideration";
 

@@ -10,7 +10,17 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, NarrativeTextarea, Notice, Section, td, th } from "./fields";
+import {
+  Field,
+  inputClass,
+  IssueList,
+  NarrativeTextarea,
+  Notice,
+  Section,
+  td,
+  th,
+  UsdMoneyInput,
+} from "./fields";
 
 /** Display-only helper: the estimated SSP is calculated by the engine. */
 function estimatedMaterialRightSsp(po: PoDraft): string {

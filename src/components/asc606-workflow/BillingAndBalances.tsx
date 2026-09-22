@@ -14,7 +14,7 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
-import { Field, inputClass, IssueList, Notice, Section } from "./fields";
+import { Field, inputClass, IssueList, Notice, Section, UsdMoneyInput } from "./fields";
 
 /**
  * Post-ASC-606 accounting workpaper stage. React collects input strings and
