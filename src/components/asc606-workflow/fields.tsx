@@ -11,6 +11,7 @@ import {
 
 import type { Judgment } from "@/lib/asc606-workflow";
 import { formatUsdInputForBlur } from "@/lib/asc606-workflow/money-input";
+import { AiInlineProvenanceMarker } from "@/components/arc/AiReviewTarget";
 
 export const inputClass =
   "min-h-10 w-full rounded-md border border-input bg-muted/45 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
@@ -87,7 +88,10 @@ export function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="block text-sm font-medium text-foreground">{label}</span>
+      <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+        <span>{label}</span>
+        <AiInlineProvenanceMarker />
+      </span>
       {hint ? <span className="block text-xs text-muted-foreground">{hint}</span> : null}
       {children}
     </label>
@@ -144,7 +148,12 @@ export function JudgmentControl({
 }) {
   return (
     <fieldset className="space-y-1">
-      <legend className="text-sm font-medium text-foreground">{legend}</legend>
+      <legend className="text-sm font-medium text-foreground">
+        <span className="inline-flex items-center gap-1">
+          <span>{legend}</span>
+          <AiInlineProvenanceMarker />
+        </span>
+      </legend>
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         {[
           { label: "Yes", v: true as Judgment },

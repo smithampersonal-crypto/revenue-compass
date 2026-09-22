@@ -1,4 +1,4 @@
-import { AiReviewTarget } from "@/components/arc/AiReviewTarget";
+import { AiInlineProvenanceMarker, AiReviewTarget } from "@/components/arc/AiReviewTarget";
 /**
  * Phase 5C contract-modification inputs.
  *
@@ -131,6 +131,7 @@ export function ContractModifications({
             }
           />
           This contract has been modified
+          <AiInlineProvenanceMarker />
         </label>
       </AiReviewTarget>
 
@@ -160,6 +161,7 @@ export function ContractModifications({
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-semibold text-foreground">
                       Modification {mod.seq}
+                      <AiInlineProvenanceMarker />
                     </h3>
                     <button
                       type="button"
