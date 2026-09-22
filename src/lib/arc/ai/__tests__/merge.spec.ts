@@ -83,7 +83,8 @@ function manualEquivalent(): WorkflowDraft {
     performanceObligations: [
       {
         ...createPoDraft(1, PO_ID),
-        name: "SaaS subscription",
+        // Package 2C-B: the canonical PO name is the concise accounting label.
+        name: "Hosted SaaS Service Series",
         classification: "single_distinct",
         classificationRationale: "Single distinct hosted service.",
         sspInput: "120000",
