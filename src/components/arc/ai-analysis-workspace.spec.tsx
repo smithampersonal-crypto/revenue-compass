@@ -188,10 +188,10 @@ describe("Task 6 active progress", () => {
 
   it("uses only CSS motion inside the fixed fill and disables it for reduced motion", () => {
     const componentSource = readFileSync(
-      new URL("./AiAnalysisProgress.tsx", import.meta.url),
+      `${process.cwd()}/src/components/arc/AiAnalysisProgress.tsx`,
       "utf8",
     );
-    const styles = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
+    const styles = readFileSync(`${process.cwd()}/src/styles.css`, "utf8");
 
     expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
     expect(componentSource).toContain("arc-ai-progress-fill");
