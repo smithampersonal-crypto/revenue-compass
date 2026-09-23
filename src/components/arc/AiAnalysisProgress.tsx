@@ -2,7 +2,11 @@ import type { AiWorkspaceProgress } from "@/lib/arc/ai/workspace-client";
 
 const PRESENTATION_CHECKPOINTS: Record<
   AiWorkspaceProgress["step"],
-  { confirmedEnd: 0 | 12 | 82 | 92; activityStart: 0 | 12 | 82 | 92; activityEnd: 12 | 82 | 92 | 100 }
+  {
+    confirmedEnd: 0 | 12 | 82 | 92;
+    activityStart: 0 | 12 | 82 | 92;
+    activityEnd: 12 | 82 | 92 | 100;
+  }
 > = {
   1: { confirmedEnd: 0, activityStart: 0, activityEnd: 12 },
   2: { confirmedEnd: 12, activityStart: 12, activityEnd: 82 },

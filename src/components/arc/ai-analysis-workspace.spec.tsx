@@ -185,7 +185,9 @@ describe("Task 6 active progress", () => {
   it("keeps the confirmed Step 2 boundary fixed when time passes", () => {
     vi.useFakeTimers();
     render(
-      <AiAnalysisProgress progress={{ phase: "analyzing", step: 2, label: "Analyzing contract" }} />,
+      <AiAnalysisProgress
+        progress={{ phase: "analyzing", step: 2, label: "Analyzing contract" }}
+      />,
     );
     const track = screen.getByTestId("ai-progress-track");
     expect(track).toHaveAttribute("data-confirmed-end", "12");
