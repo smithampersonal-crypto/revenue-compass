@@ -140,5 +140,6 @@
 - [x] Add focused presentation regressions while preserving all four authoritative orchestration phases
 - [x] Run focused and full verification, inspect desktop and narrow states, package the clean repository, and stop before 2C-I
 - [ ] Refine the presenter with duration-aware confirmed checkpoints and a separate repeating active-stage front
-- [ ] Keep confirmed motion phase-driven only; fade the activity front before reset and use a boundary cue under reduced motion
+- [ ] Keep confirmed motion phase-driven only; use a localized front that fades before reset, plus a boundary cue under reduced motion
+- [ ] Disable both the repeating front and confirmed-fill transition under reduced motion
 - [ ] Re-run focused/full verification and inspect the long Step 2 state at desktop, narrow, and reduced-motion settings
