@@ -157,22 +157,43 @@ describe("Task 6 AI analysis action", () => {
 
 describe("Task 6 active progress", () => {
   it.each([
-    ["preparing", 1, "Preparing documents", "Preparing Documents · Step 1 of 4", "w-1/4"],
-    ["analyzing", 2, "Analyzing contract", "Analyzing Contract · Step 2 of 4", "w-1/2"],
-    ["validating", 3, "Validating analysis", "Validating Analysis · Step 3 of 4", "w-3/4"],
-    ["applying", 4, "Updating workspace", "Updating Workspace · Step 4 of 4", "w-full"],
-  ] as const)("renders %s as one fixed continuous stage", (phase, step, label, headline, width) => {
-    const { container } = render(<AiAnalysisProgress progress={{ phase, step, label }} />);
-    const status = screen.getByRole("status", { name: "AI analysis progress" });
-    expect(status).toHaveTextContent(headline);
-    expect(status).toHaveAttribute("data-phase", phase);
-    expect(status).toHaveAttribute("data-step", String(step));
-    expect(screen.getByTestId("ai-progress-fill")).toHaveClass(width);
-    expect(screen.getByTestId("ai-progress-fill")).toHaveAttribute("data-step", String(step));
-    expect(screen.getAllByTestId("ai-progress-track")).toHaveLength(1);
-    expect(screen.getAllByTestId("ai-progress-fill")).toHaveLength(1);
-    expect(container.querySelector("ol")).not.toBeInTheDocument();
-    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    ["preparing", 1, "Preparing documents", "Preparing Documents · Step 1 of 4", 0, 0, 12],
+    ["analyzing", 2, "Analyzing contract", "Analyzing Contract · Step 2 of 4", 12, 12, 82],
+    ["validating", 3, "Validating analysis", "Validating Analysis · Step 3 of 4", 82, 82, 92],
+    ["applying", 4, "Updating workspace", "Updating Workspace · Step 4 of 4", 92, 92, 100],
+  ] as const)(
+    "renders %s with authoritative checkpoint metadata",
+    (phase, step, label, headline, confirmedEnd, activityStart, activityEnd) => {
+      const { container } = render(<AiAnalysisProgress progress={{ phase, step, label }} />);
+      const status = screen.getByRole("status", { name: "AI analysis progress" });
+      const track = screen.getByTestId("ai-progress-track");
+      expect(status).toHaveTextContent(headline);
+      expect(status).toHaveAttribute("data-phase", phase);
+      expect(status).toHaveAttribute("data-step", String(step));
+      expect(track).toHaveAttribute("data-step", String(step));
+      expect(track).toHaveAttribute("data-confirmed-end", String(confirmedEnd));
+      expect(track).toHaveAttribute("data-activity-start", String(activityStart));
+      expect(track).toHaveAttribute("data-activity-end", String(activityEnd));
+      expect(screen.getAllByTestId("ai-progress-track")).toHaveLength(1);
+      expect(screen.getAllByTestId("ai-progress-confirmed")).toHaveLength(1);
+      expect(screen.getAllByTestId("ai-progress-activity")).toHaveLength(1);
+      expect(container.querySelector("ol")).not.toBeInTheDocument();
+      expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+    },
+  );
+
+  it("keeps the confirmed Step 2 boundary fixed when time passes", () => {
+    vi.useFakeTimers();
+    render(
+      <AiAnalysisProgress
+        progress={{ phase: "analyzing", step: 2, label: "Analyzing contract" }}
+      />,
+    );
+    const track = screen.getByTestId("ai-progress-track");
+    expect(track).toHaveAttribute("data-confirmed-end", "12");
+    vi.advanceTimersByTime(10 * 60 * 1000);
+    expect(track).toHaveAttribute("data-confirmed-end", "12");
+    vi.useRealTimers();
   });
 
   it("shows no user-facing percentage or time estimate", () => {
@@ -186,7 +207,7 @@ describe("Task 6 active progress", () => {
     expect(status).not.toHaveTextContent(/(?:seconds?|minutes?) remaining|ETA/i);
   });
 
-  it("uses only CSS motion inside the fixed fill and disables it for reduced motion", () => {
+  it("uses only CSS motion for a separate localized front and disables all motion when reduced", () => {
     const componentSource = readFileSync(
       `${process.cwd()}/src/components/arc/AiAnalysisProgress.tsx`,
       "utf8",
@@ -194,11 +215,13 @@ describe("Task 6 active progress", () => {
     const styles = readFileSync(`${process.cwd()}/src/styles.css`, "utf8");
 
     expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
-    expect(componentSource).toContain("arc-ai-progress-fill");
-    expect(styles).toContain(".arc-ai-progress-fill::after");
-    expect(styles).toContain("animation: arc-ai-progress-shimmer");
+    expect(componentSource).toContain("arc-ai-progress-confirmed");
+    expect(componentSource).toContain("arc-ai-progress-activity");
+    expect(styles).toContain(".arc-ai-progress-activity::after");
+    expect(styles).toContain("animation: arc-ai-progress-activity-sweep");
+    expect(styles).toMatch(/94%,[\s\S]*?100%[\s\S]*?opacity: 0/);
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.arc-ai-progress-fill::after[\s\S]*?animation: none/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.arc-ai-progress-confirmed[\s\S]*?transition: none[\s\S]*?\.arc-ai-progress-activity::after[\s\S]*?animation: none/,
     );
   });
 });

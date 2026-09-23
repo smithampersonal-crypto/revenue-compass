@@ -127,32 +127,85 @@
  * review state, and the script that adds it removes it again shortly after.
  */
 @layer components {
-  @keyframes arc-ai-progress-shimmer {
-    from {
-      transform: translateX(-100%);
+  @keyframes arc-ai-progress-activity-sweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-110%);
     }
 
-    to {
-      transform: translateX(100%);
+    12% {
+      opacity: 0.68;
+    }
+
+    78% {
+      opacity: 0.68;
+    }
+
+    94%,
+    100% {
+      opacity: 0;
+      transform: translateX(290%);
     }
   }
 
-  .arc-ai-progress-fill {
+  .arc-ai-progress-track {
     position: relative;
-    overflow: hidden;
   }
 
-  .arc-ai-progress-fill::after {
+  .arc-ai-progress-confirmed {
+    transition: width 320ms ease-out;
+  }
+
+  .arc-ai-progress-track[data-step="1"] .arc-ai-progress-confirmed {
+    width: 0%;
+  }
+
+  .arc-ai-progress-track[data-step="2"] .arc-ai-progress-confirmed {
+    width: 12%;
+  }
+
+  .arc-ai-progress-track[data-step="3"] .arc-ai-progress-confirmed {
+    width: 82%;
+  }
+
+  .arc-ai-progress-track[data-step="4"] .arc-ai-progress-confirmed {
+    width: 92%;
+  }
+
+  .arc-ai-progress-track[data-step="1"] .arc-ai-progress-activity {
+    left: 0%;
+    width: 12%;
+  }
+
+  .arc-ai-progress-track[data-step="2"] .arc-ai-progress-activity {
+    left: 12%;
+    width: 70%;
+  }
+
+  .arc-ai-progress-track[data-step="3"] .arc-ai-progress-activity {
+    left: 82%;
+    width: 10%;
+  }
+
+  .arc-ai-progress-track[data-step="4"] .arc-ai-progress-activity {
+    left: 92%;
+    width: 8%;
+  }
+
+  .arc-ai-progress-activity::after {
     content: "";
     position: absolute;
-    inset: 0;
+    inset-block: 0;
+    left: 0;
+    width: 35%;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      color-mix(in oklab, var(--color-primary-foreground) 20%, transparent) 50%,
+      color-mix(in oklab, var(--color-primary) 28%, transparent) 35%,
+      color-mix(in oklab, var(--color-primary) 58%, transparent) 72%,
       transparent 100%
     );
-    animation: arc-ai-progress-shimmer 2.4s ease-in-out infinite;
+    animation: arc-ai-progress-activity-sweep 2.8s ease-in-out infinite;
   }
 
   .arc-review-focus {
@@ -178,8 +231,17 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .arc-ai-progress-fill::after {
+    .arc-ai-progress-confirmed {
+      transition: none;
+    }
+
+    .arc-ai-progress-activity::after {
       animation: none;
+      width: 0.3rem;
+      max-width: 100%;
+      opacity: 0.42;
+      transform: none;
+      background: var(--color-primary);
     }
 
     .arc-review-focus {
