@@ -187,7 +187,10 @@ describe("Task 6 active progress", () => {
   });
 
   it("uses only CSS motion inside the fixed fill and disables it for reduced motion", () => {
-    const componentSource = readFileSync(new URL("./AiAnalysisProgress.tsx", import.meta.url), "utf8");
+    const componentSource = readFileSync(
+      new URL("./AiAnalysisProgress.tsx", import.meta.url),
+      "utf8",
+    );
     const styles = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
 
     expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);

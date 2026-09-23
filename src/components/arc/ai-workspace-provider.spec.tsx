@@ -541,15 +541,15 @@ describe("Task 6 production presentation through the real provider", () => {
     await waitFor(() => expect(server.requests).toBe(1));
     await waitFor(() =>
       expect(screen.getByRole("status", { name: "AI analysis progress" })).toHaveTextContent(
-        "Analyzing contract",
+        "Analyzing Contract · Step 2 of 4",
       ),
     );
 
     for (const [phase, label] of [
-      ["preparing", "Preparing documents"],
-      ["analyzing", "Analyzing contract"],
-      ["validating", "Validating analysis"],
-      ["applying", "Updating workspace"],
+      ["preparing", "Preparing Documents · Step 1 of 4"],
+      ["analyzing", "Analyzing Contract · Step 2 of 4"],
+      ["validating", "Validating Analysis · Step 3 of 4"],
+      ["applying", "Updating Workspace · Step 4 of 4"],
     ] as const) {
       server.current = {
         ...active,
@@ -584,7 +584,7 @@ describe("Task 6 production presentation through the real provider", () => {
     renderTask6Provider();
 
     expect(await screen.findByRole("status", { name: "AI analysis progress" })).toHaveTextContent(
-      "Validating analysis",
+      "Validating Analysis · Step 3 of 4",
     );
     expect(screen.getByRole("button", { name: "Validating analysis…" })).toBeDisabled();
     const note = screen.getByRole("textbox", { name: "Accounting note" });
