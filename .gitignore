@@ -35,3 +35,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Transient planning file (historical .lovable/plan/ stays tracked)
+.lovable/plan.md
