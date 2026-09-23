@@ -135,7 +135,7 @@
 
 ## Package 2C-H — AI Progress Presenter
 
-- [ ] Replace the four-card progress stepper with one compact continuous stage-derived bar
-- [ ] Keep one visible stage announcement and namespace optional shimmer with reduced-motion disabled
-- [ ] Add focused presentation regressions while preserving all four authoritative orchestration phases
+- [x] Replace the four-card progress stepper with one compact continuous stage-derived bar
+- [x] Keep one visible stage announcement and namespace optional shimmer with reduced-motion disabled
+- [x] Add focused presentation regressions while preserving all four authoritative orchestration phases
 - [ ] Run focused and full verification, inspect desktop and narrow states, package the clean repository, and stop before 2C-I

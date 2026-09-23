@@ -127,6 +127,34 @@
  * review state, and the script that adds it removes it again shortly after.
  */
 @layer components {
+  @keyframes arc-ai-progress-shimmer {
+    from {
+      transform: translateX(-100%);
+    }
+
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  .arc-ai-progress-fill {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arc-ai-progress-fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--color-primary-foreground) 20%, transparent) 50%,
+      transparent 100%
+    );
+    animation: arc-ai-progress-shimmer 2.4s ease-in-out infinite;
+  }
+
   .arc-review-focus {
     position: relative;
     border-radius: 0.5rem;
@@ -150,6 +178,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .arc-ai-progress-fill::after {
+      animation: none;
+    }
+
     .arc-review-focus {
       outline-offset: 2px;
     }
