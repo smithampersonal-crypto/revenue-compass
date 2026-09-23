@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -155,18 +157,49 @@ describe("Task 6 AI analysis action", () => {
 
 describe("Task 6 active progress", () => {
   it.each([
-    ["preparing", 1, "Preparing documents"],
-    ["analyzing", 2, "Analyzing contract"],
-    ["validating", 3, "Validating analysis"],
-    ["applying", 4, "Updating workspace"],
-  ] as const)("renders %s as the current phase", (phase, step, label) => {
-    render(<AiAnalysisProgress progress={{ phase, step, label }} />);
+    ["preparing", 1, "Preparing documents", "Preparing Documents · Step 1 of 4", "w-1/4"],
+    ["analyzing", 2, "Analyzing contract", "Analyzing Contract · Step 2 of 4", "w-1/2"],
+    ["validating", 3, "Validating analysis", "Validating Analysis · Step 3 of 4", "w-3/4"],
+    ["applying", 4, "Updating workspace", "Updating Workspace · Step 4 of 4", "w-full"],
+  ] as const)("renders %s as one fixed continuous stage", (phase, step, label, headline, width) => {
+    const { container } = render(<AiAnalysisProgress progress={{ phase, step, label }} />);
     const status = screen.getByRole("status", { name: "AI analysis progress" });
-    expect(status).toHaveTextContent(`Step ${step} of 4: ${label}`);
-    expect(screen.getByText(label).closest("li")).toHaveAttribute("aria-current", "step");
-    const items = screen.getAllByRole("listitem");
-    items.slice(0, step - 1).forEach((item) => expect(item).toHaveTextContent("Complete"));
-    items.slice(step).forEach((item) => expect(item).toHaveTextContent("Pending"));
+    expect(status).toHaveTextContent(headline);
+    expect(status).toHaveAttribute("data-phase", phase);
+    expect(status).toHaveAttribute("data-step", String(step));
+    expect(screen.getByTestId("ai-progress-fill")).toHaveClass(width);
+    expect(screen.getByTestId("ai-progress-fill")).toHaveAttribute("data-step", String(step));
+    expect(screen.getAllByTestId("ai-progress-track")).toHaveLength(1);
+    expect(screen.getAllByTestId("ai-progress-fill")).toHaveLength(1);
+    expect(container.querySelector("ol")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  });
+
+  it("shows no user-facing percentage or time estimate", () => {
+    render(
+      <AiAnalysisProgress
+        progress={{ phase: "validating", step: 3, label: "Validating analysis" }}
+      />,
+    );
+    const status = screen.getByRole("status", { name: "AI analysis progress" });
+    expect(status).not.toHaveTextContent(/\d+%/);
+    expect(status).not.toHaveTextContent(/(?:seconds?|minutes?) remaining|ETA/i);
+  });
+
+  it("uses only CSS motion inside the fixed fill and disables it for reduced motion", () => {
+    const componentSource = readFileSync(
+      `${process.cwd()}/src/components/arc/AiAnalysisProgress.tsx`,
+      "utf8",
+    );
+    const styles = readFileSync(`${process.cwd()}/src/styles.css`, "utf8");
+
+    expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
+    expect(componentSource).toContain("arc-ai-progress-fill");
+    expect(styles).toContain(".arc-ai-progress-fill::after");
+    expect(styles).toContain("animation: arc-ai-progress-shimmer");
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.arc-ai-progress-fill::after[\s\S]*?animation: none/,
+    );
   });
 });
 

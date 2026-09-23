@@ -132,3 +132,10 @@
 - [x] Keep the discovered material-right provenance coverage gaps unchanged and report their exact affected inputs
 - [x] Add the single conditional workspace legend and focused presentation regressions
 - [x] Run focused and full verification, smoke-test Horizon Step 2, package the clean repository, and stop before 2C-H
+
+## Package 2C-H — AI Progress Presenter
+
+- [x] Replace the four-card progress stepper with one compact continuous stage-derived bar
+- [x] Keep one visible stage announcement and namespace optional shimmer with reduced-motion disabled
+- [x] Add focused presentation regressions while preserving all four authoritative orchestration phases
+- [x] Run focused and full verification, inspect desktop and narrow states, package the clean repository, and stop before 2C-I

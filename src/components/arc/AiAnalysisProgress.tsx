@@ -1,60 +1,45 @@
-import { Check, Circle } from "lucide-react";
-
 import type { AiWorkspaceProgress } from "@/lib/arc/ai/workspace-client";
 
-const STEPS = [
-  "Preparing documents",
-  "Analyzing contract",
-  "Validating analysis",
-  "Updating workspace",
-] as const;
+const FILL_WIDTH: Record<AiWorkspaceProgress["step"], string> = {
+  1: "w-1/4",
+  2: "w-1/2",
+  3: "w-3/4",
+  4: "w-full",
+};
+
+const DISPLAY_LABEL: Record<AiWorkspaceProgress["phase"], string> = {
+  preparing: "Preparing Documents",
+  analyzing: "Analyzing Contract",
+  validating: "Validating Analysis",
+  applying: "Updating Workspace",
+};
 
 export function AiAnalysisProgress({ progress }: { progress: AiWorkspaceProgress }) {
+  const label = DISPLAY_LABEL[progress.phase];
+
   return (
     <div
       role="status"
       aria-label="AI analysis progress"
       aria-live="polite"
-      className="border-t border-border pt-3"
+      data-phase={progress.phase}
+      data-step={progress.step}
+      className="space-y-2 border-t border-border pt-3"
     >
-      <p className="mb-3 text-sm font-medium text-foreground">
-        Step {progress.step} of 4: {progress.label}
+      <p className="text-sm font-medium text-foreground">
+        {label} · Step {progress.step} of 4
       </p>
-      <ol className="grid gap-2 sm:grid-cols-4" aria-label="Analysis steps">
-        {STEPS.map((label, index) => {
-          const step = index + 1;
-          const complete = step < progress.step;
-          const current = step === progress.step;
-          return (
-            <li
-              key={label}
-              aria-current={current ? "step" : undefined}
-              className={`flex min-w-0 items-start gap-2 rounded-md border px-3 py-2 text-xs ${
-                current
-                  ? "border-primary/50 bg-primary/10 text-foreground"
-                  : complete
-                    ? "border-border bg-muted/60 text-foreground"
-                    : "border-border/70 text-muted-foreground"
-              }`}
-            >
-              {complete ? (
-                <Check className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden="true" />
-              ) : (
-                <Circle
-                  className={`mt-0.5 size-3.5 shrink-0 ${current ? "fill-primary text-primary" : ""}`}
-                  aria-hidden="true"
-                />
-              )}
-              <span className="min-w-0">
-                <span className="block font-medium">{label}</span>
-                <span className="mt-0.5 block text-muted-foreground">
-                  {complete ? "Complete" : current ? "Current" : "Pending"}
-                </span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <div
+        data-testid="ai-progress-track"
+        aria-hidden="true"
+        className="h-2.5 w-full overflow-hidden rounded-sm border border-border bg-muted"
+      >
+        <div
+          data-testid="ai-progress-fill"
+          data-step={progress.step}
+          className={`arc-ai-progress-fill h-full bg-primary ${FILL_WIDTH[progress.step]}`}
+        />
+      </div>
     </div>
   );
 }
