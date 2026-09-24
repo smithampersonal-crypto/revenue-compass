@@ -153,6 +153,12 @@
 - [x] Disable both the repeating front and confirmed-fill transition under reduced motion
 - [x] Re-run focused/full verification and inspect the long Step 2 state at desktop, narrow, and reduced-motion settings
 
+### Package 2C-H — Full-Track Activity Refinement
+
+- [ ] Decouple the moving activity cue from stage checkpoints while preserving stage-driven confirmed fill and copy
+- [ ] Add focused presentation regressions for full-track motion, stage invariance, completion, and reduced motion
+- [ ] Run focused verification and confirm no AI orchestration or accounting behavior changed
+
 ## Package 2C-I — Contract Modifications + Contract Balances Polish
 
 - [x] Align modification effective-date and consideration controls through a shared responsive structure without spacer-height hacks
