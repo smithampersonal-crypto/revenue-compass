@@ -8,7 +8,7 @@
 
 ## Why I Built ARC
 
-I designed and built ARC as a portfolio project to demonstrate ASC 606 technical accounting, accounting-systems design, deterministic calculation logic, and controlled use of AI.
+I designed and built ARC as a portfolio project to demonstrate ASC 606 technical accounting expertise, accounting-systems design, deterministic calculation logic, and controlled use of AI.
 
 The project reflects how I believe accounting automation should work: software can organize evidence, calculate repeatable outputs, and surface issues, but it should not obscure the judgments, controls, or audit trail that make the analysis reliable.
 
