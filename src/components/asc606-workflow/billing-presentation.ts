@@ -90,3 +90,14 @@ export function groupBalanceIssues(
 
   return { billing, cash, global };
 }
+
+/** Rewrites only the engine's exact quoted billing-reference pattern. */
+export function presentGlobalBalanceIssue(
+  issue: BalanceIssue,
+  labels: FriendlyBalanceLabels,
+): BalanceIssue {
+  const match = /^(.*billing event ")([^"]+)(".*)$/i.exec(issue.message);
+  if (!match?.[1] || !match[2] || !match[3]) return issue;
+  const visibleReference = labels.billingById.get(match[2]) ?? "Unavailable billing event";
+  return { ...issue, message: `${match[1]}${visibleReference}${match[3]}` };
+}

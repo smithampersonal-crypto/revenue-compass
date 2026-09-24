@@ -2,6 +2,7 @@ import { formatCents } from "@/lib/asc606";
 import type { ContractBalanceAnalysis } from "@/lib/asc606-balances";
 
 import { Notice, Section, td, th } from "./fields";
+import { billingEventLabel } from "./billing-presentation";
 
 /**
  * Read-only presentation of deterministic Phase 3 engine output. Every amount
@@ -27,11 +28,9 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
               </tr>
             </thead>
             <tbody>
-              {billingSchedule.map((row) => (
+              {billingSchedule.map((row, rowIndex) => (
                 <tr key={row.eventId}>
-                  <td className={td}>
-                    {row.seq}. {row.eventId}
-                  </td>
+                  <td className={td}>{billingEventLabel(rowIndex)}</td>
                   <td className={td}>{formatCents(row.amountCents)}</td>
                   <td className={td}>{row.unconditionalRightDate}</td>
                   <td className={td}>{row.invoiceDate}</td>

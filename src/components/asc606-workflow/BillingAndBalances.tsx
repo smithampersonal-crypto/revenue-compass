@@ -20,6 +20,7 @@ import {
   buildFriendlyBalanceLabels,
   cashCollectionLabel,
   groupBalanceIssues,
+  presentGlobalBalanceIssue,
 } from "./billing-presentation";
 import { Field, inputClass, IssueList, Notice, Section, UsdMoneyInput } from "./fields";
 
@@ -410,12 +411,16 @@ export function BillingAndBalances({
 
       <IssueList
         title="Resolve these items to complete the contract-balance workpaper"
-        issues={blockingIssues.global}
+        issues={blockingIssues.global.map((issue) =>
+          presentGlobalBalanceIssue(issue, friendlyLabels),
+        )}
       />
       <IssueList
         title="Contract-balance warnings"
         tone="warning"
-        issues={warningIssues.global}
+        issues={warningIssues.global.map((issue) =>
+          presentGlobalBalanceIssue(issue, friendlyLabels),
+        )}
       />
     </div>
   );
