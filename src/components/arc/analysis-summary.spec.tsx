@@ -230,6 +230,26 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
     expect(Boolean(action)).toBe(FEATURES.SOURCE_DOCUMENTS);
   });
 
+  it("groups primary metadata into the intended responsive columns", async () => {
+    await renderAt("/analysis?sample=horizon");
+    const summary = summaryRegion();
+    const metadata = within(summary).getByTestId("analysis-primary-metadata");
+    expect(metadata.className).toContain("sm:grid-cols-2");
+
+    const left = metadata.querySelector('[data-metadata-column="customer-performance-obligations"]');
+    const right = metadata.querySelector('[data-metadata-column="contract-transaction-price"]');
+    expect(left).not.toBeNull();
+    expect(right).not.toBeNull();
+    expect(within(left as HTMLElement).getByText("Customer")).toBeInTheDocument();
+    expect(within(left as HTMLElement).getByText("Performance obligations")).toBeInTheDocument();
+    expect(within(right as HTMLElement).getByText("Contract")).toBeInTheDocument();
+    expect(within(right as HTMLElement).getByText("Transaction price")).toBeInTheDocument();
+
+    expect(within(summary).getByRole("link", { name: "Review & Finalize" })).toBeInTheDocument();
+    expect(within(summary).getByRole("link", { name: "Source Documents" })).toBeInTheDocument();
+    expect(within(summary).getByRole("button", { name: "Reset Sample" })).toBeInTheDocument();
+  });
+
   it("restores canonical sample values on Reset Sample and keeps the sample URL", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);

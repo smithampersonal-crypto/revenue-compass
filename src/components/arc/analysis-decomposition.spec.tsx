@@ -3,6 +3,7 @@ import { RouterProvider, createMemoryHistory, createRouter } from "@tanstack/rea
 import { QueryClient } from "@tanstack/react-query";
 import { buildWorkpaper } from "@/lib/arc/persistence/snapshot";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { ContractBalancesView } from "@/components/arc/ContractBalancesView";
@@ -299,37 +300,97 @@ describe("Phase 3 — Review & Finalize", () => {
   it("shows validation and reconciliation status in one place", async () => {
     await renderAt("/analysis/review?sample=horizon");
     expect(await screen.findByText("Validation Checks")).toBeInTheDocument();
-    expect(screen.getByText("Validation Checks Passed")).toBeInTheDocument();
+    expect(screen.getByText("All validation checks passed")).toBeInTheDocument();
+    expect(screen.getByText("No blocking issues were identified.")).toBeInTheDocument();
+    const passedDisclosure = screen.getByText("Show passed checks").closest("details");
+    expect(passedDisclosure).not.toBeNull();
+    expect(passedDisclosure).not.toHaveAttribute("open");
     expect(screen.queryByText(/Engine validation/i)).toBeNull();
     expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Billing and Contract-Balance Workpaper")).toBeInTheDocument();
   });
 
-  it("uses accountant-facing validation copy when deterministic checks require attention", () => {
+  it("groups supplied validation severities without changing their order or semantics", async () => {
+    const user = userEvent.setup();
     const draft = createDemoDraft("horizon");
     const wp = buildWorkpaper(draft);
-    const failedCheck = {
-      id: "presentation.fixture",
-      category: "contract" as const,
-      severity: "blocking" as const,
-      passed: false,
-      message: "Synthetic validation fixture.",
-    };
+    const checks = [
+      {
+        id: "warning.first",
+        category: "contract" as const,
+        severity: "warning" as const,
+        passed: false,
+        message: "First warning fixture.",
+      },
+      {
+        id: "pass.first",
+        category: "allocation" as const,
+        severity: "blocking" as const,
+        passed: true,
+        message: "First passed fixture.",
+      },
+      {
+        id: "blocking.first",
+        category: "contract" as const,
+        severity: "blocking" as const,
+        passed: false,
+        message: "First blocking fixture.",
+      },
+      {
+        id: "warning.second",
+        category: "revenue" as const,
+        severity: "warning" as const,
+        passed: false,
+        message: "Second warning fixture.",
+      },
+      {
+        id: "blocking.second",
+        category: "performance_obligations" as const,
+        severity: "blocking" as const,
+        passed: false,
+        message: "Second blocking fixture.",
+      },
+    ];
+    const originalChecks = structuredClone(checks);
     render(
       <ReviewFinalizeView
         result={{
           ...wp.workflow,
           engineValidation: {
             status: "attention",
-            results: [failedCheck],
-            blockingFailures: [failedCheck],
+            results: checks,
+            blockingFailures: checks.filter(
+              (check) => !check.passed && check.severity === "blocking",
+            ),
           },
         }}
         balances={wp.balances}
         journals={wp.journals}
       />,
     );
-    expect(screen.getByText("Validation Checks Require Attention")).toBeInTheDocument();
+    const blocking = screen.getByRole("heading", { name: "Blocking issues" }).parentElement;
+    const warnings = screen.getByRole("heading", { name: "Warnings" }).parentElement;
+    expect(blocking).not.toBeNull();
+    expect(warnings).not.toBeNull();
+    expect(within(blocking as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "First blocking fixture.",
+      "Second blocking fixture.",
+    ]);
+    expect(within(warnings as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "First warning fixture.",
+      "Second warning fixture.",
+    ]);
+    expect(blocking?.compareDocumentPosition(warnings as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const disclosureLabel = screen.getByText("Show passed checks");
+    const disclosure = disclosureLabel.closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(screen.queryByText("warning.first", { exact: false })).not.toBeInTheDocument();
+    expect(screen.queryByText("blocking.first", { exact: false })).not.toBeInTheDocument();
+    await user.click(disclosureLabel);
+    expect(disclosure).toHaveAttribute("open");
+    expect(screen.getByText(/PASS — pass\.first:/)).toBeInTheDocument();
+    expect(checks).toEqual(originalChecks);
   });
 
   it("uses recruiter-facing copy when analysis inputs cannot be assembled", () => {
