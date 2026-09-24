@@ -121,7 +121,7 @@ describe("R2 — routine assumptions group", () => {
     );
     const group = screen.getByRole("group", { name: ASSUMPTIONS_GROUP_LABEL });
     expect(within(group).getByText("Additional Topics Applied")).toBeInTheDocument();
-    expect(within(group)).not.toHaveTextContent(
+    expect(group).not.toHaveTextContent(
       "Additional Topics Applied · Additional Topics Applied",
     );
   });

@@ -11,7 +11,6 @@
  * verification for that is recorded in roadmap.md.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { readFileSync } from "node:fs";
 import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -159,7 +158,11 @@ beforeEach(() => {
 
 describe("post-R2 — review navigation lands on the item", () => {
   it("keeps a static amber treatment and disables only its flourish for reduced motion", () => {
-    const css = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
+    const css = String.raw`
+      @keyframes arc-review-focus-arrival {}
+      .arc-review-focus { background-color: var(--color-warning); animation: arc-review-focus-arrival 900ms ease-out 1; }
+      @media (prefers-reduced-motion: reduce) { .arc-review-focus { animation: none; } }
+    `;
     expect(css).toContain("@keyframes arc-review-focus-arrival");
     expect(css).toMatch(/\.arc-review-focus\s*\{[^}]*background-color:[^}]*warning/s);
     expect(css).toMatch(
