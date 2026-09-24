@@ -25,7 +25,7 @@ export function AppHeader() {
           </span>
           <span className="min-w-0 leading-tight">
             <span className="block truncate text-sm font-semibold text-foreground sm:text-base">
-              Ayden&apos;s Revenue Compass
+              Ayden&apos;s Revenue Compass (ARC)
             </span>
             <span className="block truncate text-xs text-muted-foreground">
               ASC 606 Analysis Platform
