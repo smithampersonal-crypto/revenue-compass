@@ -2,14 +2,24 @@ import { formatCents } from "@/lib/asc606";
 import type { ContractBalanceAnalysis } from "@/lib/asc606-balances";
 
 import { Notice, Section, td, th } from "./fields";
-import { billingEventLabel } from "./billing-presentation";
+
 
 /**
  * Read-only presentation of deterministic Phase 3 engine output. Every amount
  * shown here is produced by the contract-balance engine; this component only
  * formats cents.
  */
-export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalanceAnalysis }) {
+export function ContractBalanceOutputs({
+  analysis,
+  billingLabelsById,
+}: {
+  analysis: ContractBalanceAnalysis;
+  /**
+   * Friendly aliases derived once from the draft's canonical consideration-event
+   * order, resolved here by canonical eventId (never by engine row index).
+   */
+  billingLabelsById: ReadonlyMap<string, string>;
+}) {
   const { billingSchedule, monthly, reconciliation } = analysis;
 
   return (
@@ -28,9 +38,9 @@ export function ContractBalanceOutputs({ analysis }: { analysis: ContractBalance
               </tr>
             </thead>
             <tbody>
-              {billingSchedule.map((row, rowIndex) => (
+              {billingSchedule.map((row) => (
                 <tr key={row.eventId}>
-                  <td className={td}>{billingEventLabel(rowIndex)}</td>
+                  <td className={td}>{billingLabelsById.get(row.eventId) ?? "Unavailable billing event"}</td>
                   <td className={td}>{formatCents(row.amountCents)}</td>
                   <td className={td}>{row.unconditionalRightDate}</td>
                   <td className={td}>{row.invoiceDate}</td>
