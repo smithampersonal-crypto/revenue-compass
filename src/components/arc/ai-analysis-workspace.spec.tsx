@@ -177,6 +177,7 @@ describe("Task 6 active progress", () => {
       expect(screen.getAllByTestId("ai-progress-track")).toHaveLength(1);
       expect(screen.getAllByTestId("ai-progress-confirmed")).toHaveLength(1);
       expect(screen.getAllByTestId("ai-progress-activity")).toHaveLength(1);
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
       expect(container.querySelector("ol")).not.toBeInTheDocument();
       expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     },
