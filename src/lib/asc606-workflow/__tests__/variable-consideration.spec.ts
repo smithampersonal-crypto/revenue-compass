@@ -164,7 +164,10 @@ describe("variable-consideration adapter", () => {
     const valid = buildVariableConsiderationInput({
       ...described,
       variableConsiderationComponents: [
-        { ...described.variableConsiderationComponents[0]!, estimationMethod: "most_likely_amount" },
+        {
+          ...described.variableConsiderationComponents[0]!,
+          estimationMethod: "most_likely_amount",
+        },
       ],
     });
     expect(valid.ok).toBe(true);

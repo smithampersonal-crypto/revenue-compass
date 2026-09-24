@@ -62,15 +62,11 @@ function buildAssessment(
   let failed = false;
   const componentLabel = variableConsiderationDisplayLabel(component);
   if (!assessment.effectiveDate) {
-    errors.push(
-      `An effective date for the ${label} of "${componentLabel}" is required.`,
-    );
+    errors.push(`An effective date for the ${label} of "${componentLabel}" is required.`);
     failed = true;
   }
   if (assessment.constraintRationale.trim() === "") {
-    errors.push(
-      `A constraint rationale for the ${label} of "${componentLabel}" is required.`,
-    );
+    errors.push(`A constraint rationale for the ${label} of "${componentLabel}" is required.`);
     failed = true;
   }
 
