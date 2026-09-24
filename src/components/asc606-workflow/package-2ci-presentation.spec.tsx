@@ -115,7 +115,9 @@ describe("Package 2C-I contract-modification header", () => {
     fireEvent.change(screen.getByLabelText("Change in consideration (USD)"), {
       target: { value: "125000" },
     });
-    fireEvent.change(screen.getByDisplayValue("Increase"), { target: { value: "decrease" } });
+    fireEvent.change(screen.getByLabelText("Change direction"), {
+      target: { value: "decrease" },
+    });
 
     expect(state.draft.contractModifications[0]).toMatchObject({
       modificationDate: "2028-03-01",

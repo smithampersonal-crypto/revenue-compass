@@ -184,34 +184,41 @@ export function ContractModifications({
                       targetKey={`modification:${mod.id}.modificationDate`}
                       className="h-full"
                     >
-                      <label className="flex h-full flex-col">
-                        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                      <div className="flex h-full flex-col">
+                        <label
+                          htmlFor={`modification-date-${mod.id}`}
+                          className="flex items-center gap-1 text-sm font-medium text-foreground"
+                        >
                           <span>Modification effective date</span>
                           <AiInlineProvenanceMarker />
-                        </span>
+                        </label>
                         <input
+                          id={`modification-date-${mod.id}`}
                           type="date"
-                          aria-label="Modification effective date"
                           className={`${inputClass} mt-auto`}
                           value={mod.modificationDate}
                           onChange={(e) => setMod(mod.id, { modificationDate: e.target.value })}
                         />
-                      </label>
+                      </div>
                     </AiReviewTarget>
                     <AiReviewTarget
                       targetKey={`modification:${mod.id}.considerationMagnitudeInput`}
                       className="h-full"
                     >
-                      <label className="flex h-full flex-col">
-                        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                      <div className="flex h-full flex-col">
+                        <label
+                          htmlFor={`modification-consideration-${mod.id}`}
+                          className="flex items-center gap-1 text-sm font-medium text-foreground"
+                        >
                           <span>Change in consideration (USD)</span>
                           <AiInlineProvenanceMarker />
-                        </span>
+                        </label>
                         <span className="text-xs text-muted-foreground">
                           Enter the amount as a positive number and choose the direction.
                         </span>
                         <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                           <UsdMoneyInput
+                            id={`modification-consideration-${mod.id}`}
                             value={mod.considerationMagnitudeInput}
                             onValueChange={(next) =>
                               setMod(mod.id, { considerationMagnitudeInput: next })
@@ -219,6 +226,7 @@ export function ContractModifications({
                             placeholder="0.00"
                           />
                           <select
+                            aria-label="Change direction"
                             className={inputClass}
                             value={mod.considerationEffect}
                             onChange={(e) =>
@@ -232,7 +240,7 @@ export function ContractModifications({
                             <option value="none">No change in price</option>
                           </select>
                         </div>
-                      </label>
+                      </div>
                     </AiReviewTarget>
                   </div>
 
