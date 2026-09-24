@@ -49,6 +49,14 @@
 - [x] Optimize and inspect the three PNGs for README-scale legibility, visual consistency, and privacy
 - [x] Confirm no application source, visual system, Package 2A.1 behavior, or product logic changed
 
+## Package 2B.1 — Final Recruiter-Facing README Screenshot Refresh
+
+- [ ] Capture four internally consistent final-state README images from the accepted Horizon/sample experience; do not start a new Terra run
+- [ ] Preserve frozen application source; if capture reveals a genuine product defect, stop and report it without a silent fix
+- [ ] Refresh only README image references/alt text/captions and intentional screenshot assets, then inspect the rendered README
+- [ ] Verify dependency, Genomix hash, repository hygiene, package a clean source ZIP, and report the final commit hash
+- [ ] Owner confirms the GitHub app and database jobs are green on the reported final commit; Lovable does not independently certify CI status
+
 ## Package 2C-A — AI Accounting Label Contract
 
 - [x] Add strict schema v6 accounting labels for AI Promises and Performance Obligations

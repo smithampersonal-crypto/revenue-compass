@@ -20,11 +20,12 @@ Capture the live Horizon experience at one consistent high-resolution desktop vi
 ## Verification
 - Inspect every captured image for stale UI, clipping, private data, transient states, implementation IDs, and inconsistent dimensions.
 - Render the README and inspect it visually at normal GitHub content width; verify all four paths load and remain legible.
-- Confirm no application source or behavior changed and run documentation-appropriate repository checks.
+- Confirm no application source or behavior changed and run documentation-appropriate repository checks. If capture exposes a genuine product defect, stop and report it instead of changing frozen source.
 - Recheck `@lovable.dev/vite-tanstack-config` is `^2.15.0` with lock resolution `2.15.0`; restore only those package files if the platform auto-bumped them.
 - Confirm the Genomix SHA-256 and repository hygiene requirements.
 - Update only the Package 2B.1 completion state in `roadmap.md` after all checks pass.
-- Confirm the final GitHub app and database jobs are green; do not rerun Terra or the local database solely for screenshots.
+- Push the final commit and report its hash; the repository owner will confirm the GitHub app and database jobs on that commit. Do not claim independent CI certification.
+- Do not rerun Terra or the local database solely for screenshots.
 
 ## Delivery
 - Remove `.lovable/plan.md` from the final tracked/delivered source.
