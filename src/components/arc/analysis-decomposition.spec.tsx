@@ -305,6 +305,9 @@ describe("Phase 3 — Review & Finalize", () => {
     const passedDisclosure = screen.getByText("Show passed checks").closest("details");
     expect(passedDisclosure).not.toBeNull();
     expect(passedDisclosure).not.toHaveAttribute("open");
+    expect(screen.getByText("Show technical validation details").closest("details")).not.toHaveAttribute(
+      "open",
+    );
     expect(screen.queryByText(/Engine validation/i)).toBeNull();
     expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Billing and Contract-Balance Workpaper")).toBeInTheDocument();
@@ -394,8 +397,42 @@ describe("Phase 3 — Review & Finalize", () => {
     expect(screen.queryByText("blocking.first", { exact: false })).not.toBeInTheDocument();
     await user.click(disclosureLabel);
     expect(disclosure).toHaveAttribute("open");
-    expect(screen.getByText(/PASS — pass\.first:/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Other validation checks" })).toBeInTheDocument();
+    expect(screen.queryByText(/PASS —/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/pass\.first:/)).not.toBeInTheDocument();
+    const technicalLabel = screen.getByText("Show technical validation details");
+    const technicalDisclosure = technicalLabel.closest("details");
+    expect(technicalDisclosure).not.toHaveAttribute("open");
+    await user.click(technicalLabel);
+    expect(screen.getByText(/pass\.first: First passed fixture\./)).toBeInTheDocument();
     expect(checks).toEqual(originalChecks);
+  });
+
+  it("omits the passed-check disclosure when no passed result exists", () => {
+    const draft = createDemoDraft("horizon");
+    const wp = buildWorkpaper(draft);
+    const failed = {
+      id: "blocking.only",
+      category: "contract" as const,
+      severity: "blocking" as const,
+      passed: false,
+      message: "Blocking fixture.",
+    };
+    render(
+      <ReviewFinalizeView
+        result={{
+          ...wp.workflow,
+          engineValidation: {
+            status: "attention",
+            results: [failed],
+            blockingFailures: [failed],
+          },
+        }}
+        balances={wp.balances}
+        journals={wp.journals}
+      />,
+    );
+    expect(screen.queryByText("Show passed checks")).not.toBeInTheDocument();
   });
 
   it("uses recruiter-facing copy when analysis inputs cannot be assembled", () => {

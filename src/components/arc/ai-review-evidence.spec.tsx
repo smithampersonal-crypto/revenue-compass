@@ -126,9 +126,15 @@ function renderPanel(ai: AiWorkspaceController) {
 describe("Task 9A citation evidence", () => {
   it("offers one deliberate Open PDF action per evidence row", () => {
     renderPanel(controller(workspace([ITEM])));
-    expect(screen.getByText("Source Evidence · Page 4")).toBeInTheDocument();
+    const firstLabel = screen.getByText("Source Evidence · Page 4");
+    expect(firstLabel).toBeInTheDocument();
     expect(screen.getByText("Source Evidence · Pages 7–9")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open PDF — Page 4" })).toHaveTextContent("Open PDF");
+    const firstAction = screen.getByRole("button", { name: "Open PDF — Page 4" });
+    expect(firstAction).toHaveTextContent("Open PDF");
+    const evidenceRow = firstLabel.parentElement?.parentElement;
+    expect(evidenceRow).toContainElement(firstAction);
+    expect(evidenceRow).toHaveClass("flex", "flex-wrap", "gap-x-2");
+    expect(evidenceRow).not.toHaveClass("justify-between");
     expect(screen.getByRole("button", { name: "Open PDF — Pages 7–9" })).toHaveTextContent(
       "Open PDF",
     );

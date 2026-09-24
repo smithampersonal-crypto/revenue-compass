@@ -117,7 +117,6 @@ export function ReviewFinalizeView({
                   <div key={group.key} data-validation-category={group.key}>
                     <h3 className="text-sm font-semibold text-foreground">{group.heading}</h3>
                     <p className="mt-0.5 text-sm text-muted-foreground">{group.description}</p>
-                    <span className="sr-only">{group.checks.length} passed checks</span>
                   </div>
                 ))}
                 <details className="border-t border-border pt-3">
