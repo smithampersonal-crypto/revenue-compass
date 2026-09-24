@@ -39,7 +39,7 @@ export function AccountMenu() {
     return (
       <Link
         to="/auth"
-        className="inline-flex min-h-9 items-center rounded-md border border-border px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         Sign in
       </Link>

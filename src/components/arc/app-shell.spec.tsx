@@ -23,7 +23,9 @@ async function renderAt(initialPath: string) {
 describe("ARC app shell (Phase 5)", () => {
   it.each(["/", "/analysis?sample=redwood"])("renders ARC chrome on %s", async (path) => {
     await renderAt(path);
-    expect((await screen.findAllByText("Ayden's Revenue Compass")).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText("Ayden's Revenue Compass (ARC)")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("ASC 606 Analysis Platform")).toBeInTheDocument();
     expect(screen.getByText("© 2026 Ayden's Revenue Compass (ARC)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /user login|sign up/i })).not.toBeInTheDocument();
@@ -85,7 +87,9 @@ describe("ARC app shell (Phase 5)", () => {
     expect(screen.getByText("Traceable review")).toBeInTheDocument();
     expect(screen.getByText("Start here")).toBeInTheDocument();
     expect(
-      screen.getByText("AI can draft the analysis, but the accountant remains authoritative."),
+      screen.getByText(
+        "AI can draft the analysis, but professional judgment and control remain with the accountant.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -94,7 +98,7 @@ describe("ARC app shell (Phase 5)", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry in one workpaper.",
+        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry all in one workflow.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -115,12 +119,23 @@ describe("ARC app shell (Phase 5)", () => {
     }
     expect(screen.queryByText("Source Documents")).not.toBeInTheDocument();
 
+    const getStarted = screen.getByRole("region", { name: "Get started" });
+    const cardTitles = within(getStarted)
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(cardTitles).toEqual([
+      "Try a Sample Contract",
+      "Upload a Contract PDF",
+      "Enter Contract Details Manually",
+    ]);
+
     const sampleAction = screen.getByRole("link", { name: "Try the Sample" });
     expect(sampleAction.className).toContain("bg-primary");
-    expect(screen.getByRole("link", { name: "Upload PDF" }).className).not.toContain("bg-primary");
-    expect(screen.getByRole("link", { name: "Start Manually" }).className).not.toContain(
-      "bg-primary",
-    );
+    for (const secondary of ["Upload PDF", "Start Manually"]) {
+      const action = screen.getByRole("link", { name: secondary });
+      expect(action.className).not.toContain("bg-primary");
+      expect(action.className).toContain("border");
+    }
   });
 
   it("offers one Horizon sample path and no legacy sample grid", async () => {
@@ -176,7 +191,11 @@ describe("ARC app shell (Phase 5)", () => {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
 
-    await user.click(within(primaryNav).getByRole("link", { name: "New Analysis" }));
+    const newAnalysis = within(primaryNav).getByRole("link", { name: "New Analysis" });
+    expect(newAnalysis.className).toContain("bg-primary");
+    expect(within(primaryNav).queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
+
+    await user.click(newAnalysis);
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
   });
