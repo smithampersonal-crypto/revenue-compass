@@ -131,7 +131,7 @@ describe("Task 9A citation evidence", () => {
     expect(screen.getByText("Source Evidence · Pages 7–9")).toBeInTheDocument();
     const firstAction = screen.getByRole("button", { name: "Open PDF — Page 4" });
     expect(firstAction).toHaveTextContent("Open PDF");
-    const evidenceRow = firstLabel.parentElement?.parentElement;
+    const evidenceRow = firstLabel.parentElement;
     expect(evidenceRow).toContainElement(firstAction);
     expect(evidenceRow).toHaveClass("flex", "flex-wrap", "gap-x-2");
     expect(evidenceRow).not.toHaveClass("justify-between");

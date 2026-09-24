@@ -333,6 +333,20 @@ describe("Phase 3 — Review & Finalize", () => {
         message: "First passed fixture.",
       },
       {
+        id: "po.exists",
+        category: "performance_obligations" as const,
+        severity: "blocking" as const,
+        passed: true,
+        message: "Performance obligation fixture.",
+      },
+      {
+        id: "accounting_horizon.supported_range",
+        category: "revenue" as const,
+        severity: "blocking" as const,
+        passed: true,
+        message: "Accounting horizon fixture.",
+      },
+      {
         id: "blocking.first",
         category: "contract" as const,
         severity: "blocking" as const,
@@ -398,13 +412,21 @@ describe("Phase 3 — Review & Finalize", () => {
     await user.click(disclosureLabel);
     expect(disclosure).toHaveAttribute("open");
     expect(screen.getByRole("heading", { name: "Other validation checks" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Performance obligations" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Accounting period" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Contract setup" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Standalone selling prices" })).not.toBeInTheDocument();
     expect(screen.queryByText(/PASS —/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/pass\.first:/)).not.toBeInTheDocument();
     const technicalLabel = screen.getByText("Show technical validation details");
     const technicalDisclosure = technicalLabel.closest("details");
     expect(technicalDisclosure).not.toHaveAttribute("open");
     await user.click(technicalLabel);
-    expect(screen.getByText(/pass\.first: First passed fixture\./)).toBeInTheDocument();
+    const technicalItems = within(technicalDisclosure as HTMLElement).getAllByRole("listitem");
+    expect(technicalItems.map((item) => item.textContent)).toEqual([
+      "pass.first: First passed fixture.",
+      "po.exists: Performance obligation fixture.",
+      "accounting_horizon.supported_range: Accounting horizon fixture.",
+    ]);
     expect(checks).toEqual(originalChecks);
   });
 
