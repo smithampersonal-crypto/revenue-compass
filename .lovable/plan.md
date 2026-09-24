@@ -1,29 +1,20 @@
-# Review & Finalize presentation refinement
+# Package 2C-K final narrow acceptance patch
 
 ## Scope
-- Keep each evidence label and its existing **Open PDF** action together in a compact wrapping row.
-- Replace the first expanded passed-checks view with grouped, accountant-facing summaries assigned by a small explicit rule-ID mapping helper.
-- Add a nested **Show technical validation details** disclosure containing the unchanged rule-by-rule messages and IDs for traceability.
-- Preserve the source validation array, pass/fail state, severity, execution, and original order within each category and in technical details.
+- Restore `@lovable.dev/vite-tanstack-config` to range `^2.15.0` with lock resolution exactly `2.15.0`, then re-check both after all package/build steps.
+- Remove the temporary `.lovable/plan.md` from delivered source while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule.
+- Contain the Billing Schedule table in its section with horizontal scrolling; preserve all columns, labels, values, order, IDs, and accounting behavior.
+- Make long Review & Finalize `Go to …` controls wrap within their cards without truncation; preserve full labels, state semantics, and navigation behavior.
+- Preserve the approved homepage, validation, evidence, journal, currency, and all 2C-A through 2C-J presentation and behavior.
 
-## Category presentation
-Map known rule IDs directly—never parse message text, keywords, prefixes, or descriptions—to these headings and restrained summaries:
-- Contract setup — Applicable contract-level checks passed.
-- Performance obligations — Applicable performance-obligation checks passed.
-- Standalone selling prices — Applicable SSP and allocation-input checks passed.
-- Revenue recognition — Applicable recognition-method and timing checks passed.
-- Accounting period — Applicable date-range and accounting-horizon checks passed.
-- Other validation checks — Applicable additional checks passed.
+## Regressions
+- Add a focused structural test proving the Billing Schedule table has horizontal-overflow containment.
+- Add a focused Review & Finalize test with a deliberately long destination label, proving safe width, normal wrapping, automatic height, full copy, and unchanged item-ID callback.
 
-Every passed result appears in exactly one category. Any future or unknown rule ID goes to **Other validation checks** rather than being omitted.
-
-Render only categories containing passed results. Render **Show passed checks** only when at least one passed result exists.
-
-Both **Show passed checks** and its nested **Show technical validation details** use native disclosures and start collapsed. The technical layer preserves the original rule-by-rule order, IDs, and descriptions.
-
-## Verification
-- Extend focused presentation tests for compact evidence-row structure, wrapping behavior, grouped passed checks, hidden IDs in the first layer, technical traceability, and immutable ordering.
-- Add a conservation regression proving exact-once presentation grouping, no omissions or duplicates, unknown-ID fallback, and unchanged global ordering in technical details.
-- Run the focused review/evidence tests, full test suite, typecheck, lint, production build, and bundle audit.
-- Verify Review & Finalize at desktop and narrow widths, including no horizontal overflow and unchanged PDF action behavior.
-- Confirm the preview build is clean.
+## Verification and delivery
+- Run focused presentation tests, the full test suite, typecheck, lint, production build, and bundle audit.
+- Smoke-test desktop and approximately 390px views for Billing Schedule containment, long `Go to …` wrapping, unchanged homepage, Review & Finalize, validation presentation, and journal geometry.
+- Re-check dependency versions, approved currency copy, Genomix SHA-256, and repository hygiene after the final build.
+- Update only the Package 2C-K roadmap status after verification, preserving the completed Terra and GitHub/database evidence and leaving 2B.1, Package 3, and production readiness incomplete.
+- Create and inspect a clean source ZIP excluding dependencies, build output, Git data, secrets, transient plans, and diagnostics; report its file count and SHA-256 plus the final repository commit hash.
+- Stop after this patch; do not begin 2B.1 or Package 3.
