@@ -198,9 +198,18 @@ describe("AiReviewPanel", () => {
   });
 
   it("shows resolved items separately with how they were resolved", () => {
-    render(<AiReviewPanel ai={controller(workspace({ reviewItems: [RESOLVED] }))} />);
+    const resolvedFallback: AiReviewItemDto = {
+      ...RESOLVED,
+      targetKey: "additionalTopic:principal_agent",
+      section: "additional_topics",
+    };
+    render(<AiReviewPanel ai={controller(workspace({ reviewItems: [resolvedFallback] }))} />);
     const resolved = screen.getByRole("group", { name: /resolved/i });
     expect(resolved).toHaveTextContent(/Confirmed/i);
+    expect(resolved).toHaveTextContent("Additional Topics Applied");
+    expect(resolved).not.toHaveTextContent(
+      "Additional Topics Applied · Additional Topics Applied",
+    );
     expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();
   });
 
