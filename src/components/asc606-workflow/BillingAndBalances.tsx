@@ -14,6 +14,14 @@ import {
   type WorkflowDraft,
 } from "@/lib/asc606-workflow";
 
+import {
+  billingEventLabel,
+  billingEventOptionLabel,
+  buildFriendlyBalanceLabels,
+  cashCollectionLabel,
+  groupBalanceIssues,
+  presentGlobalBalanceIssue,
+} from "./billing-presentation";
 import { Field, inputClass, IssueList, Notice, Section, UsdMoneyInput } from "./fields";
 
 /**
@@ -38,6 +46,9 @@ export function BillingAndBalances({
   // variable-consideration engine instead of being re-entered.
   const vcComponents = draft.hasVariableConsideration ? draft.variableConsiderationComponents : [];
   const result = balances;
+  const friendlyLabels = buildFriendlyBalanceLabels(considerationEvents, cashCollections);
+  const blockingIssues = groupBalanceIssues(result.validation.blocking, friendlyLabels);
+  const warningIssues = groupBalanceIssues(result.validation.warnings, friendlyLabels);
   // Phase 5C: when a modification produced more than one contract, each billing
   // event must name the contract it belongs to. The list of contracts is engine
   // output; React only renders it.
@@ -114,14 +125,14 @@ export function BillingAndBalances({
       </Section>
 
       <Section
-        title="Consideration events (billing events)"
+        title="Billing Schedule"
         description="The unconditional-right date drives receivable and contract-balance accounting. The invoice date identifies when an unconditional receivable becomes billed."
       >
         <div className="space-y-4">
           {considerationEvents.length === 0 ? (
             <Notice>No billing events have been entered yet.</Notice>
           ) : null}
-          {considerationEvents.map((event) => (
+          {considerationEvents.map((event, eventIndex) => (
             <AiReviewTarget
               key={event.id}
               targetKey={`billing:${event.id}`}
@@ -130,7 +141,7 @@ export function BillingAndBalances({
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-foreground">
-                    Event {event.seq} · {event.id}
+                    {billingEventLabel(eventIndex)}
                   </p>
                   <button
                     type="button"
@@ -248,6 +259,15 @@ export function BillingAndBalances({
                     </Field>
                   </AiReviewTarget>
                 </div>
+                <IssueList
+                  title={`${billingEventLabel(eventIndex)} — resolve these items`}
+                  issues={blockingIssues.billing.get(event.id) ?? []}
+                />
+                <IssueList
+                  title={`${billingEventLabel(eventIndex)} — warnings`}
+                  tone="warning"
+                  issues={warningIssues.billing.get(event.id) ?? []}
+                />
               </div>
             </AiReviewTarget>
           ))}
@@ -277,7 +297,7 @@ export function BillingAndBalances({
           {cashCollections.length === 0 ? (
             <Notice>No cash collections have been entered yet.</Notice>
           ) : null}
-          {cashCollections.map((collection) => (
+          {cashCollections.map((collection, collectionIndex) => (
             <AiReviewTarget
               key={collection.id}
               targetKey={`cash:${collection.id}`}
@@ -286,7 +306,7 @@ export function BillingAndBalances({
               <div className="space-y-3 rounded-md border border-border p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-foreground">
-                    Collection {collection.seq} · {collection.id}
+                    {cashCollectionLabel(collectionIndex)}
                   </p>
                   <button
                     type="button"
@@ -327,9 +347,15 @@ export function BillingAndBalances({
                       }
                     >
                       <option value="">Select a billing event</option>
-                      {considerationEvents.map((event) => (
+                      {collection.considerationEventId &&
+                      !friendlyLabels.billingById.has(collection.considerationEventId) ? (
+                        <option value={collection.considerationEventId}>
+                          Unavailable billing event
+                        </option>
+                      ) : null}
+                      {considerationEvents.map((event, eventIndex) => (
                         <option key={event.id} value={event.id}>
-                          Event {event.seq} · {event.id}
+                          {billingEventOptionLabel(event, eventIndex)}
                         </option>
                       ))}
                     </select>
@@ -356,6 +382,15 @@ export function BillingAndBalances({
                     </Field>
                   </AiReviewTarget>
                 </div>
+                <IssueList
+                  title={`${cashCollectionLabel(collectionIndex)} — resolve these items`}
+                  issues={blockingIssues.cash.get(collection.id) ?? []}
+                />
+                <IssueList
+                  title={`${cashCollectionLabel(collectionIndex)} — warnings`}
+                  tone="warning"
+                  issues={warningIssues.cash.get(collection.id) ?? []}
+                />
               </div>
             </AiReviewTarget>
           ))}
@@ -376,12 +411,16 @@ export function BillingAndBalances({
 
       <IssueList
         title="Resolve these items to complete the contract-balance workpaper"
-        issues={result.validation.blocking}
+        issues={blockingIssues.global.map((issue) =>
+          presentGlobalBalanceIssue(issue, friendlyLabels),
+        )}
       />
       <IssueList
         title="Contract-balance warnings"
         tone="warning"
-        issues={result.validation.warnings}
+        issues={warningIssues.global.map((issue) =>
+          presentGlobalBalanceIssue(issue, friendlyLabels),
+        )}
       />
     </div>
   );
