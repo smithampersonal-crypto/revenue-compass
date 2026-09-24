@@ -98,7 +98,7 @@ describe("ARC app shell (Phase 5)", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry all in one workflow.",
+        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry in one connected workpaper.",
       ),
     ).toBeInTheDocument();
     expect(
