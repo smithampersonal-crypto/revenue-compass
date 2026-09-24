@@ -115,12 +115,23 @@ describe("ARC app shell (Phase 5)", () => {
     }
     expect(screen.queryByText("Source Documents")).not.toBeInTheDocument();
 
+    const getStarted = screen.getByRole("region", { name: "Get started" });
+    const cardTitles = within(getStarted)
+      .getAllByRole("heading", { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(cardTitles).toEqual([
+      "Try a Sample Contract",
+      "Upload a Contract PDF",
+      "Enter Contract Details Manually",
+    ]);
+
     const sampleAction = screen.getByRole("link", { name: "Try the Sample" });
     expect(sampleAction.className).toContain("bg-primary");
-    expect(screen.getByRole("link", { name: "Upload PDF" }).className).not.toContain("bg-primary");
-    expect(screen.getByRole("link", { name: "Start Manually" }).className).not.toContain(
-      "bg-primary",
-    );
+    for (const secondary of ["Upload PDF", "Start Manually"]) {
+      const action = screen.getByRole("link", { name: secondary });
+      expect(action.className).not.toContain("bg-primary");
+      expect(action.className).toContain("border");
+    }
   });
 
   it("offers one Horizon sample path and no legacy sample grid", async () => {
