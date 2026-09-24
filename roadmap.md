@@ -164,10 +164,13 @@
 - [x] Strengthen the existing destination focus with one restrained amber flourish and a static reduced-motion treatment
 - [x] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
 
-## Package 2C-K — Full Verification + Controlled Live Acceptance (IN PROGRESS — not accepted)
+## Package 2C-K — Full Verification + Controlled Live Acceptance (PAUSED — narrow-width defects reported, not accepted)
 - [x] Dependency auto-bump (2.23.1) restored to ^2.15.0 / lock 2.15.0
-- [x] Static gate: 213 files / 2,717 tests (one unidentified first-run flake; two subsequent full runs green), typecheck clean, lint 0 errors / 11 pre-existing warnings, build + audit:bundle clean
-- [ ] Database suite (db:start:ci + db:test) — BLOCKED: no Docker in agent sandbox; must run via GitHub Actions "Verify" workflow
-- [ ] Controlled live Terra guest run + accounting/provenance/review smoke
-- [ ] Horizon deterministic smoke, responsive smoke, console/network
-- [ ] Clean source ZIP + final report
+- [x] Static gate: 213 files / 2,717 tests (one unidentified first-run flake; two later full runs green), typecheck clean, lint 0 errors / 11 pre-existing warnings, build + audit:bundle clean
+- [x] Database gate: GitHub Verify app + database jobs green (director-confirmed)
+- [x] Horizon deterministic smoke: $153,000 / SSP 144k·12k·24k / dates / billings 75k·39k·39k / names unchanged; journals Reconciled
+- [x] One live Terra guest run 72858cc7-1053-4c3c-9547-005e3ffe1a58 succeeded (1 source, 4 pages, 11 review items, 1 start request)
+- [x] Progress, labels, provenance edit, evidence/Open PDF, Go-to focus verified live
+- [ ] DEFECT: Contract Balances Billing Schedule output table overflows page at 390px (no overflow-x wrapper; pre-dates 2C-I)
+- [ ] DEFECT (minor): long assumption "Go to …" button overflows 2px at 390px on Review & Finalize
+- [ ] Clean source ZIP + final report after director decision on the defects
