@@ -157,13 +157,13 @@ describe("Task 6 AI analysis action", () => {
 
 describe("Task 6 active progress", () => {
   it.each([
-    ["preparing", 1, "Preparing documents", "Preparing Documents · Step 1 of 4", 0, 0, 12],
-    ["analyzing", 2, "Analyzing contract", "Analyzing Contract · Step 2 of 4", 12, 12, 82],
-    ["validating", 3, "Validating analysis", "Validating Analysis · Step 3 of 4", 82, 82, 92],
-    ["applying", 4, "Updating workspace", "Updating Workspace · Step 4 of 4", 92, 92, 100],
+    ["preparing", 1, "Preparing documents", "Preparing Documents · Step 1 of 4", 0],
+    ["analyzing", 2, "Analyzing contract", "Analyzing Contract · Step 2 of 4", 12],
+    ["validating", 3, "Validating analysis", "Validating Analysis · Step 3 of 4", 82],
+    ["applying", 4, "Updating workspace", "Updating Workspace · Step 4 of 4", 92],
   ] as const)(
     "renders %s with authoritative checkpoint metadata",
-    (phase, step, label, headline, confirmedEnd, activityStart, activityEnd) => {
+    (phase, step, label, headline, confirmedEnd) => {
       const { container } = render(<AiAnalysisProgress progress={{ phase, step, label }} />);
       const status = screen.getByRole("status", { name: "AI analysis progress" });
       const track = screen.getByTestId("ai-progress-track");
@@ -172,11 +172,12 @@ describe("Task 6 active progress", () => {
       expect(status).toHaveAttribute("data-step", String(step));
       expect(track).toHaveAttribute("data-step", String(step));
       expect(track).toHaveAttribute("data-confirmed-end", String(confirmedEnd));
-      expect(track).toHaveAttribute("data-activity-start", String(activityStart));
-      expect(track).toHaveAttribute("data-activity-end", String(activityEnd));
+      expect(track).not.toHaveAttribute("data-activity-start");
+      expect(track).not.toHaveAttribute("data-activity-end");
       expect(screen.getAllByTestId("ai-progress-track")).toHaveLength(1);
       expect(screen.getAllByTestId("ai-progress-confirmed")).toHaveLength(1);
       expect(screen.getAllByTestId("ai-progress-activity")).toHaveLength(1);
+      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
       expect(container.querySelector("ol")).not.toBeInTheDocument();
       expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     },
@@ -196,6 +197,25 @@ describe("Task 6 active progress", () => {
     vi.useRealTimers();
   });
 
+  it("keeps one full-track activity layer mounted while authoritative stages change", () => {
+    const { rerender } = render(
+      <AiAnalysisProgress
+        progress={{ phase: "preparing", step: 1, label: "Preparing documents" }}
+      />,
+    );
+    const activity = screen.getByTestId("ai-progress-activity");
+    expect(activity).toHaveClass("inset-0");
+
+    rerender(
+      <AiAnalysisProgress
+        progress={{ phase: "applying", step: 4, label: "Updating workspace" }}
+      />,
+    );
+
+    expect(screen.getByTestId("ai-progress-activity")).toBe(activity);
+    expect(screen.getByTestId("ai-progress-track")).toHaveAttribute("data-confirmed-end", "92");
+  });
+
   it("shows no user-facing percentage or time estimate", () => {
     render(
       <AiAnalysisProgress
@@ -207,7 +227,7 @@ describe("Task 6 active progress", () => {
     expect(status).not.toHaveTextContent(/(?:seconds?|minutes?) remaining|ETA/i);
   });
 
-  it("uses only CSS motion for a separate localized front and disables all motion when reduced", () => {
+  it("uses a checkpoint-independent full-track CSS sweep and a static reduced-motion cue", () => {
     const componentSource = readFileSync(
       `${process.cwd()}/src/components/arc/AiAnalysisProgress.tsx`,
       "utf8",
@@ -217,11 +237,15 @@ describe("Task 6 active progress", () => {
     expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
     expect(componentSource).toContain("arc-ai-progress-confirmed");
     expect(componentSource).toContain("arc-ai-progress-activity");
+    expect(componentSource).toContain('className="arc-ai-progress-activity absolute inset-0 overflow-hidden"');
+    expect(componentSource).not.toContain("data-activity-start");
+    expect(componentSource).not.toContain("data-activity-end");
     expect(styles).toContain(".arc-ai-progress-activity::after");
     expect(styles).toContain("animation: arc-ai-progress-activity-sweep");
-    expect(styles).toMatch(/94%,[\s\S]*?100%[\s\S]*?opacity: 0/);
+    expect(styles).toMatch(/86%[\s\S]*?translateX\(556%\)[\s\S]*?100%[\s\S]*?opacity: 0/);
+    expect(styles).not.toMatch(/data-step=["']?[1-4]["']?[^}]*arc-ai-progress-activity/);
     expect(styles).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.arc-ai-progress-confirmed[\s\S]*?transition: none[\s\S]*?\.arc-ai-progress-activity::after[\s\S]*?animation: none/,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.arc-ai-progress-confirmed[\s\S]*?transition: none[\s\S]*?\.arc-ai-progress-activity::after[\s\S]*?animation: none[\s\S]*?opacity: 0\.18/,
     );
   });
 });

@@ -130,21 +130,21 @@
   @keyframes arc-ai-progress-activity-sweep {
     0% {
       opacity: 0;
-      transform: translateX(-110%);
+      transform: translateX(-100%);
     }
 
-    12% {
+    8% {
       opacity: 0.68;
     }
 
-    78% {
+    86% {
       opacity: 0.68;
+      transform: translateX(556%);
     }
 
-    94%,
     100% {
       opacity: 0;
-      transform: translateX(290%);
+      transform: translateX(556%);
     }
   }
 
@@ -182,32 +182,12 @@
     width: 92%;
   }
 
-  .arc-ai-progress-track[data-step="1"] .arc-ai-progress-activity {
-    left: 0%;
-    width: 12%;
-  }
-
-  .arc-ai-progress-track[data-step="2"] .arc-ai-progress-activity {
-    left: 12%;
-    width: 70%;
-  }
-
-  .arc-ai-progress-track[data-step="3"] .arc-ai-progress-activity {
-    left: 82%;
-    width: 10%;
-  }
-
-  .arc-ai-progress-track[data-step="4"] .arc-ai-progress-activity {
-    left: 92%;
-    width: 8%;
-  }
-
   .arc-ai-progress-activity::after {
     content: "";
     position: absolute;
     inset-block: 0;
     left: 0;
-    width: 35%;
+    width: 18%;
     background: linear-gradient(
       90deg,
       transparent 0%,
@@ -248,9 +228,9 @@
 
     .arc-ai-progress-activity::after {
       animation: none;
-      width: 0.3rem;
-      max-width: 100%;
-      opacity: 0.42;
+      left: 44%;
+      width: 12%;
+      opacity: 0.18;
       transform: none;
       background: var(--color-primary);
     }

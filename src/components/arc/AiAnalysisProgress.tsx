@@ -2,16 +2,12 @@ import type { AiWorkspaceProgress } from "@/lib/arc/ai/workspace-client";
 
 const PRESENTATION_CHECKPOINTS: Record<
   AiWorkspaceProgress["step"],
-  {
-    confirmedEnd: 0 | 12 | 82 | 92;
-    activityStart: 0 | 12 | 82 | 92;
-    activityEnd: 12 | 82 | 92 | 100;
-  }
+  0 | 12 | 82 | 92
 > = {
-  1: { confirmedEnd: 0, activityStart: 0, activityEnd: 12 },
-  2: { confirmedEnd: 12, activityStart: 12, activityEnd: 82 },
-  3: { confirmedEnd: 82, activityStart: 82, activityEnd: 92 },
-  4: { confirmedEnd: 92, activityStart: 92, activityEnd: 100 },
+  1: 0,
+  2: 12,
+  3: 82,
+  4: 92,
 };
 
 const DISPLAY_LABEL: Record<AiWorkspaceProgress["phase"], string> = {
@@ -23,7 +19,7 @@ const DISPLAY_LABEL: Record<AiWorkspaceProgress["phase"], string> = {
 
 export function AiAnalysisProgress({ progress }: { progress: AiWorkspaceProgress }) {
   const label = DISPLAY_LABEL[progress.phase];
-  const checkpoint = PRESENTATION_CHECKPOINTS[progress.step];
+  const confirmedEnd = PRESENTATION_CHECKPOINTS[progress.step];
 
   return (
     <div
@@ -40,9 +36,7 @@ export function AiAnalysisProgress({ progress }: { progress: AiWorkspaceProgress
       <div
         data-testid="ai-progress-track"
         data-step={progress.step}
-        data-confirmed-end={checkpoint.confirmedEnd}
-        data-activity-start={checkpoint.activityStart}
-        data-activity-end={checkpoint.activityEnd}
+        data-confirmed-end={confirmedEnd}
         aria-hidden="true"
         className="arc-ai-progress-track h-2.5 w-full overflow-hidden rounded-sm border border-border bg-muted"
       >
@@ -52,7 +46,7 @@ export function AiAnalysisProgress({ progress }: { progress: AiWorkspaceProgress
         />
         <div
           data-testid="ai-progress-activity"
-          className="arc-ai-progress-activity absolute inset-y-0 overflow-hidden"
+          className="arc-ai-progress-activity absolute inset-0 overflow-hidden"
         />
       </div>
     </div>
