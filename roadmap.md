@@ -172,9 +172,9 @@
 - [x] Horizon deterministic smoke: $153,000 / SSP 144k·12k·24k / dates / billings 75k·39k·39k / names unchanged; journals Reconciled
 - [x] One live Terra guest run 72858cc7-1053-4c3c-9547-005e3ffe1a58 succeeded (1 source, 4 pages, 11 review items, 1 start request)
 - [x] Progress, labels, provenance edit, evidence/Open PDF, Go-to focus verified live
-- [ ] DEFECT: Contract Balances Billing Schedule output table overflows page at 390px (no overflow-x wrapper; pre-dates 2C-I)
-- [ ] DEFECT (minor): long assumption "Go to …" button overflows 2px at 390px on Review & Finalize
-- [x] Clean source ZIP + final report completed; the two pre-existing narrow-width defects remain explicitly open
+- [x] Closed: Contract Balances Billing Schedule output uses table-local horizontal containment; the 390px page viewport remains stable
+- [x] Closed: long assumption "Go to …" controls retain their full label and wrap within the Review & Finalize card at 390px
+- [x] Prior clean source ZIP + final report completed; the two pre-existing narrow-width defects were explicitly carried into the final acceptance patch
 
 ### Package 2C-K — Narrow Visual Acceptance Patch
 
@@ -198,9 +198,10 @@
 
 ### Package 2C-K — Final Narrow Acceptance Patch
 
-- [ ] Restore `@lovable.dev/vite-tanstack-config` to package range `^2.15.0` and lock resolution `2.15.0`; re-check after final package/build work
-- [ ] Remove `.lovable/plan.md` from the repository and delivered ZIP; verify it is untracked while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule
-- [ ] Close Billing Schedule narrow-width overflow with table-local horizontal containment and a focused structural regression; verify stable page width at approximately 390px
-- [ ] Close long `Go to …` control overflow using semantic responsive wrapping and a non-pixel regression that preserves the full label and exact review-item callback
-- [ ] Run focused and full verification, desktop/390px smoke, fixture and repository hygiene checks, and produce the final clean source ZIP
-- [ ] Preserve the completed Terra run and GitHub/database evidence; leave 2B.1, Package 3, and ARC production readiness incomplete
+- [x] Restored `@lovable.dev/vite-tanstack-config` to package range `^2.15.0` and lock resolution `2.15.0`; re-checked after final package/build work
+- [x] Removed `.lovable/plan.md` from the repository and delivered ZIP; verified it is untracked while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule
+- [x] Closed Billing Schedule narrow-width overflow with table-local horizontal containment and a focused structural regression; verified stable page width at 390px with 526px table content scrolling inside its 324px region
+- [x] Closed long `Go to …` control overflow using semantic responsive wrapping and a non-pixel regression that preserves the full label and exact review-item callback
+- [x] Focused presentation regressions: 5 files / 61 tests; full suite: 214 files / 2,721 tests; typecheck clean; lint 0 errors / 11 pre-existing warnings; production build and bundle audit clean
+- [x] Desktop/390px smoke passed: no page-level overflow; Billing Schedule scroll remains local; long Go-to copy wraps within its card; homepage, Review & Finalize, Validation Checks, and all 18 journal-table axes remain unchanged
+- [x] Preserved Genomix SHA-256 `7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7`, completed Terra run `72858cc7-1053-4c3c-9547-005e3ffe1a58`, and successful GitHub/database evidence; 2B.1, Package 3, and ARC production readiness remain incomplete
