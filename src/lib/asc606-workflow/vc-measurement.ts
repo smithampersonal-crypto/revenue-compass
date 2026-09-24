@@ -24,6 +24,7 @@ import {
 
 import { buildDraftAssessment, buildInceptionAssessment } from "./vc-adapter";
 import type { VcComponentDraft } from "./types";
+import { variableConsiderationDisplayLabel } from "./vc-presentation";
 
 export interface VcMeasurementPreview {
   /** Engine-calculated estimate before the constraint, as a magnitude. */
@@ -51,7 +52,7 @@ export function previewVcMeasurement(component: VcComponentDraft): VcMeasurement
   const inception = buildInceptionAssessment(component, errors);
   if (inception === null) return empty(errors);
 
-  const label = component.description || component.id;
+  const label = variableConsiderationDisplayLabel(component);
   validateAssessment(label, component.estimationMethod, inception, (_id, _category, message) => {
     errors.push(message);
   });
@@ -94,7 +95,7 @@ export function previewVcCurrentMeasurement(component: VcComponentDraft): VcCurr
     return empty(["Choose an estimation method to see the calculated estimate."]);
   }
 
-  const label = component.description || component.id;
+  const label = variableConsiderationDisplayLabel(component);
   const errors: string[] = [];
 
   const inception = buildInceptionAssessment(component, errors);

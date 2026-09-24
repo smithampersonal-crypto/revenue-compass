@@ -27,6 +27,7 @@ import {
   parseUsdToCents,
 } from "./money-input";
 import type { VcAssessmentDraft, VcComponentDraft, WorkflowDraft } from "./types";
+import { variableConsiderationDisplayLabel } from "./vc-presentation";
 
 export type VcAdapterResult =
   { ok: true; input: VcContractInput } | { ok: false; errors: string[] };
@@ -59,15 +60,16 @@ function buildAssessment(
   errors: string[],
 ): VcAssessmentInput | null {
   let failed = false;
+  const componentLabel = variableConsiderationDisplayLabel(component);
   if (!assessment.effectiveDate) {
     errors.push(
-      `An effective date for the ${label} of "${component.description || component.id}" is required.`,
+      `An effective date for the ${label} of "${componentLabel}" is required.`,
     );
     failed = true;
   }
   if (assessment.constraintRationale.trim() === "") {
     errors.push(
-      `A constraint rationale for the ${label} of "${component.description || component.id}" is required.`,
+      `A constraint rationale for the ${label} of "${componentLabel}" is required.`,
     );
     failed = true;
   }
@@ -105,7 +107,7 @@ function buildAssessment(
   const included = parseUsdToCents(assessment.includedInput);
   if (!included.ok) {
     errors.push(
-      `Amount included after the constraint for the ${label} of "${component.description || component.id}": ${included.error}`,
+      `Amount included after the constraint for the ${label} of "${componentLabel}": ${included.error}`,
     );
     failed = true;
   }
@@ -135,9 +137,9 @@ export function buildVariableConsiderationInput(draft: WorkflowDraft): VcAdapter
   const usageComponents: UsageComponentInput[] = [];
 
   for (const component of draft.variableConsiderationComponents) {
-    const label = component.description || component.id;
+    const label = variableConsiderationDisplayLabel(component);
     if (component.description.trim() === "") {
-      errors.push(`Variable-consideration component "${component.id}" requires a description.`);
+      errors.push(`${label} requires a description.`);
     }
     if (component.allocationRationale.trim() === "") {
       errors.push(`An allocation rationale for "${label}" is required.`);
@@ -368,7 +370,7 @@ export function buildVariableConsiderationAllocationInput(
   for (const component of draft.variableConsiderationComponents) {
     // Usage as incurred is not forecast into the inception transaction price.
     if (component.treatment !== "estimated") continue;
-    const label = component.description || component.id;
+    const label = variableConsiderationDisplayLabel(component);
     if (component.estimationMethod === null) {
       errors.push(`An estimation method for "${label}" is required.`);
       continue;
