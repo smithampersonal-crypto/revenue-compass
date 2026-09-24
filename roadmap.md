@@ -198,6 +198,8 @@
 
 ### Package 2C-K — Final Narrow Acceptance Patch
 
+- [ ] Replace raw variable-consideration component IDs in ordinary validation/error copy with deterministic accountant-facing labels while preserving canonical IDs internally
+- [ ] Add focused regressions for entered descriptions, sequence fallbacks, raw-ID exclusion, and unchanged canonical identity
 - [x] Restored `@lovable.dev/vite-tanstack-config` to package range `^2.15.0` and lock resolution `2.15.0`; re-checked after final package/build work
 - [x] Removed `.lovable/plan.md` from the repository and delivered ZIP; verified it is untracked while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule
 - [x] Closed Billing Schedule narrow-width overflow with table-local horizontal containment and a focused structural regression; verified stable page width at 390px with 526px table content scrolling inside its 324px region
