@@ -184,7 +184,7 @@ describe("Phase 3 — Contract Modification detail", () => {
 describe("Phase 3 — Contract Balances", () => {
   it("renders ordinary engine balance output", async () => {
     await renderAt("/analysis/balances?sample=horizon");
-    expect(await screen.findByText("Billing Schedule")).toBeInTheDocument();
+    expect((await screen.findAllByText("Billing Schedule")).length).toBeGreaterThan(1);
     expect(screen.getByText("Contract-Balance Reconciliation")).toBeInTheDocument();
     expect(screen.queryByText(/\(engine output\)/i)).toBeNull();
   });
@@ -205,7 +205,7 @@ describe("Phase 3 — Contract Balances", () => {
     expect(screen.queryByText(/Journal entries \(engine output\)/i)).not.toBeInTheDocument();
   });
 
-  it("renders exactly one billing schedule for an ordinary contract", async () => {
+  it("renders one editable billing schedule plus one ordinary engine schedule", async () => {
     const draft = createDemoDraft("horizon");
     render(
       <ContractBalancesView
@@ -215,10 +215,10 @@ describe("Phase 3 — Contract Balances", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getAllByText("Billing Schedule")).toHaveLength(1);
+    expect(screen.getAllByText("Billing Schedule")).toHaveLength(2);
   });
 
-  it("renders one billing schedule per engine group for Meridian", async () => {
+  it("renders one editable billing schedule plus one engine schedule per Meridian group", async () => {
     const draft = createDemoDraft("meridian");
     const balances = analyzeContractBalanceWorkflow(draft);
     expect(balances.grouped).not.toBeNull();
@@ -230,7 +230,9 @@ describe("Phase 3 — Contract Balances", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getAllByText("Billing Schedule")).toHaveLength(balances.grouped!.groups.length);
+    const grouped = balances.grouped;
+    if (!grouped) throw new Error("Expected grouped Meridian balances.");
+    expect(screen.getAllByText("Billing Schedule")).toHaveLength(grouped.groups.length + 1);
   });
 
   it("renders each balance blocking issue exactly once when blocked", () => {
