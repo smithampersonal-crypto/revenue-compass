@@ -40,6 +40,11 @@ export function reviewSectionLabel(section: GuidanceReviewSection): string {
   return SECTION_LABELS[section];
 }
 
+/** Suppresses only a byte-identical repeated section/target presentation label. */
+export function reviewItemHeading(sectionLabel: string, targetLabel: string): string {
+  return sectionLabel === targetLabel ? sectionLabel : `${sectionLabel} · ${targetLabel}`;
+}
+
 /** The workflow accordion that owns a section, before subtopic refinement. */
 const SECTION_ELEMENT_IDS: Record<GuidanceReviewSection, string> = {
   step_1: "step-1",
@@ -336,20 +341,24 @@ function sectionElementIdFor(targetKey: string, section: GuidanceReviewSection):
 
 /** Validated citation material only. No document id, no filename, no URL. */
 export function citationLabel(citation: AiReviewCitationDto): string {
-  const pages =
-    citation.pageEnd > citation.pageStart
-      ? `pages ${citation.pageStart}–${citation.pageEnd}`
-      : `page ${citation.pageStart}`;
-  return citation.evidenceMode === "visual"
-    ? `Visual source evidence — ${pages}`
-    : `Source evidence — ${pages}`;
+  return citation.pageEnd > citation.pageStart
+    ? `Source Evidence · Pages ${citation.pageStart}–${citation.pageEnd}`
+    : `Source Evidence · Page ${citation.pageStart}`;
 }
 
-/** Task 9A. The deliberate "open the source" action label for one citation. */
-export function citationOpenLabel(citation: AiReviewCitationDto): string {
-  return citation.pageEnd > citation.pageStart
-    ? `Open source — pages ${citation.pageStart}–${citation.pageEnd}`
-    : `Open source — page ${citation.pageStart}`;
+/** Page-aware accessible action name; ordinal disambiguates equal visible ranges. */
+export function citationOpenAccessibleLabel(
+  citation: AiReviewCitationDto,
+  ordinal: number,
+  repeatedRange: boolean,
+): string {
+  const pages =
+    citation.pageEnd > citation.pageStart
+      ? `Pages ${citation.pageStart}–${citation.pageEnd}`
+      : `Page ${citation.pageStart}`;
+  return repeatedRange
+    ? `Open PDF — Source Evidence ${ordinal}, ${pages}`
+    : `Open PDF — ${pages}`;
 }
 
 /* ------------------------------------------------------------ resolutions */

@@ -148,6 +148,16 @@
     }
   }
 
+  @keyframes arc-review-focus-arrival {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-warning) 60%, transparent);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0.75rem color-mix(in oklab, var(--color-warning) 0%, transparent);
+    }
+  }
+
   .arc-ai-progress-track {
     position: relative;
   }
@@ -211,10 +221,11 @@
   .arc-review-focus {
     position: relative;
     border-radius: 0.5rem;
-    outline: 2px solid color-mix(in oklab, var(--color-ring) 70%, transparent);
+    outline: 2px solid color-mix(in oklab, var(--color-warning-foreground) 72%, transparent);
     outline-offset: 4px;
-    background-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
+    background-color: color-mix(in oklab, var(--color-warning) 24%, var(--color-background));
     scroll-margin-top: 5rem;
+    animation: arc-review-focus-arrival 900ms ease-out 1;
   }
 
   .arc-review-focus[data-arc-focus-label]::after {
@@ -246,6 +257,7 @@
 
     .arc-review-focus {
       outline-offset: 2px;
+      animation: none;
     }
   }
 }

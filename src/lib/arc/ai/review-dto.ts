@@ -29,8 +29,12 @@ import type { GuidanceReviewSection } from "@/lib/arc/guidance/types";
 export interface AiReviewCitationDto {
   pageStart: number;
   pageEnd: number;
-  evidenceMode: "text" | "visual";
-  excerpt: string | null;
+  /** First persisted citation position in this exact trusted document/page group. */
+  citationIndex: number;
+  /** Preserved internally even though the presentation does not label visual evidence. */
+  evidenceModes: Array<"text" | "visual">;
+  /** Distinct validated excerpts in their original persisted order. */
+  excerpts: string[];
 }
 
 export type AiReviewResolutionDto =
@@ -86,6 +90,40 @@ function resolutionDto(item: AiReviewItem): AiReviewResolutionDto | null {
   };
 }
 
+/**
+ * Groups only with identity available on the trusted side of the boundary.
+ * The document id is consumed as a key and never copied into the result.
+ */
+function citationDtos(item: AiReviewItem): AiReviewCitationDto[] {
+  const groups = new Map<
+    string,
+    { pageStart: number; pageEnd: number; citationIndex: number; evidenceModes: Array<"text" | "visual">; excerpts: string[] }
+  >();
+
+  item.citations.forEach((citation, citationIndex) => {
+    const key = JSON.stringify([citation.documentId, citation.pageStart, citation.pageEnd]);
+    const existing = groups.get(key);
+    if (existing) {
+      if (!existing.evidenceModes.includes(citation.evidenceMode)) {
+        existing.evidenceModes.push(citation.evidenceMode);
+      }
+      if (citation.excerpt !== null && !existing.excerpts.includes(citation.excerpt)) {
+        existing.excerpts.push(citation.excerpt);
+      }
+      return;
+    }
+    groups.set(key, {
+      pageStart: citation.pageStart,
+      pageEnd: citation.pageEnd,
+      citationIndex,
+      evidenceModes: [citation.evidenceMode],
+      excerpts: citation.excerpt === null ? [] : [citation.excerpt],
+    });
+  });
+
+  return [...groups.values()];
+}
+
 /** Exhaustive by construction: only these fields ever cross to the browser. */
 export function toAiReviewItemDto(item: AiReviewItem): AiReviewItemDto {
   return {
@@ -97,12 +135,7 @@ export function toAiReviewItemDto(item: AiReviewItem): AiReviewItemDto {
     reasonCode: item.reasonCode,
     reason: item.reason,
     reviewFingerprint: item.reviewFingerprint,
-    citations: item.citations.map((citation) => ({
-      pageStart: citation.pageStart,
-      pageEnd: citation.pageEnd,
-      evidenceMode: citation.evidenceMode,
-      excerpt: citation.excerpt,
-    })),
+    citations: citationDtos(item),
     // Availability only. The trusted ids stay server-side, where the Guidance
     // action resolves them from the item itself.
     guidanceReferenceCount: item.guidanceIds.length,
