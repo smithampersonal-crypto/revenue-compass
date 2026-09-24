@@ -188,9 +188,9 @@
 
 ### Package 2C-K — Review & Finalize Presentation Refinement
 
-- [ ] Keep each Source Evidence label and Open PDF action together in a compact, naturally wrapping row
-- [ ] Group passed checks through an explicit rule-ID presentation map, with every rule represented exactly once and unknown rules placed under Other validation checks
-- [ ] Keep grouped accountant-facing summaries one level above a collapsed technical rule-by-rule disclosure
-- [ ] Render only non-empty categories and omit Show passed checks when there are no passed results
-- [ ] Add a conservation regression proving exact-once grouping, fallback handling, and original global ordering in technical details
-- [ ] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; run focused/full tests, typecheck, lint, production build, bundle audit, and desktop/narrow smoke
+- [x] Keep each Source Evidence label and Open PDF action together in a compact, naturally wrapping row
+- [x] Group passed checks through an explicit rule-ID presentation map, with every rule represented exactly once and unknown rules placed under Other validation checks
+- [x] Keep grouped accountant-facing summaries one level above a collapsed technical rule-by-rule disclosure
+- [x] Render only non-empty categories and omit Show passed checks when there are no passed results
+- [x] Add a conservation regression proving exact-once grouping, fallback handling, and original global ordering in technical details
+- [x] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; focused 36/36 and full 214 files / 2,720 tests passed; typecheck/build clean; lint 0 errors / 11 pre-existing warnings; bundle audit clean; desktop/390px smoke passed with no overflow or console errors
