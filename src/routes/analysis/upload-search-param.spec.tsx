@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 
 describe("/analysis/documents upload intent", () => {
-  it("opens the upload step when upload is the string \"1\"", () => {
+  it('opens the upload step when upload is the string "1"', () => {
     currentSearch = { upload: "1" };
     render(<Page />);
     expect(screen.getByText("auto-open:true")).toBeInTheDocument();
