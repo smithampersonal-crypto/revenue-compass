@@ -193,13 +193,25 @@ describe("Task 7 target presentation registry", () => {
 
 describe("Task 7 evidence labels", () => {
   it("names a single text page", () => {
-    const citation = { pageStart: 4, pageEnd: 4, citationIndex: 0, evidenceModes: ["text"] as Array<"text" | "visual">, excerpts: ["x"] };
+    const citation = {
+      pageStart: 4,
+      pageEnd: 4,
+      citationIndex: 0,
+      evidenceModes: ["text"] as Array<"text" | "visual">,
+      excerpts: ["x"],
+    };
     expect(citationLabel(citation)).toBe("Source Evidence · Page 4");
     expect(citationOpenAccessibleLabel(citation, 1, false)).toBe("Open PDF — Page 4");
   });
 
   it("names a page range", () => {
-    const citation = { pageStart: 4, pageEnd: 5, citationIndex: 0, evidenceModes: ["text"] as Array<"text" | "visual">, excerpts: ["x"] };
+    const citation = {
+      pageStart: 4,
+      pageEnd: 5,
+      citationIndex: 0,
+      evidenceModes: ["text"] as Array<"text" | "visual">,
+      excerpts: ["x"],
+    };
     expect(citationLabel(citation)).toBe("Source Evidence · Pages 4–5");
     expect(citationOpenAccessibleLabel(citation, 2, true)).toBe(
       "Open PDF — Source Evidence 2, Pages 4–5",
@@ -208,7 +220,13 @@ describe("Task 7 evidence labels", () => {
 
   it("does not expose evidence mode in visible copy", () => {
     expect(
-      citationLabel({ pageStart: 4, pageEnd: 4, citationIndex: 0, evidenceModes: ["visual"], excerpts: [] }),
+      citationLabel({
+        pageStart: 4,
+        pageEnd: 4,
+        citationIndex: 0,
+        evidenceModes: ["visual"],
+        excerpts: [],
+      }),
     ).toBe("Source Evidence · Page 4");
   });
 });

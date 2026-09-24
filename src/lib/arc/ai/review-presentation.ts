@@ -356,9 +356,7 @@ export function citationOpenAccessibleLabel(
     citation.pageEnd > citation.pageStart
       ? `Pages ${citation.pageStart}–${citation.pageEnd}`
       : `Page ${citation.pageStart}`;
-  return repeatedRange
-    ? `Open PDF — Source Evidence ${ordinal}, ${pages}`
-    : `Open PDF — ${pages}`;
+  return repeatedRange ? `Open PDF — Source Evidence ${ordinal}, ${pages}` : `Open PDF — ${pages}`;
 }
 
 /* ------------------------------------------------------------ resolutions */

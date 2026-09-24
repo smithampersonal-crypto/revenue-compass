@@ -97,7 +97,13 @@ function resolutionDto(item: AiReviewItem): AiReviewResolutionDto | null {
 function citationDtos(item: AiReviewItem): AiReviewCitationDto[] {
   const groups = new Map<
     string,
-    { pageStart: number; pageEnd: number; citationIndex: number; evidenceModes: Array<"text" | "visual">; excerpts: string[] }
+    {
+      pageStart: number;
+      pageEnd: number;
+      citationIndex: number;
+      evidenceModes: Array<"text" | "visual">;
+      excerpts: string[];
+    }
   >();
 
   item.citations.forEach((citation, citationIndex) => {
