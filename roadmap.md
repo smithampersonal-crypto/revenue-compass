@@ -156,6 +156,9 @@
 ### Package 2C-H — Full-Track Activity Refinement
 
 - [ ] Decouple the moving activity cue from stage checkpoints while preserving stage-driven confirmed fill and copy
+- [ ] Keep the full-track sweep mounted and visually continuous across authoritative stage changes, without timers or lifecycle state
+- [ ] Keep accessibility progress semantics tied only to confirmed stage checkpoints; the sweep remains an indeterminate visual cue
+- [ ] Preserve the existing completion lifecycle without adding a linger; render no sweep if an existing completed state is shown
 - [ ] Add focused presentation regressions for full-track motion, stage invariance, completion, and reduced motion
 - [ ] Run focused verification and confirm no AI orchestration or accounting behavior changed
 
