@@ -372,15 +372,20 @@ describe("Phase 3 — Review & Finalize", () => {
     const warnings = screen.getByRole("heading", { name: "Warnings" }).parentElement;
     expect(blocking).not.toBeNull();
     expect(warnings).not.toBeNull();
-    expect(within(blocking as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "First blocking fixture.",
-      "Second blocking fixture.",
-    ]);
-    expect(within(warnings as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "First warning fixture.",
-      "Second warning fixture.",
-    ]);
-    expect(blocking?.compareDocumentPosition(warnings as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      within(blocking as HTMLElement)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["First blocking fixture.", "Second blocking fixture."]);
+    expect(
+      within(warnings as HTMLElement)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["First warning fixture.", "Second warning fixture."]);
+    expect(
+      (blocking as HTMLElement).compareDocumentPosition(warnings as Node) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     const disclosureLabel = screen.getByText("Show passed checks");
     const disclosure = disclosureLabel.closest("details");

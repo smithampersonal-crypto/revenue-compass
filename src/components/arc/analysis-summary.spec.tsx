@@ -236,7 +236,9 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
     const metadata = within(summary).getByTestId("analysis-primary-metadata");
     expect(metadata.className).toContain("sm:grid-cols-2");
 
-    const left = metadata.querySelector('[data-metadata-column="customer-performance-obligations"]');
+    const left = metadata.querySelector(
+      '[data-metadata-column="customer-performance-obligations"]',
+    );
     const right = metadata.querySelector('[data-metadata-column="contract-transaction-price"]');
     expect(left).not.toBeNull();
     expect(right).not.toBeNull();
