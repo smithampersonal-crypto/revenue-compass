@@ -112,8 +112,9 @@ describe("Task 7 safe review read model", () => {
       {
         pageStart: 4,
         pageEnd: 5,
-        evidenceMode: "text",
-        excerpt: "Services are delivered over the annual term.",
+        citationIndex: 0,
+        evidenceModes: ["text"],
+        excerpts: ["Services are delivered over the annual term."],
       },
     ]);
     expect(JSON.stringify(item)).not.toContain("value-fp");
