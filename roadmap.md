@@ -194,3 +194,12 @@
 - [x] Render only non-empty categories and omit Show passed checks when there are no passed results
 - [x] Add a conservation regression proving exact-once grouping, fallback handling, and original global ordering in technical details
 - [x] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; focused 36/36 and full 214 files / 2,720 tests passed; typecheck/build clean; lint 0 errors / 11 pre-existing warnings; bundle audit clean; desktop/390px smoke passed with no overflow or console errors
+
+### Package 2C-K — Final Narrow Acceptance Patch
+
+- [ ] Restore `@lovable.dev/vite-tanstack-config` to package range `^2.15.0` and lock resolution `2.15.0`; re-check after final package/build work
+- [ ] Remove `.lovable/plan.md` from the repository and delivered ZIP; verify it is untracked while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule
+- [ ] Close Billing Schedule narrow-width overflow with table-local horizontal containment and a focused structural regression; verify stable page width at approximately 390px
+- [ ] Close long `Go to …` control overflow using semantic responsive wrapping and a non-pixel regression that preserves the full label and exact review-item callback
+- [ ] Run focused and full verification, desktop/390px smoke, fixture and repository hygiene checks, and produce the final clean source ZIP
+- [ ] Preserve the completed Terra run and GitHub/database evidence; leave 2B.1, Package 3, and ARC production readiness incomplete
