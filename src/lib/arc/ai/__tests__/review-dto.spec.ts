@@ -62,8 +62,9 @@ describe("Task 7 safe review item DTO", () => {
         {
           pageStart: 4,
           pageEnd: 5,
-          evidenceMode: "text",
-          excerpt: "Subscription services are provided over the annual term.",
+          citationIndex: 0,
+          evidenceModes: ["text"],
+          excerpts: ["Subscription services are provided over the annual term."],
         },
       ],
       resolution: null,
@@ -135,8 +136,85 @@ describe("Task 7 safe review item DTO", () => {
       }),
     );
     expect(dto.citations).toEqual([
-      { pageStart: 7, pageEnd: 7, evidenceMode: "visual", excerpt: null },
+      { pageStart: 7, pageEnd: 7, citationIndex: 0, evidenceModes: ["visual"], excerpts: [] },
     ]);
+  });
+
+  it("groups only the same trusted document and canonical page range", () => {
+    const dto = toAiReviewItemDto(
+      item({
+        citations: [
+          {
+            documentId: "doc-a",
+            pageStart: 3,
+            pageEnd: 3,
+            evidenceMode: "text",
+            excerpt: "First distinct excerpt.",
+          },
+          {
+            documentId: "doc-a",
+            pageStart: 3,
+            pageEnd: 3,
+            evidenceMode: "visual",
+            excerpt: "Second distinct excerpt.",
+          },
+          {
+            documentId: "doc-a",
+            pageStart: 3,
+            pageEnd: 3,
+            evidenceMode: "text",
+            excerpt: "First distinct excerpt.",
+          },
+          {
+            documentId: "doc-b",
+            pageStart: 3,
+            pageEnd: 3,
+            evidenceMode: "text",
+            excerpt: "A different document.",
+          },
+          {
+            documentId: "doc-a",
+            pageStart: 7,
+            pageEnd: 9,
+            evidenceMode: "text",
+            excerpt: "Range one.",
+          },
+          {
+            documentId: "doc-a",
+            pageStart: 7,
+            pageEnd: 9,
+            evidenceMode: "text",
+            excerpt: "Range two.",
+          },
+        ],
+      }),
+    );
+
+    expect(dto.citations).toEqual([
+      {
+        pageStart: 3,
+        pageEnd: 3,
+        citationIndex: 0,
+        evidenceModes: ["text", "visual"],
+        excerpts: ["First distinct excerpt.", "Second distinct excerpt."],
+      },
+      {
+        pageStart: 3,
+        pageEnd: 3,
+        citationIndex: 3,
+        evidenceModes: ["text"],
+        excerpts: ["A different document."],
+      },
+      {
+        pageStart: 7,
+        pageEnd: 9,
+        citationIndex: 4,
+        evidenceModes: ["text"],
+        excerpts: ["Range one.", "Range two."],
+      },
+    ]);
+    expect(JSON.stringify(dto.citations)).not.toContain("doc-a");
+    expect(JSON.stringify(dto.citations)).not.toContain("doc-b");
   });
 });
 

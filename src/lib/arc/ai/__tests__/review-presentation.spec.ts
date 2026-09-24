@@ -12,11 +12,13 @@ import {
   MANUAL_RED_REASON_OPTIONS,
   REVIEW_NOTE_MAX_LENGTH,
   citationLabel,
+  citationOpenAccessibleLabel,
   describeReviewTarget,
   provenanceBadgeLabel,
   resolutionSummary,
   aiReviewFinalizeBlock,
   reviewSectionLabel,
+  reviewItemHeading,
   reviewStateLabel,
   reviewTargetAnchorId,
 } from "../review-presentation";
@@ -29,6 +31,16 @@ describe("Task 7 section labels", () => {
     expect(reviewSectionLabel("step_4")).toBe("Step 4 — Allocate the Transaction Price");
     expect(reviewSectionLabel("step_5")).toBe("Step 5 — Recognize Revenue");
     expect(reviewSectionLabel("additional_topics")).toBe("Additional Topics Applied");
+  });
+});
+
+describe("2C-J review item headings", () => {
+  it("suppresses only identical labels", () => {
+    expect(reviewItemHeading("Additional Topics Applied", "Additional Topics Applied")).toBe(
+      "Additional Topics Applied",
+    );
+    expect(reviewItemHeading("Section", "Specific target")).toBe("Section · Specific target");
+    expect(reviewItemHeading("Section", "section")).toBe("Section · section");
   });
 });
 
@@ -181,21 +193,23 @@ describe("Task 7 target presentation registry", () => {
 
 describe("Task 7 evidence labels", () => {
   it("names a single text page", () => {
-    expect(citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "x" })).toBe(
-      "Source evidence — page 4",
-    );
+    const citation = { pageStart: 4, pageEnd: 4, citationIndex: 0, evidenceModes: ["text"] as const, excerpts: ["x"] };
+    expect(citationLabel(citation)).toBe("Source Evidence · Page 4");
+    expect(citationOpenAccessibleLabel(citation, 1, false)).toBe("Open PDF — Page 4");
   });
 
   it("names a page range", () => {
-    expect(citationLabel({ pageStart: 4, pageEnd: 5, evidenceMode: "text", excerpt: "x" })).toBe(
-      "Source evidence — pages 4–5",
+    const citation = { pageStart: 4, pageEnd: 5, citationIndex: 0, evidenceModes: ["text"] as const, excerpts: ["x"] };
+    expect(citationLabel(citation)).toBe("Source Evidence · Pages 4–5");
+    expect(citationOpenAccessibleLabel(citation, 2, true)).toBe(
+      "Open PDF — Source Evidence 2, Pages 4–5",
     );
   });
 
-  it("names visual evidence distinctly", () => {
-    expect(citationLabel({ pageStart: 4, pageEnd: 4, evidenceMode: "visual", excerpt: null })).toBe(
-      "Visual source evidence — page 4",
-    );
+  it("does not expose evidence mode in visible copy", () => {
+    expect(
+      citationLabel({ pageStart: 4, pageEnd: 4, citationIndex: 0, evidenceModes: ["visual"], excerpts: [] }),
+    ).toBe("Source Evidence · Page 4");
   });
 });
 

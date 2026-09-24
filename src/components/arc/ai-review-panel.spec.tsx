@@ -27,7 +27,15 @@ const YELLOW: AiReviewItemDto = {
   reason: "Confirm the recognition pattern for the hosted platform.",
   reviewFingerprint: "fp-yellow",
   guidanceReferenceCount: 0,
-  citations: [{ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." }],
+  citations: [
+    {
+      pageStart: 4,
+      pageEnd: 4,
+      citationIndex: 0,
+      evidenceModes: ["text"],
+      excerpts: ["Hosted over the term."],
+    },
+  ],
   resolution: null,
 };
 
@@ -121,6 +129,27 @@ describe("AiReviewPanel", () => {
     // Severity is conveyed in text, never by colour alone.
     expect(screen.getByText("Needs resolution")).toBeInTheDocument();
     expect(screen.getByText("Needs confirmation")).toBeInTheDocument();
+  });
+
+  it("renders a fallback category once and preserves a specific target", () => {
+    const fallback: AiReviewItemDto = {
+      ...YELLOW,
+      id: "item-additional",
+      targetKey: "additionalTopic:principal_agent",
+      section: "additional_topics",
+    };
+    render(
+      <AiReviewPanel
+        ai={controller(workspace({ reviewItems: [fallback, YELLOW], reviewIssueCount: 2 }))}
+      />,
+    );
+    expect(screen.getByText("Additional Topics Applied")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Additional Topics Applied · Additional Topics Applied"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Step 5 — Recognize Revenue · Performance obligation — Recognition method"),
+    ).toBeInTheDocument();
   });
 
   it("confirms one yellow item with its exact review fingerprint", async () => {

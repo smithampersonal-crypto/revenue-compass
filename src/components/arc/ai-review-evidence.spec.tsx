@@ -28,8 +28,20 @@ const ITEM: AiReviewItemDto = {
   reviewFingerprint: "fp-yellow",
   guidanceReferenceCount: 0,
   citations: [
-    { pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." },
-    { pageStart: 7, pageEnd: 9, evidenceMode: "visual", excerpt: null },
+    {
+      pageStart: 4,
+      pageEnd: 4,
+      citationIndex: 0,
+      evidenceModes: ["text"],
+      excerpts: ["Hosted over the term."],
+    },
+    {
+      pageStart: 7,
+      pageEnd: 9,
+      citationIndex: 1,
+      evidenceModes: ["visual"],
+      excerpts: [],
+    },
   ],
   resolution: null,
 };
@@ -112,10 +124,15 @@ function renderPanel(ai: AiWorkspaceController) {
 }
 
 describe("Task 9A citation evidence", () => {
-  it("offers one deliberate open action per citation, naming the pages", () => {
+  it("offers one deliberate Open PDF action per evidence row", () => {
     renderPanel(controller(workspace([ITEM])));
-    expect(screen.getByRole("button", { name: "Open source — page 4" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source — pages 7–9" })).toBeInTheDocument();
+    expect(screen.getByText("Source Evidence · Page 4")).toBeInTheDocument();
+    expect(screen.getByText("Source Evidence · Pages 7–9")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open PDF — Page 4" })).toHaveTextContent("Open PDF");
+    expect(screen.getByRole("button", { name: "Open PDF — Pages 7–9" })).toHaveTextContent(
+      "Open PDF",
+    );
+    expect(screen.queryByText(/Visual source evidence|Open source/i)).not.toBeInTheDocument();
   });
 
   it("asks the server for the exact citation, and opens the returned page in a disposable tab", async () => {
@@ -125,7 +142,7 @@ describe("Task 9A citation evidence", () => {
     const ai = controller(workspace([ITEM]));
     renderPanel(ai);
 
-    await user.click(screen.getByRole("button", { name: "Open source — pages 7–9" }));
+    await user.click(screen.getByRole("button", { name: "Open PDF — Pages 7–9" }));
 
     await waitFor(() => expect(ai.openReviewEvidence).toHaveBeenCalledTimes(1));
     expect(ai.openReviewEvidence).toHaveBeenCalledWith({
@@ -152,7 +169,7 @@ describe("Task 9A citation evidence", () => {
     });
     renderPanel(ai);
 
-    await user.click(screen.getByRole("button", { name: "Open source — page 4" }));
+    await user.click(screen.getByRole("button", { name: "Open PDF — Page 4" }));
     await waitFor(() => expect(ai.openReviewEvidence).toHaveBeenCalledTimes(1));
     expect(open).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
@@ -164,8 +181,8 @@ describe("Task 9A citation evidence", () => {
         pendingEvidence: new Set(["evidence:item-yellow:0"]),
       }),
     );
-    expect(screen.getByRole("button", { name: "Open source — page 4" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Open source — pages 7–9" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Open PDF — Page 4" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open PDF — Pages 7–9" })).toBeEnabled();
   });
 
   it("retains evidence and guidance for a resolved review item without resolution actions", () => {
@@ -177,9 +194,9 @@ describe("Task 9A citation evidence", () => {
     };
     renderPanel(controller(workspace([resolved])));
 
-    expect(screen.getByText("Source evidence — page 4")).toBeInTheDocument();
+    expect(screen.getByText("Source Evidence · Page 4")).toBeInTheDocument();
     expect(screen.getByText("Hosted over the term.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open source — page 4" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open PDF — Page 4" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View guidance" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Resolve$/ })).not.toBeInTheDocument();
