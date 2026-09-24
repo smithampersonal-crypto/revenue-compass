@@ -1,9 +1,6 @@
 import type { AiWorkspaceProgress } from "@/lib/arc/ai/workspace-client";
 
-const PRESENTATION_CHECKPOINTS: Record<
-  AiWorkspaceProgress["step"],
-  0 | 12 | 82 | 92
-> = {
+const PRESENTATION_CHECKPOINTS: Record<AiWorkspaceProgress["step"], 0 | 12 | 82 | 92> = {
   1: 0,
   2: 12,
   3: 82,
