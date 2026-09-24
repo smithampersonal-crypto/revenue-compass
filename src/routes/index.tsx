@@ -20,7 +20,7 @@ const PRINCIPLES = [
   {
     title: "Traceable review",
     description:
-        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry all in one workflow.",
+        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry in one connected workpaper.",
   },
 ] as const;
 
