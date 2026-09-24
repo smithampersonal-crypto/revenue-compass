@@ -3,7 +3,6 @@ import type { ContractBalanceAnalysis } from "@/lib/asc606-balances";
 
 import { Notice, Section, td, th } from "./fields";
 
-
 /**
  * Read-only presentation of deterministic Phase 3 engine output. Every amount
  * shown here is produced by the contract-balance engine; this component only
@@ -40,7 +39,9 @@ export function ContractBalanceOutputs({
             <tbody>
               {billingSchedule.map((row) => (
                 <tr key={row.eventId}>
-                  <td className={td}>{billingLabelsById.get(row.eventId) ?? "Unavailable billing event"}</td>
+                  <td className={td}>
+                    {billingLabelsById.get(row.eventId) ?? "Unavailable billing event"}
+                  </td>
                   <td className={td}>{formatCents(row.amountCents)}</td>
                   <td className={td}>{row.unconditionalRightDate}</td>
                   <td className={td}>{row.invoiceDate}</td>
