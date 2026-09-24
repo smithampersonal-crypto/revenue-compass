@@ -174,3 +174,12 @@
 - [ ] DEFECT: Contract Balances Billing Schedule output table overflows page at 390px (no overflow-x wrapper; pre-dates 2C-I)
 - [ ] DEFECT (minor): long assumption "Go to …" button overflows 2px at 390px on Review & Finalize
 - [ ] Clean source ZIP + final report after director decision on the defects
+
+### Package 2C-K — Narrow Visual Acceptance Patch
+
+- [ ] Polish only the approved homepage copy, CTA hierarchy, card alignment and spacing
+- [ ] Present authoritative validation results as issue-first groups with passed checks collapsed
+- [ ] Align analysis-summary metadata into the approved responsive two-column structure
+- [ ] Identify the two earlier narrow-width production corrections by file, behavior and baseline entry
+- [ ] Reconfirm the documented successful Terra run before treating that live gate as complete
+- [ ] Run focused/full verification, responsive smoke, hygiene checks and produce the final clean source ZIP
