@@ -23,7 +23,9 @@ async function renderAt(initialPath: string) {
 describe("ARC app shell (Phase 5)", () => {
   it.each(["/", "/analysis?sample=redwood"])("renders ARC chrome on %s", async (path) => {
     await renderAt(path);
-    expect((await screen.findAllByText("Ayden's Revenue Compass")).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText("Ayden's Revenue Compass (ARC)")).length,
+    ).toBeGreaterThan(0);
     expect(screen.getByText("ASC 606 Analysis Platform")).toBeInTheDocument();
     expect(screen.getByText("© 2026 Ayden's Revenue Compass (ARC)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /user login|sign up/i })).not.toBeInTheDocument();
@@ -85,7 +87,9 @@ describe("ARC app shell (Phase 5)", () => {
     expect(screen.getByText("Traceable review")).toBeInTheDocument();
     expect(screen.getByText("Start here")).toBeInTheDocument();
     expect(
-      screen.getByText("AI can draft the analysis, but the accountant remains authoritative."),
+      screen.getByText(
+        "AI can draft the analysis, but professional judgment and control remain with the accountant.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
