@@ -9,6 +9,7 @@ import { IssueList, Notice, Section, td } from "@/components/asc606-workflow/fie
 import { VariableConsiderationReconciliation } from "@/components/asc606-workflow/VariableConsiderationOutputs";
 
 import { analysisStatus } from "./analysis-status";
+import { groupPassedValidationChecks } from "./review-validation-presentation";
 
 /**
  * Review & Finalize aggregates status, validation and reconciliation from
@@ -34,6 +35,7 @@ export function ReviewFinalizeView({
   const modification = result.modification;
   const validationChecks = result.engineValidation?.results ?? [];
   const passedChecks = validationChecks.filter((check) => check.passed);
+  const passedCheckGroups = groupPassedValidationChecks(validationChecks);
   const blockingChecks = validationChecks.filter(
     (check) => !check.passed && check.severity === "blocking",
   );
@@ -110,13 +112,27 @@ export function ReviewFinalizeView({
               <summary className="w-fit cursor-pointer rounded-sm text-sm font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring">
                 Show passed checks
               </summary>
-              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                {passedChecks.map((check) => (
-                  <li key={check.id} className="break-words">
-                    PASS — {check.id}: {check.message}
-                  </li>
+              <div className="mt-3 space-y-3">
+                {passedCheckGroups.map((group) => (
+                  <div key={group.key} data-validation-category={group.key}>
+                    <h3 className="text-sm font-semibold text-foreground">{group.heading}</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{group.description}</p>
+                    <span className="sr-only">{group.checks.length} passed checks</span>
+                  </div>
                 ))}
-              </ul>
+                <details className="border-t border-border pt-3">
+                  <summary className="w-fit cursor-pointer rounded-sm text-sm font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                    Show technical validation details
+                  </summary>
+                  <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                    {passedChecks.map((check) => (
+                      <li key={check.id} className="break-words" data-validation-rule-id={check.id}>
+                        {check.id}: {check.message}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
             </details>
           ) : null}
         </Section>
