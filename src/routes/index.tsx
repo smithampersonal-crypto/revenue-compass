@@ -70,6 +70,19 @@ function Index() {
         </header>
 
         <section aria-label="Get started" className="mt-9 grid gap-4 md:grid-cols-3">
+          <article className="flex h-full flex-col border-t-2 border-primary bg-card p-5 sm:p-6">
+            <p className="mb-2 text-xs font-semibold uppercase text-primary">Start here</p>
+            <h2 className="text-lg font-semibold text-foreground">Try a Sample Contract</h2>
+            <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
+              Explore a fictional ASC 606 analysis using ARC&apos;s deterministic engines.
+            </p>
+            <Button asChild className="mt-5 w-fit">
+              <Link to="/analysis" search={{ sample: "horizon" }}>
+                Try the Sample
+              </Link>
+            </Button>
+          </article>
+
           <article className="flex h-full flex-col border-t-2 border-border bg-card p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">Upload a Contract PDF</h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
@@ -90,21 +103,8 @@ function Index() {
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
               Enter contract facts and accounting judgments directly in the ARC workspace.
             </p>
-            <Button asChild variant="ghost" className="mt-5 w-fit border border-transparent">
+            <Button asChild variant="outline" className="mt-5 w-fit">
               <Link to="/analysis">Start Manually</Link>
-            </Button>
-          </article>
-
-          <article className="flex h-full flex-col border-t-2 border-primary bg-card p-5 sm:p-6">
-            <p className="mb-2 text-xs font-semibold uppercase text-primary">Start here</p>
-            <h2 className="text-lg font-semibold text-foreground">Try a Sample Contract</h2>
-            <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
-              Explore a fictional ASC 606 analysis using ARC&apos;s deterministic engines.
-            </p>
-            <Button asChild className="mt-5 w-fit">
-              <Link to="/analysis" search={{ sample: "horizon" }}>
-                Try the Sample
-              </Link>
             </Button>
           </article>
         </section>

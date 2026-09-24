@@ -41,7 +41,11 @@ export function AppHeader() {
                   <li key={item.label}>
                     <Link
                       to={item.to}
-                      className="inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      className={
+                        item.label === "New Analysis"
+                          ? "inline-flex min-h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          : "inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      }
                       activeProps={{ className: "bg-accent text-foreground" }}
                     >
                       {item.label}
