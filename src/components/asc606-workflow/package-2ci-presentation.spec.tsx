@@ -265,6 +265,8 @@ describe("Package 2C-I acceptance: engine-output aliases follow draft order", ()
     );
     render(<ContractBalanceOutputs analysis={analysis} billingLabelsById={billingById} />);
     const table = screen.getByText("Billing Schedule").parentElement!.parentElement!;
+    const billingScheduleTable = within(table).getByRole("table");
+    expect(billingScheduleTable.parentElement).toHaveClass("overflow-x-auto");
     const rows = within(table).getAllByRole("row").slice(1);
     const rowFor = (amount: string) => {
       const row = rows.find((r) => within(r).queryAllByText(amount).length > 0);

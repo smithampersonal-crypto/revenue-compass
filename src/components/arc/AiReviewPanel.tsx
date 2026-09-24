@@ -474,6 +474,7 @@ export function AiReviewPanel({
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className="h-auto max-w-full whitespace-normal text-left"
                         onClick={() => onOpenTarget(item.id)}
                       >
                         Go to {describeReviewTarget(item.targetKey, item.section).label}

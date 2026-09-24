@@ -25,6 +25,7 @@ export function ContractBalanceOutputs({
     <div className="space-y-6">
       <Section title="Billing Schedule">
         {billingSchedule ? (
+          <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr>
@@ -51,6 +52,7 @@ export function ContractBalanceOutputs({
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <Notice tone="danger">No billing schedule is presented.</Notice>
         )}
