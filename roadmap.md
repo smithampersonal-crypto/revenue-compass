@@ -157,9 +157,9 @@
 
 ## Package 2C-J — Review & Finalize Polish
 
-- [ ] Group repeated evidence only at the trusted DTO boundary by exact document/page identity, retaining each group’s first original citation index
-- [ ] Preserve ordered distinct excerpts and distinguish same-page sources accessibly with presentation-order ordinals only when needed
-- [ ] Replace fragmented evidence copy with clean Source Evidence / Open PDF rows without changing signed-link authorization
-- [ ] Suppress only exactly duplicated section/target headings across outstanding, assumption, and resolved items
-- [ ] Strengthen the existing destination focus with one restrained amber flourish and a static reduced-motion treatment
-- [ ] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
+- [x] Group repeated evidence only at the trusted DTO boundary by exact document/page identity, retaining each group’s first original citation index
+- [x] Preserve ordered distinct excerpts and distinguish same-page sources accessibly with presentation-order ordinals only when needed
+- [x] Replace fragmented evidence copy with clean Source Evidence / Open PDF rows without changing signed-link authorization
+- [x] Suppress only exactly duplicated section/target headings across outstanding, assumption, and resolved items
+- [x] Strengthen the existing destination focus with one restrained amber flourish and a static reduced-motion treatment
+- [x] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
