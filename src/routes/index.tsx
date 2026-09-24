@@ -9,7 +9,8 @@ const DESCRIPTION =
 const PRINCIPLES = [
   {
     title: "Accountant-owned judgments",
-    description: "AI can draft the analysis, but the accountant remains authoritative.",
+      description:
+        "AI can draft the analysis, but professional judgment and control remain with the accountant.",
   },
   {
     title: "Deterministic calculations",
@@ -19,7 +20,7 @@ const PRINCIPLES = [
   {
     title: "Traceable review",
     description:
-      "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry in one workpaper.",
+        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry all in one workflow.",
   },
 ] as const;
 
