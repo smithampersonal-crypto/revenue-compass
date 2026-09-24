@@ -38,13 +38,13 @@ function billingDraft(): WorkflowDraft {
   const cashCollections = [
     {
       ...createCashCollectionDraft(9, "cc-private-first"),
-      considerationEventId: events[0].id,
+      considerationEventId: "ce-private-first",
       amountInput: "25000",
       collectionDate: "2027-01-15" as const,
     },
     {
       ...createCashCollectionDraft(2, "cc-private-second"),
-      considerationEventId: events[1].id,
+      considerationEventId: "ce-private-second",
       amountInput: "10000",
       collectionDate: "2027-02-15" as const,
     },
@@ -139,11 +139,13 @@ describe("Package 2C-I friendly billing presentation", () => {
     expect(container.textContent).not.toContain("cc-private-");
 
     const selectors = screen.getAllByLabelText("Related billing event") as HTMLSelectElement[];
-    const firstOption = within(selectors[0]).getByRole("option", {
+    const firstSelector = selectors[0];
+    if (!firstSelector) throw new Error("Expected the first related-event selector.");
+    const firstOption = within(firstSelector).getByRole("option", {
       name: "Billing Event 1 — $60,000.00",
     }) as HTMLOptionElement;
     expect(firstOption.value).toBe("ce-private-first");
-    fireEvent.change(selectors[0], { target: { value: "ce-private-second" } });
+    fireEvent.change(firstSelector, { target: { value: "ce-private-second" } });
     expect(state.draft.contractBalances.cashCollections[0]?.considerationEventId).toBe(
       "ce-private-second",
     );
@@ -151,12 +153,17 @@ describe("Package 2C-I friendly billing presentation", () => {
 
   it("shows restrained orphan copy without reassigning the canonical reference", () => {
     const initial = billingDraft();
+    const firstCollection = initial.contractBalances.cashCollections[0];
+    if (!firstCollection) throw new Error("Expected the first cash collection fixture.");
     initial.contractBalances.cashCollections[0] = {
-      ...initial.contractBalances.cashCollections[0]!,
+      ...firstCollection,
       considerationEventId: "ce-missing-private",
     };
     const { state, container } = mountBilling(initial);
-    const selector = screen.getAllByLabelText("Related billing event")[0] as HTMLSelectElement;
+    const selector = screen.getAllByLabelText("Related billing event")[0];
+    if (!(selector instanceof HTMLSelectElement)) {
+      throw new Error("Expected the first related-event selector.");
+    }
 
     expect(within(selector).getByRole("option", { name: "Unavailable billing event" })).toHaveValue(
       "ce-missing-private",
