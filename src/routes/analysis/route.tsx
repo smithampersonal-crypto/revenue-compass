@@ -38,8 +38,11 @@ export const Route = createFileRoute("/analysis")({
     // Carries only the intent to save a temporary workspace after signing in.
     // The guest credential is never in the URL.
     ...(typeof search["save"] === "string" ? { save: search["save"] } : {}),
-    // Carries only the intent to start by uploading a contract PDF.
-    ...(typeof search["upload"] === "string" ? { upload: search["upload"] } : {}),
+    // Carries only the intent to start by uploading a contract PDF. The router
+    // parses `?upload=1` as the number 1, so it is normalized to text here.
+    ...(typeof search["upload"] === "string" || typeof search["upload"] === "number"
+      ? { upload: String(search["upload"]) }
+      : {}),
     // A preselection hint for the save panel only. It is never authorization:
     // the save transaction re-checks that the caller owns the customer.
     ...(typeof search["customer"] === "string" ? { customer: search["customer"] } : {}),
