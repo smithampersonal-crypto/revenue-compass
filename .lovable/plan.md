@@ -2,18 +2,22 @@
 
 ## Scope
 - Keep each evidence label and its existing **Open PDF** action together in a compact wrapping row.
-- Replace the first expanded passed-checks view with grouped, accountant-facing summaries derived only from each result’s existing `category` field.
+- Replace the first expanded passed-checks view with grouped, accountant-facing summaries assigned by a small explicit rule-ID mapping helper.
 - Add a nested **Show technical validation details** disclosure containing the unchanged rule-by-rule messages and IDs for traceability.
 - Preserve the source validation array, pass/fail state, severity, execution, and original order within each category and in technical details.
 
 ## Category presentation
-Use only the engine’s supplied categories—never message text or rule IDs—to assign headings:
-- `contract` → Contract setup
-- `performance_obligations` → Performance obligations
-- `allocation` → Standalone selling prices
-- `revenue` → Revenue recognition
+Map known rule IDs directly—never parse message text, keywords, prefixes, or descriptions—to these headings and restrained summaries:
+- Contract setup — Applicable contract-level checks passed.
+- Performance obligations — Applicable performance-obligation checks passed.
+- Standalone selling prices — Applicable SSP and allocation-input checks passed.
+- Revenue recognition — Applicable recognition-method and timing checks passed.
+- Accounting period — Applicable date-range and accounting-horizon checks passed.
+- Other validation checks — Applicable additional checks passed.
 
-Accounting-period and horizon checks remain under Revenue recognition because the current trusted result type does not expose a separate category; splitting them would require inferring meaning from internal IDs or copy.
+Every passed result appears in exactly one category. Any future or unknown rule ID goes to **Other validation checks** rather than being omitted.
+
+Both **Show passed checks** and its nested **Show technical validation details** use native disclosures and start collapsed. The technical layer preserves the original rule-by-rule order, IDs, and descriptions.
 
 ## Verification
 - Extend focused presentation tests for compact evidence-row structure, wrapping behavior, grouped passed checks, hidden IDs in the first layer, technical traceability, and immutable ordering.
