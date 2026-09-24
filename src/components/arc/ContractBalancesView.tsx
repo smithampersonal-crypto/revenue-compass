@@ -9,6 +9,7 @@ import { BillingAndBalances } from "@/components/asc606-workflow/BillingAndBalan
 import { CombinedContractBalances } from "@/components/asc606-workflow/CombinedContractBalances";
 import { ContractBalanceOutputs } from "@/components/asc606-workflow/ContractBalanceOutputs";
 import { Notice, Section } from "@/components/asc606-workflow/fields";
+import { buildFriendlyBalanceLabels } from "@/components/asc606-workflow/billing-presentation";
 
 /**
  * Contract Balances parent area: the editable billing/cash workpaper followed
@@ -38,6 +39,12 @@ export function ContractBalancesView({
   // Presentation-only selection: distinguishes "the five-step draft is not yet
   // complete" from "the billing workpaper itself is incomplete". No accounting.
   const revenueComplete = result.finalized;
+
+  // Single draft-order alias map shared by editor-consistent engine outputs.
+  const { billingById } = buildFriendlyBalanceLabels(
+    draft.contractBalances.considerationEvents,
+    draft.contractBalances.cashCollections,
+  );
 
   // Disclosure only. The balance engine treats a projected row exactly like any
   // other dated collection; ARC simply refuses to present the result as if
@@ -79,7 +86,7 @@ export function ContractBalancesView({
                 cumulative unconditional rights to consideration for this contract only.
               </Notice>
             </Section>
-            <ContractBalanceOutputs analysis={group.analysis} />
+            <ContractBalanceOutputs analysis={group.analysis} billingLabelsById={billingById} />
           </div>
         ))}
         <CombinedContractBalances grouped={balances.grouped} />
@@ -92,7 +99,7 @@ export function ContractBalancesView({
       <div className="space-y-6">
         {editor}
         {projectedNotice}
-        <ContractBalanceOutputs analysis={balances.analysis} />
+        <ContractBalanceOutputs analysis={balances.analysis} billingLabelsById={billingById} />
       </div>
     );
   }

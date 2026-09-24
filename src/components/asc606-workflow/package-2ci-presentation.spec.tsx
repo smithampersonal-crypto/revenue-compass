@@ -229,3 +229,50 @@ describe("Package 2C-I friendly billing presentation", () => {
     expect(grouped.cash.get("cc-private-first")?.[0]?.severity).toBe("warning");
   });
 });
+
+describe("Package 2C-I acceptance: engine-output aliases follow draft order", () => {
+  it("labels engine billing rows by canonical eventId, not seq-sorted row index", async () => {
+    const { ContractBalanceOutputs } = await import("./ContractBalanceOutputs");
+    const base = billingDraft();
+    // Third event completes the $153,000 transaction price; engine order is seq 3, 8, 9.
+    const draft: WorkflowDraft = {
+      ...base,
+      contractBalances: {
+        considerationEvents: [
+          ...base.contractBalances.considerationEvents,
+          {
+            ...createConsiderationEventDraft(9, "ce-private-third"),
+            amountInput: "47500",
+            unconditionalRightDate: "2027-03-01" as const,
+            invoiceDate: "2027-03-01" as const,
+          },
+        ],
+        cashCollections: base.contractBalances.cashCollections,
+      },
+    };
+    const balances = analyzeContractBalanceWorkflow(draft);
+    const analysis = balances.analysis;
+    if (!analysis?.billingSchedule) throw new Error("Expected an engine billing schedule.");
+    // Engine sorts by seq: seq 3 ($45,500) precedes seq 8 ($60,000).
+    expect(analysis.billingSchedule.map((row) => row.eventId)).toEqual([
+      "ce-private-second",
+      "ce-private-first",
+      "ce-private-third",
+    ]);
+    const { billingById } = buildFriendlyBalanceLabels(
+      draft.contractBalances.considerationEvents,
+      draft.contractBalances.cashCollections,
+    );
+    render(<ContractBalanceOutputs analysis={analysis} billingLabelsById={billingById} />);
+    const table = screen.getByText("Billing Schedule").parentElement!.parentElement!;
+    const rows = within(table).getAllByRole("row").slice(1);
+    const rowFor = (amount: string) => {
+      const row = rows.find((r) => within(r).queryAllByText(amount).length > 0);
+      if (!row) throw new Error(`Missing row ${amount}`);
+      return row;
+    };
+    expect(within(rowFor("$45,500.00")).getByText("Billing Event 2")).toBeInTheDocument();
+    expect(within(rowFor("$60,000.00")).getByText("Billing Event 1")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("ce-private-");
+  });
+});

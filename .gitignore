@@ -38,3 +38,6 @@ dist-ssr
 
 # Transient planning file (historical .lovable/plan/ stays tracked)
 .lovable/plan.md
+
+# TypeScript build metadata
+*.tsbuildinfo
