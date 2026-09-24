@@ -51,10 +51,10 @@
 
 ## Package 2B.1 — Final Recruiter-Facing README Screenshot Refresh
 
-- [ ] Capture four internally consistent final-state README images from the accepted Horizon/sample experience; do not start a new Terra run
-- [ ] Preserve frozen application source; if capture reveals a genuine product defect, stop and report it without a silent fix
-- [ ] Refresh only README image references/alt text/captions and intentional screenshot assets, then inspect the rendered README
-- [ ] Verify dependency, Genomix hash, repository hygiene, package a clean source ZIP, and report the final commit hash
+- [x] Capture three internally consistent final-state README images from the accepted Horizon/sample experience; no new Terra run (owner selected three captures because sample mode intentionally contains no AI evidence rows)
+- [x] Preserve frozen application source; capture revealed no genuine product defect and no application source changed
+- [x] Refresh only README image references/alt text/captions and intentional screenshot assets, then inspect the rendered README
+- [x] Verify dependency, Genomix hash, repository hygiene, package a clean source ZIP, and report the final commit hash
 - [ ] Owner confirms the GitHub app and database jobs are green on the reported final commit; Lovable does not independently certify CI status
 
 ## Package 2C-A — AI Accounting Label Contract

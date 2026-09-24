@@ -4,7 +4,7 @@
 
 > **AI interprets. Deterministic TypeScript calculates. The accountant remains authoritative.**
 
-![ARC recruiter entry point](docs/assets/arc-entry-point.png)
+![ARC landing and analysis entry experience](docs/assets/arc-entry-point.png)
 
 ## Why I Built ARC
 
@@ -36,7 +36,7 @@ ARC uses distinct responsibilities rather than treating AI as an accounting engi
 
 The AI boundary expressly excludes revenue schedules, allocation results, journal entries, and internal record identifiers. Those outputs are derived by tested application logic after the contract facts and judgments have been structured.
 
-![Synthetic AI review items with source-linked evidence](docs/assets/arc-ai-evidence-review.png)
+![ARC ASC 606 analysis workspace](docs/assets/arc-analysis-workspace.png)
 
 ## 5-Minute Demo
 
@@ -64,7 +64,7 @@ ARC v1 includes curated workflows for:
 - contract modifications and material-right workflows; and
 - validation and reconciliation controls across the analysis.
 
-![Horizon deterministic revenue schedule](docs/assets/arc-deterministic-revenue-schedule.png)
+![ARC deterministic journal entries](docs/assets/arc-deterministic-journal-entries.png)
 
 ## Architecture
 
