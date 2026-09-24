@@ -10,7 +10,7 @@ Magic-link delivery remains a known pre-production limitation deferred to Packag
 
 1. **Contract Modification header layout**
    - Restructure the existing effective-date and change-in-consideration fields into a responsive two-column grid.
-   - Keep labels/helpers in a consistent header area so the date and amount/direction controls align vertically on desktop.
+   - Use a shared grid/header/control structure so labels, helper slots, and controls align naturally on desktop without brittle fixed spacer heights.
    - Stack the fields naturally on narrow screens without overflow.
    - Preserve all existing values, callbacks, AI review target keys, provenance markers, and `UsdMoneyInput` behavior.
 
@@ -27,10 +27,10 @@ Magic-link delivery remains a known pre-production limitation deferred to Packag
    - Omit optional Complete/Incomplete badges unless row-level status can be derived from existing findings without assumptions; current issue identifiers are mostly rule-level rather than row-qualified, so the default is to omit them.
 
 4. **Validation presentation**
-   - Add a narrow presentation adapter that maps existing issue message prefixes containing canonical billing/cash IDs to their friendly row labels and groups all matched findings beneath that row.
-   - Preserve every issue object’s order, text content after the identity prefix, severity, blocking/warning list, and canonical metadata internally.
+   - Add a narrow presentation adapter that first uses any existing structured canonical row reference. Only when the issue exposes ownership solely through a canonical ID in an exact established message prefix may that exact prefix be parsed; message parsing is never a new identity mechanism.
+   - Never use fuzzy matching, substrings, descriptions, dates, or amounts. If exactly one current row cannot be identified, keep the finding global. Row groups follow rendered billing order then rendered cash order; findings retain original relative order, and unmatched findings retain their original relative order within severity.
    - Leave global and engine-level findings ungrouped under their existing blocking/warning sections.
-   - Where an engine message contains a known raw billing ID only as display copy, replace that occurrence at render time; unknown/orphan references remain explicit and are not given fabricated ordinals.
+   - Where an engine message contains a known raw billing ID only as display copy, replace that occurrence at render time. Known missing references render as “Unavailable billing event” without exposing the raw ID, fabricating an ordinal, or changing the underlying issue.
 
 5. **Roadmap and repository hygiene**
    - Record Package 2C-I only in `roadmap.md`, including the known auth limitation and completion checks.
