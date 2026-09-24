@@ -84,11 +84,13 @@ export function JournalEntryOutputs({
                 <p className="text-sm text-muted-foreground">{entry.description}</p>
                 <table className="mt-2 w-full table-fixed border-collapse text-sm">
                   {/* Fixed geometry: identical Account/Debit/Credit widths on
-                      every journal card so money columns share vertical axes. */}
+                      every journal card so money columns share vertical axes.
+                      Proportional widths keep the money columns near the
+                      Account column instead of pushing them to the far edge. */}
                   <colgroup>
-                    <col />
-                    <col className="w-32" />
-                    <col className="w-32" />
+                    <col className="w-1/2" />
+                    <col className="w-1/4" />
+                    <col className="w-1/4" />
                   </colgroup>
                   <thead>
                     <tr>
