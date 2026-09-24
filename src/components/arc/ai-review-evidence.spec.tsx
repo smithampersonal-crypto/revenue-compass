@@ -160,6 +160,50 @@ describe("Task 9A citation evidence", () => {
     vi.unstubAllGlobals();
   });
 
+  it("distinguishes same-page source actions and retains each original persisted index", async () => {
+    const user = userEvent.setup();
+    const grouped: AiReviewItemDto = {
+      ...ITEM,
+      citations: [
+        {
+          pageStart: 3,
+          pageEnd: 3,
+          citationIndex: 0,
+          evidenceModes: ["text", "visual"],
+          excerpts: ["First excerpt.", "Second excerpt."],
+        },
+        {
+          pageStart: 3,
+          pageEnd: 3,
+          citationIndex: 3,
+          evidenceModes: ["text"],
+          excerpts: ["Other document excerpt."],
+        },
+      ],
+    };
+    const ai = controller(workspace([grouped]));
+    renderPanel(ai);
+
+    expect(screen.getAllByText("Source Evidence · Page 3")).toHaveLength(2);
+    expect(screen.getByText("First excerpt.")).toBeInTheDocument();
+    expect(screen.getByText("Second excerpt.")).toBeInTheDocument();
+    const first = screen.getByRole("button", {
+      name: "Open PDF — Source Evidence 1, Page 3",
+    });
+    const second = screen.getByRole("button", {
+      name: "Open PDF — Source Evidence 2, Page 3",
+    });
+    expect(first).toHaveTextContent("Open PDF");
+    expect(second).toHaveTextContent("Open PDF");
+
+    await user.click(second);
+    expect(ai.openReviewEvidence).toHaveBeenCalledWith({
+      reviewItemId: "item-yellow",
+      expectedReviewFingerprint: "fp-yellow",
+      citationIndex: 3,
+    });
+  });
+
   it("opens nothing when the server declines to mint a link", async () => {
     const user = userEvent.setup();
     const open = vi.fn();
