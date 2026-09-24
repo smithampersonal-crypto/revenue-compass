@@ -61,7 +61,7 @@ function Citations({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceControl
         const range = `${citation.pageStart}:${citation.pageEnd}`;
         return (
           <li key={citation.citationIndex} className="text-xs text-muted-foreground">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <FileText className="size-3" aria-hidden="true" />
                 {citationLabel(citation)}

@@ -111,9 +111,7 @@ export function JournalEntryOutputs({
                     ))}
                     <tr className="font-semibold">
                       <td className={td}>Total</td>
-                      <td className={`${td} text-right`}>
-                        {formatCents(entry.totalDebitsCents)}
-                      </td>
+                      <td className={`${td} text-right`}>{formatCents(entry.totalDebitsCents)}</td>
                       <td className={`${td} sm:pr-10 text-right`}>
                         {formatCents(entry.totalCreditsCents)}
                       </td>

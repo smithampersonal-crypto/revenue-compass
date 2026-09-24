@@ -17,10 +17,13 @@ Map known rule IDs directly—never parse message text, keywords, prefixes, or d
 
 Every passed result appears in exactly one category. Any future or unknown rule ID goes to **Other validation checks** rather than being omitted.
 
+Render only categories containing passed results. Render **Show passed checks** only when at least one passed result exists.
+
 Both **Show passed checks** and its nested **Show technical validation details** use native disclosures and start collapsed. The technical layer preserves the original rule-by-rule order, IDs, and descriptions.
 
 ## Verification
 - Extend focused presentation tests for compact evidence-row structure, wrapping behavior, grouped passed checks, hidden IDs in the first layer, technical traceability, and immutable ordering.
-- Run the focused review/evidence tests.
+- Add a conservation regression proving exact-once presentation grouping, no omissions or duplicates, unknown-ID fallback, and unchanged global ordering in technical details.
+- Run the focused review/evidence tests, full test suite, typecheck, lint, production build, and bundle audit.
 - Verify Review & Finalize at desktop and narrow widths, including no horizontal overflow and unchanged PDF action behavior.
 - Confirm the preview build is clean.
