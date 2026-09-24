@@ -191,4 +191,6 @@
 - [ ] Keep each Source Evidence label and Open PDF action together in a compact, naturally wrapping row
 - [ ] Group passed checks through an explicit rule-ID presentation map, with every rule represented exactly once and unknown rules placed under Other validation checks
 - [ ] Keep grouped accountant-facing summaries one level above a collapsed technical rule-by-rule disclosure
-- [ ] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; verify focused tests and desktop/narrow presentation
+- [ ] Render only non-empty categories and omit Show passed checks when there are no passed results
+- [ ] Add a conservation regression proving exact-once grouping, fallback handling, and original global ordering in technical details
+- [ ] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; run focused/full tests, typecheck, lint, production build, bundle audit, and desktop/narrow smoke
