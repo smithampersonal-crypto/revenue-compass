@@ -31,8 +31,9 @@ import {
   ASSUMPTIONS_GROUP_DESCRIPTION,
   ASSUMPTIONS_GROUP_LABEL,
   citationLabel,
-  citationOpenLabel,
+  citationOpenAccessibleLabel,
   describeReviewTarget,
+  reviewItemHeading,
   resolutionSummary,
   reviewSectionLabel,
   reviewStateLabel,
@@ -48,49 +49,62 @@ import { Notice, Section } from "@/components/asc606-workflow/fields";
  */
 function Citations({ item, ai }: { item: AiReviewItemDto; ai: AiWorkspaceController }) {
   if (item.citations.length === 0) return null;
+  const rangeCounts = new Map<string, number>();
+  for (const citation of item.citations) {
+    const range = `${citation.pageStart}:${citation.pageEnd}`;
+    rangeCounts.set(range, (rangeCounts.get(range) ?? 0) + 1);
+  }
   return (
-    <ul className="mt-2 space-y-1">
-      {item.citations.map((citation, index) => {
-        const pending = ai.pendingEvidence.has(`evidence:${item.id}:${index}`);
+    <ul className="mt-3 space-y-3">
+      {item.citations.map((citation, groupIndex) => {
+        const pending = ai.pendingEvidence.has(`evidence:${item.id}:${citation.citationIndex}`);
+        const range = `${citation.pageStart}:${citation.pageEnd}`;
         return (
-          <li key={index} className="text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 font-medium">
-              <FileText className="size-3" aria-hidden="true" />
-              {citationLabel(citation)}
-            </span>
-            {citation.excerpt ? (
-              <blockquote className="mt-1 border-l-2 border-border pl-2 italic">
-                {citation.excerpt}
+          <li key={citation.citationIndex} className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <FileText className="size-3" aria-hidden="true" />
+                {citationLabel(citation)}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                disabled={pending}
+                aria-busy={pending}
+                aria-label={citationOpenAccessibleLabel(
+                  citation,
+                  groupIndex + 1,
+                  (rangeCounts.get(range) ?? 0) > 1,
+                )}
+                onClick={() => {
+                  void ai
+                    .openReviewEvidence({
+                      reviewItemId: item.id,
+                      expectedReviewFingerprint: item.reviewFingerprint,
+                      citationIndex: citation.citationIndex,
+                    })
+                    .then((link) => {
+                      if (!link) return;
+                      // The page fragment is the authoritative physical page the
+                      // server returned, never a locally computed offset.
+                      window.open(
+                        `${link.url}#page=${link.pageStart}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    });
+                }}
+              >
+                Open PDF
+              </Button>
+            </div>
+            {citation.excerpts.map((excerpt) => (
+              <blockquote key={excerpt} className="mt-1 border-l-2 border-border pl-2 italic">
+                {excerpt}
               </blockquote>
-            ) : null}
-            <Button
-              type="button"
-              size="sm"
-              variant="link"
-              className="h-auto p-0 text-xs"
-              disabled={pending}
-              aria-busy={pending}
-              onClick={() => {
-                void ai
-                  .openReviewEvidence({
-                    reviewItemId: item.id,
-                    expectedReviewFingerprint: item.reviewFingerprint,
-                    citationIndex: index,
-                  })
-                  .then((link) => {
-                    if (!link) return;
-                    // The page fragment is the authoritative physical page the
-                    // server returned, never a locally computed offset.
-                    window.open(
-                      `${link.url}#page=${link.pageStart}`,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  });
-              }}
-            >
-              {citationOpenLabel(citation)}
-            </Button>
+            ))}
           </li>
         );
       })}
@@ -292,7 +306,7 @@ function ReviewItemRow({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {reviewSectionLabel(item.section)} · {target.label}
+            {reviewItemHeading(reviewSectionLabel(item.section), target.label)}
           </p>
           <p className="mt-1 text-sm">{item.reason}</p>
         </div>
@@ -446,7 +460,10 @@ export function AiReviewPanel({
               {assumptions.map((item) => (
                 <li key={item.id} className="rounded-md border border-border/50 p-3 text-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {reviewSectionLabel(item.section)}
+                    {reviewItemHeading(
+                      reviewSectionLabel(item.section),
+                      describeReviewTarget(item.targetKey, item.section).label,
+                    )}
                   </p>
                   <p className="mt-1">{item.reason}</p>
                   <Citations item={item} ai={ai} />
@@ -478,7 +495,10 @@ export function AiReviewPanel({
               {resolved.map((item) => (
                 <li key={item.id} className="rounded-md border border-border/60 p-3 text-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {reviewSectionLabel(item.section)}
+                    {reviewItemHeading(
+                      reviewSectionLabel(item.section),
+                      describeReviewTarget(item.targetKey, item.section).label,
+                    )}
                   </p>
                   <p className="mt-1">{item.reason}</p>
                   <p className="mt-1 text-xs text-muted-foreground">

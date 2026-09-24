@@ -108,6 +108,22 @@ describe("R2 — routine assumptions group", () => {
     expect(within(group).getByText(ASSUMPTION.reason)).toBeInTheDocument();
   });
 
+  it("renders a section-level assumption category once", () => {
+    const fallback: AiReviewItemDto = {
+      ...ASSUMPTION,
+      targetKey: "additionalTopic:principal_agent",
+      section: "additional_topics",
+    };
+    render(
+      <AiReviewPanel
+        ai={controller(workspace({ assumptionItems: [fallback], assumptionCount: 1 }))}
+      />,
+    );
+    const group = screen.getByRole("group", { name: ASSUMPTIONS_GROUP_LABEL });
+    expect(within(group).getByText("Additional Topics Applied")).toBeInTheDocument();
+    expect(group).not.toHaveTextContent("Additional Topics Applied · Additional Topics Applied");
+  });
+
   it("renders nothing for the group when there are no assumptions", () => {
     render(<AiReviewPanel ai={controller(workspace({ reviewItems: [YELLOW] }))} />);
     expect(screen.queryByRole("group", { name: ASSUMPTIONS_GROUP_LABEL })).toBeNull();

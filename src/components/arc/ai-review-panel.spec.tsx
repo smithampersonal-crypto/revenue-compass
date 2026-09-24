@@ -27,7 +27,15 @@ const YELLOW: AiReviewItemDto = {
   reason: "Confirm the recognition pattern for the hosted platform.",
   reviewFingerprint: "fp-yellow",
   guidanceReferenceCount: 0,
-  citations: [{ pageStart: 4, pageEnd: 4, evidenceMode: "text", excerpt: "Hosted over the term." }],
+  citations: [
+    {
+      pageStart: 4,
+      pageEnd: 4,
+      citationIndex: 0,
+      evidenceModes: ["text"],
+      excerpts: ["Hosted over the term."],
+    },
+  ],
   resolution: null,
 };
 
@@ -123,6 +131,27 @@ describe("AiReviewPanel", () => {
     expect(screen.getByText("Needs confirmation")).toBeInTheDocument();
   });
 
+  it("renders a fallback category once and preserves a specific target", () => {
+    const fallback: AiReviewItemDto = {
+      ...YELLOW,
+      id: "item-additional",
+      targetKey: "additionalTopic:principal_agent",
+      section: "additional_topics",
+    };
+    render(
+      <AiReviewPanel
+        ai={controller(workspace({ reviewItems: [fallback, YELLOW], reviewIssueCount: 2 }))}
+      />,
+    );
+    expect(screen.getByText("Additional Topics Applied")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Additional Topics Applied · Additional Topics Applied"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Step 5 — Recognize Revenue · Performance obligation — Recognition method"),
+    ).toBeInTheDocument();
+  });
+
   it("confirms one yellow item with its exact review fingerprint", async () => {
     const ai = controller(workspace({ reviewItems: [YELLOW], reviewIssueCount: 1 }));
     render(<AiReviewPanel ai={ai} />);
@@ -169,9 +198,16 @@ describe("AiReviewPanel", () => {
   });
 
   it("shows resolved items separately with how they were resolved", () => {
-    render(<AiReviewPanel ai={controller(workspace({ reviewItems: [RESOLVED] }))} />);
+    const resolvedFallback: AiReviewItemDto = {
+      ...RESOLVED,
+      targetKey: "additionalTopic:principal_agent",
+      section: "additional_topics",
+    };
+    render(<AiReviewPanel ai={controller(workspace({ reviewItems: [resolvedFallback] }))} />);
     const resolved = screen.getByRole("group", { name: /resolved/i });
     expect(resolved).toHaveTextContent(/Confirmed/i);
+    expect(resolved).toHaveTextContent("Additional Topics Applied");
+    expect(resolved).not.toHaveTextContent("Additional Topics Applied · Additional Topics Applied");
     expect(screen.queryByRole("button", { name: /^Confirm$/ })).not.toBeInTheDocument();
   });
 
