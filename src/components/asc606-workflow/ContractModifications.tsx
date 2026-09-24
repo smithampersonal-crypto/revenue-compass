@@ -176,25 +176,41 @@ export function ContractModifications({
                     </button>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <AiReviewTarget targetKey={`modification:${mod.id}.modificationDate`}>
-                      <Field label="Modification effective date">
+                  <div
+                    className="grid gap-4 md:grid-cols-2 md:items-stretch"
+                    data-testid="modification-commercial-header"
+                  >
+                    <AiReviewTarget
+                      targetKey={`modification:${mod.id}.modificationDate`}
+                      className="h-full"
+                    >
+                      <label className="flex h-full flex-col">
+                        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                          <span>Modification effective date</span>
+                          <AiInlineProvenanceMarker />
+                        </span>
                         <input
                           type="date"
-                          className={inputClass}
+                          aria-label="Modification effective date"
+                          className={`${inputClass} mt-auto`}
                           value={mod.modificationDate}
                           onChange={(e) => setMod(mod.id, { modificationDate: e.target.value })}
                         />
-                      </Field>
+                      </label>
                     </AiReviewTarget>
                     <AiReviewTarget
                       targetKey={`modification:${mod.id}.considerationMagnitudeInput`}
+                      className="h-full"
                     >
-                      <Field
-                        label="Change in consideration (USD)"
-                        hint="Enter the amount as a positive number and choose the direction."
-                      >
-                        <div className="flex gap-2">
+                      <label className="flex h-full flex-col">
+                        <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                          <span>Change in consideration (USD)</span>
+                          <AiInlineProvenanceMarker />
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Enter the amount as a positive number and choose the direction.
+                        </span>
+                        <div className="mt-auto grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                           <UsdMoneyInput
                             value={mod.considerationMagnitudeInput}
                             onValueChange={(next) =>
@@ -216,7 +232,7 @@ export function ContractModifications({
                             <option value="none">No change in price</option>
                           </select>
                         </div>
-                      </Field>
+                      </label>
                     </AiReviewTarget>
                   </div>
 
