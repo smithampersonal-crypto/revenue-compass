@@ -207,9 +207,7 @@ describe("Task 6 active progress", () => {
     expect(activity).toHaveClass("inset-0");
 
     rerender(
-      <AiAnalysisProgress
-        progress={{ phase: "applying", step: 4, label: "Updating workspace" }}
-      />,
+      <AiAnalysisProgress progress={{ phase: "applying", step: 4, label: "Updating workspace" }} />,
     );
 
     expect(screen.getByTestId("ai-progress-activity")).toBe(activity);
@@ -237,7 +235,9 @@ describe("Task 6 active progress", () => {
     expect(componentSource).not.toMatch(/setInterval|setTimeout|requestAnimationFrame/);
     expect(componentSource).toContain("arc-ai-progress-confirmed");
     expect(componentSource).toContain("arc-ai-progress-activity");
-    expect(componentSource).toContain('className="arc-ai-progress-activity absolute inset-0 overflow-hidden"');
+    expect(componentSource).toContain(
+      'className="arc-ai-progress-activity absolute inset-0 overflow-hidden"',
+    );
     expect(componentSource).not.toContain("data-activity-start");
     expect(componentSource).not.toContain("data-activity-end");
     expect(styles).toContain(".arc-ai-progress-activity::after");
