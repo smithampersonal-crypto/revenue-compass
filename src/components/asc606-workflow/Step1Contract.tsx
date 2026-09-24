@@ -47,7 +47,7 @@ export function Step1Contract({
               />
             </Field>
           </AiReviewTarget>
-          <Field label="Currency (Only USD is supported at this time))" hint="\n">
+          <Field label="Currency (Only USD is supported at this time))" hint={"\n"}>
             <input className={inputClass} value="USD" readOnly disabled />
           </Field>
         </div>
