@@ -32,6 +32,15 @@ export function ReviewFinalizeView({
   const grouped = journals?.kind === "grouped" ? journals.analysis : null;
   const ordinaryJournals = journals?.kind === "ordinary" ? journals.analysis : null;
   const modification = result.modification;
+  const validationChecks = result.engineValidation?.results ?? [];
+  const passedChecks = validationChecks.filter((check) => check.passed);
+  const blockingChecks = validationChecks.filter(
+    (check) => !check.passed && check.severity === "blocking",
+  );
+  const warningChecks = validationChecks.filter(
+    (check) => !check.passed && check.severity === "warning",
+  );
+  const allChecksPassed = blockingChecks.length === 0 && warningChecks.length === 0;
 
   return (
     <div className="space-y-6">
@@ -63,19 +72,53 @@ export function ReviewFinalizeView({
 
       {result.engineValidation ? (
         <Section title="Validation Checks">
-          <p className="text-sm font-semibold">
-            {result.engineValidation.status === "passed"
-              ? "Validation Checks Passed"
-              : "Validation Checks Require Attention"}
-          </p>
-          <ul className="mt-2 space-y-1 text-sm">
-            {result.engineValidation.results.map((check) => (
-              <li key={check.id}>
-                {check.passed ? "PASS" : check.severity === "blocking" ? "BLOCKING" : "WARNING"} —{" "}
-                {check.id}: {check.message}
-              </li>
-            ))}
-          </ul>
+          {allChecksPassed ? (
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">All validation checks passed</p>
+              <p className="text-sm text-muted-foreground">No blocking issues were identified.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {blockingChecks.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Blocking issues</h3>
+                  <ul className="mt-2 space-y-2 text-sm text-foreground">
+                    {blockingChecks.map((check) => (
+                      <li key={check.id} className="break-words">
+                        {check.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {warningChecks.length > 0 ? (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Warnings</h3>
+                  <ul className="mt-2 space-y-2 text-sm text-foreground">
+                    {warningChecks.map((check) => (
+                      <li key={check.id} className="break-words">
+                        {check.message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          )}
+          {passedChecks.length > 0 ? (
+            <details className="mt-4 border-t border-border pt-3">
+              <summary className="w-fit cursor-pointer rounded-sm text-sm font-medium text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring">
+                Show passed checks
+              </summary>
+              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                {passedChecks.map((check) => (
+                  <li key={check.id} className="break-words">
+                    PASS — {check.id}: {check.message}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </Section>
       ) : null}
 
