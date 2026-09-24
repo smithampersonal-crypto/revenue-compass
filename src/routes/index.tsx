@@ -52,18 +52,18 @@ function Index() {
   return (
     <PublicAppShell>
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-        <header className="max-w-4xl">
+        <header className="max-w-6xl">
           <p className="text-xs font-semibold uppercase text-primary">
             ARC · ASC 606 Analysis Platform
           </p>
-          <h1 className="mt-4 text-3xl font-bold leading-tight text-foreground sm:text-5xl">
+          <h1 className="mt-4 max-w-4xl text-3xl font-bold leading-tight text-foreground sm:text-5xl">
             ASC 606 analysis, from contract judgment to journal entry.
           </h1>
-          <p className="mt-5 max-w-3xl text-base font-medium leading-7 text-foreground sm:text-lg">
+          <p className="mt-5 text-base font-medium leading-7 text-foreground sm:text-lg">
             AI interprets the contract. Deterministic accounting engines calculate the results. You
             review and control the judgments.
           </p>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <p className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
             Produce an auditable ASC 606 analysis from contract review through allocation, revenue
             schedules, balances and journal entries.
           </p>
