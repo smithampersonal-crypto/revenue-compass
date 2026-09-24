@@ -83,7 +83,7 @@ describe("ARC app shell (Phase 5)", () => {
     expect(screen.getByText("Accountant-owned judgments")).toBeInTheDocument();
     expect(screen.getByText("Deterministic calculations")).toBeInTheDocument();
     expect(screen.getByText("Traceable review")).toBeInTheDocument();
-    expect(screen.getByText("Start here")).toBeInTheDocument();
+    expect(screen.queryByText("Start here")).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "AI can draft the analysis, but professional judgment and control remain with the accountant.",

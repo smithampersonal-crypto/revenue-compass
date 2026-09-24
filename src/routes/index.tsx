@@ -70,10 +70,7 @@ function Index() {
         </header>
 
         <section aria-label="Get started" className="mt-9 grid gap-4 md:grid-cols-3">
-          <article className="relative flex h-full flex-col border-t-2 border-primary bg-card p-5 sm:p-6">
-            <p className="absolute left-5 top-1.5 text-xs font-semibold uppercase leading-none text-primary sm:left-6 sm:top-2.5">
-              Start here
-            </p>
+          <article className="flex h-full flex-col border-t-2 border-primary bg-card p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">Try a Sample Contract</h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
               Explore a fictional ASC 606 analysis using ARC&apos;s deterministic engines.
