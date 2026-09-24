@@ -26,32 +26,32 @@ export function ContractBalanceOutputs({
       <Section title="Billing Schedule">
         {billingSchedule ? (
           <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className={th}>Event</th>
-                <th className={th}>Amount</th>
-                <th className={th}>Unconditional right date</th>
-                <th className={th}>Invoice date</th>
-                <th className={th}>Cash collected</th>
-                <th className={th}>Outstanding</th>
-              </tr>
-            </thead>
-            <tbody>
-              {billingSchedule.map((row) => (
-                <tr key={row.eventId}>
-                  <td className={td}>
-                    {billingLabelsById.get(row.eventId) ?? "Unavailable billing event"}
-                  </td>
-                  <td className={td}>{formatCents(row.amountCents)}</td>
-                  <td className={td}>{row.unconditionalRightDate}</td>
-                  <td className={td}>{row.invoiceDate}</td>
-                  <td className={td}>{formatCents(row.cashCollectedCents)}</td>
-                  <td className={td}>{formatCents(row.outstandingCents)}</td>
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th className={th}>Event</th>
+                  <th className={th}>Amount</th>
+                  <th className={th}>Unconditional right date</th>
+                  <th className={th}>Invoice date</th>
+                  <th className={th}>Cash collected</th>
+                  <th className={th}>Outstanding</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {billingSchedule.map((row) => (
+                  <tr key={row.eventId}>
+                    <td className={td}>
+                      {billingLabelsById.get(row.eventId) ?? "Unavailable billing event"}
+                    </td>
+                    <td className={td}>{formatCents(row.amountCents)}</td>
+                    <td className={td}>{row.unconditionalRightDate}</td>
+                    <td className={td}>{row.invoiceDate}</td>
+                    <td className={td}>{formatCents(row.cashCollectedCents)}</td>
+                    <td className={td}>{formatCents(row.outstandingCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
           <Notice tone="danger">No billing schedule is presented.</Notice>

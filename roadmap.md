@@ -165,6 +165,7 @@
 - [x] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
 
 ## Package 2C-K — Full Verification + Controlled Live Acceptance
+
 - [x] Dependency auto-bump (2.23.1) restored to ^2.15.0 / lock 2.15.0
 - [x] Static gate: 213 files / 2,717 tests (one unidentified first-run flake; two later full runs green), typecheck clean, lint 0 errors / 11 pre-existing warnings, build + audit:bundle clean
 - [x] Database gate: GitHub Verify app + database jobs green (director-confirmed)
