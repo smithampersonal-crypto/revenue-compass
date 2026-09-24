@@ -171,4 +171,29 @@ describe("R2 — routine assumptions group", () => {
     await userEvent.click(within(group).getByRole("button", { name: /^Go to / }));
     expect(onOpenTarget).toHaveBeenCalledWith(ASSUMPTION.id);
   });
+
+  it("keeps a long Go to destination complete and safely wrapping within its card", async () => {
+    const onOpenTarget = vi.fn();
+    const longDestination: AiReviewItemDto = {
+      ...ASSUMPTION,
+      id: "item-long-destination",
+      targetKey: "contract.criteria.force_majeure_applicability.rationale",
+    };
+    render(
+      <AiReviewPanel
+        ai={controller(workspace({ assumptionItems: [longDestination], assumptionCount: 1 }))}
+        onOpenTarget={onOpenTarget}
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: "Go to Contract criterion rationale — Force majeure applicability",
+    });
+    expect(button).toHaveClass("max-w-full", "whitespace-normal", "h-auto", "text-left");
+    expect(button).toHaveTextContent(
+      "Go to Contract criterion rationale — Force majeure applicability",
+    );
+    await userEvent.click(button);
+    expect(onOpenTarget).toHaveBeenCalledWith(longDestination.id);
+  });
 });

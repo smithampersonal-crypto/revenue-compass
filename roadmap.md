@@ -165,15 +165,16 @@
 - [x] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
 
 ## Package 2C-K — Full Verification + Controlled Live Acceptance
+
 - [x] Dependency auto-bump (2.23.1) restored to ^2.15.0 / lock 2.15.0
 - [x] Static gate: 213 files / 2,717 tests (one unidentified first-run flake; two later full runs green), typecheck clean, lint 0 errors / 11 pre-existing warnings, build + audit:bundle clean
 - [x] Database gate: GitHub Verify app + database jobs green (director-confirmed)
 - [x] Horizon deterministic smoke: $153,000 / SSP 144k·12k·24k / dates / billings 75k·39k·39k / names unchanged; journals Reconciled
 - [x] One live Terra guest run 72858cc7-1053-4c3c-9547-005e3ffe1a58 succeeded (1 source, 4 pages, 11 review items, 1 start request)
 - [x] Progress, labels, provenance edit, evidence/Open PDF, Go-to focus verified live
-- [ ] DEFECT: Contract Balances Billing Schedule output table overflows page at 390px (no overflow-x wrapper; pre-dates 2C-I)
-- [ ] DEFECT (minor): long assumption "Go to …" button overflows 2px at 390px on Review & Finalize
-- [x] Clean source ZIP + final report completed; the two pre-existing narrow-width defects remain explicitly open
+- [x] Closed: Contract Balances Billing Schedule output uses table-local horizontal containment; the 390px page viewport remains stable
+- [x] Closed: long assumption "Go to …" controls retain their full label and wrap within the Review & Finalize card at 390px
+- [x] Prior clean source ZIP + final report completed; the two pre-existing narrow-width defects were explicitly carried into the final acceptance patch
 
 ### Package 2C-K — Narrow Visual Acceptance Patch
 
@@ -194,3 +195,13 @@
 - [x] Render only non-empty categories and omit Show passed checks when there are no passed results
 - [x] Add a conservation regression proving exact-once grouping, fallback handling, and original global ordering in technical details
 - [x] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; focused 36/36 and full 214 files / 2,720 tests passed; typecheck/build clean; lint 0 errors / 11 pre-existing warnings; bundle audit clean; desktop/390px smoke passed with no overflow or console errors
+
+### Package 2C-K — Final Narrow Acceptance Patch
+
+- [x] Restored `@lovable.dev/vite-tanstack-config` to package range `^2.15.0` and lock resolution `2.15.0`; re-checked after final package/build work
+- [x] Removed `.lovable/plan.md` from the repository and delivered ZIP; verified it is untracked while preserving `.lovable/project.json`, historical `.lovable/plan/`, and the ignore rule
+- [x] Closed Billing Schedule narrow-width overflow with table-local horizontal containment and a focused structural regression; verified stable page width at 390px with 526px table content scrolling inside its 324px region
+- [x] Closed long `Go to …` control overflow using semantic responsive wrapping and a non-pixel regression that preserves the full label and exact review-item callback
+- [x] Focused presentation regressions: 5 files / 61 tests; full suite: 214 files / 2,721 tests; typecheck clean; lint 0 errors / 11 pre-existing warnings; production build and bundle audit clean
+- [x] Desktop/390px smoke passed: no page-level overflow; Billing Schedule scroll remains local; long Go-to copy wraps within its card; homepage, Review & Finalize, Validation Checks, and all 18 journal-table axes remain unchanged
+- [x] Preserved Genomix SHA-256 `7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7`, completed Terra run `72858cc7-1053-4c3c-9547-005e3ffe1a58`, and successful GitHub/database evidence; 2B.1, Package 3, and ARC production readiness remain incomplete
