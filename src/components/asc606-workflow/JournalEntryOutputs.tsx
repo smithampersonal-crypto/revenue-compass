@@ -82,26 +82,37 @@ export function JournalEntryOutputs({
                     : EVENT_LABELS[entry.eventType]}
                 </p>
                 <p className="text-sm text-muted-foreground">{entry.description}</p>
-                <table className="mt-2 w-full border-collapse text-sm">
+                <table className="mt-2 w-full table-fixed border-collapse text-sm">
+                  {/* Fixed geometry: identical Account/Debit/Credit widths on
+                      every journal card so money columns share vertical axes. */}
+                  <colgroup>
+                    <col />
+                    <col className="w-32" />
+                    <col className="w-32" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th className={th}>Account</th>
-                      <th className={th}>Debit</th>
-                      <th className={th}>Credit</th>
+                      <th className={`${th} text-right`}>Debit</th>
+                      <th className={`${th} text-right`}>Credit</th>
                     </tr>
                   </thead>
                   <tbody>
                     {entry.lines.map((line, index) => (
                       <tr key={`${entry.id}-${index}`}>
                         <td className={td}>{lineLabel(line, poNames)}</td>
-                        <td className={td}>{amount(line.debitCents)}</td>
-                        <td className={td}>{amount(line.creditCents)}</td>
+                        <td className={`${td} text-right`}>{amount(line.debitCents)}</td>
+                        <td className={`${td} text-right`}>{amount(line.creditCents)}</td>
                       </tr>
                     ))}
                     <tr className="font-semibold">
                       <td className={td}>Total</td>
-                      <td className={td}>{formatCents(entry.totalDebitsCents)}</td>
-                      <td className={td}>{formatCents(entry.totalCreditsCents)}</td>
+                      <td className={`${td} text-right`}>
+                        {formatCents(entry.totalDebitsCents)}
+                      </td>
+                      <td className={`${td} text-right`}>
+                        {formatCents(entry.totalCreditsCents)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
