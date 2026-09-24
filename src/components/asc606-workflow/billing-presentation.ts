@@ -59,7 +59,8 @@ function exactIssueOwner(issue: BalanceIssue, labels: FriendlyBalanceLabels): Is
 }
 
 function issueWithoutExactOwnerPrefix(issue: BalanceIssue, owner: IssueOwner): BalanceIssue {
-  const prefix = owner.kind === "billing" ? `Billing event ${owner.id}: ` : `Cash collection ${owner.id}: `;
+  const prefix =
+    owner.kind === "billing" ? `Billing event ${owner.id}: ` : `Cash collection ${owner.id}: `;
   return { ...issue, message: issue.message.slice(prefix.length) };
 }
 

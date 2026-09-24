@@ -87,10 +87,9 @@ describe("Package 2C-I contract-modification header", () => {
     const header = screen.getByTestId("modification-commercial-header");
     expect(header).toHaveClass("grid", "md:grid-cols-2", "md:items-stretch");
     expect(within(header).getByLabelText("Modification effective date")).toHaveClass("mt-auto");
-    expect(within(header).getByLabelText("Change in consideration (USD)").parentElement).toHaveClass(
-      "mt-auto",
-      "grid",
-    );
+    expect(
+      within(header).getByLabelText("Change in consideration (USD)").parentElement,
+    ).toHaveClass("mt-auto", "grid");
     expect(header.className).not.toMatch(/h-\[|min-h-\[/);
   });
 
@@ -180,12 +179,24 @@ describe("Package 2C-I friendly billing presentation", () => {
     const validation: ContractBalanceWorkflowResult["validation"] = {
       issues: [],
       blocking: [
-        { id: "billing.event.amount", severity: "blocking", message: "Billing event ce-private-second: Amount is required." },
-        { id: "billing.event.invoice_date", severity: "blocking", message: "Billing event ce-private-second: Billing date is required." },
+        {
+          id: "billing.event.amount",
+          severity: "blocking",
+          message: "Billing event ce-private-second: Amount is required.",
+        },
+        {
+          id: "billing.event.invoice_date",
+          severity: "blocking",
+          message: "Billing event ce-private-second: Billing date is required.",
+        },
         { id: "global.block", severity: "blocking", message: "Global blocking finding." },
       ],
       warnings: [
-        { id: "cash.warning", severity: "warning", message: "Cash collection cc-private-first: Confirm the collection evidence." },
+        {
+          id: "cash.warning",
+          severity: "warning",
+          message: "Cash collection cc-private-first: Confirm the collection evidence.",
+        },
       ],
     };
     validation.issues = [...validation.blocking, ...validation.warnings];
@@ -194,19 +205,23 @@ describe("Package 2C-I friendly billing presentation", () => {
     const billingGroup = screen.getByText("Billing Event 2 — resolve these items").parentElement;
     expect(billingGroup).not.toBeNull();
     expect(within(billingGroup as HTMLElement).getAllByRole("listitem")).toHaveLength(2);
-    expect(within(billingGroup as HTMLElement).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Amount is required.",
-      "Billing date is required.",
-    ]);
+    expect(
+      within(billingGroup as HTMLElement)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Amount is required.", "Billing date is required."]);
     expect(screen.getByText("Cash Collection 1 — warnings")).toBeInTheDocument();
     expect(screen.getByText("Global blocking finding.")).toBeInTheDocument();
     expect(container.textContent).not.toContain("ce-private-second");
     expect(container.textContent).not.toContain("cc-private-first");
 
-    const grouped = groupBalanceIssues(validation.issues, buildFriendlyBalanceLabels(
-      initial.contractBalances.considerationEvents,
-      initial.contractBalances.cashCollections,
-    ));
+    const grouped = groupBalanceIssues(
+      validation.issues,
+      buildFriendlyBalanceLabels(
+        initial.contractBalances.considerationEvents,
+        initial.contractBalances.cashCollections,
+      ),
+    );
     expect(grouped.billing.get("ce-private-second")?.map((issue) => issue.severity)).toEqual([
       "blocking",
       "blocking",
