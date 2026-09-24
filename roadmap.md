@@ -54,6 +54,7 @@
 - [x] Capture three internally consistent final-state README images from the accepted Horizon/sample experience; no new Terra run (owner selected three captures because sample mode intentionally contains no AI evidence rows)
 - [x] Preserve frozen application source; capture revealed no genuine product defect and no application source changed
 - [x] Refresh only README image references/alt text/captions and intentional screenshot assets, then inspect the rendered README
+- [x] Acceptance correction: replace the workspace image with populated Horizon Step 2 and replace the journal image with the identifier-free deterministic Revenue Schedule; align the demo instructions with Horizon’s accountant-owned sample state
 - [x] Verify dependency, Genomix hash, repository hygiene, package a clean source ZIP, and report the final commit hash
 - [ ] Owner confirms the GitHub app and database jobs are green on the reported final commit; Lovable does not independently certify CI status
 
