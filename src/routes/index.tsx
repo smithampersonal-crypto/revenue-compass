@@ -9,7 +9,8 @@ const DESCRIPTION =
 const PRINCIPLES = [
   {
     title: "Accountant-owned judgments",
-    description: "AI can draft the analysis, but the accountant remains authoritative.",
+      description:
+        "AI can draft the analysis, but professional judgment and control remain with the accountant.",
   },
   {
     title: "Deterministic calculations",
@@ -19,7 +20,7 @@ const PRINCIPLES = [
   {
     title: "Traceable review",
     description:
-      "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry in one workpaper.",
+        "Review AI-drafted conclusions, inspect source evidence and move from contract analysis to journal entry all in one workflow.",
   },
 ] as const;
 
@@ -72,8 +73,8 @@ function Index() {
           <article className="flex h-full flex-col border-t-2 border-border bg-card p-5 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">Upload a Contract PDF</h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
-              Keep the contract PDF alongside the analysis as its source document. You still enter
-              every accounting judgment yourself.
+              Upload a contract PDF. AI interprets the contract and sends the structured analysis to
+              ARC’s deterministic accounting engines.
             </p>
             <Button asChild variant="outline" className="mt-5 w-fit">
               <Link to="/analysis" search={{ upload: "1" }}>
@@ -87,7 +88,7 @@ function Index() {
               Enter Contract Details Manually
             </h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
-              Enter contract facts and accounting judgments in the ARC workspace.
+              Enter contract facts and accounting judgments directly in the ARC workspace.
             </p>
             <Button asChild variant="ghost" className="mt-5 w-fit border border-transparent">
               <Link to="/analysis">Start Manually</Link>
