@@ -41,8 +41,8 @@ function SourceDocumentsArea() {
   // `upload=1` is an intent to open the existing upload step exactly once —
   // whether it arrives from Home, or from Analyze Contract while the visitor is
   // already on this page. It is never persistent dialog state.
-  const search = useSearch({ from: "/analysis" }) as { upload?: string };
-  const wantsUpload = (search.upload ?? "").replace(/^"|"$/g, "") === "1";
+  const search = useSearch({ from: "/analysis" }) as { upload?: unknown };
+  const wantsUpload = String(search.upload ?? "").replace(/^"|"$/g, "") === "1";
 
   // Consuming the intent removes only `upload`: the contract, revision,
   // customer/save hints and the temporary-workspace identity are untouched, and
