@@ -154,3 +154,12 @@
 - [x] Preserve all accounting, provenance, money formatting, persistence, auth, and Package 2C-H behavior
 - [x] Record magic-link delivery as deferred to Package 3 SMTP/Resend; guest PDF upload is working; make no auth changes
 - [x] Run focused/full verification, desktop+narrow smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-J
+
+## Package 2C-J — Review & Finalize Polish
+
+- [ ] Group repeated evidence only at the trusted DTO boundary by exact document/page identity, retaining each group’s first original citation index
+- [ ] Preserve ordered distinct excerpts and distinguish same-page sources accessibly with presentation-order ordinals only when needed
+- [ ] Replace fragmented evidence copy with clean Source Evidence / Open PDF rows without changing signed-link authorization
+- [ ] Suppress only exactly duplicated section/target headings across outstanding, assumption, and resolved items
+- [ ] Strengthen the existing destination focus with one restrained amber flourish and a static reduced-motion treatment
+- [ ] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
