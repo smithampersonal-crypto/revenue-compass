@@ -31,6 +31,7 @@ import { parseUsageQuantity, parseUsdToCents } from "./money-input";
 import { buildEstimatedLifecycle, usesAcceptedLifecycle } from "./vc-lifecycle";
 import { previewVcCurrentMeasurement } from "./vc-measurement";
 import type { PoDraft, VcComponentDraft, WorkflowDraft } from "./types";
+import { variableConsiderationDisplayLabel } from "./vc-presentation";
 
 /** Who owns a fact that could not be used. */
 export type BlockedFactOwner =
@@ -208,7 +209,7 @@ function seriesPeriods(component: VcComponentDraft, blocked: BlockedFact[]): Ser
       blocked.push({
         ownerKind: "series_period",
         ownerId: period.id,
-        ownerName: period.label || component.description || component.id,
+        ownerName: period.label || variableConsiderationDisplayLabel(component),
         code: "series_period.incomplete",
         message:
           "A service period needs a valid start date and a valid end date that does not precede it.",
@@ -233,7 +234,7 @@ function toProgressiveVcComponent(
   poIds: ReadonlySet<string>,
   blocked: BlockedFact[],
 ): ProgressiveVcComponent {
-  const name = component.description || component.id;
+  const name = variableConsiderationDisplayLabel(component);
   const { periods, invalid: periodsInvalid } = seriesPeriods(component, blocked);
   // Any unusable dependent fact makes this component's amounts unusable, so the
   // layer it feeds blocks instead of quietly calculating without it.
@@ -436,7 +437,7 @@ function toUsageInput(
   blocked: BlockedFact[],
 ): ProgressiveUsageInput | null {
   if (component.treatment !== "usage_as_incurred") return null;
-  const name = component.description || component.id;
+  const name = variableConsiderationDisplayLabel(component);
   if (!component.targetPoId) {
     blocked.push({
       ownerKind: "variable_component",

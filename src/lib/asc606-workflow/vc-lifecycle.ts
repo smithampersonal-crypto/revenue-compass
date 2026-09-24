@@ -26,6 +26,7 @@ import {
 import { parseUsdToCents } from "./money-input";
 import type { VcComponentDraft } from "./types";
 import { buildDraftAssessment, buildInceptionAssessment } from "./vc-adapter";
+import { variableConsiderationDisplayLabel } from "./vc-presentation";
 
 export interface EstimatedLifecycle {
   /** The accepted engine input actually measured. */
@@ -55,7 +56,7 @@ export function buildEstimatedLifecycle(
   component: VcComponentDraft,
   poIds: ReadonlySet<string>,
 ): EstimatedLifecycleOutcome {
-  const label = component.description || component.id;
+  const label = variableConsiderationDisplayLabel(component);
   const issues: string[] = [];
 
   if (!usesAcceptedLifecycle(component)) {

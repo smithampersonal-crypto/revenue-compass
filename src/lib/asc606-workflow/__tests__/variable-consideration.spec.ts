@@ -7,7 +7,10 @@
 import { describe, expect, it } from "vitest";
 
 import { analyzeWorkflow } from "../analysis";
-import { buildVariableConsiderationInput } from "../vc-adapter";
+import {
+  buildVariableConsiderationAllocationInput,
+  buildVariableConsiderationInput,
+} from "../vc-adapter";
 import { case7Draft, case7ResolvedDraft, cloudAiDraft } from "./vc-fixtures";
 import { scenarioADraft, scenarioBDraft } from "./fixtures";
 
@@ -136,6 +139,71 @@ describe("variable-consideration adapter", () => {
     expect(built.ok).toBe(false);
     if (!built.ok) {
       expect(built.errors.some((e) => e.includes("allocation-exception judgments"))).toBe(true);
+    }
+  });
+
+  it("uses the entered description in user-facing errors while preserving canonical identity", () => {
+    const draft = case7Draft();
+    const component = draft.variableConsiderationComponents[0]!;
+    const described = {
+      ...draft,
+      variableConsiderationComponents: [
+        { ...component, id: "vc-1", description: "Quarterly usage bonus", estimationMethod: null },
+      ],
+    };
+
+    const invalid = buildVariableConsiderationInput(described);
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) {
+      expect(invalid.errors).toContain(
+        'An estimation method for "Quarterly usage bonus" is required.',
+      );
+      expect(invalid.errors.join(" ")).not.toContain("vc-1");
+    }
+
+    const valid = buildVariableConsiderationInput({
+      ...described,
+      variableConsiderationComponents: [
+        {
+          ...described.variableConsiderationComponents[0]!,
+          estimationMethod: "most_likely_amount",
+        },
+      ],
+    });
+    expect(valid.ok).toBe(true);
+    if (valid.ok) expect(valid.input.estimatedComponents[0]!.id).toBe("vc-1");
+  });
+
+  it("uses a friendly sequence fallback for every blank-description adapter error", () => {
+    const draft = case7Draft();
+    const component = draft.variableConsiderationComponents[0]!;
+    const blank = {
+      ...draft,
+      variableConsiderationComponents: [
+        {
+          ...component,
+          id: "vc-1",
+          seq: 7,
+          description: "   ",
+          estimationMethod: null,
+          allocationRationale: "",
+          inception: {
+            ...component.inception,
+            effectiveDate: "",
+            constraintRationale: "",
+          },
+        },
+      ],
+    };
+
+    for (const result of [
+      buildVariableConsiderationInput(blank),
+      buildVariableConsiderationAllocationInput(blank),
+    ]) {
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors.join(" ")).toContain("Variable consideration component 7");
+      expect(result.errors.join(" ")).not.toContain("vc-1");
     }
   });
 });

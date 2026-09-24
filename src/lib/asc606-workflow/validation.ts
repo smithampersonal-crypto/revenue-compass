@@ -20,6 +20,7 @@ import {
   type ModificationTreatment,
 } from "@/lib/asc606-contract-modifications";
 import { parsePercentToBps, parseUsdToCents } from "./money-input";
+import { variableConsiderationDisplayLabel } from "./vc-presentation";
 import {
   derivePromiseDistinct,
   deriveStep1Conclusion,
@@ -336,7 +337,7 @@ export function validateWorkflow(draft: WorkflowDraft): WorkflowValidationOutcom
    */
   for (const component of draft.variableConsiderationComponents) {
     if (component.allocationTreatment !== "specific_series_period") continue;
-    const label = component.description || component.id;
+    const label = variableConsiderationDisplayLabel(component);
     if (!component.targetPoId) {
       add(
         "vc.series_period.target_missing",
