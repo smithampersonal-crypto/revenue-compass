@@ -146,11 +146,11 @@
 
 ## Package 2C-I — Contract Modifications + Contract Balances Polish
 
-- [ ] Align modification effective-date and consideration controls through a shared responsive structure without spacer-height hacks
-- [ ] Add deterministic presentation-only Billing Event / Cash Collection ordinals while preserving canonical IDs and ordering
-- [ ] Present exact-cents selector labels with canonical option values and restrained orphan copy
-- [ ] Group validation findings by row only through structured references or exact established ID prefixes; preserve issue/severity/order and leave uncertain findings global
-- [ ] Keep Complete/Incomplete omitted unless existing row validation supports an exact mechanical derivation
-- [ ] Preserve all accounting, provenance, money formatting, persistence, auth, and Package 2C-H behavior
-- [ ] Record magic-link delivery as deferred to Package 3 SMTP/Resend; guest PDF upload is working; make no auth changes
-- [ ] Run focused/full verification, desktop+narrow smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-J
+- [x] Align modification effective-date and consideration controls through a shared responsive structure without spacer-height hacks
+- [x] Add deterministic presentation-only Billing Event / Cash Collection ordinals while preserving canonical IDs and ordering
+- [x] Present exact-cents selector labels with canonical option values and restrained orphan copy
+- [x] Group validation findings by row only through structured references or exact established ID prefixes; preserve issue/severity/order and leave uncertain findings global
+- [x] Keep Complete/Incomplete omitted unless existing row validation supports an exact mechanical derivation
+- [x] Preserve all accounting, provenance, money formatting, persistence, auth, and Package 2C-H behavior
+- [x] Record magic-link delivery as deferred to Package 3 SMTP/Resend; guest PDF upload is working; make no auth changes
+- [x] Run focused/full verification, desktop+narrow smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-J
