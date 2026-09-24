@@ -42,7 +42,7 @@ The AI boundary expressly excludes revenue schedules, allocation results, journa
 
 1. From Home, choose **Try the Sample** to open the fictional **Horizon Logistics** contract.
 2. Review the five-step analysis and the three performance obligations.
-3. Inspect source-linked AI conclusions and the accountant review controls.
+3. Review the accountant-owned judgments and performance-obligation structure.
 4. Open **Revenue Schedule** to see deterministic allocation and daily-to-monthly recognition results.
 5. Open **Contract Balances** and **Journal Entries** to trace billing, collections, revenue, receivables, contract assets, and contract liabilities.
 6. Finish in **Review & Finalize** to inspect validation, reconciliation, and finalization controls.
@@ -64,7 +64,7 @@ ARC v1 includes curated workflows for:
 - contract modifications and material-right workflows; and
 - validation and reconciliation controls across the analysis.
 
-![ARC deterministic journal entries](docs/assets/arc-deterministic-journal-entries.png)
+![ARC deterministic revenue schedule](docs/assets/arc-deterministic-revenue-schedule.png)
 
 ## Architecture
 
