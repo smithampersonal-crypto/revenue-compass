@@ -98,7 +98,7 @@ export function JournalEntryOutputs({
                     <tr>
                       <th className={th}>Account</th>
                       <th className={`${th} text-right`}>Debit</th>
-                      <th className={`${th} credit-col text-right`}>Credit</th>
+                      <th className={`${th} pr-10 text-right`}>Credit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -106,7 +106,7 @@ export function JournalEntryOutputs({
                       <tr key={`${entry.id}-${index}`}>
                         <td className={td}>{lineLabel(line, poNames)}</td>
                         <td className={`${td} text-right`}>{amount(line.debitCents)}</td>
-                        <td className={`${td} credit-col text-right`}>{amount(line.creditCents)}</td>
+                        <td className={`${td} pr-10 text-right`}>{amount(line.creditCents)}</td>
                       </tr>
                     ))}
                     <tr className="font-semibold">
@@ -114,7 +114,7 @@ export function JournalEntryOutputs({
                       <td className={`${td} text-right`}>
                         {formatCents(entry.totalDebitsCents)}
                       </td>
-                      <td className={`${td} credit-col text-right`}>
+                      <td className={`${td} pr-10 text-right`}>
                         {formatCents(entry.totalCreditsCents)}
                       </td>
                     </tr>

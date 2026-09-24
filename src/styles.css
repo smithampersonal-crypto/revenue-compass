@@ -218,12 +218,6 @@
     animation: arc-ai-progress-activity-sweep 2.8s ease-in-out infinite;
   }
 
-  /* Journal tables: inset the right-aligned Credit amounts so Debit and
-     Credit read as a balanced pair instead of Credit hugging the edge. */
-  .credit-col {
-    padding-right: 2.5rem;
-  }
-
   .arc-review-focus {
     position: relative;
     border-radius: 0.5rem;
