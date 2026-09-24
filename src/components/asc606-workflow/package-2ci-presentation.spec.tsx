@@ -233,7 +233,23 @@ describe("Package 2C-I friendly billing presentation", () => {
 describe("Package 2C-I acceptance: engine-output aliases follow draft order", () => {
   it("labels engine billing rows by canonical eventId, not seq-sorted row index", async () => {
     const { ContractBalanceOutputs } = await import("./ContractBalanceOutputs");
-    const draft = billingDraft();
+    const base = billingDraft();
+    // Third event completes the $153,000 transaction price; engine order is seq 3, 8, 9.
+    const draft: WorkflowDraft = {
+      ...base,
+      contractBalances: {
+        considerationEvents: [
+          ...base.contractBalances.considerationEvents,
+          {
+            ...createConsiderationEventDraft(9, "ce-private-third"),
+            amountInput: "47500",
+            unconditionalRightDate: "2027-03-01" as const,
+            invoiceDate: "2027-03-01" as const,
+          },
+        ],
+        cashCollections: base.contractBalances.cashCollections,
+      },
+    };
     const balances = analyzeContractBalanceWorkflow(draft);
     const analysis = balances.analysis;
     if (!analysis?.billingSchedule) throw new Error("Expected an engine billing schedule.");
@@ -241,6 +257,7 @@ describe("Package 2C-I acceptance: engine-output aliases follow draft order", ()
     expect(analysis.billingSchedule.map((row) => row.eventId)).toEqual([
       "ce-private-second",
       "ce-private-first",
+      "ce-private-third",
     ]);
     const { billingById } = buildFriendlyBalanceLabels(
       draft.contractBalances.considerationEvents,
