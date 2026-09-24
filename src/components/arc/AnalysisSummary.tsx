@@ -75,6 +75,19 @@ export function AnalysisSummary() {
   const nextRevisionNumber =
     (history.data?.revisions.reduce((max, entry) => Math.max(max, entry.revisionNumber), 0) ?? 0) +
     1;
+  const customer = summary.identity.find((item) => item.label === "Customer");
+  const contract = summary.identity.find((item) => item.label === "Contract");
+  const performanceObligations = summary.metrics.find(
+    (item) => item.label === "Performance obligations",
+  );
+  const transactionPrice = summary.metrics.find((item) => item.label === "Transaction price");
+  const primaryMetadataColumns = [
+    { key: "customer-performance-obligations", items: [customer, performanceObligations] },
+    { key: "contract-transaction-price", items: [contract, transactionPrice] },
+  ].map((column) => ({ ...column, items: column.items.filter((item) => item !== undefined) }));
+  const remainingMetrics = summary.metrics.filter(
+    (item) => item.label !== "Performance obligations" && item.label !== "Transaction price",
+  );
 
   return (
     <section
@@ -97,27 +110,41 @@ export function AnalysisSummary() {
         ) : null}
       </div>
 
-      {summary.identity.length > 0 ? (
-        <div className="flex flex-wrap gap-x-6 gap-y-1">
-          {summary.identity.map((item) => (
-            <p key={item.label} className="text-sm text-foreground">
-              <span className="text-muted-foreground">{item.label}: </span>
-              <span className="font-semibold">{item.value}</span>
-            </p>
-          ))}
-        </div>
+      {primaryMetadataColumns.some((column) => column.items.length > 0) ? (
+        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2" data-testid="analysis-primary-metadata">
+          {primaryMetadataColumns.map((column) =>
+            column.items.length > 0 ? (
+              <div key={column.key} className="space-y-3" data-metadata-column={column.key}>
+                {column.items.map((item) => (
+                  <div key={item.label} className="space-y-0.5">
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {item.label}
+                    </dt>
+                    <dd className="text-base font-semibold tabular-nums text-foreground">
+                      {item.value}
+                    </dd>
+                  </div>
+                ))}
+              </div>
+            ) : null,
+          )}
+        </dl>
       ) : null}
 
-      <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-        {summary.metrics.map((metric) => (
-          <div key={metric.label} className="space-y-0.5">
-            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-              {metric.label}
-            </dt>
-            <dd className="text-base font-semibold tabular-nums text-foreground">{metric.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {remainingMetrics.length > 0 ? (
+        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+          {remainingMetrics.map((metric) => (
+            <div key={metric.label} className="space-y-0.5">
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                {metric.label}
+              </dt>
+              <dd className="text-base font-semibold tabular-nums text-foreground">
+                {metric.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
 
       {summary.originDetail ? (
         <p className="text-xs text-muted-foreground">{summary.originDetail}</p>

@@ -164,7 +164,7 @@
 - [x] Strengthen the existing destination focus with one restrained amber flourish and a static reduced-motion treatment
 - [x] Run focused/full verification, desktop+reduced-motion smoke, hygiene checks, and produce a clean source ZIP; stop before 2C-K
 
-## Package 2C-K — Full Verification + Controlled Live Acceptance (PAUSED — narrow-width defects reported, not accepted)
+## Package 2C-K — Full Verification + Controlled Live Acceptance
 - [x] Dependency auto-bump (2.23.1) restored to ^2.15.0 / lock 2.15.0
 - [x] Static gate: 213 files / 2,717 tests (one unidentified first-run flake; two later full runs green), typecheck clean, lint 0 errors / 11 pre-existing warnings, build + audit:bundle clean
 - [x] Database gate: GitHub Verify app + database jobs green (director-confirmed)
@@ -173,4 +173,15 @@
 - [x] Progress, labels, provenance edit, evidence/Open PDF, Go-to focus verified live
 - [ ] DEFECT: Contract Balances Billing Schedule output table overflows page at 390px (no overflow-x wrapper; pre-dates 2C-I)
 - [ ] DEFECT (minor): long assumption "Go to …" button overflows 2px at 390px on Review & Finalize
-- [ ] Clean source ZIP + final report after director decision on the defects
+- [x] Clean source ZIP + final report completed; the two pre-existing narrow-width defects remain explicitly open
+
+### Package 2C-K — Narrow Visual Acceptance Patch
+
+- [x] Polish only the approved homepage copy, CTA hierarchy, card alignment and spacing
+- [x] Present authoritative validation results as issue-first groups with passed checks collapsed
+- [x] Align analysis-summary metadata into the approved responsive two-column structure
+- [x] Confirm the two earlier proposed narrow-width corrections never entered production: `ContractBalanceOutputs.tsx` still lacks the Billing Schedule overflow wrapper and `AiReviewPanel.tsx` still keeps long Go-to labels on one line; both pre-date 2C-I
+- [x] Reconfirm live Terra run `72858cc7-1053-4c3c-9547-005e3ffe1a58` was executed successfully and documented during 2C-K; no repeat required for this presentation-only patch
+- [x] Focused verification: 3 files / 57 tests; full verification: 213 files / 2,718 tests (one added presentation regression); typecheck/build automatic gate clean; lint 0 errors / 11 pre-existing warnings; bundle audit clean
+- [x] Desktop and 390px smoke: homepage card baselines and preferred sample path verified, metadata aligned/stacked, validation disclosure collapsed, and no new horizontal overflow
+- [x] Preserve `@lovable.dev/vite-tanstack-config` ^2.15.0 / lock 2.15.0 and repository hygiene; produce the final clean source ZIP

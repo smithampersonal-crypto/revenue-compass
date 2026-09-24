@@ -6,7 +6,7 @@ import { FEATURES } from "@/lib/arc/features";
 import { AccountMenu } from "./AccountMenu";
 
 const TOP_LEVEL_NAVIGATION = [
-  { label: "Analyze", to: "/analysis" as const, enabled: true },
+  { label: "New Analysis", to: "/analysis" as const, enabled: true },
   { label: "Case Studies", to: null, enabled: FEATURES.CASE_STUDIES_EXPANDED },
   { label: "Guidance Library", to: null, enabled: FEATURES.GUIDANCE_LIBRARY },
 ] as const;
