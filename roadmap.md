@@ -185,3 +185,10 @@
 - [x] Focused verification: 3 files / 57 tests; full verification: 213 files / 2,718 tests (one added presentation regression); typecheck/build automatic gate clean; lint 0 errors / 11 pre-existing warnings; bundle audit clean
 - [x] Desktop and 390px smoke: homepage card baselines and preferred sample path verified, metadata aligned/stacked, validation disclosure collapsed, and no new horizontal overflow
 - [x] Preserve `@lovable.dev/vite-tanstack-config` ^2.15.0 / lock 2.15.0 and repository hygiene; produce the final clean source ZIP
+
+### Package 2C-K — Review & Finalize Presentation Refinement
+
+- [ ] Keep each Source Evidence label and Open PDF action together in a compact, naturally wrapping row
+- [ ] Group passed checks through an explicit rule-ID presentation map, with every rule represented exactly once and unknown rules placed under Other validation checks
+- [ ] Keep grouped accountant-facing summaries one level above a collapsed technical rule-by-rule disclosure
+- [ ] Preserve validation objects, IDs, severity, execution order, pass/fail and blocking semantics; verify focused tests and desktop/narrow presentation
