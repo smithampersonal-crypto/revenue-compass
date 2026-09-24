@@ -305,9 +305,9 @@ describe("Phase 3 — Review & Finalize", () => {
     const passedDisclosure = screen.getByText("Show passed checks").closest("details");
     expect(passedDisclosure).not.toBeNull();
     expect(passedDisclosure).not.toHaveAttribute("open");
-    expect(screen.getByText("Show technical validation details").closest("details")).not.toHaveAttribute(
-      "open",
-    );
+    expect(
+      screen.getByText("Show technical validation details").closest("details"),
+    ).not.toHaveAttribute("open");
     expect(screen.queryByText(/Engine validation/i)).toBeNull();
     expect(screen.getAllByText(/reconciliation/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Billing and Contract-Balance Workpaper")).toBeInTheDocument();
@@ -415,7 +415,9 @@ describe("Phase 3 — Review & Finalize", () => {
     expect(screen.getByRole("heading", { name: "Performance obligations" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Accounting period" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Contract setup" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Standalone selling prices" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Standalone selling prices" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/PASS —/)).not.toBeInTheDocument();
     const technicalLabel = screen.getByText("Show technical validation details");
     const technicalDisclosure = technicalLabel.closest("details");

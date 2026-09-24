@@ -79,7 +79,9 @@ export interface PassedValidationGroup {
   checks: CheckResult[];
 }
 
-export function groupPassedValidationChecks(checks: readonly CheckResult[]): PassedValidationGroup[] {
+export function groupPassedValidationChecks(
+  checks: readonly CheckResult[],
+): PassedValidationGroup[] {
   const passed = checks.filter((check) => check.passed);
   return VALIDATION_PRESENTATION_CATEGORIES.map((category) => ({
     ...category,
