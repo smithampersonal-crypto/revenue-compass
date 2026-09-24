@@ -187,7 +187,11 @@ describe("ARC app shell (Phase 5)", () => {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
 
-    await user.click(within(primaryNav).getByRole("link", { name: "New Analysis" }));
+    const newAnalysis = within(primaryNav).getByRole("link", { name: "New Analysis" });
+    expect(newAnalysis.className).toContain("bg-primary");
+    expect(within(primaryNav).queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
+
+    await user.click(newAnalysis);
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
     expect(router.state.location.search).toEqual({});
   });
