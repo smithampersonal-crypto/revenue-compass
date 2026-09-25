@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { cleanedCallbackUrl } from "@/lib/arc/auth-callback-url";
 import { DEFAULT_SIGNED_IN_PATH, sanitizeLocalPath } from "@/lib/arc/redirect";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -17,17 +18,6 @@ export const Route = createFileRoute("/auth/callback")({
   }),
   component: AuthCallback,
 });
-
-/**
- * The callback URL with every auth credential removed. Only the sanitized,
- * ARC-local destination is retained, and only when it is not the default.
- */
-export function cleanedCallbackUrl(destination: string): string {
-  const safe = sanitizeLocalPath(destination, DEFAULT_SIGNED_IN_PATH);
-  return safe === DEFAULT_SIGNED_IN_PATH
-    ? "/auth/callback"
-    : `/auth/callback?next=${encodeURIComponent(safe)}`;
-}
 
 async function waitForSession(): Promise<boolean> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
