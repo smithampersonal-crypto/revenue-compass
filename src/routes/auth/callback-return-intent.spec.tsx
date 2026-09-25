@@ -99,9 +99,7 @@ describe("auth callback return intent", () => {
   it("navigates to /workspace without next and leaves a bare callback URL", async () => {
     openCallback("?code=SYNTHETIC");
     render(<Page />);
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: "/workspace", replace: true }),
-    );
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/workspace", replace: true }));
     expect(cleanedCallbackUrl(undefined)).toBe("/auth/callback");
   });
 
@@ -113,9 +111,7 @@ describe("auth callback return intent", () => {
       return { data: { user }, error: null };
     });
     render(<Page />);
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: "/workspace", replace: true }),
-    );
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: "/workspace", replace: true }));
     expect(seen[0]).toBe("/auth/callback");
     expect(cleanedCallbackUrl(bad)).toBe("/auth/callback");
   });
