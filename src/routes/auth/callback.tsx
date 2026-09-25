@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { supabase } from "@/integrations/supabase/client";
+import { cleanedCallbackUrl } from "@/lib/arc/auth-callback-url";
 import { DEFAULT_SIGNED_IN_PATH, sanitizeLocalPath } from "@/lib/arc/redirect";
 
 export const Route = createFileRoute("/auth/callback")({
@@ -51,8 +52,10 @@ function AuthCallback() {
         const hasSession = !hasError && (await waitForSession());
         if (!active) return;
 
-        // Strip any auth material from the address bar before continuing.
-        window.history.replaceState({}, "", "/auth/callback");
+        // Strip any auth material from the address bar before continuing, but
+        // keep the already-sanitized local return intent so any re-execution
+        // of this lifecycle still resolves the same destination.
+        window.history.replaceState({}, "", cleanedCallbackUrl(destination));
 
         if (!hasSession) {
           setFailed(true);
