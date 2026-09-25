@@ -18,6 +18,17 @@ export const Route = createFileRoute("/auth/callback")({
   component: AuthCallback,
 });
 
+/**
+ * The callback URL with every auth credential removed. Only the sanitized,
+ * ARC-local destination is retained, and only when it is not the default.
+ */
+export function cleanedCallbackUrl(destination: string): string {
+  const safe = sanitizeLocalPath(destination, DEFAULT_SIGNED_IN_PATH);
+  return safe === DEFAULT_SIGNED_IN_PATH
+    ? "/auth/callback"
+    : `/auth/callback?next=${encodeURIComponent(safe)}`;
+}
+
 async function waitForSession(): Promise<boolean> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const { data } = await supabase.auth.getSession();
@@ -51,8 +62,10 @@ function AuthCallback() {
         const hasSession = !hasError && (await waitForSession());
         if (!active) return;
 
-        // Strip any auth material from the address bar before continuing.
-        window.history.replaceState({}, "", "/auth/callback");
+        // Strip any auth material from the address bar before continuing, but
+        // keep the already-sanitized local return intent so any re-execution
+        // of this lifecycle still resolves the same destination.
+        window.history.replaceState({}, "", cleanedCallbackUrl(destination));
 
         if (!hasSession) {
           setFailed(true);
