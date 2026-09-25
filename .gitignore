@@ -31,8 +31,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files (never commit)
-.env
+# Root .env is tracked: Lovable's published Vite build reads it. It may contain
+# ONLY the public VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY values.
+# All variants stay ignored and every .env* is excluded from source archives.
 .env.*
 !.env.example
 
