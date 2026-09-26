@@ -703,8 +703,7 @@ describe("Phase 9F — AI run orchestration", () => {
 
     type Kind = AiContractAnalysis["billingTerms"][number]["amountKind"];
     const annual = (kind: Kind | "omit"): AiContractAnalysis => {
-      const analysis = genomixR1Analysis();
-      analysis.transactionPrice.fixedConsiderationInput = "490000";
+      const analysis = genomixAnalysis();
       analysis.billingTerms =
         kind === "omit"
           ? analysis.billingTerms.filter((term) => term.semanticKey !== "billing:annual-advance")
@@ -719,28 +718,19 @@ describe("Phase 9F — AI run orchestration", () => {
       const fingerprint = await computeSourceSetFingerprint([
         { documentId: "doc-1", sha256: "a".repeat(64) },
       ]);
-      const prior = annual("fixed_invoice_amount");
-      const first = mergeAiAnalysis({
-        currentDraft: createEmptyDraft(),
-        currentAiState: createEmptyAiAnalysisState(),
-        analysis: prior,
-        runId: "run-earlier",
-        guidancePack: guidancePackFixture(),
-        priorContext: null,
-      });
+      const { draft, aiState: state } = accountantState();
       const objectProvenance = Object.fromEntries(
-        Object.entries(first.aiState.objectProvenance).map(([key, value]) => {
+        Object.entries(state.objectProvenance).map(([key, value]) => {
           const { derivation: _derivation, ...rest } = value;
           return [key, rest];
         }),
       );
       const aiState: AiAnalysisState = {
-        ...first.aiState,
+        ...state,
         objectProvenance,
-        lastSuccessfulRunId: "run-earlier",
         sourceSetFingerprint: fingerprint,
       };
-      return { draft: first.draft, aiState, prior };
+      return { draft, aiState, prior: genomixAnalysis() };
     }
 
     async function reanalyze(
@@ -762,7 +752,7 @@ describe("Phase 9F — AI run orchestration", () => {
 
     it("applies a v7 run that retracts untouched legacy invoices and collections", async () => {
       const base = await legacyBaseline();
-      expect(base.draft.contractBalances.considerationEvents).toHaveLength(2);
+      expect(base.draft.contractBalances.considerationEvents).toHaveLength(1);
       const h = await reanalyze(annual("pricing_basis_only"), base);
 
       expect(h.failure?.code).not.toBe("structural_mutation_detected");
