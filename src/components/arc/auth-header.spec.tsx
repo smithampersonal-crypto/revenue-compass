@@ -98,7 +98,8 @@ describe("ARC identity header (Phase 7B)", () => {
     trigger.click();
 
     const menu = await within(header).findByRole("menu", { name: "Account" });
-    expect(within(menu).getAllByText("ayden@example.test").length).toBeGreaterThan(0);
+    expect(within(header).queryByText("ayden@example.test")).not.toBeInTheDocument();
+    expect(within(menu).getAllByRole("menuitem")).toHaveLength(2);
     expect(within(menu).getByRole("menuitem", { name: "Account settings" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
   });
