@@ -39,7 +39,7 @@ import {
 import { canonicalGroupDecompositionRules, resolveIdentityGraph } from "./identity-graph";
 import type { AiAnalysisState } from "./merge";
 import { parseBillingEventSemanticKey } from "./billing-identity";
-import type { AiCitation, AiContractAnalysis } from "./schema";
+import { AI_OUTPUT_SCHEMA_VERSION, type AiCitation, type AiContractAnalysis } from "./schema";
 
 /* ------------------------------------------------------------------ types */
 
@@ -459,12 +459,33 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
   // billing schedule, so schedule continuity is what protects them from
   // duplication. Only schedules that actually produced canonical rows count.
   const canonicalTermKeys = new Set<string>();
-  for (const [semanticKey] of Object.entries(state.objectProvenance)) {
+  // Package 3D-Q: terms whose every canonical row is an untouched, pre-v7
+  // (unmarked) AI derivation. On a deliberate v7 run such a schedule is
+  // unproven; if the new run omits the term, the merge retracts exactly those
+  // rows and the post-merge backstop verifies the exact retraction. Anything
+  // edited, or created under the v7 gate, stays a protected incumbent.
+  const retractableLegacyTerms = new Map<string, boolean>();
+  for (const [semanticKey, provenance] of Object.entries(state.objectProvenance)) {
     const base = semanticKey.endsWith("#collection")
       ? semanticKey.slice(0, -"#collection".length)
       : semanticKey;
     const parsed = parseBillingEventSemanticKey(base);
-    if (parsed !== null) canonicalTermKeys.add(parsed.termKey);
+    if (parsed === null) continue;
+    canonicalTermKeys.add(parsed.termKey);
+    const legacyUntouched =
+      provenance.derivation === undefined &&
+      !provenance.userModified &&
+      provenance.state === "ai_generated_untouched";
+    retractableLegacyTerms.set(
+      parsed.termKey,
+      (retractableLegacyTerms.get(parsed.termKey) ?? true) && legacyUntouched,
+    );
+  }
+  if (input.analysis.schemaVersion === AI_OUTPUT_SCHEMA_VERSION) {
+    const proposed = new Set(input.analysis.billingTerms.map((term) => term.semanticKey));
+    for (const [termKey, retractable] of retractableLegacyTerms) {
+      if (retractable && !proposed.has(termKey)) canonicalTermKeys.delete(termKey);
+    }
   }
 
   const billingFacts = (term: AiContractAnalysis["billingTerms"][number]) =>
