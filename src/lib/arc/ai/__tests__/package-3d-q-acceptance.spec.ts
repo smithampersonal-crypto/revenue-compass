@@ -133,7 +133,9 @@ describe("structural backstop — exact legacy retraction allowance", () => {
       { ...base, variableConsiderationComponents: base.variableConsiderationComponents.slice(1) },
       {
         ...base,
-        contractModifications: [{ id: "mod-extra" } as WorkflowDraft["contractModifications"][number]],
+        contractModifications: [
+          { id: "mod-extra" } as WorkflowDraft["contractModifications"][number],
+        ],
       },
     ];
     for (const variant of variants) {
@@ -178,7 +180,12 @@ describe("structural backstop — exact legacy retraction allowance", () => {
 /* ============================================== 2. evidence cohesion */
 
 describe("fixed-billing evidence is never composed across sentences", () => {
-  const input = (excerpt: string, amount: string, frequency: "monthly" | "annual", timing: "advance" | "arrears") => ({
+  const input = (
+    excerpt: string,
+    amount: string,
+    frequency: "monthly" | "annual",
+    timing: "advance" | "arrears",
+  ) => ({
     billingTiming: timing,
     frequency,
     amountOrRateInput: amount,
@@ -215,7 +222,12 @@ describe("fixed-billing evidence is never composed across sentences", () => {
   it("still accepts the exact Genomix phrase and explicit single-sentence terms", () => {
     expect(
       checkFixedBillingEvidence(
-        input("Billing Schedule Annual Advance ($245,000/yr Net 30)", "245000", "annual", "advance"),
+        input(
+          "Billing Schedule Annual Advance ($245,000/yr Net 30)",
+          "245000",
+          "annual",
+          "advance",
+        ),
       ),
     ).toEqual({ ok: true });
     expect(
@@ -244,7 +256,10 @@ function v6Payload(): Record<string, unknown> {
 
 describe("schema v6 → v7 transition", () => {
   it("parses a persisted v6 payload and normalizes missing amountKind to unknown", () => {
-    const parsed = parsePersistedAiContractAnalysis(v6Payload(), LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION);
+    const parsed = parsePersistedAiContractAnalysis(
+      v6Payload(),
+      LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION,
+    );
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.analysis.billingTerms.length).toBeGreaterThan(0);
@@ -266,13 +281,19 @@ describe("schema v6 → v7 transition", () => {
     const { draft, aiState } = legacyState();
     const snapshot = JSON.stringify(draft.contractBalances);
     // Opening: reading the immutable prior result touches no draft.
-    expect(parsePersistedAiContractAnalysis(v6Payload(), LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION).ok).toBe(
-      true,
-    );
+    expect(
+      parsePersistedAiContractAnalysis(v6Payload(), LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION).ok,
+    ).toBe(true);
     // Autosave of an unchanged draft: the only non-merge path over draft + sidecar.
-    const reconciled = reconcileAiEdits({ previousDraft: draft, nextDraft: draft, currentAiState: aiState });
+    const reconciled = reconcileAiEdits({
+      previousDraft: draft,
+      nextDraft: draft,
+      currentAiState: aiState,
+    });
     expect(JSON.stringify(draft.contractBalances)).toBe(snapshot);
-    const billingKeys = Object.keys(aiState.objectProvenance).filter((key) => key.startsWith("billing"));
+    const billingKeys = Object.keys(aiState.objectProvenance).filter((key) =>
+      key.startsWith("billing"),
+    );
     for (const key of billingKeys) {
       expect(reconciled.aiState.objectProvenance[key]).toBeDefined();
       expect(reconciled.aiState.objectProvenance[key]!.derivation).toBeUndefined();
@@ -283,6 +304,8 @@ describe("schema v6 → v7 transition", () => {
     const { draft, aiState } = legacyState();
     const merged = v7Merge(draft, aiState);
     expect(merged.draft.contractBalances.considerationEvents).toHaveLength(0);
-    expect(merged.issues.some((issue) => issue.reasonCode === "ai_derivation_retracted")).toBe(true);
+    expect(merged.issues.some((issue) => issue.reasonCode === "ai_derivation_retracted")).toBe(
+      true,
+    );
   });
 });

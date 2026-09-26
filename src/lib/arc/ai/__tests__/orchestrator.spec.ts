@@ -762,7 +762,9 @@ describe("Phase 9F — AI run orchestration", () => {
       const items = h.applied?.aiState.reviewItems ?? [];
       expect(items.some((item) => item.reasonCode === "ai_derivation_retracted")).toBe(true);
       // Nothing else in the accountant's structure moved.
-      expect(h.applied?.draft.promises.map((p) => p.id)).toEqual(base.draft.promises.map((p) => p.id));
+      expect(h.applied?.draft.promises.map((p) => p.id)).toEqual(
+        base.draft.promises.map((p) => p.id),
+      );
       expect(h.applied?.draft.performanceObligations.map((p) => p.id)).toEqual(
         base.draft.performanceObligations.map((p) => p.id),
       );
@@ -802,15 +804,21 @@ describe("Phase 9F — AI run orchestration", () => {
       expect(h.failure).toBeNull();
       const before = base.draft.contractBalances;
       const after = h.applied!.draft.contractBalances;
-      expect(after.considerationEvents.map((r) => r.id)).toEqual(before.considerationEvents.map((r) => r.id));
-      expect(after.cashCollections.map((r) => r.id)).toEqual(before.cashCollections.map((r) => r.id));
+      expect(after.considerationEvents.map((r) => r.id)).toEqual(
+        before.considerationEvents.map((r) => r.id),
+      );
+      expect(after.cashCollections.map((r) => r.id)).toEqual(
+        before.cashCollections.map((r) => r.id),
+      );
       const billing = Object.values(h.applied!.aiState.objectProvenance).filter(
         (entry) => entry.canonicalId.startsWith("ce-") || entry.canonicalId.startsWith("cc-"),
       );
       expect(billing.length).toBeGreaterThan(0);
       expect(billing.every((entry) => entry.derivation === "evidence_gated_v7")).toBe(true);
       expect(
-        h.applied!.aiState.reviewItems.some((item) => item.reasonCode === "ai_derivation_retracted"),
+        h.applied!.aiState.reviewItems.some(
+          (item) => item.reasonCode === "ai_derivation_retracted",
+        ),
       ).toBe(false);
     });
   });

@@ -610,7 +610,11 @@ export function detectsStructuralMutation(
   }
   // Every collection of a declared invoice must itself be declared: no orphan.
   for (const row of beforeCash) {
-    if (row.considerationEventId != null && events.has(row.considerationEventId) && !cash.has(row.id)) {
+    if (
+      row.considerationEventId != null &&
+      events.has(row.considerationEventId) &&
+      !cash.has(row.id)
+    ) {
       return true;
     }
   }
