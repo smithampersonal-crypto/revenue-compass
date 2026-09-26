@@ -41,10 +41,11 @@ function annualAdvanceTerm(semanticKey: string, overrides: Partial<BillingTerm> 
         pageStart: 1,
         pageEnd: 1,
         evidenceMode: "text" as const,
-        excerpt: "Net 30",
+        excerpt: "billing schedule annual advance ($245,000/yr net 30)",
       },
     ],
     reviewState: "supported",
+    amountKind: "fixed_invoice_amount",
     ...overrides,
   };
 }
@@ -226,7 +227,7 @@ describe("billing-schedule lineage identity", () => {
           pageStart: 7,
           pageEnd: 7,
           evidenceMode: "text" as const,
-          excerpt: "implementation fee",
+          excerpt: "The one-time $50,000 implementation fee is invoiced upon signing.",
         },
       ],
     });
@@ -251,7 +252,7 @@ describe("billing-schedule lineage identity", () => {
           pageStart: 6,
           pageEnd: 6,
           evidenceMode: "text" as const,
-          excerpt: "managed services",
+          excerpt: "The $245,000 managed services fee is invoiced annually in advance.",
         },
       ],
     });
