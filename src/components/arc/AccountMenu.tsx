@@ -1,10 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
 
+import { PersonIcon } from "./icons";
 import { useSupabaseSession } from "./use-supabase-session";
 
 /**
@@ -39,8 +39,9 @@ export function AccountMenu() {
     return (
       <Link
         to="/auth"
-        className="inline-flex min-h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
+        <PersonIcon />
         Sign in
       </Link>
     );
@@ -71,24 +72,17 @@ export function AccountMenu() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Account menu"
-          className="inline-flex min-h-9 max-w-[12rem] items-center gap-1.5 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <span className="truncate">{session.email ?? "Account"}</span>
-          <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+          <PersonIcon className="size-5" />
         </button>
 
         {open ? (
           <div
             role="menu"
             aria-label="Account"
-            className="absolute right-0 z-50 mt-2 w-60 rounded-md border border-border bg-card p-1 shadow-lg"
+            className="absolute right-0 z-50 mt-2 w-48 rounded-md border border-border bg-card p-1 shadow-lg"
           >
-            <p
-              className="truncate px-3 py-2 text-xs text-muted-foreground"
-              title={session.email ?? ""}
-            >
-              {session.email ?? "Signed in"}
-            </p>
             <Link
               to="/account"
               role="menuitem"
