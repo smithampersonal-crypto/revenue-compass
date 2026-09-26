@@ -815,7 +815,7 @@ describe("Phase 9F — AI run orchestration", () => {
       expect(after.considerationEvents.map((r) => r.id)).toEqual(before.considerationEvents.map((r) => r.id));
       expect(after.cashCollections.map((r) => r.id)).toEqual(before.cashCollections.map((r) => r.id));
       const billing = Object.values(h.applied!.aiState.objectProvenance).filter(
-        (entry) => entry.canonicalId.startsWith("ce-ai-") || entry.canonicalId.startsWith("cc-ai-"),
+        (entry) => entry.canonicalId.startsWith("ce-") || entry.canonicalId.startsWith("cc-"),
       );
       expect(billing.length).toBeGreaterThan(0);
       expect(billing.every((entry) => entry.derivation === "evidence_gated_v7")).toBe(true);
