@@ -163,7 +163,9 @@ describe("Package 3D-R — review navigation overrides a remembered closed secti
     search = { review: PRICE_ITEM.id };
     const first = renderArea(store, identity);
 
-    const step3 = await screen.findByRole("button", { name: /Step 3 — Determine the Transaction Price/ });
+    const step3 = await screen.findByRole("button", {
+      name: /Step 3 — Determine the Transaction Price/,
+    });
     await waitFor(() => expect(step3).toHaveAttribute("aria-expanded", "true"));
     const anchorId = reviewTargetAnchorId(PRICE_ITEM.targetKey);
     await waitFor(() => expect(document.getElementById(anchorId)).not.toBeNull());
