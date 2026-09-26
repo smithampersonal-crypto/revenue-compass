@@ -64,6 +64,7 @@ function annualAdvanceTerm(semanticKey: string): BillingTerm {
       },
     ],
     reviewState: "supported",
+    amountKind: "fixed_invoice_amount",
   };
 }
 
