@@ -23,7 +23,7 @@ function liveInstructions(): string {
 
 describe("prompt version authority", () => {
   it("is the compiled 2C constant", () => {
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v10");
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v11");
   });
 
   it("records exactly the version the instruction body states", () => {
