@@ -1,4 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { useRef } from "react";
 
 import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
