@@ -88,10 +88,6 @@ function SourceDocumentsArea() {
                 This fictional order form supports the pre-populated Horizon case study and lets you
                 trace the contract terms behind the sample accounting.
               </p>
-              <p className="mt-3 text-sm leading-6 text-foreground">
-                The Horizon analysis is pre-populated for demonstration. This synthetic source
-                document is provided so you can trace the underlying contract terms.
-              </p>
             </div>
             <Button asChild>
               <a href={HORIZON_SAMPLE_PDF} target="_blank" rel="noreferrer">

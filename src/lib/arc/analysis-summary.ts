@@ -37,7 +37,7 @@ export interface AnalysisSummaryModel {
 
 const ORIGIN_LABELS: Record<AnalysisOrigin, string> = {
   manual: "Draft Analysis",
-  sample: "Sample Analysis — Fictional Contract",
+  sample: "",
   ai: "AI Draft",
 };
 

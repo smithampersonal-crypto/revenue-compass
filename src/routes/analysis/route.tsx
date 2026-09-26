@@ -7,6 +7,7 @@ import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context
 import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
 import { AiProvenanceLegend } from "@/components/arc/AiReviewTarget";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
+import { JumpToTop, JUMP_TARGET_ID } from "@/components/arc/JumpToTop";
 import { GuestSavePanel } from "@/components/arc/GuestSavePanel";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { ReadOnlyInputs } from "@/components/arc/ReadOnlyInputs";
@@ -186,15 +187,20 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
           <Notice tone="warning">{historical.error}</Notice>
         ) : (
           <>
-            <AnalysisSummary />
+            <div id={JUMP_TARGET_ID} tabIndex={-1} className="space-y-6 outline-none">
+              <AnalysisSummary />
 
-            <GuestSavePanel autoOpen={autoOpenSave} />
+              <GuestSavePanel autoOpen={autoOpenSave} />
 
-            <AnalysisNavigation />
+              <AnalysisNavigation />
+            </div>
 
             <ReadOnlyInputs active={!canEdit}>
               <Outlet />
             </ReadOnlyInputs>
+
+            {/* Navigation chrome: outside ReadOnlyInputs so it is never disabled. */}
+            <JumpToTop />
           </>
         )}
       </main>

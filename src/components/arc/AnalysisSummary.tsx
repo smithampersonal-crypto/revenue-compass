@@ -95,9 +95,11 @@ export function AnalysisSummary() {
       className="space-y-4 rounded-lg border border-border bg-card p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-          {summary.originLabel}
-        </span>
+        {summary.originLabel ? (
+          <span className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+            {summary.originLabel}
+          </span>
+        ) : null}
         <span
           className={`rounded-md border px-2 py-1 text-xs font-medium ${TONE_CLASS[summary.statusTone]}`}
         >
