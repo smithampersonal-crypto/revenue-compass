@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Package 3D-R: provider, hook and default factory live together by design. */
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
 /**
