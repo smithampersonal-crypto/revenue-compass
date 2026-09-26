@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AnalysisRouteRouteImport } from './routes/analysis/route'
 import { Route as EngineCheckRouteImport } from './routes/engine-check'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as SitemapRouteImport } from './routes/sitemap'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
@@ -42,6 +44,16 @@ const AnalysisRouteRoute = AnalysisRouteRouteImport.update({
 const EngineCheckRoute = EngineCheckRouteImport.update({
   id: '/engine-check',
   path: '/engine-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapRoute = SitemapRouteImport.update({
+  id: '/sitemap',
+  path: '/sitemap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
@@ -104,6 +116,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRouteRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/privacy': typeof PrivacyRoute
+  '/sitemap': typeof SitemapRoute
   '/account': typeof AuthenticatedAccountRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
@@ -119,6 +133,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/engine-check': typeof EngineCheckRoute
+  '/privacy': typeof PrivacyRoute
+  '/sitemap': typeof SitemapRoute
   '/account': typeof AuthenticatedAccountRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
@@ -137,6 +153,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/analysis': typeof AnalysisRouteRouteWithChildren
   '/engine-check': typeof EngineCheckRoute
+  '/privacy': typeof PrivacyRoute
+  '/sitemap': typeof SitemapRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
   '/analysis/balances': typeof AnalysisBalancesRoute
@@ -155,6 +173,8 @@ export interface FileRouteTypes {
     | '/'
     | '/analysis'
     | '/engine-check'
+    | '/privacy'
+    | '/sitemap'
     | '/account'
     | '/workspace'
     | '/analysis/balances'
@@ -170,6 +190,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/engine-check'
+    | '/privacy'
+    | '/sitemap'
     | '/account'
     | '/workspace'
     | '/analysis/balances'
@@ -187,6 +209,8 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/analysis'
     | '/engine-check'
+    | '/privacy'
+    | '/sitemap'
     | '/_authenticated/account'
     | '/_authenticated/workspace'
     | '/analysis/balances'
@@ -205,6 +229,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AnalysisRouteRoute: typeof AnalysisRouteRouteWithChildren
   EngineCheckRoute: typeof EngineCheckRoute
+  PrivacyRoute: typeof PrivacyRoute
+  SitemapRoute: typeof SitemapRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthIndexRoute: typeof AuthIndexRoute
   ApiPublicMaintenanceRoute: typeof ApiPublicMaintenanceRoute
@@ -238,6 +264,20 @@ declare module '@tanstack/react-router' {
       path: '/engine-check'
       fullPath: '/engine-check'
       preLoaderRoute: typeof EngineCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap': {
+      id: '/sitemap'
+      path: '/sitemap'
+      fullPath: '/sitemap'
+      preLoaderRoute: typeof SitemapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/account': {
@@ -360,6 +400,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AnalysisRouteRoute: AnalysisRouteRouteWithChildren,
   EngineCheckRoute: EngineCheckRoute,
+  PrivacyRoute: PrivacyRoute,
+  SitemapRoute: SitemapRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthIndexRoute: AuthIndexRoute,
   ApiPublicMaintenanceRoute: ApiPublicMaintenanceRoute,
