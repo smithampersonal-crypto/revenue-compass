@@ -240,3 +240,12 @@
 - [x] Journal summary bar replaces reconciliation tile (gating unchanged)
 - [x] Verification: 218 files / 2,759 tests, typecheck, lint 0 errors, build, secret scan
 - [x] Publish + live smoke; post-publish restore (signed-in menu not checked live — needs owner session)
+
+## Package 3D-Q — Billing Evidence / Contract Balances Fail-Closed
+
+- [x] Schema v7 + required amountKind; v5/v6 normalize to unknown
+- [x] ARC-owned evidence check (currency, generic per-X refusal, cadence, timing) + supported-only allowlist
+- [x] Gate schedule derivation and fixed-total derivation
+- [x] Narrow v7 retraction of untouched legacy AI billing rows (object provenance)
+- [x] Prompt hardening + version bump
+- [x] Tests: ABC, positives, Genomix exact wording, transitions; full verify; frozen state

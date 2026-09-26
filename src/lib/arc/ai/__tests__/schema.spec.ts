@@ -36,12 +36,12 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("pins the output schema version to the 9C constant", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v6");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v7");
   });
 
   it("accepts only the authoritative schema version literal", () => {
     const good = validAnalysisFixture();
-    good.schemaVersion = "arc.ai.schema.v6";
+    good.schemaVersion = "arc.ai.schema.v7";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
     for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
@@ -74,6 +74,10 @@ describe("AiContractAnalysis schema", () => {
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
     delete promises[0]!["accountingLabel"];
     delete obligations[0]!["accountingLabel"];
+    // v5 predates the v7 billing amountKind discriminator.
+    for (const term of legacy["billingTerms"] as Array<Record<string, unknown>>) {
+      delete term["amountKind"];
+    }
 
     expect(parseAiContractAnalysis(legacy).ok).toBe(false);
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_AI_OUTPUT_SCHEMA_VERSION);

@@ -101,6 +101,12 @@ describe("R1 acceptance — the deterministic full-term total is authoritative",
         description: "A second, independently schedulable fixed invoice.",
         frequency: "quarterly",
         amountOrRateInput: "10000",
+        citations: [
+          {
+            ...analysis.billingTerms[0]!.citations[0]!,
+            excerpt: "A separate $10,000 fee is invoiced quarterly in advance.",
+          },
+        ],
       },
     ];
     expect(run({ analysis }).draft.transactionPriceInput).toBe("490000");

@@ -244,8 +244,9 @@ export function genomixR1Analysis(): AiContractAnalysis {
         amountOrRateInput: "245000",
         paymentTermsDays: 30,
         dueDateRule: "Net 30 from invoice date.",
-        citations: [cite(1, "Net 30")],
+        citations: [cite(1, "billing schedule annual advance ($245,000/yr net 30)")],
         reviewState: "supported",
+        amountKind: "fixed_invoice_amount",
       },
       {
         semanticKey: "billing:overage",
@@ -258,6 +259,7 @@ export function genomixR1Analysis(): AiContractAnalysis {
         dueDateRule: "Net 30 from invoice date.",
         citations: [cite(1, "1.35 per sample")],
         reviewState: "supported",
+        amountKind: "per_unit_rate",
       },
     ],
     projectedCollectionAssumptions: {

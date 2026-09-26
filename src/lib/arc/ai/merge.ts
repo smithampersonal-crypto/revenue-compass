@@ -95,6 +95,7 @@ import {
   type AiTombstoneKind,
 } from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
+import { aiFixedScheduleEligibility } from "./billing-evidence";
 import {
   carryForwardReviewResolutions,
   deriveReviewItem,
@@ -105,6 +106,7 @@ import {
   type AiReviewReasonCode,
 } from "./review-state";
 import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
+import { AI_OUTPUT_SCHEMA_VERSION } from "./schema";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
@@ -134,6 +136,12 @@ export interface AiObjectProvenance extends AiFieldProvenance {
   identitySignature?: IdentitySignature;
   /** Earlier model aliases of this same canonical object, oldest first. */
   previousSemanticKeys?: readonly string[];
+  /**
+   * Package 3D-Q. Present on an AI-derived invoice or projected collection
+   * claimed by a v7 merge whose schedule passed ARC's evidence gate. Its
+   * absence on a billing object marks legacy (pre-v7) derivation.
+   */
+  derivation?: "evidence_gated_v7";
 }
 
 export interface AiAnalysisState {
@@ -564,6 +572,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     frequency: term.frequency,
     invoiceTrigger: term.invoiceTrigger,
     amountOrRateInput: term.amountOrRateInput,
+    amountKind: term.amountKind ?? "unknown",
     paymentTermsDays: term.paymentTermsDays,
     dueDateRule: term.dueDateRule,
   });
@@ -1968,8 +1977,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // a period fee, the correct total, a wrong total or nothing at all. The
   // model's validated full-term conclusion is used only when no unambiguous
   // schedule exists, and neither ever overwrites the accountant's own amount.
+  // Package 3D-Q. Only a term that passes the same evidence gate as schedule
+  // derivation may determine — or contest — the billing-derived total. A rate,
+  // pricing basis or unsupported term never overrides the transaction price.
   const fixedDerivation = deriveUnambiguousFixedBillingTotal({
-    billingTerms: analysis.billingTerms,
+    billingTerms: analysis.billingTerms.filter((term) => aiFixedScheduleEligibility(term).ok),
     servicePeriod: deriveContractServicePeriod(draft),
   });
   const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
@@ -2839,6 +2851,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
 
   const servicePeriod = deriveContractServicePeriod(draft);
   const projection = analysis.projectedCollectionAssumptions;
+  // Package 3D-Q. Only a deliberate v7 merge marks evidence-gated billing
+  // objects and may retract untouched legacy ones.
+  const isV7Merge = analysis.schemaVersion === AI_OUTPUT_SCHEMA_VERSION;
+  const gatedBillingKeys = new Set<string>();
 
   // Phase L. A billing-term key is a model alias, so the SCHEDULE is
   // reconciled before any invoice can be derived from it. Event identity then
@@ -2966,6 +2982,26 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
+    // Package 3D-Q. The deterministic evidence boundary: the model's labels
+    // are proposals, and ARC creates no invoice (and so no projected
+    // collection) unless its own reading of the cited source text agrees.
+    const eligibility = aiFixedScheduleEligibility(term);
+    if (!eligibility.ok) {
+      raise({
+        targetKey: `billing:${semanticKey}`,
+        section: "additional_topics",
+        reasonCode: "billing_schedule_not_derivable",
+        reason: `ARC did not create invoices for "${term.description.slice(0, 100)}" because the contract evidence does not establish a fixed invoice amount with a supported billing schedule (the amount appears to be a rate, pricing basis or unresolved term). Enter the actual billing events if known.`,
+        guidanceIds: [],
+        citations: term.citations,
+        value: eligibility.reason,
+        material: { reason: eligibility.reason, ...billingMaterial(term) },
+        aiReviewState: term.reviewState,
+        blocking: true,
+      });
+      continue;
+    }
+
     const schedule = deriveBillingSchedule({
       billingTiming: term.billingTiming,
       frequency: term.frequency,
@@ -3058,6 +3094,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // The schedule identity is recorded on the derived invoice, so a later
       // run that renames the billing term can still find this lineage.
       claimObject(eventSemanticKey, eventId, eventSignature);
+      if (isV7Merge) gatedBillingKeys.add(eventSemanticKey);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -3129,6 +3166,109 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // A projected collection is subordinate to its canonical invoice: it
       // inherits the same schedule identity and is never matched on its own.
       claimObject(cashSemanticKey, cashId, collectionSignature);
+      if (isV7Merge) gatedBillingKeys.add(cashSemanticKey);
+    }
+  }
+
+  /* ----------------------------- legacy AI billing retraction (Package 3D-Q) */
+
+  // A pre-v7 AI-derived invoice was created without any evidence gate, so its
+  // derivation is unproven. On a deliberate v7 merge, a legacy invoice that
+  // this run did not re-claim under an eligible schedule is retracted — with
+  // its dependent projected collections — ONLY when every row in that unit is
+  // still exactly what ARC last wrote. Ownership is decided from object
+  // provenance alone. Anything the accountant touched is kept and raised red.
+  // A retraction is not a tombstone: a later evidence-supported proposal may
+  // create the schedule again. This is the one billing-specific exception to
+  // "omitted AI objects are retained".
+  if (isV7Merge) {
+    const claimedKeys = new Set(claimedObjects.map((entry) => entry.semanticKey));
+    const legacyBilling = new Map<string, AiObjectProvenance & { key: string }>();
+    for (const [key, provenance] of Object.entries(objectProvenance)) {
+      const isEvent = provenance.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX);
+      const isCollection = provenance.canonicalId.startsWith(BILLING_COLLECTION_ID_PREFIX);
+      if (!isEvent && !isCollection) continue;
+      if (provenance.derivation !== undefined) continue;
+      if (claimedKeys.has(key)) continue;
+      if (!takenIds.has(provenance.canonicalId)) continue;
+      legacyBilling.set(provenance.canonicalId, { ...provenance, key });
+    }
+    const untouched = (entry: AiObjectProvenance & { key: string }) =>
+      !entry.userModified &&
+      entry.state === "ai_generated_untouched" &&
+      preMergeFingerprints.get(entry.key) === entry.valueFingerprint;
+
+    const retractedTerms = new Map<string, number>();
+    const retainedTerms = new Map<string, string[]>();
+    const removeEventIds = new Set<string>();
+    const removeCashIds = new Set<string>();
+    const termKeyOf = (key: string) =>
+      parseBillingEventSemanticKey(
+        key.endsWith("#collection") ? key.slice(0, -"#collection".length) : key,
+      )?.termKey ?? key;
+
+    for (const event of draft.contractBalances.considerationEvents) {
+      const entry = legacyBilling.get(event.id);
+      if (entry === undefined || !entry.canonicalId.startsWith(BILLING_EVENT_ID_PREFIX)) continue;
+      const dependents = draft.contractBalances.cashCollections.filter(
+        (row) => row.considerationEventId === event.id,
+      );
+      const dependentEntries = dependents.map((row) => legacyBilling.get(row.id));
+      const unitUntouched =
+        untouched(entry) &&
+        dependentEntries.every((dependent) => dependent !== undefined && untouched(dependent));
+      const termKey = termKeyOf(entry.key);
+      if (unitUntouched) {
+        removeEventIds.add(event.id);
+        for (const row of dependents) removeCashIds.add(row.id);
+        retractedTerms.set(termKey, (retractedTerms.get(termKey) ?? 0) + 1);
+      } else {
+        retainedTerms.set(termKey, [...(retainedTerms.get(termKey) ?? []), event.id]);
+      }
+    }
+
+    if (removeEventIds.size > 0) {
+      draft.contractBalances = {
+        ...draft.contractBalances,
+        considerationEvents: draft.contractBalances.considerationEvents.filter(
+          (row) => !removeEventIds.has(row.id),
+        ),
+        cashCollections: draft.contractBalances.cashCollections.filter(
+          (row) => !removeCashIds.has(row.id),
+        ),
+      };
+      for (const id of [...removeEventIds, ...removeCashIds]) {
+        const entry = legacyBilling.get(id);
+        if (entry !== undefined) delete objectProvenance[entry.key];
+        delete fieldProvenance[fieldKeys.billing(id, "invoiceDate")];
+        takenIds.delete(id);
+      }
+    }
+
+    for (const [termKey, count] of [...retractedTerms].sort(([a], [b]) => a.localeCompare(b))) {
+      raise({
+        targetKey: `billing-retracted:${termKey}`,
+        section: "additional_topics",
+        reasonCode: "ai_derivation_retracted",
+        reason:
+          "ARC removed invoices an earlier analysis created for this billing term because the contract evidence does not support that billing schedule. Enter the actual billing events if known.",
+        guidanceIds: [],
+        value: { termKey, retractedInvoices: count },
+        aiReviewState: "needs_review",
+      });
+    }
+    for (const [termKey, ids] of [...retainedTerms].sort(([a], [b]) => a.localeCompare(b))) {
+      raise({
+        targetKey: `billing-retained:${termKey}`,
+        section: "additional_topics",
+        reasonCode: "legacy_billing_row_retained",
+        reason:
+          "An earlier analysis created invoices for this billing term that the current contract evidence does not support. You have edited them, so ARC kept them — confirm or remove them yourself.",
+        guidanceIds: [],
+        value: { termKey, eventIds: [...ids].sort() },
+        aiReviewState: "needs_review",
+        blocking: true,
+      });
     }
   }
 
@@ -3253,6 +3393,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const carried = objectProvenance[semanticKey];
     const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
+    const derivation = gatedBillingKeys.has(semanticKey)
+      ? "evidence_gated_v7"
+      : carried?.derivation;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
     // ARC last wrote. A difference created by ARC applying this very analysis
@@ -3277,6 +3420,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       userModified,
       ...(signature === undefined ? {} : { identitySignature: signature }),
       ...(lineage === undefined || lineage.length === 0 ? {} : { previousSemanticKeys: lineage }),
+      ...(derivation === undefined ? {} : { derivation }),
     };
   }
 

@@ -108,7 +108,11 @@ export type AiReviewReasonCode =
   | "provisional_ssp_basis"
   /** Phase 9G-R Task R2. An ARC-approved, low-risk routine draft assumption. */
   | "routine_assumption"
-  | "accountant_affirmation_required";
+  | "accountant_affirmation_required"
+  /** Package 3D-Q. Untouched legacy AI invoices retracted by a v7 merge. */
+  | "ai_derivation_retracted"
+  /** Package 3D-Q. Edited legacy AI invoices kept for accountant decision. */
+  | "legacy_billing_row_retained";
 
 /** Every valid machine reason code, for validating persisted values. */
 export const AI_REVIEW_REASON_CODES: readonly AiReviewReasonCode[] = [
@@ -130,6 +134,8 @@ export const AI_REVIEW_REASON_CODES: readonly AiReviewReasonCode[] = [
   "provisional_ssp_basis",
   "routine_assumption",
   "accountant_affirmation_required",
+  "ai_derivation_retracted",
+  "legacy_billing_row_retained",
 ];
 
 export const AI_REVIEW_SECTIONS: readonly GuidanceReviewSection[] = [

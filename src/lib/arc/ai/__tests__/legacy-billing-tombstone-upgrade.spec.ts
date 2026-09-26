@@ -55,10 +55,11 @@ function annualAdvanceTerm(semanticKey: string): BillingTerm {
         pageStart: 1,
         pageEnd: 1,
         evidenceMode: "text" as const,
-        excerpt: "Net 30",
+        excerpt: "billing schedule annual advance ($245,000/yr net 30)",
       },
     ],
     reviewState: "supported",
+    amountKind: "fixed_invoice_amount",
   };
 }
 
