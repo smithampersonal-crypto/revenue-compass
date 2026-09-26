@@ -322,3 +322,121 @@ describe("persisted revision labels", () => {
     );
   });
 });
+
+describe("Transaction price headline follows Step 3 validity (Package 3D patch)", () => {
+  const tp = (draft: WorkflowDraft, origin: "manual" | "sample" | "ai" = "manual") =>
+    summaryFor(draft, origin).metrics.find((m) => m.label === "Transaction price")?.value;
+
+  function apexWithoutPointInTimeDate(): WorkflowDraft {
+    const base = createDemoDraft("apex");
+    return {
+      ...base,
+      performanceObligations: base.performanceObligations.map((po) =>
+        po.recognitionMethod === "point_in_time" ? { ...po, recognitionDate: "" } : po,
+      ),
+    };
+  }
+
+  it("shows the price while a Step 5 recognition blocker keeps downstream outputs withheld", () => {
+    const draft = apexWithoutPointInTimeDate();
+    const result = analyzeWorkflow(draft);
+    expect(result.workflowValidation.blockingByStep["5"].length).toBeGreaterThan(0);
+    expect(result.workflowValidation.blockingByStep["3"]).toEqual([]);
+    expect(result.analysis).toBeNull();
+    expect(result.revenueSchedule).toBeNull();
+    expect(tp(draft)).toBe(formatCents(12_600_000));
+  });
+
+  it("shows the price while an unrelated Step 4 blocker is open", () => {
+    const base = createDemoDraft("apex");
+    const draft: WorkflowDraft = {
+      ...base,
+      performanceObligations: base.performanceObligations.map((po, i) =>
+        i === 0 ? { ...po, sspInput: "" } : po,
+      ),
+    };
+    const result = analyzeWorkflow(draft);
+    expect(result.workflowValidation.blockingByStep["4"].length).toBeGreaterThan(0);
+    expect(result.analysis).toBeNull();
+    expect(tp(draft)).toBe(formatCents(12_600_000));
+  });
+
+  it.each([
+    ["missing", ""],
+    ["unreadable", "abc"],
+    ["zero", "0"],
+    ["negative", "-5.00"],
+  ])("withholds the price for %s Step 3 input", (_name, input) => {
+    const draft = { ...createDemoDraft("apex"), transactionPriceInput: input };
+    expect(analyzeWorkflow(draft).workflowValidation.blockingByStep["3"].length).toBeGreaterThan(0);
+    expect(tp(draft)).toBeUndefined();
+  });
+
+  it("withholds the price when Step 1 is incomplete or does not qualify", () => {
+    const base = createDemoDraft("apex");
+    const keys = Object.keys(base.contract.criteria) as (keyof typeof base.contract.criteria)[];
+    const withAnswer = (answer: boolean | null): WorkflowDraft => ({
+      ...base,
+      contract: {
+        ...base.contract,
+        criteria: {
+          ...base.contract.criteria,
+          [keys[0]!]: { ...base.contract.criteria[keys[0]!], answer },
+        },
+      },
+    });
+    expect(analyzeWorkflow(withAnswer(null)).step1Conclusion).toBe("incomplete");
+    expect(tp(withAnswer(null))).toBeUndefined();
+    expect(analyzeWorkflow(withAnswer(false)).step1Conclusion).toBe("not_qualified");
+    expect(tp(withAnswer(false))).toBeUndefined();
+  });
+
+  it("preserves the variable consideration, material right and modification presentations", () => {
+    expect(tp(case7Draft())).toBeUndefined();
+    const base = createDemoDraft("redwood");
+    const mr: WorkflowDraft = {
+      ...base,
+      performanceObligations: [
+        ...base.performanceObligations,
+        createMaterialRightPoDraft(base.performanceObligations.length + 1, "po-mr"),
+      ],
+    };
+    expect(tp(mr)).toBeUndefined();
+    expect(tp(createDemoDraft("meridian"), "sample")).toBeUndefined();
+    const incompleteMod: WorkflowDraft = {
+      ...base,
+      hasContractModifications: true,
+      contractModifications: [createModificationDraft(1)],
+    };
+    expect(tp(incompleteMod)).toBeUndefined();
+  });
+
+  it("shows the fixed price on the progressive path even though result.analysis is null", () => {
+    const base = createDemoDraft("apex");
+    const draft: WorkflowDraft = {
+      ...base,
+      performanceObligations: base.performanceObligations.map((po) =>
+        po.recognitionMethod === "point_in_time"
+          ? { ...po, recognitionDate: "", transferStatus: "not_yet_transferred" as const }
+          : po,
+      ),
+    };
+    const result = analyzeWorkflow(draft);
+    expect(result.workflowValidation.blocking).toEqual([]);
+    expect(result.progressive).not.toBeNull();
+    expect(result.analysis).toBeNull();
+    expect(tp(draft)).toBe(formatCents(12_600_000));
+  });
+
+  it("matches the completed engine amount for fully complete legacy contracts", () => {
+    for (const id of ["redwood", "apex", "horizon", "stellar"] as const) {
+      const draft = createDemoDraft(id);
+      const result = analyzeWorkflow(draft);
+      expect(tp(draft, "sample")).toBe(formatCents(result.analysis!.totals.transactionPriceCents));
+    }
+  });
+
+  it("keeps an untouched new analysis free of metrics", () => {
+    expect(summaryFor(createEmptyDraft()).metrics).toEqual([]);
+  });
+});
