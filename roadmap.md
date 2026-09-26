@@ -225,3 +225,9 @@
 - [x] Focused presentation regressions: 5 files / 61 tests; full suite: 214 files / 2,721 tests; typecheck clean; lint 0 errors / 11 pre-existing warnings; production build and bundle audit clean
 - [x] Desktop/390px smoke passed: no page-level overflow; Billing Schedule scroll remains local; long Go-to copy wraps within its card; homepage, Review & Finalize, Validation Checks, and all 18 journal-table axes remain unchanged
 - [x] Preserved Genomix SHA-256 `7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7`, completed Terra run `72858cc7-1053-4c3c-9547-005e3ffe1a58`, and successful GitHub/database evidence; 2B.1, Package 3, and ARC production readiness remain incomplete
+
+## Package 3D — Focused Production Verification
+
+- [ ] 1 Domain routing  - [ ] 2 Horizon smoke  - [ ] 3 Guest upload  - [ ] 4 One guest AI run
+- [ ] 5 Outputs  - [ ] 6 Review/Evidence  - [ ] 7 Owner-session persistence (owner)
+- [ ] 8 Quotas  - [ ] 9 Isolation  - [ ] 10 Bundle audit  - [ ] 11 Maintenance evidence

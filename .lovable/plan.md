@@ -10,11 +10,11 @@ Genomix / Synthesis fictional contract package (`fixtures/genomix-synthesis-cont
 | # | Check | How proven | Live? |
 |---|---|---|---|
 | 1 | Domain routing: apex loads, valid HTTPS, `/analysis?sample=horizon` direct + reload, www → apex once, no preview-host dependency | curl (status, redirects, cert) + Playwright on ayden-rc.com; grep served HTML/JS for `lovable.app` preview host | Live, read-only |
-| 2 | Horizon deterministic regression | Playwright on live `/analysis?sample=horizon`; compare totals (e.g. $120,000.00 schedule total) and allocation/schedule/balances/journals against the accepted values from the test suite | Live, read-only |
+| 2 | Horizon deterministic regression | Playwright on live `/analysis?sample=horizon`; transaction price $153,000; detailed expectations from the accepted Horizon test fixtures | Live, read-only |
 | 3 | Guest PDF upload | Fresh guest browser; upload Genomix; confirm private Storage object, finalized intent, document row, workspace association (read-only DB queries, counts/ids only) | Live |
 | 4 | One guest AI analysis | Run exactly once; capture the four progress stages; confirm completed state; confirm allowance count increased by exactly 1. On failure: no retry, STOP and report | Live, consumes 1 guest run |
 | 5 | Deterministic outputs after AI | Allocation, schedule, balances, journals populate in same guest session | Live, read-only |
-| 6 | Review & Finalize + Source Evidence | Open Review; open one citation; confirm the PDF opens through the authorized path; confirm a direct public Storage URL is refused (400) | Live |
+| 6 | Review & Finalize + Source Evidence | Open Review; open one citation; confirm the PDF opens through the authorized path; confirm unauthenticated/direct public Storage access is refused (any non-2xx) | Live |
 | 7 | Auth persistence (save, My Contracts, reopen, refresh, sign-out, signed-out blocked) | Needs a real signed-in session — see owner actions. No new magic-link email unless the owner has no valid session | Live, owner |
 | 8 | Quotas: guest 3 / 9-hour workspace, user 10 / month | Server config defaults (3 / 10) + no override env set + `arc_reserve_ai_allowance` definition + guest workspace expiry in DB. No runs spent to prove limits | Config/DB evidence |
 | 9 | RLS / isolation | Signed-out REST calls with anon key to contracts, revisions, source_documents, storage objects → empty/denied; existing phase7/8 SQL suites (CI database job) as database-side evidence; guest A cannot read guest B document (second fresh guest browser, no upload) | Live read-only + existing evidence |
