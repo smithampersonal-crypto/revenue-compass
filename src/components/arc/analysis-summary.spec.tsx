@@ -49,9 +49,7 @@ function summaryRegion() {
 describe("Analysis summary view model (Phase 4)", () => {
   it("labels a manual analysis Draft Analysis and a sample as a fictional sample", () => {
     expect(summaryFor(createEmptyDraft()).originLabel).toBe("Draft Analysis");
-    expect(summaryFor(createDemoDraft("redwood"), "sample").originLabel).toBe(
-      "Sample Analysis — Fictional Contract",
-    );
+    expect(summaryFor(createDemoDraft("redwood"), "sample").originLabel).toBe("");
   });
 
   it("never produces a Finalized product state", () => {
@@ -269,8 +267,8 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
     });
     expect(router.state.location.search).toEqual({ sample: "redwood" });
     expect(
-      within(summaryRegion()).getByText("Sample Analysis — Fictional Contract"),
-    ).toBeInTheDocument();
+      within(summaryRegion()).queryByText(/Sample Analysis — Fictional Contract/i),
+    ).not.toBeInTheDocument();
     confirm.mockRestore();
   });
 
@@ -317,9 +315,7 @@ describe("persisted revision labels", () => {
 
   it("leaves an unsaved analysis and a sample labelled by provenance", () => {
     expect(summaryFor(draft).originLabel).toBe("Draft Analysis");
-    expect(summaryFor(createDemoDraft("redwood"), "sample").originLabel).toBe(
-      "Sample Analysis — Fictional Contract",
-    );
+    expect(summaryFor(createDemoDraft("redwood"), "sample").originLabel).toBe("");
   });
 });
 

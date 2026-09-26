@@ -508,9 +508,10 @@ describe("Phase 3 — Review & Finalize", () => {
     );
     expect(screen.getByText("Journal Validation Checks")).toBeInTheDocument();
     expect(screen.queryByText("Journal engine validation")).toBeNull();
-    expect(
-      screen.getByRole("heading", { name: "Journal Entries — Reconciliation" }),
-    ).toBeInTheDocument();
+    // 3D-P: the reconciliation tile is replaced by the summary bar, which is
+    // not fabricated for blocked output.
+    expect(screen.queryByRole("heading", { name: "Journal Entries — Reconciliation" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Journal Entries summary" })).toBeNull();
     expect(screen.queryByText("Journal Entries — reconciliation")).toBeNull();
   });
 
