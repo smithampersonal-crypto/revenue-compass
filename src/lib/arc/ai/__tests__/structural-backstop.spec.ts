@@ -95,6 +95,12 @@ describe("post-merge structural backstop", () => {
     analysis.billingTerms = analysis.billingTerms.map((term) => ({
       ...term,
       frequency: "monthly" as const,
+      citations: [
+        {
+          ...term.citations[0]!,
+          excerpt: `The $${term.amountOrRateInput} fee is invoiced monthly in advance.`,
+        },
+      ],
     }));
 
     const { before, after } = reMerge(analysis);

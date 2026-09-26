@@ -34,6 +34,12 @@ function genomixAnalysis(): AiContractAnalysis {
       amountOrRateInput: "12500",
       frequency: "monthly",
       description: "Monthly platform invoice.",
+      citations: [
+        {
+          ...analysis.billingTerms[0]!.citations[0]!,
+          excerpt: "The $12,500 platform fee is invoiced monthly in advance.",
+        },
+      ],
     },
   ];
 

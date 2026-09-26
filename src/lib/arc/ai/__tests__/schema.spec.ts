@@ -74,6 +74,10 @@ describe("AiContractAnalysis schema", () => {
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
     delete promises[0]!["accountingLabel"];
     delete obligations[0]!["accountingLabel"];
+    // v5 predates the v7 billing amountKind discriminator.
+    for (const term of legacy["billingTerms"] as Array<Record<string, unknown>>) {
+      delete term["amountKind"];
+    }
 
     expect(parseAiContractAnalysis(legacy).ok).toBe(false);
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_AI_OUTPUT_SCHEMA_VERSION);

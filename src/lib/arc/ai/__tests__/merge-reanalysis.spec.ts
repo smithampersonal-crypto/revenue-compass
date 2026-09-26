@@ -98,6 +98,12 @@ describe("Fixture C — re-analysis preserves user work", () => {
     analysis.promises[0]!.description = "Hosted platform access";
     analysis.transactionPrice.fixedConsiderationInput = "150000";
     analysis.billingTerms[0]!.amountOrRateInput = "150000";
+    analysis.billingTerms[0]!.citations = [
+      {
+        ...analysis.billingTerms[0]!.citations[0]!,
+        excerpt: "The $150,000 subscription fee is invoiced annually in advance, net 30.",
+      },
+    ];
     return analysis;
   }
 
