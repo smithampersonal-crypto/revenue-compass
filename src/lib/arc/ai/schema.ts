@@ -14,9 +14,14 @@
 import { z } from "zod";
 
 /** Single source of truth for new-generation output (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v6";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v7";
 /** Frozen immutable-result version accepted only by persisted-result dispatch. */
 export const LEGACY_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
+/**
+ * Package 3D-Q. Frozen v6 immutable-result version: identical to v7 except its
+ * billing terms carry no `amountKind`. Read-only; normalized to `unknown`.
+ */
+export const LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v6";
 
 /** Strict structured-output schema name sent to the Responses API. */
 export const AI_OUTPUT_SCHEMA_NAME = "arc_ai_contract_analysis";
@@ -446,6 +451,25 @@ const billingTermSchema = z
   })
   .strict();
 
+/**
+ * Package 3D-Q. The economic type of `amountOrRateInput`. Only
+ * `fixed_invoice_amount` may ever become a fixed invoice, and even then only
+ * after ARC's own evidence check (billing-evidence.ts) passes.
+ */
+export const BILLING_AMOUNT_KINDS = [
+  "fixed_invoice_amount",
+  "pricing_basis_only",
+  "per_unit_rate",
+  "percentage_rate",
+  "formula",
+  "unknown",
+] as const;
+export type BillingAmountKind = (typeof BILLING_AMOUNT_KINDS)[number];
+
+const billingTermSchemaV7 = billingTermSchema
+  .extend({ amountKind: z.enum(BILLING_AMOUNT_KINDS) })
+  .strict();
+
 const projectedCollectionAssumptionsSchema = z
   .object({
     contractualDueDateBasis: z.enum([
@@ -539,11 +563,24 @@ export const aiContractAnalysisV5ObjectSchema = z
   })
   .strict();
 
-/** Plain v6 object form — the provider JSON Schema is generated from exactly this. */
+/** Frozen v6 object shape for immutable historical results only. */
+export const aiContractAnalysisV6ObjectSchema = z
+  .object({
+    schemaVersion: z.literal(LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchema)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
+  })
+  .strict();
+
+/** Plain v7 object form — the provider JSON Schema is generated from exactly this. */
 export const aiContractAnalysisObjectSchema = z
   .object({
     schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
     ...analysisRootShape,
+    billingTerms: z.array(billingTermSchemaV7).max(AI_SCHEMA_BOUNDS.billingTerms),
     promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
     performanceObligations: z
       .array(performanceObligationSchema)
@@ -558,6 +595,7 @@ export const aiContractAnalysisObjectSchema = z
 function addAnalysisRefinements(
   value:
     | z.infer<typeof aiContractAnalysisV5ObjectSchema>
+    | z.infer<typeof aiContractAnalysisV6ObjectSchema>
     | z.infer<typeof aiContractAnalysisObjectSchema>,
   ctx: z.RefinementCtx,
 ): void {
@@ -647,6 +685,9 @@ export const aiContractAnalysisV5Schema =
 export const aiContractAnalysisSchema =
   aiContractAnalysisObjectSchema.superRefine(addAnalysisRefinements);
 
+export const aiContractAnalysisV6Schema =
+  aiContractAnalysisV6ObjectSchema.superRefine(addAnalysisRefinements);
+
 /** Exactly zero, however the model spelled the decimal. */
 export function isZeroDecimal(value: string | null): boolean {
   return typeof value === "string" && /^-?0(\.0+)?$/.test(value);
@@ -676,14 +717,25 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV7 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisV6ObjectSchema>;
 export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSchema>;
 /** Internal compatibility representation; v5 carries no synthesized presentation label. */
 export type AiContractAnalysis = Omit<
   AiContractAnalysisV5,
-  "schemaVersion" | "promises" | "performanceObligations"
+  "schemaVersion" | "promises" | "performanceObligations" | "billingTerms"
 > & {
-  schemaVersion: typeof AI_OUTPUT_SCHEMA_VERSION | typeof LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+  schemaVersion:
+    | typeof AI_OUTPUT_SCHEMA_VERSION
+    | typeof LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION
+    | typeof LEGACY_AI_OUTPUT_SCHEMA_VERSION;
+  /**
+   * Package 3D-Q. `amountKind` is required on v7 output. Legacy v5/v6 terms are
+   * normalized to `unknown` on read; a term lacking it is treated as `unknown`.
+   */
+  billingTerms: Array<
+    AiContractAnalysisV5["billingTerms"][number] & { amountKind?: BillingAmountKind | undefined }
+  >;
   promises: Array<
     AiContractAnalysisV5["promises"][number] & { accountingLabel?: string | undefined }
   >;
@@ -926,7 +978,7 @@ export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProvid
 /** Safe parse helper used by the client after every generation. */
 export function parseAiContractAnalysis(
   value: unknown,
-): { ok: true; analysis: AiContractAnalysisV6 } | { ok: false; issues: string[] } {
+): { ok: true; analysis: AiContractAnalysisV7 } | { ok: false; issues: string[] } {
   const result = aiContractAnalysisSchema.safeParse(value);
   if (result.success) return { ok: true, analysis: result.data };
   return {
@@ -963,13 +1015,31 @@ export function parsePersistedAiContractAnalysis(
     return { ok: false, issues: ["schemaVersion: stored run metadata does not match result"] };
   }
   if (payloadVersion === AI_OUTPUT_SCHEMA_VERSION) return parseAiContractAnalysis(value);
+  if (payloadVersion === LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION) {
+    const result = aiContractAnalysisV6Schema.safeParse(value);
+    return result.success
+      ? { ok: true, analysis: normalizeLegacyBillingTerms(result.data) }
+      : { ok: false, issues: parseIssues(result) };
+  }
   if (payloadVersion === LEGACY_AI_OUTPUT_SCHEMA_VERSION) {
     const result = aiContractAnalysisV5Schema.safeParse(value);
     return result.success
-      ? { ok: true, analysis: result.data }
+      ? { ok: true, analysis: normalizeLegacyBillingTerms(result.data) }
       : { ok: false, issues: parseIssues(result) };
   }
   return { ok: false, issues: ["schemaVersion: unsupported immutable AI result version"] };
+}
+
+/**
+ * Package 3D-Q. A legacy term's number has no recorded economic type, so it is
+ * read as `unknown`: displayable, never schedulable. Deterministic; the
+ * immutable stored payload is never rewritten.
+ */
+function normalizeLegacyBillingTerms(analysis: AiContractAnalysis): AiContractAnalysis {
+  return {
+    ...analysis,
+    billingTerms: analysis.billingTerms.map((term) => ({ ...term, amountKind: "unknown" as const })),
+  };
 }
 
 /** Every citation in an analysis, with a stable dotted location path. */

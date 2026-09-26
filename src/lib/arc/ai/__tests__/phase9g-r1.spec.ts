@@ -58,7 +58,7 @@ function term(
 
 describe("R1 — schema and prompt versions", () => {
   it("pins new AI output to schema v6", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v6");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v7");
   });
 
   it("accepts the Genomix benchmark analysis under the strict current schema", () => {

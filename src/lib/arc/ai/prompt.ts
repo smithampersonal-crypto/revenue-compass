@@ -32,7 +32,7 @@ export const AI_PROMPT_SECTIONS = {
  * constant, so a live run can never be labelled with a version it did not
  * receive. Changing the trusted instruction body REQUIRES bumping this literal.
  */
-export const AI_PROMPT_VERSION = "arc.ai.prompt.v10" as const;
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v11" as const;
 
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
@@ -179,6 +179,12 @@ function taskSection(outputSchemaVersion: string): string {
     "- propose point-in-time versus over-time treatment with contractually supported dates or events;",
     "- identify contract-modification treatment when relevant;",
     "- extract billing mechanics and contractual due-date assumptions only;",
+    "- for every billing term set amountKind to the economic type of amountOrRateInput: fixed_invoice_amount only when the contract states a currency amount that is itself invoiced (for example \"$10,000 invoiced monthly in arrears\"); pricing_basis_only for a price per period when the contract does not state that invoices are issued on that cadence (for example \"$1,200 per month\" with no stated invoicing frequency); per_unit_rate for a price per unit, seat, sample, device, license, request or any other unit (for example \"$1.35 per sample\"); percentage_rate for any percentage, including interest, late-fee and penalty rates (for example \"1.5% per month on overdue balances\"); formula for consideration computed by a formula; unknown when the evidence does not establish which;",
+    "- never represent a percentage as a currency amount, and never report an overdue-interest, late-fee or penalty provision as a billing term amount;",
+    "- payment terms such as Net 30 are a due-date rule (paymentTermsDays), never a billing frequency; a price stated per month is not by itself evidence of monthly invoicing;",
+    "- never invent an installment schedule or divide a total into installments unless the contract itself states the number, amount and cadence of the installments; when an installment schedule is ambiguous use frequency unknown and reviewState needs_user_input;",
+    "- when commercial terms conflict with each other (for example a unit price, quantity and stated total that do not reconcile) use reviewState source_conflict for the affected billing term;",
+    "- use reviewState supported for a billing term only when the cited text itself states the invoiced currency amount, the invoicing cadence and the billing timing; ARC independently verifies that evidence before creating any invoice and creates none otherwise;",
     "- identify the additional ASC 606 topics that are genuinely relevant to THIS contract's facts. Include a topic only when the evidence contains a fact that actually engages it, never merely because the topic exists or a Guidance Card mentions it, and never report the same topic or the same underlying issue twice under different wording;",
     "- return citations and supplied Guidance references for material conclusions;",
     "- surface uncertainty and conflicts through reviewState instead of inventing facts.",

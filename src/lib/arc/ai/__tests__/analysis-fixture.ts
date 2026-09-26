@@ -11,7 +11,7 @@ export const FIXTURE_DOCUMENT_ID = "doc-genomix-1";
 export const FIXTURE_PAGE_TEXT: Record<number, string> = {
   1: "Master Subscription Agreement. Effective Date: November 1, 2026. Provider grants Customer a worldwide, non-exclusive right to access the SaaS Platform. Fees are invoiced net thirty (30) days from invoice date.",
   2: "Provider retains all right, title and interest in and to the SaaS Platform. Nothing herein transfers source code to Customer.",
-  3: "Order Form. Effective Term Nov 1, 2026 - Oct 31, 2028 (24 Months). Annual Advance ($245,000/yr Net 30). Tier 2 overage billed quarterly at $1.35/sample.",
+  3: "Order Form. Effective Term Nov 1, 2026 - Oct 31, 2028 (24 Months). Billing Schedule Annual Advance ($245,000/yr Net 30). Tier 2 overage billed quarterly at $1.35/sample.",
   4: "Service Level Agreement. Provider guarantees monthly platform availability of 99.95%. Service credit percentage 15% credit, 30% credit, 50% credit.",
 };
 
@@ -241,8 +241,10 @@ export function validAnalysisFixture(): AiContractAnalysis {
         amountOrRateInput: "245000.00",
         paymentTermsDays: 30,
         dueDateRule: "Net 30 from invoice date.",
-        citations: [textCitation(3, "Annual Advance ($245,000/yr Net 30)")],
+        // Package 3D-Q: the exact accepted Genomix billing wording.
+        citations: [textCitation(3, "Billing Schedule Annual Advance ($245,000/yr Net 30)")],
         reviewState: "supported",
+        amountKind: "fixed_invoice_amount",
       },
     ],
     projectedCollectionAssumptions: {
