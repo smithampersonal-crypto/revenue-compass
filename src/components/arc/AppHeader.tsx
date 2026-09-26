@@ -29,7 +29,7 @@ export function AppHeader() {
             className="size-10 shrink-0 object-contain sm:size-11"
           />
           <span className="truncate text-[15px] font-semibold leading-tight text-foreground sm:text-base">
-            Ayden&apos;s Revenue Compass (ARC)
+            Ayden&apos;s Revenue Compass
           </span>
         </Link>
 
