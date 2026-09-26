@@ -239,4 +239,4 @@
 - [x] Jump to top (outside ReadOnlyInputs); footer links + attribution; /privacy, /sitemap
 - [x] Journal summary bar replaces reconciliation tile (gating unchanged)
 - [x] Verification: 218 files / 2,759 tests, typecheck, lint 0 errors, build, secret scan
-- [ ] Publish + live smoke; post-publish restore
+- [x] Publish + live smoke; post-publish restore (signed-in menu not checked live — needs owner session)
