@@ -185,21 +185,23 @@ export function checkFixedBillingEvidence(
   const target = input.amountOrRateInput === null ? null : exactCents(input.amountOrRateInput);
   if (target === null) return { ok: false, reason: "no_currency_amount" };
 
+  // Cohesion (fail closed): the matching fixed amount, the invoicing cadence
+  // and the timing must all be established by ONE sentence. Evidence from
+  // unrelated sentences is never composed into a schedule.
   let sawRateLike = false;
-  let amountFound = false;
+  const amountSentences: string[] = [];
   for (const sentence of sentences) {
     const verdict = amountVerdict(sentence, target);
-    if (verdict === "match") amountFound = true;
+    if (verdict === "match") amountSentences.push(sentence);
     else if (verdict === "rate_like") sawRateLike = true;
   }
-  if (!amountFound) {
+  if (amountSentences.length === 0) {
     return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
   }
 
-  if (!sentences.some((sentence) => hasCadence(sentence, input.frequency))) {
-    return { ok: false, reason: "no_invoice_cadence" };
-  }
-  if (!sentences.some((sentence) => hasTiming(sentence, input.billingTiming, input.frequency))) {
+  const withCadence = amountSentences.filter((sentence) => hasCadence(sentence, input.frequency));
+  if (withCadence.length === 0) return { ok: false, reason: "no_invoice_cadence" };
+  if (!withCadence.some((sentence) => hasTiming(sentence, input.billingTiming, input.frequency))) {
     return { ok: false, reason: "no_timing_evidence" };
   }
   return { ok: true };

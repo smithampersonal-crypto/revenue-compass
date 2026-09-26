@@ -561,6 +561,45 @@ function structuralTopology(draft: WorkflowDraft): string {
  *
  * Pure: compares two drafts and returns a verdict. It never repairs anything.
  */
-export function detectsStructuralMutation(before: WorkflowDraft, after: WorkflowDraft): boolean {
-  return structuralTopology(before) !== structuralTopology(after);
+export function detectsStructuralMutation(
+  before: WorkflowDraft,
+  after: WorkflowDraft,
+  allowance?: {
+    considerationEventIds: readonly string[];
+    cashCollectionIds: readonly string[];
+  } | null,
+): boolean {
+  const events = new Set(allowance?.considerationEventIds ?? []);
+  const cash = new Set(allowance?.cashCollectionIds ?? []);
+  if (events.size === 0 && cash.size === 0) {
+    return structuralTopology(before) !== structuralTopology(after);
+  }
+  // Package 3D-Q: the ONLY permitted topology change is removal of exactly the
+  // declared legacy billing rows. Any mismatch between the declaration and the
+  // actual before/after topology fails closed.
+  const beforeEvents = before.contractBalances.considerationEvents;
+  const beforeCash = before.contractBalances.cashCollections;
+  const beforeEventIds = new Set(beforeEvents.map((row) => row.id));
+  for (const id of events) if (!beforeEventIds.has(id)) return true;
+  for (const id of cash) {
+    const row = beforeCash.find((candidate) => candidate.id === id);
+    // A declared collection must exist and hang off a declared invoice.
+    if (row === undefined || row.considerationEventId === null) return true;
+    if (!events.has(row.considerationEventId ?? "")) return true;
+  }
+  // Every collection of a declared invoice must itself be declared: no orphan.
+  for (const row of beforeCash) {
+    if (row.considerationEventId != null && events.has(row.considerationEventId) && !cash.has(row.id)) {
+      return true;
+    }
+  }
+  const expected: WorkflowDraft = {
+    ...before,
+    contractBalances: {
+      ...before.contractBalances,
+      considerationEvents: beforeEvents.filter((row) => !events.has(row.id)),
+      cashCollections: beforeCash.filter((row) => !cash.has(row.id)),
+    },
+  };
+  return structuralTopology(expected) !== structuralTopology(after);
 }

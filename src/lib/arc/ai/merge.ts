@@ -223,6 +223,17 @@ export interface MergeAiAnalysisResult {
   draft: WorkflowDraft;
   aiState: AiAnalysisState;
   issues: AiReviewItem[];
+  /**
+   * Package 3D-Q. The exact canonical billing rows this merge retracted as
+   * untouched legacy AI derivations. The post-merge structural backstop
+   * permits removal of exactly these IDs and nothing else.
+   */
+  authorizedStructuralRetractions: AuthorizedStructuralRetractions;
+}
+
+export interface AuthorizedStructuralRetractions {
+  considerationEventIds: string[];
+  cashCollectionIds: string[];
 }
 
 /* ------------------------------------------------------------------ helpers */
@@ -3181,6 +3192,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // A retraction is not a tombstone: a later evidence-supported proposal may
   // create the schedule again. This is the one billing-specific exception to
   // "omitted AI objects are retained".
+  const authorizedStructuralRetractions: AuthorizedStructuralRetractions = {
+    considerationEventIds: [],
+    cashCollectionIds: [],
+  };
   if (isV7Merge) {
     const claimedKeys = new Set(claimedObjects.map((entry) => entry.semanticKey));
     const legacyBilling = new Map<string, AiObjectProvenance & { key: string }>();
@@ -3227,6 +3242,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       }
     }
 
+    authorizedStructuralRetractions.considerationEventIds = [...removeEventIds].sort();
+    authorizedStructuralRetractions.cashCollectionIds = [...removeCashIds].sort();
     if (removeEventIds.size > 0) {
       draft.contractBalances = {
         ...draft.contractBalances,
@@ -3455,7 +3472,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     reviewItems,
   };
 
-  return { draft: validated.draft, aiState, issues: reviewItems };
+  return {
+    draft: validated.draft,
+    aiState,
+    issues: reviewItems,
+    authorizedStructuralRetractions,
+  };
 }
 
 /* --------------------------------------------- AI-owned fingerprint subsets */
