@@ -1,84 +1,146 @@
-# Package 3D-Q — Billing Evidence / Contract Balances Fail-Closed Correction (PLAN ONLY)
+# Package 3D-Q — Billing Evidence / Contract Balances Fail-Closed Correction (PLAN ONLY, rev 2)
 
-## 1. Verified root cause (code trace)
+Approved in principle: schema v7 with `amountKind`, legacy normalization to `unknown`, gating `deriveUnambiguousFixedBillingTotal`, manual billing authority preserved. This revision covers the four review points. Nothing is implemented. No AI run, no publish, no 3E.
 
-```text
-AI v6 billingTerm { billingTiming, frequency, amountOrRateInput: "1.5", paymentTermsDays: 30, reviewState }
-  -> schema.ts billingTermSchema: amountOrRateInput = bare decimal, no unit/type
-  -> merge.ts billing loop (~L2870-3080): identity/alias, tombstone, manual-structure checks
-  -> adapter.ts deriveBillingSchedule(): only checks timing in {advance, arrears},
-     usableAmount() (> 0 decimal), service period, frequency divisibility
-  -> 12 consideration events of amountInput "1.5"  ($1.50 each)
-  -> deriveProjectedCollectionDate(invoiceDate, paymentTermsDays 30) -> projected cash rows
-  -> Phase 3 engine faithfully rolls these forward
-```
+## 0. Read-only inspection of the stored ABC run (done, nothing modified)
 
-Confirmed from code:
-- Step 1/3: `amountOrRateInput` is one untyped decimal. `usableAmount("1.5")` accepts it. Nothing records whether it is currency, %, per-unit or interest.
-- Step 3: `deriveBillingSchedule` has no semantic discriminator; any positive decimal with advance/arrears timing becomes a fixed invoice.
-- Merge does **not** gate on `term.reviewState`: a term marked `source_conflict`, `needs_user_input` or `needs_review` still creates invoices; reviewState only rides along on raised items.
-- Step 5: projected collections are created per derived invoice, so they are already downstream-only — the defect is purely upstream (bad invoices in, bad cash out).
-- Step 2 (model mapping 1.5% to a term) is inference: the stored ABC run was not inspected. Optional read-only check of the owner's saved run payload before implementing (no AI run).
+Run `bf7ebf0f…` (v6, succeeded, 10 review items), revision `00ce1a45…` (draft):
+- The model emitted a billing term with key **`billing.overdue_interest`**. ARC created 12 invoice rows (`billing.overdue_interest#1..#12`, first row $1.5 on 2026-10-31) and 12 projected collections. **No review item was raised for this term.**
+- The model's second term, `billing.aggregate_contract_fees` ($447,000 "upon execution… Net 3…"), was correctly refused (`billing_schedule_not_derivable`, unsupported frequency, red), and the model raised `needs_user_input`: "Clarify whether USD 447,000 is invoiced in a single invoice… or in multiple installments".
+- The cited excerpt for both is ARC-owned text: "Total aggregate contract fees amounting to $447,000.00 USD shall be invoiced in net thirty (30) day installments upon execution. Overdue accounts shall accrue interest at a rate of 1.5% per month."
+- Transaction price stayed $447,000 only by chance: the aggregate term also had advance/arrears timing and an amount, so the fixed-total helper refused with `multiple_fixed_schedules`. If the model had left out that amount, the price would have been replaced with $18.00.
+- Derived rows carry `amountSource: "manual"`. That field is a balance-engine label, not authorship. Manual authority must keep being decided from provenance, never from `amountSource`.
 
-Additional finding (same root cause, second consumer): `deriveUnambiguousFixedBillingTotal` (merge.ts ~L1971) uses the same untyped value and **overrides the model's transaction price** when exactly one advance/arrears term has an amount. A lone "1.5 monthly" term would set price to $18.00. The owner saw a reasonable price, which suggests the run had another amount-bearing term (-> `multiple_fixed_schedules`, fallback to $447,000). Either way this path must use the same gate, or a future run can corrupt Step 3.
+This confirms hypothesis steps 1–5 directly.
 
-## 2. Semantic weaknesses
-- Amount/rate typing: one field carries invoice amounts, per-unit rates ($1.35/sample), percentages and interest.
-- Pricing basis vs cadence: `frequency` is the only cadence field; "$1,200 / mo" can be reported as `monthly` with no separate evidence that invoices are monthly.
-- Net 30 vs cadence: prompt never says payment terms are not frequency.
-- reviewState ignored for schedule creation.
-- Transaction-price override shares the weakness (above).
+## 1. Evidence-consistency check (review point 1)
 
-## 3. Proposed architecture (narrowest)
-Add one required field to `billingTermSchema`: `amountKind` enum
-`fixed_invoice_amount | pricing_basis_only | per_unit_rate | percentage_rate | formula | unknown`.
-(Pricing basis vs cadence is covered by `pricing_basis_only`; no second cadence field needed.)
+`amountKind` alone is not enough. ARC already has the right evidence at the merge boundary: after Phase 9F, every `text` citation's `excerpt` is **ARC-materialized source text** from anchor ids. The model cannot write it. A `visual` citation has no excerpt.
 
-Deterministic gate `isAiFixedScheduleEligible(term)` in adapter.ts, used by both the merge billing loop and `deriveUnambiguousFixedBillingTotal`. Eligible only if all:
-- `amountKind === "fixed_invoice_amount"`;
-- timing in {advance, arrears}; frequency supported (existing checks);
-- `term.reviewState` not in {`source_conflict`, `needs_user_input`, `needs_review`} (accepted states only: the existing "supported/inference" states);
-- `paymentTermsDays` is never read by the gate (Net 30 cannot imply cadence);
-- existing service-period and divisibility checks.
+New pure module `src/lib/arc/ai/billing-evidence.ts`: `checkFixedBillingEvidence(term)`. It is lexical, uses a small fixed vocabulary and is not an NLP system. It reads only `term.citations[].excerpt`, split into sentences. It passes only if all three hold:
 
-Otherwise: no AI events, therefore no projected collections, and one blocking review item (existing `raise`). `deriveBillingSchedule` itself stays unchanged (still used for manual-free derivation math); the gate sits in front of it.
+A. **Currency amount.** Some sentence contains a currency-denominated amount (`$`, `USD`, `US$`, or "dollars") equal in exact cents to `amountOrRateInput` (commas allowed). The matched amount must not be:
+- immediately followed by `%` or "percent";
+- a per-unit rate ("per|/" + a unit word such as sample, seat, user, unit, GB, API call, transaction);
+- in a sentence that describes interest, late fees, penalties, service credits or overdue amounts ("interest", "overdue", "late", "penalty", "past due", "service credit").
+A period suffix ("/mo", "/yr", "per month") on its own marks a **pricing basis**. It passes only if check B finds independent invoice-cadence evidence in the same citation. This keeps Genomix's real excerpt ("billing schedule annual advance ($245,000/yr net 30)") valid and refuses "$1,200 / mo".
 
-## 4. AI schema / version impact
-- Current: `arc.ai.schema.v6`, legacy `v5`. New: `arc.ai.schema.v7` with `amountKind`; v6 becomes the legacy-readable version alongside v5 (existing dispatch in `parseAnyAiContractAnalysis`).
-- v5/v6 persisted results stay readable/displayable. Deterministic normalization: legacy terms get `amountKind = "unknown"`.
-- Consequence: a reopened legacy run can no longer create **new** AI-derived invoices or override the transaction price from billing; already-materialized draft rows are untouched (they are draft data, not re-derived). Re-analysis with v7 re-derives normally.
+B. **Invoice cadence.** A sentence has an invoicing word (invoice/invoiced/bill/billed/billing) together with a cadence expression that matches `frequency`:
+- monthly: "monthly", "each/every month"
+- quarterly
+- annual: "annually", "annual", "yearly", "each year"
+- semiannual
+- one_time: "single invoice", "in full", "upon execution/signature"
+A sentence containing "installment(s)" passes only if it also states that frequency explicitly (for example "monthly installments"). "Net N", "due within N days", and "/mo" pricing never count as cadence.
 
-## 5. Prompt changes (defense in depth only)
-Add explicit rules + short examples: fixed invoice amount ("$10,000 invoiced monthly") vs pricing basis ("$1,200 per month", cadence unstated) vs per-unit rate ("$1.35 per sample") vs percentage/interest ("1.5% per month on overdue balances" -> not a billing term amount; never currency); Net 30 is a due-date term, not frequency; do not divide a total into installments unless the contract states count/amount; ambiguous installments -> `unknown` + `needs_user_input`; conflicting commercial terms -> `source_conflict`. Bump prompt version per existing authority. Not relied on: the gate refuses regardless of model output.
+C. **Timing.** advance: "in advance", "prior to", "at the start/beginning". arrears: "in arrears", "at the end", "following". one_time: the execution or trigger phrase from B.
 
-## 6. Merge/adapter changes
-- adapter.ts: add `amountKind` to `BillingScheduleInput`/`FixedBillingTermInput`, add eligibility function returning a refusal reason (`amount_not_fixed_invoice`, `billing_term_under_review`).
-- merge.ts billing loop: call the gate after tombstone/manual checks, before `deriveBillingSchedule`; refusal raises the existing `billing_schedule_not_derivable` item (blocking) with new reason text. Projected collections unchanged (only reachable from an event).
-- merge.ts transaction price: `deriveUnambiguousFixedBillingTotal` filters on the gate, so non-fixed terms neither derive nor count toward `multiple_fixed_schedules`. The model's $447,000 fallback is preserved.
-- `usage` mechanics (VC/usage engines) untouched; `on_usage` + `per_unit_rate` continues through existing usage paths.
+ABC outcomes:
+- 1.5% interest: no `$1.5` amount in the text, and the sentence is about interest, so it refuses.
+- $447,000 "net thirty day installments upon execution": the installment sentence has no stated frequency, so it refuses.
+- $1,200 / mo with no invoice cadence: refuses.
 
-## 7. Identity / re-analysis impact
-- `amountKind` is NOT added to `billingTermIdentityFacts` decisive keys or signatures: identity stays timing + frequency; no lineage re-keying, no tombstone changes, no fuzzy matching.
-- `billingMaterial()` gains `amountKind`, so review fingerprints for billing items change once on first v7 run (items reappear as new for review — intended and fail-safe). Verified against r3-review-fingerprints and billing lineage/deletion specs.
-- Legacy tombstone upgrade path unchanged.
+If any existing legitimate fixture fails this vocabulary, I will stop and report it. The rules are not loosened silently.
 
-## 8. Manual entry
-Gate applies only to AI-derived schedules. Manual consideration events (any amount, e.g. $1.50 monthly) are unrestricted; existing `manual_structure_preserved` behavior unchanged.
+Final eligibility for an AI-derived fixed schedule, all required:
+1. `amountKind === "fixed_invoice_amount"`
+2. review-state allowlist (section 2)
+3. `checkFixedBillingEvidence` passes
+4. the existing timing, frequency, service-period and divisibility checks in `deriveBillingSchedule`
+5. no manual events, tombstones or ambiguous aliases (existing checks)
 
-## 9. Files
-Production: `src/lib/arc/ai/schema.ts` (v7, field, legacy normalization), `adapter.ts` (gate), `merge.ts` (two call sites, material), `prompt.ts` (instructions, version), fixtures builders referencing billing terms. Tests: new `src/lib/arc/ai/__tests__/billing-evidence-gate.spec.ts` + ABC fixture (synthetic structured output, no PDF); extend `adapter.spec.ts`, `schema.spec.ts`, `legacy-v5-compatibility.spec.ts`, `merge.spec.ts`; update fixtures (genomix-fixtures, r1/r2/merge-fixtures, production-runs) to v7 with correct `amountKind`. No DB/RLS/auth/config changes.
+The same gate also guards `deriveUnambiguousFixedBillingTotal`. A refused term neither derives a total nor counts toward `multiple_fixed_schedules`.
 
-## 10. Regression matrix
-ABC overdue 1.5%/month (as `percentage_rate` and as mislabeled `fixed_invoice_amount` + `source_conflict`) -> no events/collections, blocking item; Net 30 only -> no cadence, no collections; $1,200/mo `pricing_basis_only` -> no events; $447,000 ambiguous installments `unknown`/`needs_user_input` -> no events, item raised, price $447,000 kept; license row conflict `source_conflict` -> no schedule; $10,000 monthly arrears x12 -> 12 events + Net-30 projections; $120,000 annual advance -> schedule; $1.35 per sample `per_unit_rate`/`on_usage` -> no fixed invoice, usage mechanics intact; manual events -> preserved; lone non-fixed term no longer overrides transaction price; legacy v5/v6 load, display, no new derivation; lineage/tombstone/Safe Re-analysis suites green; Genomix fixtures green and PDF SHA-256 unchanged.
+No new citation schema is needed. The persisted representation already supports the check.
 
-## 11. Review UX
-Existing AI review panel, `billing_schedule_not_derivable` (blocking, "additional_topics"). Reason text: "ARC did not create invoices for “…” because the contract evidence does not establish a fixed invoice amount with a supported billing schedule (the amount appears to be a rate, pricing basis or unresolved term). Enter the actual billing events if known." No new UI.
+## 2. Positive review-state allowlist (review point 2)
 
-## 12. Scope
-No accounting-engine, DB, RLS, auth, security, config or 3D-P changes; no AI run; no publish; no 3E. Frozen .env / ^2.15.0 / 2.15.0 preserved.
+`AI_FIXED_SCHEDULE_REVIEW_STATES = ["supported"]`. Eligibility is `ALLOWLIST.includes(state)`, so any unknown or future state fails closed.
+- `inference` does **not** qualify. An AI-derived invoice is a source-evidenced fact, not a judgment the model concludes.
+- `needs_review`, `source_conflict` and `needs_user_input` do not qualify.
+- An "assumed" or routine-assumption item is a review-panel concept, not a term state, so it cannot qualify.
 
-## 13. Open questions
-1. Approve schema v7 (vs. a smaller heuristic-only gate on v6 — not recommended: v6 has no reliable signal).
-2. Approve that legacy runs lose AI-derived schedule/price creation on re-merge (fail closed).
-3. Optional: read-only inspection of the owner's stored ABC run to confirm step 2 before coding.
-4. One live ABC validation run after acceptance — separate owner gate, not planned.
+The one existing production fixture (Genomix annual advance) is `supported`. Any fixture that relies on `inference` for a derived schedule is updated only if its evidence supports `supported`; otherwise the expectation changes to refusal and I report it.
+
+## 3. Progressive output preserved (review point 3)
+
+The refusal raises the existing `billing_schedule_not_derivable` item (`blocking: true`, so it is red). What red means in the code:
+- It sets `aiReviewCanFinalize = false`, which blocks **Finalize** only.
+- It does not feed `analyzeWorkflow`, the five-step validation or the revenue engine.
+- It creates no billing rows, so no projected collections exist to derive.
+
+Expected ABC behavior after v7 (unit test on the merged draft plus the existing workpaper selectors):
+
+| Workpaper | Result |
+|---|---|
+| ASC 606 Analysis | Unchanged: Step 1–5 conclusions, transaction price $447,000 (the model's full-term figure; nothing is billing-derived) |
+| Revenue Schedule | Unchanged: produced by the revenue engine, which never reads billing events |
+| Contract Balances | No invoice or collection rows. The existing notice "The Billing & Contract Balances workpaper is incomplete…" appears, with the outstanding item in the editor |
+| Journal Entries | The existing notice "Journal entries are not available until the Billing & Contract Balances workpaper is complete." |
+| Review & Finalize | Red items: the refused schedule plus the model's `needs_user_input` installment item. Finalize is blocked until the accountant enters billing events or resolves the items through the existing manual-red resolution |
+
+Once the accountant enters the real invoices, balances and journals compute through the existing path.
+
+## 4. Legacy → v7 stale rows (review point 4)
+
+Today, a later run that omits an object keeps it (`ai_proposal_omitted`, "never removes canonical structure"). Under v7, the ABC `billing.overdue_interest` rows would therefore **survive**, whether the term is refused or not proposed at all. A narrow, exact retraction rule is needed:
+
+- New optional provenance marker `derivation: "evidence_gated_v7"`, written on each AI-derived invoice and collection claimed by a v7 merge. It lives in the existing `object_provenance` JSON, so no migration is needed. The provenance parser accepts it, and legacy entries lack it.
+- During a v7 merge, a **legacy AI-derived billing row** (object key exactly `billing.<term>#<n>` or its `#collection`, provenance present, no v7 marker) is **retracted** only if all hold:
+  1. its field provenance is still `ai_generated_untouched`, and its object fingerprint equals ARC's last write (not user-modified);
+  2. the v7 merge did not re-claim that exact key or its exact matched alias under an eligible schedule.
+  
+  Retraction removes the row and its dependent projected collection, and raises one yellow `ai_derivation_retracted` item: "ARC removed invoices an earlier analysis created for “…” because the contract evidence does not support that billing schedule. Enter the actual billing events if known."
+- A user-edited legacy row is **kept** and gets a red item for accountant decision. It is never silently removed.
+- Retraction is not a tombstone. A later eligible, evidence-supported proposal may create the schedule again. User tombstones are untouched.
+- Matching uses only exact keys and exact signatures. There is no fuzzy matching, and `amountKind` stays out of decisive identity.
+- Opening a saved draft without re-analysis runs no merge, so the persisted draft is untouched.
+
+Required tests (new `billing-v7-transition.spec.ts`, reusing the merge fixtures):
+1. A v6 result materializes 12 untouched `billing.overdue_interest` invoices and 12 collections. A v7 re-analysis of the same lineage refuses the term: all 24 rows are removed, one retraction item and one refusal item exist, and no other rows change.
+2. Same as 1, but the v7 run omits the term entirely: the rows are retracted the same way.
+3. One legacy invoice was edited by the accountant: that row and its collection are kept with a red item; the untouched rows are retracted.
+4. v6 → v7 on Genomix (eligible annual advance): the same canonical ids are re-claimed, the marker is added, nothing is retracted or duplicated, and the tombstone and deletion suites stay green.
+5. Reopening the saved v6 draft (load and parse only, no merge) keeps it byte-identical, including all 24 rows.
+6. Manual events present: the retraction ignores rows without AI provenance.
+
+## 5. Unchanged from rev 1
+- **Schema v7 (`amountKind`):** required field, fixed categories.
+- **Legacy results:** v5/v6 stay readable, and missing `amountKind` is read as `unknown`, so a reopened legacy run cannot create new schedules.
+- **Prompt:** the prompt changes stay (defense in depth only).
+- **Manual billing:** entries are unrestricted.
+- **Fingerprints:** review fingerprints change once, on the first v7 run.
+- **Projected collections:** reachable only from an invoice. Net 30 alone never produces a collection.
+- **Refusal wording:** "ARC did not create invoices for “…” because the contract evidence does not establish a fixed invoice amount with a supported billing schedule (the amount appears to be a rate, pricing basis or unresolved term). Enter the actual billing events if known."
+
+## 6. Files
+- **Production:**
+  - `src/lib/arc/ai/schema.ts`: v7, `amountKind`, legacy normalization.
+  - `billing-evidence.ts`: new.
+  - `adapter.ts`: eligibility and allowlist.
+  - `merge.ts`: the gate at both call sites, the retraction pass, the provenance marker and `billingMaterial`.
+  - the provenance parser: optional `derivation`.
+  - `prompt.ts`: instructions and prompt version.
+  - `review-state.ts`: the new `ai_derivation_retracted` reason code.
+- **Tests:**
+  - new `billing-evidence.spec.ts`, `billing-evidence-gate.spec.ts` (ABC fixture built from the stored excerpt text) and `billing-v7-transition.spec.ts`;
+  - extended adapter, schema, legacy-v5, merge, lineage, deletion and r3-fingerprint specs;
+  - fixtures moved to v7.
+- **Not changed:** database, RLS, auth, configuration and 3D-P.
+
+## 7. Regression matrix (additions to rev 1)
+- **ABC:** a mislabeled `fixed_invoice_amount` "1.5" with state `supported` is refused by the evidence check.
+- **Wrong citation:** a correct amount with a visual-only citation is refused.
+- **Genomix:** "$245,000/yr" with billing-schedule cadence is accepted.
+- **Pricing basis:** "$1,200 / mo" with no invoice cadence is refused.
+- **Installments:** "installments" without a stated frequency is refused; "monthly installments of $10,000" is accepted.
+- **Allowlist:** `inference` is refused, and an unknown state injected in a test is refused.
+- **Legacy transitions:** tests 1–6 in section 4.
+- **Workpapers:** the ABC table in section 3 holds.
+- **Genomix hash:** the PDF SHA-256 is unchanged.
+
+## 8. Risks / decisions for the owner
+1. **Retraction vs. keep:** approve narrow retraction of **untouched legacy AI-derived billing rows** on v7 re-analysis. This is the only exception to "omitted AI objects are kept", and it applies to billing invoices and their collections only.
+2. **`inference` excluded:** approve that `inference` never qualifies. Real contracts whose billing term the model marks `inference` will need manual invoices.
+3. **Fixed vocabulary:** the evidence check will refuse some unusual but valid phrasings (fail closed). The accountant enters those invoices manually.
+4. **Live run:** a live ABC validation run is still a separate owner gate and is not planned.
