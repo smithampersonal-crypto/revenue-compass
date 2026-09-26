@@ -46,9 +46,19 @@ describe("Package 3D-P polish", () => {
   it("renders footer links and Noun Project attribution", async () => {
     await renderAt("/");
     const footer = await screen.findByRole("contentinfo");
-    expect(within(footer).getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
-    expect(within(footer).getByRole("link", { name: "Sitemap" })).toHaveAttribute("href", "/sitemap");
-    expect(within(footer).getByText(/Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan/)).toBeInTheDocument();
+    expect(within(footer).getByRole("link", { name: "Privacy" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(within(footer).getByRole("link", { name: "Sitemap" })).toHaveAttribute(
+      "href",
+      "/sitemap",
+    );
+    expect(
+      within(footer).getByText(
+        /Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("serves /privacy with the privacy contact", async () => {
@@ -68,7 +78,15 @@ describe("Package 3D-P polish", () => {
       .getAllByRole("link")
       .map((link) => link.getAttribute("href"));
     expect(hrefs).toEqual(
-      expect.arrayContaining(["/", "/analysis", "/auth", "/workspace", "/account", "/privacy", "/sitemap"]),
+      expect.arrayContaining([
+        "/",
+        "/analysis",
+        "/auth",
+        "/workspace",
+        "/account",
+        "/privacy",
+        "/sitemap",
+      ]),
     );
     for (const href of hrefs) {
       expect(href).not.toMatch(/callback|engine-check|\/api\//);

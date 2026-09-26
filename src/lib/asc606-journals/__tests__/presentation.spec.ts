@@ -49,7 +49,11 @@ describe("summarizeJournal (3D-P presentation only)", () => {
 
   it("reports an out-of-balance difference", () => {
     const s = summarizeJournal(
-      analysis([entry("a", "2026-01", 1000, 850)], { ...ok, allEntriesBalanced: false, reconciled: false }),
+      analysis([entry("a", "2026-01", 1000, 850)], {
+        ...ok,
+        allEntriesBalanced: false,
+        reconciled: false,
+      }),
     )!;
     expect(s.status).toEqual({ kind: "out_of_balance", differenceCents: 150 });
     expect(s.issues.map((i) => i.label)).toEqual(["All entries balanced", "Overall reconciled"]);

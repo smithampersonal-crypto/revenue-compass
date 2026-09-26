@@ -39,7 +39,9 @@ export function JournalSummaryBar({ summary, label }: { summary: JournalSummary;
           Checks not passed:{" "}
           {summary.issues
             .map((issue) =>
-              issue.state === "failed" ? `${issue.label} — failed` : `${issue.label} — not evaluated`,
+              issue.state === "failed"
+                ? `${issue.label} — failed`
+                : `${issue.label} — not evaluated`,
             )
             .join("; ")}
         </p>

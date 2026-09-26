@@ -39,8 +39,8 @@ function PrivacyPage() {
           <h1 className="text-3xl font-bold text-foreground">Privacy</h1>
           <p className="text-sm text-muted-foreground">Last updated: September 26, 2026</p>
           <p className="text-sm leading-6 text-muted-foreground">
-            This statement describes how Ayden&apos;s Revenue Compass (ARC) handles information
-            when you use the service at ayden-rc.com.
+            This statement describes how Ayden&apos;s Revenue Compass (ARC) handles information when
+            you use the service at ayden-rc.com.
           </p>
         </header>
 
@@ -51,8 +51,8 @@ function PrivacyPage() {
           </p>
           <p>
             <strong className="text-foreground">Contract facts and judgments.</strong> The customer,
-            contract terms, accounting judgments and other inputs you enter are processed to
-            produce the analysis. Signed-in users can save analyses to My Contracts.
+            contract terms, accounting judgments and other inputs you enter are processed to produce
+            the analysis. Signed-in users can save analyses to My Contracts.
           </p>
           <p>
             <strong className="text-foreground">Uploaded PDFs.</strong> Contract PDFs you upload are
@@ -111,8 +111,8 @@ function PrivacyPage() {
           <p>
             Signed-in users can delete their account from Account settings. Deletion removes the
             account together with the data it owns — saved customers, contracts and analyses — and
-            purges associated temporary guest data. Guest data you do not save expires
-            automatically as described above.
+            purges associated temporary guest data. Guest data you do not save expires automatically
+            as described above.
           </p>
         </Block>
 
