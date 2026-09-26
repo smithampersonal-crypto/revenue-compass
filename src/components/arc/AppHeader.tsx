@@ -24,9 +24,9 @@ export function AppHeader() {
             src={arcLogo}
             alt=""
             aria-hidden="true"
-            width={56}
-            height={56}
-            className="size-[56px] shrink-0 object-contain"
+            width={60}
+            height={60}
+            className="size-[60px] shrink-0 object-contain"
           />
           <span className="truncate text-[20px] font-semibold leading-tight text-foreground">
             Ayden&apos;s Revenue Compass
