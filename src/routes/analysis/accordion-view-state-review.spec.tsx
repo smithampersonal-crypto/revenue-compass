@@ -6,7 +6,7 @@
  * unmounts and remounts while the layout-owned store survives.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -167,9 +167,9 @@ describe("Package 3D-R — review navigation overrides a remembered closed secti
     await waitFor(() => expect(step3).toHaveAttribute("aria-expanded", "true"));
     const anchorId = reviewTargetAnchorId(PRICE_ITEM.targetKey);
     await waitFor(() => expect(document.getElementById(anchorId)).not.toBeNull());
-    expect(
-      within(document.getElementById("step-3")!).getByText("Fixed consideration", { exact: false }),
-    ).toBeInTheDocument();
+    expect(document.getElementById("step-3")!.contains(document.getElementById(anchorId))).toBe(
+      true,
+    );
     // The one-shot intent was consumed with resetScroll: false (unchanged).
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith(
