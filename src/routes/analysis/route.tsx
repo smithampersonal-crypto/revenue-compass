@@ -4,6 +4,10 @@ import { AnalysisNavigation } from "@/components/arc/AnalysisNavigation";
 import { AiAnalysisAction } from "@/components/arc/AiAnalysisAction";
 import { AnalysisContextBar } from "@/components/arc/AnalysisContextBar";
 import { AnalysisProvider, useAnalysis } from "@/components/arc/analysis-context";
+import {
+  AnalysisViewStateProvider,
+  type AccordionViewStateMap,
+} from "@/components/arc/analysis-view-state";
 import { AiSourceFreshnessNotice } from "@/components/arc/AiSourceFreshnessNotice";
 import { AiProvenanceLegend } from "@/components/arc/AiReviewTarget";
 import { AnalysisSummary } from "@/components/arc/AnalysisSummary";
@@ -91,6 +95,9 @@ function AnalysisLayout() {
   // Navigating between parent areas keeps the same identity and preserves the
   // draft.
   const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
+  // Package 3D-R: presentation-only accordion state per identity, in memory.
+  // This layout stays mounted across child workpapers and identity changes.
+  const viewStateStore = useRef<AccordionViewStateMap>(new Map()).current;
 
   return (
     // Bare /analysis (no sample, no contract) resumes or starts the visitor's
@@ -102,7 +109,9 @@ function AnalysisLayout() {
       revisionId={revision}
       guest={!sample && !contract}
     >
-      <AnalysisWorkspace autoOpenSave={save === "1"} />
+      <AnalysisViewStateProvider identity={identity} store={viewStateStore}>
+        <AnalysisWorkspace autoOpenSave={save === "1"} />
+      </AnalysisViewStateProvider>
     </AnalysisProvider>
   );
 }
