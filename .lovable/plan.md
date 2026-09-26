@@ -1,80 +1,76 @@
-# Package 3D-P — Final UI/UX Polish (plan only)
+# Package 3D-P — Final UI/UX Polish (implementation plan)
 
-Presentation and navigation only, plus two new static pages (`/privacy`, `/sitemap`). No accounting, AI, auth, persistence, RLS, schema, storage, maintenance or secret changes. No AI run. No publish until approved.
+This package changes presentation and navigation only, plus two static pages (`/privacy`, `/sitemap`). It makes no changes to accounting, AI, auth semantics, persistence, RLS, schema, storage, maintenance or secrets. It uses no AI run. Package 3D-Q and Package 3E are not started.
 
-## Blockers needing owner input before implementation
-1. **The four SVGs aren't in the workspace.** `noun_person_6417405.svg`, `noun_Calculator_7007895.svg`, `noun_Gavel_7864021.svg` and `noun_review_8400591.svg` are missing from the project and your uploads. Please upload them; I won't substitute other icons. Please also say whether the Noun Project license you hold needs visible attribution. If it does, I'll put a short credit line on `/privacy` or in the footer.
-2. **No contact email exists** anywhere in the app or its settings. The Privacy page needs one from you. Until then it would say "Contact details to be provided".
-3. **Grouped-contract journals (confirm):** contracts with modifications show one reconciliation tile per contract group, plus a "Combined Journal Reconciliation" table. My proposal is that each group gets its own summary bar in place of its tile, and the combined per-group Reconciled / Not reconciled table stays, because it carries information the bars don't. Horizon and ordinary contracts have only the single tile.
+## Owner inputs (now all supplied)
+- The four Noun Project icons and the ARC logo (`ARC-logo-02.svg`) are uploaded.
+- Privacy contact: arcompass.developer@gmail.com.
+- The grouped-journal approach is confirmed: one summary bar per contract group, and the Combined Journal Reconciliation table stays.
 
-## 1–2. Components and files by item
-| Item | Existing source | Change |
+## Changes by item
+| Item | Where | Change |
 |---|---|---|
-| 1 Sign-in icon | `src/components/arc/AccountMenu.tsx` (signed-out `Link`) | icon inside the same `Link`, `gap-1.5` |
-| 2–4 Feature icons | `src/routes/index.tsx` (FEATURES array, lines ~11–21) | icon before each title |
-| 5 Header/hero copy | `src/components/arc/AppHeader.tsx` (subtitle span); `src/routes/index.tsx` line 57 eyebrow | remove both; title `text-[15px] sm:text-base font-semibold`, centered with logo |
-| 6 Sample descriptors | `src/lib/arc/analysis-context-bar.ts` line 69 `detail: "Fictional sample contract"`; `src/lib/arc/analysis-summary.ts` line 40 `sample: "Sample Analysis — Fictional Contract"` (+ line 206 sample note, left as is unless you want it gone) | drop the detail and the eyebrow label; the rendering components (`AnalysisContextBar.tsx`, `AnalysisSummary.tsx`) skip empty values so spacing collapses |
-| 7 Horizon doc copy | `src/routes/analysis/documents.tsx` lines ~91–94 | delete the paragraph |
-| 8 Jump to top | workpaper routes `analysis/index.tsx`, `schedule.tsx`, `balances.tsx`, `journals.tsx`, `documents.tsx`, `review.tsx`, all under `analysis/route.tsx` | one `JumpToTop` rendered once in `analysis/route.tsx`, after `<Outlet />` |
-| 9 Footer/pages | `src/components/arc/AppFooter.tsx` (already rendered by `PublicAppShell`) | add Privacy and Sitemap links; new `src/routes/privacy.tsx`, `src/routes/sitemap.tsx` |
-| 10 Journal summary | `src/components/asc606-workflow/JournalEntryOutputs.tsx` (reconciliation `Section`, lines ~140–165); `src/components/arc/JournalEntriesView.tsx` | new `JournalSummaryBar` placed above the entries; old tile removed |
+| 1 Sign-in icon | `AccountMenu.tsx` (signed-out link) | person icon inside the same link, 16 px, 6 px gap |
+| 1b Signed-in menu | `AccountMenu.tsx` | icon-only button labelled "Account menu"; no email in the header or the menu; menu = Account settings + Sign out; existing Escape and outside-click closing kept; sign-out code unchanged |
+| 2–4 Feature icons | `src/routes/index.tsx` (PRINCIPLES) | calculator, gavel and review icons before the titles; wording unchanged |
+| 5A/5B Copy | `AppHeader.tsx` subtitle; `index.tsx` eyebrow | both removed, nothing added in their place |
+| 5C/5D Logo | `AppHeader.tsx` | Compass icon replaced by the ARC logo (about 36–40 px, aspect ratio kept) inside the same home link; brand title set to one line at 15–16 px, semibold, centered with the logo; only a slight header-height increase if needed |
+| 6 Sample copy | `analysis-context-bar.ts` ("Fictional sample contract"); `analysis-summary.ts` ("Sample Analysis — Fictional Contract") | both removed; "Sample — Horizon Logistics" and the Sample badge kept |
+| 7 Horizon doc | `analysis/documents.tsx` | paragraph deleted |
+| 8 Jump to top | `analysis/route.tsx` after `<Outlet />` | one shared `JumpToTop` button |
+| 9 Footer/pages | `AppFooter.tsx`; new `routes/privacy.tsx`, `routes/sitemap.tsx` | Privacy and Sitemap links, the © line, and the attribution line |
+| 10 Journal summary | `JournalEntryOutputs.tsx`, `JournalEntriesView.tsx` | five-field bar at the top; old "— Reconciliation" tile removed |
 
-New files: `src/components/arc/icons/` (4 icon components), `src/components/arc/JumpToTop.tsx`, `src/components/asc606-workflow/JournalSummaryBar.tsx`, `src/lib/asc606-journals/presentation.ts` (pure summary helper), `src/routes/privacy.tsx`, `src/routes/sitemap.tsx`, plus spec files (see 10).
+## Assets
+- **Logo:** copied unchanged to `src/assets/arc-logo.svg` and imported as an image, so its original colors and shape stay exactly as supplied.
+- **Icons:** each becomes a small inline component. The original paths and viewBox are kept as they are. Only the "Created by… from Noun Project" text elements are removed, and fills become `currentColor`. A shared wrapper sets 16 px, `shrink-0`, `aria-hidden`, and `focusable="false"`.
+- **Footer credit:** "Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan from Noun Project." "Noun Project" links to https://thenounproject.com. The ARC logo is not included.
 
-## 3. SVG integration
-- Each SVG becomes a small inline React component. I'll keep only the glyph paths and remove the credit text, `<title>` and any fixed fills. Paths get `fill="currentColor"`, so the icon takes the text color.
-- One shared wrapper sets `size-4` (16 px), `shrink-0`, `aria-hidden="true"` and `focusable="false"`. Each viewBox is normalized so all four glyphs appear at a similar size.
-- The label text stays the accessible name, so the wording, links and behavior don't change.
+## Jump to top
+- A plain outline `<button>`, right-aligned below the workpaper content. It doesn't stay fixed on screen.
+- Clicking scrolls to the existing summary and workpaper-navigation block, then focuses it with `preventScroll`. When reduced motion is on, it moves there instantly.
+- It never navigates, changes the address, or touches the draft.
 
-## 4. Jump to top
-- A plain `<button type="button">` with outline/secondary styling, right-aligned (`flex justify-end`) inside the workpaper width, placed after the content. It doesn't stay fixed on screen.
-- On click it scrolls smoothly to the analysis summary and workpaper navigation (the element that already exists above the `Outlet`), then moves keyboard focus there with `preventScroll`. If reduced motion is on, it jumps instead of scrolling. It never changes the address, triggers a navigation or touches saved or unsaved data.
-- Shown on every workpaper, whether short or long.
+## Journal summary bar
+- **Journal Entries** = `entries.length`.
+- **Periods** = number of distinct `entry.month` values.
+- **Debits / Credits** = sums of `totalDebitsCents` / `totalCreditsCents`, shown in the existing USD format.
+- **Status:**
+  - `✓ Reconciled` when `reconciliation.reconciled === true`.
+  - `⚠ Out of balance · $X difference` when the debit and credit totals differ.
+  - Otherwise `⚠ Not reconciled`.
+- When the status isn't Reconciled, a short line lists every failed or not-evaluated check by its existing name: All entries balanced, Monthly balances tie, Revenue by PO ties, Source events complete, Overall reconciled.
+- **Blocked output** (`entries === null`): no bar; the existing notice stays.
+- **Grouped contracts:** one bar per group. The combined table stays. There is no netted cross-group bar.
+- **Layout:** one slim bordered bar with dividers; it wraps to a 2-column grid on narrow screens, and numbers are kept on one line (`tabular-nums whitespace-nowrap`).
+- The summary logic lives in a pure helper, `src/lib/asc606-journals/presentation.ts`. Journal generation and reconciliation are untouched.
 
-## 5. Journal data reused (no new accounting)
-Built from `JournalAnalysis` (`entries`, `reconciliation`, `validation`):
-- **Journal Entries** = `entries.length`. Each `JournalEntry` is one entry with a unique `id`, not a line.
-- **Periods** = the number of distinct `entry.month` values (the same `MonthKey` grouping the journal table already uses).
-- **Total Debits / Credits** = sum of `totalDebitsCents` / `totalCreditsCents`, formatted with the existing ARC USD helper.
-- **Reconciliation** = the existing `reconciliation.reconciled` result.
-- When `entries` is null (blocked), the bar is not shown and the existing blocked notice stays.
+## /privacy content (checked against the code before writing)
+- **Collected:** the email used for sign-in (email link only), the contract facts and judgments you enter, and PDFs you upload.
+- **Guest use:** no account needed. Guest workspaces expire 9 hours after creation and are then removed by ARC's scheduled maintenance. No exact removal time is promised.
+- **PDFs:** kept in private storage and opened only through short-lived private links.
+- **AI:** for an AI run, text is extracted on the server from the selected PDFs and sent to OpenAI. The full extracted page text is temporary and is not saved. Source PDFs, the structured analysis and evidence references may be kept. AI output can be reviewed, accepted, changed or resolved manually. AI runs are limited per workspace or account.
+- **Providers:** Lovable (hosting), Supabase (database, files, sign-in), OpenAI (contract analysis), Resend (sign-in email delivery).
+- **Browser storage:** local storage keeps your sign-in session and guest workspace. Cookie and analytics statements will only claim what a live check of ayden-rc.com shows; otherwise I'll use careful wording.
+- **Sharing:** no selling. Data goes to the providers above only to run the service.
+- **Security:** each user can only reach their own data, and files are stored privately. No certification, compliance or encryption claims.
+- **Deletion:** Account settings lets you delete your account, which deletes the sign-in account. The wording on what linked data goes with it will match the existing deletion code and database rules. Nothing broader is claimed.
+- **Also included:** a "Last updated" date (September 26, 2026), a note on future changes, and the contact arcompass.developer@gmail.com.
 
-## 6. What the old tile holds, and how it's kept
-Today the tile has 5 rows: All entries balanced, Monthly balances tie, Revenue by PO ties, Source events complete, and Overall reconciled. Each shows Yes / No / not evaluated.
-- Balanced shows `✓ Balanced` and nothing else.
-- Otherwise it shows `⚠ Out of balance`, plus `· $X difference` when debits and credits differ. A short list then names each failed or not-evaluated check using the same four check names. So every piece of diagnostic information stays, as text rather than color alone.
-- The checks themselves (`reconciliation` object and `validation.blockingFailures`) are untouched.
+## /sitemap
+- **Listed:** Home, Analyze Contract, Horizon Sample, Sign in, My Contracts (sign-in required), Account Settings (sign-in required), Privacy, Sitemap.
+- **Left out:** `/auth/callback`, `/engine-check`, `/api/*`, and saved-contract addresses.
+- Each page has its own title, description and og tags, and works on direct load and reload.
 
-## 7. Proposed `/privacy` (facts checked in the code)
-- **What we collect:** the email you sign in with (email-link sign-in only, no passwords). Contract inputs and judgments you enter. PDFs you upload.
-- **Guest use:** works without an account. Guest workspaces expire 9 hours after creation, and ARC's hourly maintenance removes expired guest data and files.
-- **Documents:** PDFs only, up to 10 MB, kept in private storage. They can only be viewed through short-lived private links and are never public.
-- **AI processing:** when you start an AI analysis, the contents of your selected documents are sent to OpenAI, ARC's AI provider, to produce suggestions. An accountant reviews and accepts every suggestion. ARC doesn't store extracted source text beyond what the analysis needs. I'll check this wording against the code before writing it. AI use is limited per workspace or account.
-- **Storage/providers:** ARC is hosted on Lovable. Data and files are stored with Supabase. OpenAI is used only for AI analysis.
-- **Browser storage:** ARC uses local browser storage to keep you signed in and to keep your guest workspace. There are no advertising or analytics cookies.
-- **Sharing:** no selling or advertising. Data goes only to the providers above, only to run the service.
-- **Security:** only statements the code supports, such as access limited to your own data and private file storage. No certification or encryption claims.
-- **Your choices:** signed-in users can delete their account from Account settings (this feature exists). Guest data expires automatically.
-- **Changes:** the page shows its last-updated date.
-- **Contact:** OWNER INPUT REQUIRED.
+## Tests (Vitest + Testing Library)
+- **Header and landing:** the four icon/label pairs, icons `aria-hidden`, the logo replaces the Compass and is still the home link, subtitle and eyebrow gone. Sign in is one link to `/auth`. When signed in, no email shows and the icon button opens Account settings and Sign out. `auth-header.spec.tsx` expectations about the email are updated.
+- **Sample copy:** the removed strings are gone, the kept label and badge are present, and Horizon figures are unchanged. The documents paragraph is gone and View PDF remains.
+- **Jump to top:** present on all six workpapers; scrolls and focuses; causes no navigation; the address is unchanged; an edited value survives; reduced motion scrolls instantly.
+- **Footer and pages:** footer links and credit line; `/privacy` and `/sitemap` render and include the contact; the sitemap leaves out internal routes.
+- **Journal summary:** checked on Horizon output for entry count, periods, debits, credits and Reconciled. Made-up inputs cover out of balance (difference shown), not reconciled (failing checks listed) and blocked (no bar). The old tile is gone. A grouped case shows one bar per group and keeps the combined table. The engine specs pass unchanged.
 
-## 8. Proposed `/sitemap`
-Home (`/`), Analyze Contract (`/analysis`), Horizon sample (`/analysis?sample=horizon`), Sign in (`/auth`), My Contracts (`/workspace`, marked "sign-in required"), Account settings (`/account`, sign-in required), Privacy, Sitemap. Left out on purpose: `/auth/callback`, `/engine-check`, `/api/*`, and individual contract pages.
-
-## 9. Responsive and accessibility
-- The summary bar is a 5-column row with thin dividers on desktop and a 2-column or stacked grid on narrow screens. Numbers never break across lines.
-- Every icon is decorative. Status is always in text.
-- Jump to top and the footer links use the existing focus ring.
-- Each new page gets its own title, description and og tags. Both pages load directly and on reload, since they're ordinary pages served like the rest of the site.
-
-## 10. Tests (vitest + Testing Library, current setup)
-- `landing-polish.spec.tsx`: all four icon/label pairs present, icons `aria-hidden`, feature text unchanged. Header subtitle and hero eyebrow gone. Sign in is still a single link to `/auth`.
-- Update `auth-header.spec.tsx` / `app-shell.spec.tsx` expectations only where the removed text was asserted.
-- `sample-copy.spec.tsx`: the removed strings are gone; "Sample — Horizon Logistics", the Sample badge and the Horizon figures are unchanged. The Horizon document card still has View PDF and no longer has the paragraph.
-- `jump-to-top.spec.tsx`: present on all 6 workpapers. Clicking calls scroll/focus, leaves the address and an edited field value unchanged, and makes no navigation call.
-- `app-footer.spec.tsx` + page tests: the footer links go to `/privacy` and `/sitemap`. Both pages render directly, and the sitemap leaves out internal pages.
-- `journal-summary.spec.ts` (helper) + `journal-summary-bar.spec.tsx`: entry count, period count, debits, credits and the balanced state checked on Horizon journal output. A made-up out-of-balance input shows the difference and the names of the failed checks. The old "— Reconciliation" tile is gone. The existing journal engine specs pass unchanged.
-- Full check before publishing: all tests, type check, lint, production build, a scan of the browser code for secrets, the Genomix SHA-256, and the frozen `.env` and build-tool state.
-
-## 11. Scope confirmation
-All ten items are changes to display text, markup and styling, plus two static pages. The summary bar only adds up totals from the journal output that already exists. None of this changes accounting, AI, sign-in, saving, RLS, the database or the security setup. The Transaction Price header fix stays as it is. The only things blocking the start are the three owner inputs listed at the top.
+## Verification and publish
+- **Full check:** all tests, type check, lint, production build, a secret scan of the browser code, the Genomix SHA-256, `.env` holding exactly the two public values, and the build tool at `^2.15.0` / `2.15.0`.
+- **Publish,** then run a live smoke test on https://ayden-rc.com: header and logo, signed-out icon, signed-in menu (needs your session, or clearly reported as not checked), feature icons, removed text, Jump to top on a long workpaper, footer, and Privacy/Sitemap on direct load and reload. Also the Horizon journal summary, plus a grouped case only if an existing sample covers it without AI.
+- **After publishing:** check `.env` and the build tool again, restore them if needed, and don't republish just for that cleanup.
+- **Housekeeping:** add the 3D-P tasks to `roadmap.md`.
