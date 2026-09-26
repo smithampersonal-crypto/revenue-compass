@@ -43,6 +43,7 @@ import {
 import { computeSourceSetFingerprint } from "../source-fingerprint";
 import { fixtureAAnalysis, guidancePackFixture, RUN_ID } from "./merge-fixtures";
 import { accountantState, genomixAnalysis } from "./genomix-fixtures";
+import { genomixR1Analysis } from "./r1-fixtures";
 import type { AiContractAnalysis } from "../schema";
 
 const read = (relative: string) => readFileSync(relative, "utf8");
@@ -696,6 +697,131 @@ describe("Phase 9F — AI run orchestration", () => {
       expect(h.restored).toBe(0);
       expect(h.failure?.code).toBe("structural_mutation_detected");
       expect(draft.contractModifications).toHaveLength(0);
+    });
+
+    /* ---------------- Package 3D-Q acceptance: orchestrator-safe retraction */
+
+    type Kind = AiContractAnalysis["billingTerms"][number]["amountKind"];
+    const annual = (kind: Kind | "omit"): AiContractAnalysis => {
+      const analysis = genomixR1Analysis();
+      analysis.transactionPrice.fixedConsiderationInput = "490000";
+      analysis.billingTerms =
+        kind === "omit"
+          ? analysis.billingTerms.filter((term) => term.semanticKey !== "billing:annual-advance")
+          : analysis.billingTerms.map((term) =>
+              term.semanticKey === "billing:annual-advance" ? { ...term, amountKind: kind } : term,
+            );
+      return analysis;
+    };
+
+    /** A persisted pre-v7 baseline: AI-derived invoices with no v7 marker. */
+    async function legacyBaseline() {
+      const fingerprint = await computeSourceSetFingerprint([
+        { documentId: "doc-1", sha256: "a".repeat(64) },
+      ]);
+      const prior = annual("fixed_invoice_amount");
+      const first = mergeAiAnalysis({
+        currentDraft: createEmptyDraft(),
+        currentAiState: createEmptyAiAnalysisState(),
+        analysis: prior,
+        runId: "run-earlier",
+        guidancePack: guidancePackFixture(),
+        priorContext: null,
+      });
+      const objectProvenance = Object.fromEntries(
+        Object.entries(first.aiState.objectProvenance).map(([key, value]) => {
+          const { derivation: _derivation, ...rest } = value;
+          return [key, rest];
+        }),
+      );
+      const aiState: AiAnalysisState = {
+        ...first.aiState,
+        objectProvenance,
+        lastSuccessfulRunId: "run-earlier",
+        sourceSetFingerprint: fingerprint,
+      };
+      return { draft: first.draft, aiState, prior };
+    }
+
+    async function reanalyze(
+      analysis: AiContractAnalysis,
+      base: Awaited<ReturnType<typeof legacyBaseline>>,
+    ) {
+      const h = harness({
+        analysis,
+        contextOverrides: {
+          draft: base.draft,
+          aiState: base.aiState,
+          priorAnalysis: base.prior,
+          priorAnalysisLoad: "loaded",
+        },
+      });
+      await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+      return h;
+    }
+
+    it("applies a v7 run that retracts untouched legacy invoices and collections", async () => {
+      const base = await legacyBaseline();
+      expect(base.draft.contractBalances.considerationEvents).toHaveLength(2);
+      const h = await reanalyze(annual("pricing_basis_only"), base);
+
+      expect(h.failure?.code).not.toBe("structural_mutation_detected");
+      expect(h.failure).toBeNull();
+      expect(h.applied?.draft.contractBalances.considerationEvents).toHaveLength(0);
+      expect(h.applied?.draft.contractBalances.cashCollections).toHaveLength(0);
+      const items = h.applied?.aiState.reviewItems ?? [];
+      expect(items.some((item) => item.reasonCode === "ai_derivation_retracted")).toBe(true);
+      // Nothing else in the accountant's structure moved.
+      expect(h.applied?.draft.promises.map((p) => p.id)).toEqual(base.draft.promises.map((p) => p.id));
+      expect(h.applied?.draft.performanceObligations.map((p) => p.id)).toEqual(
+        base.draft.performanceObligations.map((p) => p.id),
+      );
+    });
+
+    it("retracts an omitted legacy term under the same exact rule", async () => {
+      const base = await legacyBaseline();
+      const h = await reanalyze(annual("omit"), base);
+      expect(h.failure).toBeNull();
+      expect(h.applied?.draft.contractBalances.considerationEvents).toHaveLength(0);
+      expect(h.applied?.draft.contractBalances.cashCollections).toHaveLength(0);
+    });
+
+    it("keeps edited legacy invoices, applies, and raises the red item", async () => {
+      const base = await legacyBaseline();
+      const [edited, ...rest] = base.draft.contractBalances.considerationEvents;
+      const draft: WorkflowDraft = {
+        ...base.draft,
+        contractBalances: {
+          ...base.draft.contractBalances,
+          considerationEvents: [{ ...edited!, amountInput: "200000" }, ...rest],
+        },
+      };
+      const h = await reanalyze(annual("pricing_basis_only"), { ...base, draft });
+      expect(h.failure).toBeNull();
+      const ids = h.applied?.draft.contractBalances.considerationEvents.map((row) => row.id);
+      expect(ids).toContain(edited!.id);
+      const retained = h.applied?.aiState.reviewItems.find(
+        (item) => item.reasonCode === "legacy_billing_row_retained",
+      );
+      expect(retained?.severity).toBe("red");
+    });
+
+    it("reclaims eligible legacy Genomix billing under the same IDs with the v7 marker", async () => {
+      const base = await legacyBaseline();
+      const h = await reanalyze(annual("fixed_invoice_amount"), base);
+      expect(h.failure).toBeNull();
+      const before = base.draft.contractBalances;
+      const after = h.applied!.draft.contractBalances;
+      expect(after.considerationEvents.map((r) => r.id)).toEqual(before.considerationEvents.map((r) => r.id));
+      expect(after.cashCollections.map((r) => r.id)).toEqual(before.cashCollections.map((r) => r.id));
+      const billing = Object.values(h.applied!.aiState.objectProvenance).filter(
+        (entry) => entry.canonicalId.startsWith("ce-ai-") || entry.canonicalId.startsWith("cc-ai-"),
+      );
+      expect(billing.length).toBeGreaterThan(0);
+      expect(billing.every((entry) => entry.derivation === "evidence_gated_v7")).toBe(true);
+      expect(
+        h.applied!.aiState.reviewItems.some((item) => item.reasonCode === "ai_derivation_retracted"),
+      ).toBe(false);
     });
   });
 
