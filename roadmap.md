@@ -249,3 +249,9 @@
 - [x] Narrow v7 retraction of untouched legacy AI billing rows (object provenance)
 - [x] Prompt hardening + version bump
 - [x] Tests: ABC, positives, Genomix exact wording, transitions; full verify; frozen state
+
+## Package 3D-R — ASC 606 Analysis Accordion View-State Persistence
+- [x] Presentation-only accordion store owned by the analysis layout (memory only, per analysis identity)
+- [x] User toggles, "Go to Step" links and review navigation share the one store
+- [x] Regression tests A–H (router-level + review/read-only harness)
+- [x] Full `bun run verify` green; frozen .env / build tool / Genomix hash confirmed

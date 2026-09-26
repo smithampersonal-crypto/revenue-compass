@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+
+import { useAnalysisViewState } from "@/components/arc/analysis-view-state";
 
 import { AccordionSection } from "@/components/arc/AccordionSection";
 import { issueStatus } from "@/components/arc/issue-status";
@@ -87,8 +89,9 @@ export function Asc606AnalysisArea() {
   const search = useSearch({ from: "/analysis" }) as Record<string, string | undefined>;
   // Presentation-only: which sections are expanded. Multiple may be open at
   // once. No accounting state lives here.
-  const [open, setOpen] = useState<Record<string, boolean>>({ "step-1": true });
-  const toggle = (id: string, next: boolean) => setOpen((prev) => ({ ...prev, [id]: next }));
+  // Package 3D-R: owned by the analysis layout so it survives navigation.
+  const { open, setSectionOpen, openSection } = useAnalysisViewState();
+  const toggle = (id: string, next: boolean) => setSectionOpen(id, next);
 
   const blocking = result.workflowValidation.blockingByStep;
   const step2Issues = [...blocking["2a"], ...blocking["2b"]];
@@ -110,7 +113,7 @@ export function Asc606AnalysisArea() {
   };
 
   const reveal = (id: string) => {
-    setOpen((prev) => ({ ...prev, [id]: true }));
+    openSection(id);
     if (typeof document !== "undefined") {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -155,7 +158,7 @@ export function Asc606AnalysisArea() {
     const sectionId = target.sectionElementId;
     // The destination section is expanded FIRST; the scroll then waits for the
     // real destination element to exist.
-    setOpen((prev) => ({ ...prev, [sectionId]: true }));
+    openSection(sectionId);
 
     // Removing the one-shot parameter is a router navigation, and the router
     // restores/resets scroll on navigation. `resetScroll: false` is the router's
@@ -175,7 +178,7 @@ export function Asc606AnalysisArea() {
             ? "Review this item"
             : null,
     });
-  }, [requestedReview, reviewItem, navigate, search, ai.loadState]);
+  }, [requestedReview, reviewItem, navigate, search, ai.loadState, openSection]);
 
   return (
     <AiReviewTargetProvider workspace={ai.workspace}>
