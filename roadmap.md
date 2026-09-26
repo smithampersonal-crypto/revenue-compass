@@ -231,3 +231,12 @@
 - [x] 1 Domain routing  - [x] 2 Horizon smoke  - [x] 3 Guest upload  - [x] 4 One guest AI run
 - [x] 5 Outputs  - [x] 6 Review/Evidence  - [ ] 7 Owner-session persistence (owner)
 - [x] 8 Quotas  - [x] 9 Isolation  - [x] 10 Bundle audit  - [x] 11 Maintenance evidence
+
+## Package 3D-P — Final UI/UX Polish
+
+- [x] Header: ARC logo home link, subtitle removed, icon-only account menu, Sign in icon
+- [x] Landing: feature icons, eyebrow removed; sample/Horizon copy trimmed
+- [x] Jump to top (outside ReadOnlyInputs); footer links + attribution; /privacy, /sitemap
+- [x] Journal summary bar replaces reconciliation tile (gating unchanged)
+- [x] Verification: 218 files / 2,759 tests, typecheck, lint 0 errors, build, secret scan
+- [ ] Publish + live smoke; post-publish restore
