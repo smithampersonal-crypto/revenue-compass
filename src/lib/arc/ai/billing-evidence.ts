@@ -42,8 +42,7 @@ export type FixedBillingEvidenceRefusal =
   | "no_timing_evidence";
 
 export type FixedBillingEvidenceResult =
-  | { ok: true }
-  | { ok: false; reason: FixedBillingEvidenceRefusal };
+  { ok: true } | { ok: false; reason: FixedBillingEvidenceRefusal };
 
 /* ---------------------------------------------------------------- lexicon */
 
@@ -77,11 +76,14 @@ const CADENCE: Record<string, RegExp> = {
   monthly: /\bmonthly\b|\b(?:each|every)\s+(?:calendar\s+)?month\b/i,
   quarterly: /\bquarterly\b|\b(?:each|every)\s+(?:calendar\s+)?quarter\b/i,
   semiannual: /\bsemi-?annual(?:ly)?\b|\bhalf-?yearly\b|\bevery\s+six\s+months\b/i,
-  annual: /(?<!semi-)(?<!semi)\bannual(?:ly)?\b|\byearly\b|\b(?:each|every)\s+(?:contract\s+)?year\b/i,
-  one_time: /\bsingle\s+invoice\b|\bin\s+full\b|\bone-?time\b|\bupon\s+(?:execution|signature|signing)\b|\bat\s+(?:execution|signing)\b/i,
+  annual:
+    /(?<!semi-)(?<!semi)\bannual(?:ly)?\b|\byearly\b|\b(?:each|every)\s+(?:contract\s+)?year\b/i,
+  one_time:
+    /\bsingle\s+invoice\b|\bin\s+full\b|\bone-?time\b|\bupon\s+(?:execution|signature|signing)\b|\bat\s+(?:execution|signing)\b/i,
 };
 
-const EXECUTION_PHRASE = /\bupon\s+(?:execution|signature|signing)\b|\bat\s+(?:execution|signing)\b/i;
+const EXECUTION_PHRASE =
+  /\bupon\s+(?:execution|signature|signing)\b|\bat\s+(?:execution|signing)\b/i;
 const ADVANCE_PHRASE =
   /\bin\s+advance\b|\badvance\b|\bprior\s+to\b|\bat\s+the\s+(?:start|beginning|commencement)\s+of\b/i;
 const ARREARS_PHRASE =
@@ -162,7 +164,11 @@ function hasTiming(
   if (timing === "advance") {
     if (ADVANCE_PHRASE.test(sentence)) return true;
     // An execution trigger supports an already-proposed one-time advance bill.
-    return frequency === "one_time" && EXECUTION_PHRASE.test(sentence) && !INSTALLMENT_WORD.test(sentence);
+    return (
+      frequency === "one_time" &&
+      EXECUTION_PHRASE.test(sentence) &&
+      !INSTALLMENT_WORD.test(sentence)
+    );
   }
   if (timing === "arrears") return ARREARS_PHRASE.test(sentence);
   return false;
@@ -210,9 +216,7 @@ export function checkFixedBillingEvidence(
 export const AI_FIXED_SCHEDULE_REVIEW_STATES: readonly string[] = ["supported"];
 
 export type AiFixedScheduleRefusal =
-  | "amount_not_fixed_invoice"
-  | "billing_term_not_source_supported"
-  | FixedBillingEvidenceRefusal;
+  "amount_not_fixed_invoice" | "billing_term_not_source_supported" | FixedBillingEvidenceRefusal;
 
 export interface AiFixedScheduleTerm extends FixedBillingEvidenceInput {
   /** Absent on legacy v5/v6 results, which are treated as `unknown`. */

@@ -1038,7 +1038,10 @@ export function parsePersistedAiContractAnalysis(
 function normalizeLegacyBillingTerms(analysis: AiContractAnalysis): AiContractAnalysis {
   return {
     ...analysis,
-    billingTerms: analysis.billingTerms.map((term) => ({ ...term, amountKind: "unknown" as const })),
+    billingTerms: analysis.billingTerms.map((term) => ({
+      ...term,
+      amountKind: "unknown" as const,
+    })),
   };
 }
 

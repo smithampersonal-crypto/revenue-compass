@@ -200,7 +200,9 @@ export function fixtureAAnalysis(): AiContractAnalysis {
         amountOrRateInput: "120000",
         paymentTermsDays: 30,
         dueDateRule: "Net 30 from invoice date.",
-        citations: [cite(1, "The $120,000 subscription fee is invoiced annually in advance, net 30.")],
+        citations: [
+          cite(1, "The $120,000 subscription fee is invoiced annually in advance, net 30."),
+        ],
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
       },

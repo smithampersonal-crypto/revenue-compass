@@ -181,7 +181,12 @@ describe("aiFixedScheduleEligibility", () => {
   });
 
   it("refuses every review state other than supported", () => {
-    for (const reviewState of ["inference", "needs_review", "source_conflict", "needs_user_input"]) {
+    for (const reviewState of [
+      "inference",
+      "needs_review",
+      "source_conflict",
+      "needs_user_input",
+    ]) {
       expect(
         aiFixedScheduleEligibility({ ...base, amountKind: "fixed_invoice_amount", reviewState }),
       ).toEqual({ ok: false, reason: "billing_term_not_source_supported" });

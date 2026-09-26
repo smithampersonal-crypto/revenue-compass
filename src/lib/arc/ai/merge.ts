@@ -3393,7 +3393,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const carried = objectProvenance[semanticKey];
     const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
-    const derivation = gatedBillingKeys.has(semanticKey) ? "evidence_gated_v7" : carried?.derivation;
+    const derivation = gatedBillingKeys.has(semanticKey)
+      ? "evidence_gated_v7"
+      : carried?.derivation;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
     // ARC last wrote. A difference created by ARC applying this very analysis
