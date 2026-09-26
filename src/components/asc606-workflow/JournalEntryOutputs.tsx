@@ -6,6 +6,9 @@ import type {
   JournalLine,
 } from "@/lib/asc606-journals";
 
+import { summarizeJournal } from "@/lib/asc606-journals/presentation";
+
+import { JournalSummaryBar } from "./JournalSummaryBar";
 import { IssueList, Notice, Section, td, th } from "./fields";
 
 /**
@@ -40,10 +43,6 @@ function amount(cents: number): string {
   return cents === 0 ? "—" : formatCents(cents);
 }
 
-function statusLabel(value: boolean | null): string {
-  return value === null ? "Not available" : value ? "Reconciled" : "Not reconciled";
-}
-
 export function JournalEntryOutputs({
   analysis,
   poNames,
@@ -62,6 +61,8 @@ export function JournalEntryOutputs({
 }) {
   const { entries, reconciliation, validation } = analysis;
   const finalized = entries !== null && reconciliation.reconciled === true;
+  // Presentation-only control totals; authority above (`finalized`) is unchanged.
+  const summary = summarizeJournal(analysis);
 
   return (
     <div className="space-y-6">
@@ -69,6 +70,7 @@ export function JournalEntryOutputs({
         title={title}
         description="These journal entries are generated deterministically from the approved revenue and contract-balance workpapers. They are read-only and are not posted or saved."
       >
+        {summary ? <JournalSummaryBar summary={summary} label={title} /> : null}
         {finalized ? (
           <div className="space-y-4">
             {entries.map((entry) => (
@@ -135,35 +137,6 @@ export function JournalEntryOutputs({
             />
           </>
         )}
-      </Section>
-
-      <Section title={`${title} — Reconciliation`}>
-        <table className="w-full border-collapse text-sm">
-          <tbody>
-            <tr>
-              <td className={td}>All journal entries balanced</td>
-              <td className={td}>{statusLabel(reconciliation.allEntriesBalanced)}</td>
-            </tr>
-            <tr>
-              <td className={td}>
-                Monthly journal balances tie to Billing &amp; Contract Balances
-              </td>
-              <td className={td}>{statusLabel(reconciliation.monthlyBalancesTie)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Revenue by performance obligation ties to revenue schedule</td>
-              <td className={td}>{statusLabel(reconciliation.revenueByPoTies)}</td>
-            </tr>
-            <tr>
-              <td className={td}>Source accounting events complete</td>
-              <td className={td}>{statusLabel(reconciliation.sourceEventsComplete)}</td>
-            </tr>
-            <tr className="font-semibold">
-              <td className={td}>Overall status</td>
-              <td className={td}>{statusLabel(reconciliation.reconciled)}</td>
-            </tr>
-          </tbody>
-        </table>
       </Section>
     </div>
   );

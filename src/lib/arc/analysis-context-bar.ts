@@ -66,7 +66,7 @@ export function buildAnalysisContextBar({
   if (sampleCustomer) {
     return {
       title: `Sample — ${sampleCustomer}`,
-      detail: "Fictional sample contract",
+      detail: "",
       status: "Sample",
       unsaved: true,
     };

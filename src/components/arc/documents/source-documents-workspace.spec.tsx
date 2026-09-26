@@ -584,11 +584,7 @@ describe("Source Documents workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText("Sample source document · Synthetic")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The Horizon analysis is pre-populated for demonstration. This synthetic source document is provided so you can trace the underlying contract terms.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/pre-populated for demonstration/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View PDF" })).toHaveAttribute(
       "href",
       "/samples/horizon-logistics-saas-order-form.pdf",

@@ -24,7 +24,7 @@ describe("ARC app shell (Phase 5)", () => {
   it.each(["/", "/analysis?sample=redwood"])("renders ARC chrome on %s", async (path) => {
     await renderAt(path);
     expect((await screen.findAllByText("Ayden's Revenue Compass (ARC)")).length).toBeGreaterThan(0);
-    expect(screen.getByText("ASC 606 Analysis Platform")).toBeInTheDocument();
+    expect(screen.queryByText("ASC 606 Analysis Platform")).not.toBeInTheDocument();
     expect(screen.getByText("© 2026 Ayden's Revenue Compass (ARC)")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /user login|sign up/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /user login|sign up/i })).not.toBeInTheDocument();
@@ -35,7 +35,6 @@ describe("ARC app shell (Phase 5)", () => {
     expect(
       await screen.findByRole("heading", { name: "ASC 606 Engine Check" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("ASC 606 Analysis Platform")).not.toBeInTheDocument();
     expect(screen.queryByText("© 2026 Ayden's Revenue Compass (ARC)")).not.toBeInTheDocument();
   });
 
