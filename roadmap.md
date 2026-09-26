@@ -243,9 +243,9 @@
 
 ## Package 3D-Q — Billing Evidence / Contract Balances Fail-Closed
 
-- [ ] Schema v7 + required amountKind; v5/v6 normalize to unknown
-- [ ] ARC-owned evidence check (currency, generic per-X refusal, cadence, timing) + supported-only allowlist
-- [ ] Gate schedule derivation and fixed-total derivation
-- [ ] Narrow v7 retraction of untouched legacy AI billing rows (object provenance)
-- [ ] Prompt hardening + version bump
-- [ ] Tests: ABC, positives, Genomix exact wording, transitions; full verify; frozen state
+- [x] Schema v7 + required amountKind; v5/v6 normalize to unknown
+- [x] ARC-owned evidence check (currency, generic per-X refusal, cadence, timing) + supported-only allowlist
+- [x] Gate schedule derivation and fixed-total derivation
+- [x] Narrow v7 retraction of untouched legacy AI billing rows (object provenance)
+- [x] Prompt hardening + version bump
+- [x] Tests: ABC, positives, Genomix exact wording, transitions; full verify; frozen state
