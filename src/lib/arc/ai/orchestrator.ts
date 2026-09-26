@@ -541,7 +541,11 @@ export async function executeAiRunHandler(
       // is persisted and the previous analysis stands.
       if (
         latest.aiState.lastSuccessfulRunId !== null &&
-        detectsStructuralMutation(latest.draft, merged.draft)
+        detectsStructuralMutation(
+          latest.draft,
+          merged.draft,
+          merged.authorizedStructuralRetractions,
+        )
       ) {
         await deps.store.markFailure({
           runId: run.id,
