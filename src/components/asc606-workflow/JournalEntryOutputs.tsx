@@ -72,7 +72,7 @@ export function JournalEntryOutputs({
       >
         {summary ? <JournalSummaryBar summary={summary} label={title} /> : null}
         {finalized ? (
-          <div className="mt-4 space-y-4">
+          <div className="space-y-4">
             {entries.map((entry) => (
               <div key={entry.id} className="rounded-md border border-border p-3">
                 <p className="text-sm font-semibold text-foreground">{entry.date}</p>
