@@ -9,6 +9,7 @@
 
 import { formatCents } from "@/lib/asc606";
 import type { WorkflowAnalysisResult, WorkflowDraft } from "@/lib/asc606-workflow";
+import { parseUsdToCents } from "@/lib/asc606-workflow/money-input";
 import { analysisStatus, type AnalysisStatusTone } from "@/components/arc/analysis-status";
 import type { AnalysisOrigin } from "@/components/arc/analysis-context";
 import type { DemoScenario } from "@/lib/demo-scenarios";
@@ -171,15 +172,24 @@ export function buildAnalysisSummary({
       { label: "Modification treatment", value: modification.classification.label },
     );
   } else if (
+    !pristine &&
     !hasVariableConsideration &&
     !hasMaterialRight &&
     !hasActiveModification &&
-    result.analysis !== null
+    result.step1Conclusion === "qualified" &&
+    result.workflowValidation.blockingByStep["3"].length === 0
   ) {
-    metrics.push({
-      label: "Transaction price",
-      value: formatCents(result.analysis.totals.transactionPriceCents),
-    });
+    /*
+     * Step 3 validity alone decides the headline. Blockers owned by later
+     * steps (allocation, recognition) withhold only the outputs that depend on
+     * them, never the already-determined fixed transaction price. The value is
+     * the validated Step 3 input, read with the existing exact parser — the
+     * same amount the completed engine reports; no arithmetic is performed.
+     */
+    const price = parseUsdToCents(draft.transactionPriceInput);
+    if (price.ok && price.cents > 0) {
+      metrics.push({ label: "Transaction price", value: formatCents(price.cents) });
+    }
   }
 
   const methods = draft.performanceObligations.map((po) => po.recognitionMethod);
