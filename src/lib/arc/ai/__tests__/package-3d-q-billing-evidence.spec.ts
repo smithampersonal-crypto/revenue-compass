@@ -280,7 +280,7 @@ describe("merge — legacy billing retraction", () => {
     const retained = second.issues.find(
       (issue) => issue.reasonCode === "legacy_billing_row_retained",
     );
-    expect(retained?.blocking).toBe(true);
+    expect(retained?.severity).toBe("red");
   });
 
   it("never removes an accountant's manual invoice", () => {
