@@ -228,9 +228,9 @@
 
 ## Package 3D — Focused Production Verification
 
-- [x] 1 Domain routing  - [x] 2 Horizon smoke  - [x] 3 Guest upload  - [x] 4 One guest AI run
-- [x] 5 Outputs  - [x] 6 Review/Evidence  - [x] 7 Owner-session persistence (owner-verified: save, My Contracts, reopen, refresh, signed-out denial)
-- [x] 8 Quotas  - [x] 9 Isolation  - [x] 10 Bundle audit  - [x] 11 Maintenance evidence
+- [x] 1 Domain routing - [x] 2 Horizon smoke - [x] 3 Guest upload - [x] 4 One guest AI run
+- [x] 5 Outputs - [x] 6 Review/Evidence - [x] 7 Owner-session persistence (owner-verified: save, My Contracts, reopen, refresh, signed-out denial)
+- [x] 8 Quotas - [x] 9 Isolation - [x] 10 Bundle audit - [x] 11 Maintenance evidence
 
 ## Package 3D-P — Final UI/UX Polish
 
@@ -251,12 +251,14 @@
 - [x] Tests: ABC, positives, Genomix exact wording, transitions; full verify; frozen state
 
 ## Package 3D-R — ASC 606 Analysis Accordion View-State Persistence
+
 - [x] Presentation-only accordion store owned by the analysis layout (memory only, per analysis identity)
 - [x] User toggles, "Go to Step" links and review navigation share the one store
 - [x] Regression tests A–H (router-level + review/read-only harness)
 - [x] Full `bun run verify` green; frozen .env / build tool / Genomix hash confirmed
 
 ## Package 3D-S — About ARC Page
+
 - [x] Public /about route (Privacy page pattern, no GitHub link)
 - [x] Footer: About · Privacy · Sitemap; Sitemap lists About before Privacy
 - [x] Focused tests A–F; full `bun run verify`; frozen state confirmed
@@ -265,17 +267,20 @@
 ## Package 3E (first pass, superseded by the final 3E closeout below) — Production Verification & Docs
 
 Current production truth
+
 - Live at https://ayden-rc.com (HTTPS; www → apex). Email magic-link only, sent through SMTP on mail.ayden-rc.com.
 - Maintenance: GitHub Actions runs hourly at :17 and calls /api/public/maintenance (authoritative). The pg_cron SQL is optional and unapplied.
 - AI: GPT-5.6 Terra (`arc.ai.prompt.v14`, `arc.ai.schema.v9`), one call per Analyze/Re-analyze, `store:false`. Visible allowance counts delivered analyses: guest 3 per 9-hour browser session (shared by every temporary analysis in it), signed-in 10 per calendar month; rejected runs release it. Attempt safeguard: 6 per guest session, 20 per signed-in month. Limits: 10 MB / 500 pages / 200k tokens.
 - Horizon Logistics is the only sample on New Analysis; other fixtures stay internal.
 
 Previously accepted (not re-run in 3E)
+
 - [x] 3D owner-session persistence (owner-verified)
 - [x] 3D-P, 3D-Q, 3D-R and 3D-S accepted; 3D-S published and live
 - [x] Production domain, SMTP magic-link, and maintenance manual + scheduled 200 runs
 
 Fresh 3E evidence
+
 - [x] D1/D2 platform drift restored from revenue-compass-main(161).zip; .env, package.json and bun.lock are byte-identical to (161)
 - [x] Pre-edit Diff A vs (161): no product/runtime drift
 - [x] Dependency audit (`bun audit` against the public npm advisory DB, read-only): 1 critical, 14 high, 4 moderate. All are transitive and build/test/tooling only: tar via the supabase CLI, brace-expansion and js-yaml via eslint, nanoid via postcss/vite, uuid via exceljs (devDependency). None reach the browser or server runtime. Nothing fixed or upgraded.
@@ -289,18 +294,21 @@ Fresh 3E evidence
 - [x] Superseded by the final 3E closeout after 3D-Q.1, 3D-Q.2 and 3D-T
 
 ## Package 3D-Q.1 — Explicit Billing Events
+
 - [x] Plan written (trace, root cause, design)
 - [x] Plan approved with corrections (per-invoice citations, same-stream-only dedup, no table path)
 - [x] Implementation + local verification
 - [x] Owner acceptance, publish and live run (accepted)
 
 ## Package 3D-Q.2 — Transaction price independent of billing + derivable billing rules
+
 - [x] Plan approved (billing never overrides Step 3; cohesive installment+timing evidence; AI-side PO references only; inclusive-end coverage rule)
 - [x] Step 3: remove billing override; blocking source_conflict when a complete billing total disagrees
 - [x] Schema v9 / prompt v14; installment + trigger evidence checks; deterministic derivation; merge + Safe Re-analysis
 - [x] Tests + full verify + frozen state; published and live-accepted on multiple contracts
 
 ## Package 3D-T — New Analysis & Recent Analyses
+
 - [x] Plan approved (Option A guest_sessions; derived per-analysis credentials; lazy legacy upgrade; session-level guest quota; cookie survives save; explicit creation; safe Continue return)
 - [x] Migration (guest_sessions, session links, ai_runs.guest_session_id, quota count, cleanup, purge, legacy backfill)
 - [x] Server: session/derived-credential resolution across guest, document and AI callers; create/list/resume
@@ -310,11 +318,13 @@ Fresh 3E evidence
 - [x] Owner acceptance; published and live-accepted (independent analyses, source isolation, shared session allowance, sibling preservation after save)
 
 ## 3D-T allowance refund
+
 - [x] Migration: visible usage = succeeded + active; monthly refund on failure; attempt caps 6 guest / 20 auth
 - [x] App: attempt_limit messages; SQL suite + vitest; verify; restore frozen state
 - [x] Published and live-accepted (a citation_anchor_failure run released the guest allowance)
 
 ## Package 3E — Final verification, documentation & recruiter-v1 archive
+
 - [x] Frozen files restored (.env, package.json ^2.15.0, bun.lock 2.15.0); Genomix hash confirmed
 - [x] Approved copy: Step 4 provisional-SSP summary; "AI analyses remaining" wording
 - [x] Docs reconciled (README, roadmap, operations); README screenshots refreshed
@@ -322,5 +332,6 @@ Fresh 3E evidence
 - [ ] Owner: both GitHub jobs green; publish approval for the two copy changes, then light production smoke
 
 ## Post-v1 possibilities (not planned, not required)
+
 - A curated advanced-sample gallery (for example variable consideration)
 - Additional document formats or OCR
