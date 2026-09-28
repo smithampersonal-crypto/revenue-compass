@@ -11,6 +11,9 @@ import { describe, expect, it } from "vitest";
 import {
   AI_FAILURE_HEADLINE_FIRST_RUN,
   AI_FAILURE_HEADLINE_REANALYSIS,
+  AI_ATTEMPT_LIMIT_AUTHENTICATED,
+  AI_ATTEMPT_LIMIT_GUEST,
+  AI_ATTEMPT_LIMIT_HEADLINE,
   presentAiFailure,
   type AiFailureFacts,
   type AiFailurePresentation,
@@ -142,13 +145,43 @@ describe("deterministic AI failure presentation", () => {
     );
   });
 
-  it("reports allowance truthfully from the provider-start boundary", () => {
+  it("3D-T refund: a failed run never uses the visible allowance, even after provider start", () => {
     expect(presentAiFailure({ ...base, allowanceConsumed: false }).allowance).toContain(
       "No AI allowance was used",
     );
-    expect(presentAiFailure({ ...base, allowanceConsumed: true }).allowance).toContain(
-      "one AI analysis",
-    );
+    for (const facts of [
+      { failureCategory: "response", failureCode: "citation_anchor_failure" },
+      { failureCategory: "response", failureCode: "response_invalid" },
+      { failureCategory: "api", failureCode: "api_failure" },
+      { failureCategory: "application", failureCode: "apply_failed" },
+    ]) {
+      const p = presentAiFailure({ ...base, ...facts, allowanceConsumed: true });
+      expect(p.allowance).toContain("No AI allowance was used");
+      expect(p.allowance).not.toContain("one AI analysis");
+    }
+  });
+
+  it("3D-T: the technical attempt ceiling has its own wording, never 'no analyses remaining'", () => {
+    const guest = presentAiFailure({
+      ...base,
+      failureCategory: "preflight",
+      failureCode: "attempt_limit",
+      quotaScope: "guest",
+    });
+    expect(guest.category).toBe("attempt_limited");
+    expect(guest.headline).toBe(AI_ATTEMPT_LIMIT_HEADLINE);
+    expect(guest.whatHappened).toBe(AI_ATTEMPT_LIMIT_GUEST);
+    expect(strings(guest)).not.toContain("No analyses remaining");
+    expect(strings(guest)).not.toMatch(/unsuccessful/i);
+    const auth = presentAiFailure({
+      ...base,
+      failureCategory: "preflight",
+      failureCode: "attempt_limit",
+      quotaScope: "authenticated",
+    });
+    expect(auth.whatHappened).toBe(AI_ATTEMPT_LIMIT_AUTHENTICATED);
+    expect(strings(auth)).not.toContain("No analyses remaining");
+    expect(auth.allowance).toContain("No AI allowance was used");
   });
 
   it("falls back safely for unknown, malformed or newly introduced codes", () => {
