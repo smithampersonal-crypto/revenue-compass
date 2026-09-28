@@ -1,143 +1,108 @@
-# Package 3E — Final Production Verification, Documentation Reconciliation & Recruiter Archive (PLAN ONLY)
+# Package 3D-Q.1 — Explicit Billing Events (PLAN ONLY)
 
-## 1. Current-State Audit
-Inspected: README.md, roadmap.md, docs/operations.md, docs/phase-8-acceptance.md, .github/workflows/maintenance.yml, package.json, bun.lock, root .env (key names only), fixtures/, .lovable/, tracked-file list, Bun audit capability.
-
-Consistent with the brief:
-- Genomix SHA-256 = `7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7` (matches).
-- No tracked junk (no logs, dist, .output, node_modules, tsbuildinfo, .DS_Store). Only `.env` is a tracked env file (intentional).
-- No Google/OAuth code in src; README auth language contains no Google references.
-- `.lovable/project.json` and 13 historical `.lovable/plan/` files present.
-
-Discrepancies found (recurring platform drift, not product drift):
-- **D1 — `.env` currently has six keys** (adds SUPABASE_PROJECT_ID, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, VITE_SUPABASE_PROJECT_ID). Accepted = two VITE values.
-- **D2 — `package.json` pins `@lovable.dev/vite-tanstack-config` to exact `2.23.1`; `bun.lock` resolves `2.23.1`.** Accepted = `^2.15.0` / `2.15.0` Europe West 4.
-- These match the known post-publish drift pattern and will be restored first from the files in `(161)` (not reconstructed, not from a historical commit), without publishing.
-
-Baseline availability:
-- `revenue-compass-main(161).zip` is the authoritative baseline; the owner will upload it before implementation. Git commit `f4a6520a` may be used only as supporting evidence unless it is first shown to be byte-identical to `(161)`.
-
-## 2. Stale Documentation Identified
-| # | File / location | Current wording | Why stale | Approach | Historical? |
-|---|---|---|---|---|---|
-| S1 | README "Quality & Testing" | "2,592 automated tests across 200 test files" | Pre-3D counts | Replace with fresh 3E count | No — current state |
-| S2 | README (no production/ops section) | No live domain, maintenance model or auth scope stated | Missing current truth | Add a short "Production" paragraph: ayden-rc.com, magic-link only, GitHub Actions hourly maintenance | No |
-| S3 | docs/operations.md §"Production deployment" steps 1–2 and "Which schedule is authoritative" | "pg_cron … authoritative production hourly trigger"; "Enable both" | Contradicts accepted truth | Rewrite: GitHub Actions → endpoint is authoritative and runs steps 1–3; pg_cron SQL optional/unapplied, not required | No — current operator guidance |
-| S4 | docs/operations.md "Production release prerequisites" | Custom SMTP "must be configured before launch"; ARC_SITE_URL "must be set" | Both complete | Retitle to completed configuration; state SMTP via mail.ayden-rc.com and ARC_SITE_URL = https://ayden-rc.com (no secrets) | No |
-| S5 | docs/phase-8-acceptance.md "Manual production configuration still required" | pg_cron described as authoritative; items listed as outstanding | Phase 8 checkpoint wording readable as current | Keep text; retitle "At the Phase 8 checkpoint…" and add a current-state note pointing to operations.md | Yes — preserve |
-| S6 | docs/phase-8-acceptance.md human-only persistence rows | Marked "Human" pending | Later verified by owner (3D) | Add a dated current-state note; leave table as-is | Yes — preserve |
-| S7 | .github/workflows/maintenance.yml comment line 12 | `e.g. https://<project>.lovable.app/api/public/maintenance` | Production is ayden-rc.com | Leave workflow byte-identical; state the production URL in operations.md | No |
-| S8 | roadmap.md line 232 (3D checklist) | `[ ] 7 Owner-session persistence (owner)` | Verified by owner | Mark `[x]` with a short "owner-verified" note | Checklist — update |
-| S9 | roadmap.md line 173 | "magic-link delivery deferred to Package 3 SMTP/Resend" | Checkpoint-accurate | Leave unchanged (historical) | Yes |
-| S10 | roadmap.md earlier test counts / schema v6 line | Checkpoint counts | Accurate for their checkpoints | Leave unchanged | Yes |
-
-Not found (checked): stale Horizon $120,000, Google OAuth plans, subledger positioning (README already says "not a generalized commercial revenue subledger"), sitemap/footer references omitting /about in docs.
-
-## 3. Exact Files Proposed to Change
-- `README.md` — S1, S2. Documentation only. No runtime effect.
-- `docs/operations.md` — S3, S4. Documentation only. No runtime effect.
-- `docs/phase-8-acceptance.md` — S5, S6 (labels/notes only). No runtime effect.
-- `roadmap.md` — S8 + new Package 3E evidence section. No runtime effect.
-- `.github/workflows/maintenance.yml` — **not changed** (stays byte-identical, per owner). S7 is handled in operations.md and README instead.
-- Drift restoration only (returns to the `(161)` state, not a 3E change): `.env`, `package.json`, `bun.lock`.
-
-No runtime/product source file needs to change.
-
-## 4. Dependency/Security Audit Method
-Environment: Bun 1.3.3, which supports `bun audit` (reads the lockfile-installed tree; queries the npm advisory database; read-only; no fix mode exists).
-- `bun audit --json > /tmp/3e/audit.json` (full data), and `bun audit` for the human-readable summary.
-- Severity: tallied from JSON (critical/high/moderate/low).
-- Direct vs transitive: match each advisory package against `dependencies` / `devDependencies` in package.json; otherwise transitive, with the parent chain from `bun pm ls --all` (read-only).
-- Runtime vs tooling: runtime = reachable from `dependencies` and bundled into the client/worker; tooling = only via devDependencies (vitest, eslint, supabase CLI, build). Cross-check high/critical runtime hits against the built output.
-- False positives: advisories for unused code paths (e.g. dev-server-only, CLI-only) documented with reasoning; never suppressed by `--ignore`.
-- No `bun update`, `bun add`, or any fixer. Any material runtime vulnerability requiring an upgrade → STOP for owner review. `@lovable.dev/vite-tanstack-config` stays at 2.15.0.
-
-## 5. Final Verification Command Sequence
+## 1. Traced failure (runtime code, not tests)
 ```text
-P  Prerequisite: owner uploads revenue-compass-main(161).zip
-   unzip to /tmp/3e/base (read-only reference); record SHA-256 of the ZIP
-   (optional support only) prove whether git f4a6520a == (161) byte-for-byte
-0  Restore D1/D2 drift from (161)  (changes files — expected):
-   cp /tmp/3e/base/package.json  -> package.json   (only if the only difference is the drifted dependency value;
-                                                     otherwise patch just that one value to the (161) value)
-   cp /tmp/3e/base/bun.lock      -> bun.lock
-   write .env with exactly the two existing approved public VITE_* values
-   bun install --frozen-lockfile                   (installs dependencies only)
-1  Frozen check F1: .env key names; cmp package.json and bun.lock against (161); grep ^2.15.0 / 2.15.0 / europe-west4, no 2.23.1
-2  DIFF A — pre-edit integrity diff vs (161) (method in Section 6)
-   STOP if any unexplained product/runtime/config/database drift
-3  bun audit --json ; bun audit                   (read-only; no fixes, no upgrades)
-4  Apply approved doc edits: README.md, docs/operations.md, docs/phase-8-acceptance.md, roadmap.md
-5  bun run verify                                 (writes only ignored build output)
-6  Hygiene + secret scans (Section 6)             (read-only)
-7  sha256sum fixtures/genomix-synthesis-contract-package.pdf
-8  Frozen check F2 + tracked-change check: verify and the other checks added no unexpected tracked changes.
-   Only expected changes: README.md, docs/operations.md, docs/phase-8-acceptance.md, roadmap.md.
-   .env, package.json and bun.lock must match (161) byte-for-byte, so they are not 3E changes. Any other tracked change = STOP
-9  DIFF B — final release diff vs (161): authoritative; every changed path classified
-   expected = approved docs/evidence files only (plus drift files now matching (161) exactly)
-10 Owner confirms GitHub app + database jobs green on the final 3E commit (external)
-11 Build ZIP from tracked files (Section 7); Frozen check F3 on the tree
-12 Validate ZIP (Section 8), including Frozen check F4 inside the ZIP
+Terra (schema v7 billingTerms) -> schema.ts normalize -> merge.ts billing loop (~L2900)
+  -> aiFixedScheduleEligibility (billing-evidence.ts)   <-- all three Redwood streams rejected here
+  -> deriveBillingSchedule (adapter.ts)                 <-- training date would also be wrong here
+  -> considerationEvents -> Contract Balances
 ```
-Ordering: drift restoration comes first, otherwise every later check fails on D1/D2. Diff A runs before any doc edit, so it can only show drift. Diff B runs after verification and scans and is the one the completion report uses.
+The failure happens at the **evidence gate**, in `checkFixedBillingEvidence`. That check needs one sentence that states the matching amount, an invoicing **cadence** and an **advance/arrears timing phrase**. Here is how each Redwood stream fares (read from the uploaded PDF text):
 
-## 6. Repository / Secret / Hygiene Checks
-- Tracked junk: `git ls-files | rg -i '(^|/)(node_modules|dist|\.output|\.vinxi|\.tanstack|\.nitro|\.wrangler)/|\.log$|\.tsbuildinfo$|\.DS_Store|Thumbs\.db|\.dev\.vars|\.swp$'` → expect empty.
-- `.env`: only key names printed (`cut -d= -f1`); expect exactly VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY; decode the key's JWT payload role field only → expect `anon`.
-- Secret values (tracked files): `git ls-files -z | xargs -0 rg -n -I` for value patterns, not names: `sk-(proj-)?[A-Za-z0-9_-]{20,}`, `sb_secret_[A-Za-z0-9_-]{8,}`, `re_[A-Za-z0-9]{20,}` (Resend), `-----BEGIN [A-Z ]*PRIVATE KEY`, JWTs whose decoded payload has `"role":"service_role"`, `ARC_MAINTENANCE_SECRET\s*[:=]\s*\S{16,}`, `(SMTP|OPENAI)_[A-Z_]*\s*=\s*\S`. Output only file:line, never the matched value. Bare identifiers (`OPENAI_API_KEY` in code/docs/tests) are expected and not leaks; test fixtures with obvious dummy values will be listed and justified.
-- Client bundle: existing `audit:bundle` inside verify, plus the same value regexes over `dist/client` (or `.output/public`).
-- Package/lock drift: F1–F4 checks.
-- Migration/config drift + product-source drift: see diff below.
+| Stream | Terra's likely v7 term | Gate result | Why |
+|---|---|---|---|
+| Implementation $24,000 | one_time / advance | `no_timing_evidence` | "in full" satisfies one_time cadence, but "on January 1, 2027" is neither an advance phrase nor an execution phrase |
+| Subscription 4 x $30,000 | quarterly / advance | `no_invoice_cadence` | "billed quarterly in advance." has no amount. Each "$30,000 on <date>" sentence has no cadence word. Cohesion correctly refuses to combine them. |
+| Training $6,000 | one_time / advance or arrears | `no_timing_evidence` | Same as implementation |
 
-Diffs A and B vs (161): stage the tracked tree (`git ls-files -z` minus the approved denylist) to `/tmp/3e/cur`; apply the same denylist to `/tmp/3e/base`; then run `diff -rq` plus a per-file SHA-256 manifest comparison (added / removed / changed). Every path is labeled approved-docs, drift-restored (must equal (161)), or unexplained. Diff A expects zero changes after restoration; Diff B expects only the four approved doc files. Any change under `src/`, `supabase/`, `scripts/`, `public/`, `fixtures/`, config files (`vite.config.ts`, `tsconfig.json`, `vitest.config.ts`, `eslint.config.js`, `supabase/config.toml`, workflows) → STOP.
+Each refusal raises a blocking `billing_schedule_not_derivable` review item, so zero events are created. Cohesion and the 3D-Q rate exclusions work as designed. The missing capability is a representation for dated invoices.
 
-## 7. Final ZIP Construction Method
-Deterministic, built from tracked files only — no untracked files, no manual selection, and no repo files deleted:
-```text
-git ls-files -z | python3 /tmp/3e/make_zip.py
-```
-`make_zip.py`:
-- Denylist regexes: `^\.env$`, `^\.env\.`, `^\.lovable/plan\.md$`, `^\.git/`, `(^|/)(node_modules|dist|\.output|\.vinxi|\.tanstack|\.nitro|\.wrangler)/`, `\.dev\.vars$`, `\.tsbuildinfo$`, `\.log$`, `(^|/)\.DS_Store$`, `Thumbs\.db$`, `\.swp$`, `~$`, `(^|/)\.idea/`, `(^|/)\.vscode/`.
-- Keeps `.lovable/project.json`, `.lovable/plan/**`, `.github/**`, `.prettierrc`, `.prettierignore`, `.gitignore` etc. because they are tracked and not denylisted.
-- Sorted paths, fixed timestamp (1980-01-01), fixed permissions, DEFLATE → reproducible bytes; writes `/tmp/3e/ARC-recruiter-v1-source.zip` and a manifest (path + SHA-256), then copies the ZIP to Files after validation passes.
+## 2. Root-cause answers
+- **Q1 — Can schema v7 hold an invoice date?** No. The v7 billing term has semanticKey, description, billingTiming, frequency, invoiceTrigger, amountOrRateInput, paymentTermsDays, dueDateRule, citations, reviewState and amountKind. None of these holds a date. A date could appear only as prose in `invoiceTrigger`, and ARC never parses model prose into facts.
+- **Q2 — What does prompt v11 ask for?** Recurring rules only. It says "state the billing mechanics … billingTiming, frequency and the exact per-period amount", and "supported only when the cited text states the invoiced amount, the invoicing cadence and the billing timing". Nothing asks for explicit invoice dates or enumerated schedules.
+- **Q3 — What does the current output contain?** Given Q1, at most three rule-shaped terms with no dates. No captured Redwood output exists in the repo. As a read-only step at implementation start, I'll check the saved review items from the owner's Redwood run for the recorded refusal `value`. This needs no AI run.
+- **Q4 — Where is the positive case rejected?** `billing-evidence.ts` `checkFixedBillingEvidence`: every AI-derived event needs amount + cadence + timing in one sentence (`hasCadence`, then `hasTiming`). One-time invoices without an advance/execution phrase fail on timing.
+- **Q5 — How are one-time dates derived?** `adapter.ts` `deriveBillingSchedule` sets a one_time date to the contract service start (advance) or service end (arrears), via `deriveContractServicePeriod`. That gives Jan 1 for implementation by coincidence. Training would get Jan 1 or Dec 31, never Apr 15, so it cannot be supported safely.
+- **Q6 — Can ARC hold enumerated schedules?** No. A billing term expands by rule only (period ordinal 1..n from start + frequency). There is no way to represent six independently dated rows.
 
-## 8. Final ZIP Validation Method
-Python `zipfile` script against the ZIP itself:
-- Full listing saved to `/tmp/3e/zip-listing.txt` and reported (count + tree summary).
-- Forbidden: assert no entry matches any denylist regex; explicit asserts for `.env`, `.env.*`, `.lovable/plan.md`.
-- Required present: `.lovable/project.json`, every `.lovable/plan/*` tracked in git, `package.json`, `bun.lock`, `README.md`, `roadmap.md`, `docs/**`, `supabase/migrations/**`, `supabase/tests/**`, `supabase/config.toml`, `.github/workflows/verify.yml` + `maintenance.yml`, `public/**`, `fixtures/genomix-synthesis-contract-package.pdf`, `src/routes/about.tsx`, `src/lib/arc/ai/**`.
-- Completeness: set(ZIP entries) == set(`git ls-files`) − approved exclusions; any difference fails.
-- Equivalence: SHA-256 of every ZIP entry == SHA-256 of the same file in the verified working tree.
-- Genomix: hash of the in-ZIP bytes == `7487979e…fdd4c7`.
-- `package.json` in ZIP parsed: devDeps/deps value for `@lovable.dev/vite-tanstack-config` == `^2.15.0`; `bun.lock` in ZIP contains `@lovable.dev/vite-tanstack-config@2.15.0` with europe-west4 URL and no `2.23.1`.
-- Secrets: same value regexes from Section 6 run over every extracted text entry; file:line only.
-Any failure → STOP, no copy to Files.
+## 3. Design — add an explicit-invoice path (the recurring gate is not loosened)
+**Schema v8 (additive).** Each billing term gets `explicitInvoices`: an array of at most 24 items `{ invoiceDateInput: "YYYY-MM-DD", amountInput: decimal, coveragePeriodText: nullable short text }`, with an empty array allowed. Payment terms stay on the term (`paymentTermsDays`). Nothing else changes.
 
-## 9. Roadmap / Documentation Reconciliation Plan
-New `roadmap.md` "Package 3E" section, three labeled groups:
-- Current production truth: https://ayden-rc.com (www → apex); magic-link only via SMTP on mail.ayden-rc.com; maintenance = GitHub Actions hourly at :17 → /api/public/maintenance (pg_cron optional, unapplied); AI GPT-5.6 Terra, schema v7, prompt v11; quotas guest 3/9h, signed-in 10/month; limits 10 MB / 500 pages / 200k tokens.
-- Historical acceptance (previously verified, not re-run): 3D owner-session persistence; 3D-P/Q/R/S accepted; 3D-S live; prior Genomix production analysis; maintenance manual + scheduled 200 runs.
-- Fresh 3E evidence: test files/tests count, typecheck, lint (errors/warnings), build, bundle audit, dependency audit summary, hygiene + secret scans, diff result, Genomix hash, archive name + validation result, "no AI run consumed in 3E", "no publish in 3E".
-Plus S8 checkbox update. Earlier roadmap sections otherwise untouched.
+**Prompt v12 (smallest change).** Two instructions:
+1. When the contract states a dated invoice ("invoice $X on <date>"), list each one in `explicitInvoices` and cite the sentence or table row that states it.
+2. Do not create a separate rule term for a stream whose invoices are already listed.
 
-## 10. Completion-Report Structure
-```text
-Package 3E completion
-A. Fresh 3E repository evidence (executed this package)
-   drift restored | dependency audit (by severity, runtime vs tooling) | verify counts |
-   typecheck | lint | build | bundle audit | hygiene scan | secret scan | diff vs (161) with per-file
-   classification | Genomix hash | frozen checks F1–F4 | ZIP build | ZIP validation results
-B. Previously accepted production evidence (not re-run)
-   domain/HTTPS/www | SMTP magic-link | owner persistence | maintenance manual+scheduled |
-   Genomix production AI run | live About page | prior smoke tests
-C. Owner-confirmed / external evidence
-   GitHub application job | GitHub database job (with run links/dates supplied by owner)
-D. Confirmations: no AI run, no publish, no dependency change versus the accepted (161) baseline, no runtime source change
-E. Deliverable: ARC-recruiter-v1-source.zip
-```
+The v11 amountKind, rate and Net 30 rules stay verbatim.
 
-## 11. Release Blockers / Owner Decisions
-No release blocker identified at the planning stage. Owner decisions settled: `(161)` is the authoritative baseline, D1/D2 are restored from `(161)`, and maintenance.yml stays byte-identical. Remaining prerequisites:
-1. Owner uploads `revenue-compass-main(161).zip` (step P) before implementation starts.
-2. Owner confirms both GitHub jobs are green on the final 3E commit (they can't be triggered from here).
+**New gate `checkExplicitInvoiceEvidence` (billing-evidence.ts), all conditions per invoice:**
+- The term already passes `amountKind === "fixed_invoice_amount"` and `reviewState === "supported"`. These are reused unchanged.
+- One evidence unit in an ARC-materialized **text** citation contains, together:
+  - an invoicing word;
+  - a currency amount exactly equal to `amountInput`, run through the existing `amountVerdict` (so %, per-unit and interest/late-fee/penalty context are still refused);
+  - a full calendar date literal ("April 15, 2027", "2027-04-15", "4/15/2027") that parses exactly to `invoiceDateInput`.
+- Nothing is composed across evidence units. A missing, mismatched or ambiguous date fails closed. No date is ever inferred.
+- The evidence unit is a sentence. Splitting uses the existing rule, except month abbreviations ("Jan.", "Mar.") no longer split a sentence. This change applies only to the new path; the 3D-Q path keeps its splitter byte-identical.
+
+**Table rows (Positive 4).** A citation qualifies as table evidence only if its excerpt contains the column-header words "Invoice Date" and "Amount", plus a row holding the date and matching amount. The header stands in for the invoicing word. If the citation layer cannot anchor such a row cleanly, table rows are not accepted. Redwood still passes without them, because every invoice also has its own narrative sentence.
+
+**Derivation.** When a term has any explicit invoices:
+- All of them must pass the gate. If any fails, the whole term is refused with one blocking item; there are no partial schedules.
+- Events are created directly: sorted by date then amount, period = ordinal, `invoiceDate = unconditionalRightDate = invoiceDateInput`, amount as stated.
+- Cadence, timing and service period are not consulted.
+- If `explicitInvoices` is empty, the existing rule path runs exactly as today.
+
+**Deduplication and precedence (deterministic).**
+- *Within one term:* explicit invoices outrank the rule, so four quarterly events are never added on top.
+- *Across terms:* suppose a gated rule term would derive a set of (date, amount) pairs.
+  - If an explicit term in the same analysis already covers every one of those pairs, the rule term is dropped. It gets a non-blocking note and no events.
+  - If the pairs only partly overlap, both terms are refused with a blocking "conflicting billing evidence" item.
+  - The same (date, amount) pair from two explicit terms is also refused as a conflict. Redwood's two separate $30,000/$24,000 items on Jan 1 are not duplicates, because their amounts differ.
+
+**Collections.** Unchanged. The existing accepted projected-collection path records only the contractual due date (invoice date + Net 30) as a projection. No actual cash is ever recorded. Invoice date, unconditional-right date, due date and actual collection stay distinct.
+
+**Transaction price is untouched.** Line ~1995 (`deriveUnambiguousFixedBillingTotal` input) keeps using only the existing 3D-Q gate. Explicit-invoice terms never feed the billing-derived transaction-price total. No change to allocation, recognition, performance obligations, schedules, modifications or journal math (journals change only downstream of the new billing inputs).
+
+## 4. Identity, Safe Re-analysis, legacy
+- **Term identity:** `billingTermIdentity` is unchanged, so v7-to-v8 re-analysis reconciles the same lineage. Event keys still use `billingEventSemanticKey(termKey, period)`. Event and collection tombstones, deletion identity and lineage re-keying work unchanged.
+- **Mode switch guard:** an incumbent AI schedule may switch between rule-derived and explicit events on re-analysis, changing its period dates. In that case ARC creates nothing and raises a blocking `unsafe_semantic_relationship`-style item. Existing canonical invoices are never silently re-dated or re-keyed. The structural firewall and authorized retractions are not bypassed.
+- **Manual events** still win (`manual_structure_preserved`), and every tombstone is respected.
+- **Review fingerprints:** the billing `material` gains the explicit invoice list, so a changed list re-opens review. Fingerprints of existing v5/v6/v7 items are unchanged, because the material is added only when the list is non-empty.
+- **Legacy:** v5/v6/v7 results normalize to `explicitInvoices: []` and behave byte-identically. Loading, reopening and autosave never run the merge, so old drafts gain no rows. New rows appear only after a deliberate Analyze/Reanalyze.
+- **Persistence:** none needed. Events use the existing `considerationEvents` fields, the AI result is stored as JSON, and no migration pins schema/prompt version strings (checked). No DB, RLS or auth change.
+
+## 5. Files
+- `src/lib/arc/ai/schema.ts` — v8 schema, `explicitInvoices`, legacy normalization, bounds
+- `src/lib/arc/ai/prompt.ts` — v12, two instructions
+- `src/lib/arc/ai/billing-evidence.ts` — `checkExplicitInvoiceEvidence`, date parser, abbreviation-safe splitter; the existing check stays byte-identical
+- `src/lib/arc/ai/adapter.ts` — `deriveExplicitBillingEvents` (pure)
+- `src/lib/arc/ai/merge.ts` — branch in the billing loop, cross-term precedence, mode-switch guard
+- `src/lib/arc/ai/safe-reanalysis.ts` — include explicit invoices in the billing facts compare
+- `scripts/audit-bundle.sh` — no change expected
+- Tests (new): `billing-evidence-explicit.spec.ts`, `merge-explicit-billing.spec.ts`, and a Redwood fixture built from the uploaded PDF's text (synthetic, stored as text only)
+- `roadmap.md` — 3D-Q.1 section
+
+## 6. Tests
+- **Positive:** P1 implementation $24,000 on 2027-01-01. P2 training $6,000 on 2027-04-15 (date not from the service period). P3 four quarterly $30,000 events. P4 table row (if anchorable). P5 full Redwood merge: exactly six events totalling $150,000, the Contract Balances block cleared, and the revenue schedule deep-equal to the pre-patch result.
+- **Negative (all current 3D-Q regressions kept verbatim, plus):**
+  - N1 "1.5% per month on overdue balances"
+  - N2 "5% of usage"
+  - N3 "$12 per unit"
+  - N4 "Annual platform price is $120,000"
+  - N5 split license/support sentences
+  - N6 "invoiced after implementation" with no date
+  - date mismatch
+  - date in a different sentence from the amount
+  - `inference` review state
+  - non-fixed amountKind
+- **Precedence:** a quarterly rule term plus four explicit rows gives exactly 4 events, not 8. Partial overlap is refused. Duplicate explicit pairs are refused.
+- **Rule path intact:** monthly/quarterly/annual in advance and upon-signing fixtures unchanged. The Horizon and Genomix deterministic results are unchanged.
+- **Identity:** v7 legacy result gives zero new rows. Re-analysis from rule to explicit on an incumbent is blocked. Tombstoned explicit event stays deleted. Collections are only projected due dates.
+- Then full `bun run verify` and the frozen-state checks.
+
+## 7. Scope confirmations
+No AI run during implementation, and no publish until approved. A live check on Redwood needs one owner-approved guest run after publishing. No change to accounting engines, auth, RLS, database or UI. Frozen `.env`, `^2.15.0` / 2.15.0 and the Genomix hash stay as they are.
+
+## 8. Owner decisions
+1. Approve **schema v8 + prompt v12**. This is required, because v7 cannot represent an invoice date.
+2. Accept table-row evidence only with the "Invoice Date" + "Amount" header rule, or leave table rows out of scope and rely on narrative sentences.
+3. Cross-term partial overlap: block (proposed), or prefer explicit and silently drop the rule term?
