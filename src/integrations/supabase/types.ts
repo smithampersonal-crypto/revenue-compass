@@ -1154,6 +1154,10 @@ export type Database = {
         Args: { p_guest_workspace_id: string; p_revision_id: string }
         Returns: undefined
       }
+      arc_guest_attempt_count: {
+        Args: { p_session_id: string; p_workspace_id: string }
+        Returns: number
+      }
       arc_guest_session_usage: {
         Args: { p_session_id: string }
         Returns: number
@@ -1353,6 +1357,7 @@ export type Database = {
         }
         Returns: {
           already_reserved: boolean
+          attempt_limited: boolean
           remaining_allowance: number
           reserved: boolean
         }[]
