@@ -21,7 +21,7 @@ describe("Package 3D-S — About ARC", () => {
     await renderAt("/about");
     expect(await screen.findByRole("heading", { level: 1, name: "About ARC" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ayden's Revenue Compass home" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
