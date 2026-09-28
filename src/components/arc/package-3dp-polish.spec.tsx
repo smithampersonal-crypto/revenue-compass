@@ -43,9 +43,10 @@ describe("Package 3D-P polish", () => {
     expect(signIn.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   });
 
-  it("renders footer links and Noun Project attribution", async () => {
+  it("renders the recruiter-facing footer links", async () => {
     await renderAt("/");
     const footer = await screen.findByRole("contentinfo");
+    expect(within(footer).getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
     expect(within(footer).getByRole("link", { name: "Privacy" })).toHaveAttribute(
       "href",
       "/privacy",
@@ -54,11 +55,12 @@ describe("Package 3D-P polish", () => {
       "href",
       "/sitemap",
     );
+    expect(within(footer).getByText(/© 2026 Ayden's Revenue Compass \(ARC\)/)).toBeInTheDocument();
     expect(
-      within(footer).getByText(
+      within(footer).queryByText(
         /Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan/,
       ),
-    ).toBeInTheDocument();
+    ).toBeNull();
   });
 
   it("serves /privacy with the privacy contact", async () => {
