@@ -47,7 +47,7 @@ export function AiAnalysisAction({
           </div>
           {workspace ? (
             <p className="text-xs text-muted-foreground">
-              {workspace.allowance.remaining} of {workspace.allowance.limit} analyses remaining
+              {workspace.allowance.remaining} of {workspace.allowance.limit} AI analyses remaining
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">Loading current AI analysis status…</p>

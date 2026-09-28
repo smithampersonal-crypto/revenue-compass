@@ -56,7 +56,7 @@ export const AI_FAILURE_HEADLINE_FIRST_RUN = "AI analysis failed · Existing ana
 export const AI_FAILURE_HEADLINE_REANALYSIS = "Re-analysis failed · Previous analysis preserved";
 export const AI_REANALYSIS_DECLINED_HEADLINE =
   "Re-analysis not applied · Previous analysis preserved";
-export const AI_ALLOWANCE_HEADLINE = "AI analysis not run · No analyses remaining";
+export const AI_ALLOWANCE_HEADLINE = "AI analysis not run · No AI analyses remaining";
 export const AI_ATTEMPT_LIMIT_HEADLINE = "AI analysis not run · Temporary processing limit reached";
 export const AI_ATTEMPT_LIMIT_GUEST =
   "ARC has reached the temporary AI processing limit for this session. Your remaining analysis allowance has not been reduced. Please try again later.";

@@ -171,7 +171,7 @@ describe("deterministic AI failure presentation", () => {
     expect(guest.category).toBe("attempt_limited");
     expect(guest.headline).toBe(AI_ATTEMPT_LIMIT_HEADLINE);
     expect(guest.whatHappened).toBe(AI_ATTEMPT_LIMIT_GUEST);
-    expect(strings(guest)).not.toContain("No analyses remaining");
+    expect(strings(guest)).not.toContain("No AI analyses remaining");
     expect(strings(guest)).not.toMatch(/unsuccessful/i);
     const auth = presentAiFailure({
       ...base,
@@ -180,7 +180,7 @@ describe("deterministic AI failure presentation", () => {
       quotaScope: "authenticated",
     });
     expect(auth.whatHappened).toBe(AI_ATTEMPT_LIMIT_AUTHENTICATED);
-    expect(strings(auth)).not.toContain("No analyses remaining");
+    expect(strings(auth)).not.toContain("No AI analyses remaining");
     expect(auth.allowance).toContain("No AI allowance was used");
   });
 
