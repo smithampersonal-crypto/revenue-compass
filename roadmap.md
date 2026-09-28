@@ -308,5 +308,5 @@ Fresh 3E evidence
 - [ ] 3D-T owner acceptance review (not published; no AI run)
 
 ## 3D-T allowance refund
-- [ ] Migration: visible usage = succeeded + active; monthly refund on failure; attempt caps 6 guest / 20 auth
-- [ ] App: attempt_limit messages; SQL suite + vitest; verify; restore frozen state
+- [x] Migration: visible usage = succeeded + active; monthly refund on failure; attempt caps 6 guest / 20 auth
+- [x] App: attempt_limit messages; SQL suite + vitest; verify; restore frozen state
