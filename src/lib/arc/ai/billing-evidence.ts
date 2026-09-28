@@ -281,9 +281,30 @@ export type ExplicitInvoiceEvidenceResult =
   { ok: true } | { ok: false; reason: ExplicitInvoiceEvidenceRefusal };
 
 const MONTHS: Record<string, number> = {
-  january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4,
-  may: 5, june: 6, jun: 6, july: 7, jul: 7, august: 8, aug: 8, september: 9,
-  sept: 9, sep: 9, october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12,
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
+  may: 5,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sept: 9,
+  sep: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
 };
 
 const MONTH_ABBREVIATION_END = /\b(?:jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\.$/i;
@@ -386,7 +407,8 @@ export function checkExplicitInvoiceEvidence(
     sawInvoicing = true;
     if (introducedDates(unit).includes(invoiceDate)) return { ok: true };
   }
-  if (!sawAmount) return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
+  if (!sawAmount)
+    return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
   if (!sawInvoicing) return { ok: false, reason: "no_invoicing_language" };
   return { ok: false, reason: "no_matching_invoice_date" };
 }
@@ -411,9 +433,7 @@ export interface ExplicitInvoiceEvent {
 }
 
 export type AiExplicitInvoiceRefusal =
-  | "amount_not_fixed_invoice"
-  | "billing_term_not_source_supported"
-  | ExplicitInvoiceEvidenceRefusal;
+  "amount_not_fixed_invoice" | "billing_term_not_source_supported" | ExplicitInvoiceEvidenceRefusal;
 
 /**
  * The deterministic boundary in front of every AI-stated dated invoice. The

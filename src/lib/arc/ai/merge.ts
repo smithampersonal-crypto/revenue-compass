@@ -3055,7 +3055,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         });
         if (rule.ok) {
           const pairs = (events: readonly { invoiceDate: string; amountInput: string }[]) =>
-            [...new Set(events.map((event) => `${event.invoiceDate}|${exactCents(event.amountInput)}`))]
+            [
+              ...new Set(
+                events.map((event) => `${event.invoiceDate}|${exactCents(event.amountInput)}`),
+              ),
+            ]
               .sort()
               .join(",");
           if (pairs(rule.events) !== pairs(explicit.events)) {
@@ -3093,49 +3097,49 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       schedule = { ok: true, events: explicit.events };
       explicitMode = true;
     } else {
-    if (incumbentDerivations.has("explicit_invoice_v8")) {
-      raise({
-        targetKey: `billing:${semanticKey}`,
-        section: "additional_topics",
-        reasonCode: "unsafe_semantic_relationship",
-        reason: `The latest AI analysis now describes "${term.description.slice(0, 100)}" as a recurring rule, but ARC previously created this billing schedule from dated invoices. Existing invoices were left unchanged and no new invoices were created. Review the billing events yourself.`,
-        guidanceIds: [],
-        citations: term.citations,
-        value: "billing_derivation_mode_changed",
-        material: { reason: "billing_derivation_mode_changed", ...billingMaterial(term) },
-        aiReviewState: "needs_review",
-        blocking: true,
-      });
-      continue;
-    }
+      if (incumbentDerivations.has("explicit_invoice_v8")) {
+        raise({
+          targetKey: `billing:${semanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason: `The latest AI analysis now describes "${term.description.slice(0, 100)}" as a recurring rule, but ARC previously created this billing schedule from dated invoices. Existing invoices were left unchanged and no new invoices were created. Review the billing events yourself.`,
+          guidanceIds: [],
+          citations: term.citations,
+          value: "billing_derivation_mode_changed",
+          material: { reason: "billing_derivation_mode_changed", ...billingMaterial(term) },
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
 
-    // Package 3D-Q. The deterministic evidence boundary: the model's labels
-    // are proposals, and ARC creates no invoice (and so no projected
-    // collection) unless its own reading of the cited source text agrees.
-    const eligibility = aiFixedScheduleEligibility(term);
-    if (!eligibility.ok) {
-      raise({
-        targetKey: `billing:${semanticKey}`,
-        section: "additional_topics",
-        reasonCode: "billing_schedule_not_derivable",
-        reason: `ARC did not create invoices for "${term.description.slice(0, 100)}" because the contract evidence does not establish a fixed invoice amount with a supported billing schedule (the amount appears to be a rate, pricing basis or unresolved term). Enter the actual billing events if known.`,
-        guidanceIds: [],
-        citations: term.citations,
-        value: eligibility.reason,
-        material: { reason: eligibility.reason, ...billingMaterial(term) },
-        aiReviewState: term.reviewState,
-        blocking: true,
-      });
-      continue;
-    }
+      // Package 3D-Q. The deterministic evidence boundary: the model's labels
+      // are proposals, and ARC creates no invoice (and so no projected
+      // collection) unless its own reading of the cited source text agrees.
+      const eligibility = aiFixedScheduleEligibility(term);
+      if (!eligibility.ok) {
+        raise({
+          targetKey: `billing:${semanticKey}`,
+          section: "additional_topics",
+          reasonCode: "billing_schedule_not_derivable",
+          reason: `ARC did not create invoices for "${term.description.slice(0, 100)}" because the contract evidence does not establish a fixed invoice amount with a supported billing schedule (the amount appears to be a rate, pricing basis or unresolved term). Enter the actual billing events if known.`,
+          guidanceIds: [],
+          citations: term.citations,
+          value: eligibility.reason,
+          material: { reason: eligibility.reason, ...billingMaterial(term) },
+          aiReviewState: term.reviewState,
+          blocking: true,
+        });
+        continue;
+      }
 
-    schedule = deriveBillingSchedule({
-      billingTiming: term.billingTiming,
-      frequency: term.frequency,
-      amountOrRateInput: term.amountOrRateInput,
-      serviceStart: servicePeriod?.start ?? null,
-      serviceEnd: servicePeriod?.end ?? null,
-    });
+      schedule = deriveBillingSchedule({
+        billingTiming: term.billingTiming,
+        frequency: term.frequency,
+        amountOrRateInput: term.amountOrRateInput,
+        serviceStart: servicePeriod?.start ?? null,
+        serviceEnd: servicePeriod?.end ?? null,
+      });
     }
 
     if (!schedule.ok) {

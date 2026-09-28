@@ -39,10 +39,22 @@ function invoice(date: string, amount: string, excerpt: string): Invoice {
 }
 
 const Q = [
-  ["2027-01-01", "Redwood will invoice $30,000 on January 1, 2027 for the first quarter of hosted subscription services."],
-  ["2027-04-01", "Redwood will invoice $30,000 on April 1, 2027 for the second quarter of hosted subscription services."],
-  ["2027-07-01", "Redwood will invoice $30,000 on July 1, 2027 for the third quarter of hosted subscription services."],
-  ["2027-10-01", "Redwood will invoice $30,000 on October 1, 2027 for the fourth quarter of hosted subscription services."],
+  [
+    "2027-01-01",
+    "Redwood will invoice $30,000 on January 1, 2027 for the first quarter of hosted subscription services.",
+  ],
+  [
+    "2027-04-01",
+    "Redwood will invoice $30,000 on April 1, 2027 for the second quarter of hosted subscription services.",
+  ],
+  [
+    "2027-07-01",
+    "Redwood will invoice $30,000 on July 1, 2027 for the third quarter of hosted subscription services.",
+  ],
+  [
+    "2027-10-01",
+    "Redwood will invoice $30,000 on October 1, 2027 for the fourth quarter of hosted subscription services.",
+  ],
 ] as const;
 
 function explicitTerm(key: string, description: string, invoices: Invoice[]): Term {
@@ -67,7 +79,11 @@ function redwood(): AiContractAnalysis {
   analysis.transactionPrice.fixedConsiderationInput = "150000";
   analysis.billingTerms = [
     explicitTerm("billing:implementation", "Implementation fee invoice.", [
-      invoice("2027-01-01", "24000", "Redwood will invoice $24,000 on January 1, 2027 for implementation services."),
+      invoice(
+        "2027-01-01",
+        "24000",
+        "Redwood will invoice $24,000 on January 1, 2027 for implementation services.",
+      ),
     ]),
     explicitTerm(
       "billing:subscription",
@@ -75,7 +91,11 @@ function redwood(): AiContractAnalysis {
       Q.map(([date, text]) => invoice(date, "30000", text)),
     ),
     explicitTerm("billing:training", "Training invoice.", [
-      invoice("2027-04-15", "6000", "Redwood will invoice $6,000 on April 15, 2027 for training services."),
+      invoice(
+        "2027-04-15",
+        "6000",
+        "Redwood will invoice $6,000 on April 15, 2027 for training services.",
+      ),
     ]),
   ];
   return analysis;
@@ -112,7 +132,9 @@ describe("versions", () => {
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.analysis.billingTerms.every((t) => (t.explicitInvoices ?? []).length === 0)).toBe(true);
+      expect(
+        parsed.analysis.billingTerms.every((t) => (t.explicitInvoices ?? []).length === 0),
+      ).toBe(true);
     }
   });
 });
@@ -121,27 +143,54 @@ describe("versions", () => {
 
 describe("explicit invoice evidence", () => {
   it("accepts one sentence with invoicing word, exact amount and introduced date", () => {
-    expect(checkExplicitInvoiceEvidence(invoice(...[Q[1][0], "30000", Q[1][1]] as const)).ok).toBe(true);
     expect(
-      checkExplicitInvoiceEvidence(invoice("2027-04-15", "6000", "Customer will be invoiced $6,000 on Apr. 15, 2027.")).ok,
+      checkExplicitInvoiceEvidence(invoice(...([Q[1][0], "30000", Q[1][1]] as const))).ok,
+    ).toBe(true);
+    expect(
+      checkExplicitInvoiceEvidence(
+        invoice("2027-04-15", "6000", "Customer will be invoiced $6,000 on Apr. 15, 2027."),
+      ).ok,
     ).toBe(true);
   });
 
   it("never lets one quarter's citation support another quarter", () => {
     const wrong = invoice("2027-07-01", "30000", Q[1][1]);
-    expect(checkExplicitInvoiceEvidence(wrong)).toEqual({ ok: false, reason: "no_matching_invoice_date" });
+    expect(checkExplicitInvoiceEvidence(wrong)).toEqual({
+      ok: false,
+      reason: "no_matching_invoice_date",
+    });
   });
 
   it("refuses split sentences, wrong amounts, missing invoicing words and impossible dates", () => {
     expect(
       checkExplicitInvoiceEvidence(
-        invoice("2027-04-15", "6000", "Redwood will invoice training. The fee is $6,000 on April 15, 2027."),
+        invoice(
+          "2027-04-15",
+          "6000",
+          "Redwood will invoice training. The fee is $6,000 on April 15, 2027.",
+        ),
       ).ok,
     ).toBe(false);
-    expect(checkExplicitInvoiceEvidence(invoice("2027-04-15", "6500", "Redwood will invoice $6,000 on April 15, 2027.")).ok).toBe(false);
-    expect(checkExplicitInvoiceEvidence(invoice("2027-04-15", "6000", "Training costs $6,000 on April 15, 2027.")).ok).toBe(false);
-    expect(checkExplicitInvoiceEvidence(invoice("2027-02-30", "6000", "Redwood will invoice $6,000 on February 30, 2027.")).ok).toBe(false);
-    expect(checkExplicitInvoiceEvidence(invoice("2027-04-15", "6000", "Redwood will invoice $6,000 around mid-April 2027.")).ok).toBe(false);
+    expect(
+      checkExplicitInvoiceEvidence(
+        invoice("2027-04-15", "6500", "Redwood will invoice $6,000 on April 15, 2027."),
+      ).ok,
+    ).toBe(false);
+    expect(
+      checkExplicitInvoiceEvidence(
+        invoice("2027-04-15", "6000", "Training costs $6,000 on April 15, 2027."),
+      ).ok,
+    ).toBe(false);
+    expect(
+      checkExplicitInvoiceEvidence(
+        invoice("2027-02-30", "6000", "Redwood will invoice $6,000 on February 30, 2027."),
+      ).ok,
+    ).toBe(false);
+    expect(
+      checkExplicitInvoiceEvidence(
+        invoice("2027-04-15", "6000", "Redwood will invoice $6,000 around mid-April 2027."),
+      ).ok,
+    ).toBe(false);
   });
 
   it("fails the whole term when any one invoice is unsupported", () => {
@@ -171,7 +220,10 @@ describe("merge — Redwood explicit invoices", () => {
       "2027-07-01|30000",
       "2027-10-01|30000",
     ]);
-    const total = draft.contractBalances.considerationEvents.reduce((sum, row) => sum + Number(row.amountInput), 0);
+    const total = draft.contractBalances.considerationEvents.reduce(
+      (sum, row) => sum + Number(row.amountInput),
+      0,
+    );
     expect(total).toBe(150000);
     expect(draft.transactionPriceInput).toBe("150000");
     for (const cash of draft.contractBalances.cashCollections) {
@@ -191,10 +243,18 @@ describe("merge — Redwood explicit invoices", () => {
     const analysis = genomixR1Analysis();
     analysis.billingTerms = [
       explicitTerm("billing:implementation", "Implementation fee.", [
-        invoice("2027-01-01", "10000", "Redwood will invoice $10,000 on January 1, 2027 for implementation."),
+        invoice(
+          "2027-01-01",
+          "10000",
+          "Redwood will invoice $10,000 on January 1, 2027 for implementation.",
+        ),
       ]),
       explicitTerm("billing:training", "Training fee.", [
-        invoice("2027-01-01", "10000", "Redwood will invoice $10,000 on January 1, 2027 for training."),
+        invoice(
+          "2027-01-01",
+          "10000",
+          "Redwood will invoice $10,000 on January 1, 2027 for training.",
+        ),
       ]),
     ];
     const { draft, issues } = run(analysis);
@@ -202,7 +262,8 @@ describe("merge — Redwood explicit invoices", () => {
     expect(
       issues.some(
         (i) =>
-          (i.targetKey === "billing:billing:implementation" || i.targetKey === "billing:billing:training") &&
+          (i.targetKey === "billing:billing:implementation" ||
+            i.targetKey === "billing:billing:training") &&
           i.reasonCode !== "ai_proposal_omitted",
       ),
     ).toBe(false);
@@ -214,7 +275,11 @@ describe("merge — Redwood explicit invoices", () => {
     analysis.billingTerms = [
       annual,
       explicitTerm("billing:training", "Training fee.", [
-        invoice("2027-04-15", "245000", "Redwood will invoice $245,000 on April 15, 2027 for training."),
+        invoice(
+          "2027-04-15",
+          "245000",
+          "Redwood will invoice $245,000 on April 15, 2027 for training.",
+        ),
       ]),
     ];
     const ruleOnly = run({ ...analysis, billingTerms: [annual] }).draft;
@@ -232,7 +297,9 @@ describe("merge — Redwood explicit invoices", () => {
     expect(events(draft).filter((e) => e.endsWith("|30000"))).toHaveLength(0);
     expect(
       issues.some(
-        (i) => i.targetKey === "billing:billing:subscription" && i.reasonCode === "billing_schedule_not_derivable",
+        (i) =>
+          i.targetKey === "billing:billing:subscription" &&
+          i.reasonCode === "billing_schedule_not_derivable",
       ),
     ).toBe(true);
   });
@@ -248,7 +315,11 @@ describe("merge — Redwood explicit invoices", () => {
             ...term,
             // The same invoices the rule produced, now stated as dated invoices.
             explicitInvoices: first.draft.contractBalances.considerationEvents.map((row) =>
-              invoice(row.invoiceDate, "245000", `Genomix will invoice $245,000 on ${row.invoiceDate}.`),
+              invoice(
+                row.invoiceDate,
+                "245000",
+                `Genomix will invoice $245,000 on ${row.invoiceDate}.`,
+              ),
             ),
           }
         : term,
@@ -257,7 +328,9 @@ describe("merge — Redwood explicit invoices", () => {
     expect(events(second.draft)).toEqual(before);
     expect(
       second.issues.some(
-        (i) => i.targetKey === "billing:billing:annual-advance" && i.reasonCode === "unsafe_semantic_relationship",
+        (i) =>
+          i.targetKey === "billing:billing:annual-advance" &&
+          i.reasonCode === "unsafe_semantic_relationship",
       ),
     ).toBe(true);
   });
