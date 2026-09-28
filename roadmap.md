@@ -263,5 +263,26 @@
 - [x] Publish + live smoke (About page, footer links, sitemap order verified on ayden-rc.com)
 
 ## Package 3E — Final Production Verification, Docs Reconciliation & Recruiter Archive
-- [x] Plan approved (with corrections for Step 8 tracked-change check and "no dependency change versus the accepted (161) baseline" wording)
-- [ ] Implementation — waiting for the owner to upload revenue-compass-main(161).zip as the authoritative baseline
+
+Current production truth
+- Live at https://ayden-rc.com (HTTPS; www → apex). Email magic-link only, sent through SMTP on mail.ayden-rc.com.
+- Maintenance: GitHub Actions runs hourly at :17 and calls /api/public/maintenance (authoritative). The pg_cron SQL is optional and unapplied.
+- AI: GPT-5.6 Terra, schema v7, prompt v11. Quotas: guest 3 per 9-hour workspace, signed-in 10 per calendar month. Limits: 10 MB / 500 pages / 200k tokens.
+
+Previously accepted (not re-run in 3E)
+- [x] 3D owner-session persistence (owner-verified)
+- [x] 3D-P, 3D-Q, 3D-R and 3D-S accepted; 3D-S published and live
+- [x] Production domain, SMTP magic-link, and maintenance manual + scheduled 200 runs
+
+Fresh 3E evidence
+- [x] D1/D2 platform drift restored from revenue-compass-main(161).zip; .env, package.json and bun.lock are byte-identical to (161)
+- [x] Pre-edit Diff A vs (161): no product/runtime drift
+- [x] Dependency audit (`bun audit` against the public npm advisory DB, read-only): 1 critical, 14 high, 4 moderate. All are transitive and build/test/tooling only: tar via the supabase CLI, brace-expansion and js-yaml via eslint, nanoid via postcss/vite, uuid via exceljs (devDependency). None reach the browser or server runtime. Nothing fixed or upgraded.
+- [x] bun run verify: 223 files / 2,812 tests; typecheck clean; lint 0 errors / 11 accepted warnings; build succeeds; bundle audit clean
+- [x] Hygiene: no tracked junk. Secret-value scan: 0 real credentials in the repo or client bundle (one Tailwind class-name false positive dismissed). .env key role = anon.
+- [x] Genomix SHA-256 7487979e42fb2dab23c6a6b4858806ae0d37831c63c0ddd98730fccf09fdd4c7
+- [x] Final Diff B vs (161): only README.md, docs/operations.md, docs/phase-8-acceptance.md, roadmap.md
+- [x] Documentation reconciled (README count + production section, operations scheduling + completed configuration, Phase 8 checkpoint note, 3D step 7)
+- [x] Archive ARC-recruiter-v1-source.zip built from tracked files only and validated programmatically
+- [x] No AI run, no publish, and no dependency change versus the accepted (161) baseline
+- [ ] GitHub application + database jobs green on the final 3E commit (owner-confirmed)
