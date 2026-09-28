@@ -76,7 +76,7 @@ export async function seedHorizonSampleSource(
     }
     return { sourceDocumentId: result.sourceDocumentId };
   } catch (cause) {
-    console.error("HZDEBUG", cause instanceof Error ? cause.message : cause, (cause as {cause?: unknown})?.cause);
+    await import("node:fs").then((fs) => fs.appendFileSync("/tmp/hz.log", String((cause as Error)?.stack) + " CAUSE " + String(((cause as {cause?: {message?: string}})?.cause)?.message ?? JSON.stringify((cause as {cause?: unknown})?.cause)) + "\n"));
     try {
       await deps.deleteWorkspace(input.analysisId, input.tokenHash);
     } catch (cleanupError) {
