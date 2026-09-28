@@ -29,7 +29,6 @@ export function AppFooter() {
           </nav>
           <span>© 2026 Ayden&apos;s Revenue Compass (ARC)</span>
         </div>
-        <p>{"\n"}</p>
       </div>
     </footer>
   );
