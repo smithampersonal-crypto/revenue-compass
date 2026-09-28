@@ -223,7 +223,7 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
   });
 
   it("shows the Source Documents action according to its feature flag", async () => {
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
     const action = within(summaryRegion()).queryByRole("link", { name: "Source Documents" });
     expect(Boolean(action)).toBe(FEATURES.SOURCE_DOCUMENTS);
   });
@@ -275,7 +275,7 @@ describe("Analysis summary in the workspace (Phase 4)", () => {
   it("returns to an empty draft on manual Reset Analysis", async () => {
     const user = userEvent.setup();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
 
     const customer = screen.getByLabelText(/customer/i) as HTMLInputElement;
     await user.type(customer, "Typed Customer");

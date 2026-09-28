@@ -89,7 +89,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
   });
 
   it("maps existing 2a and 2b blocking issues onto the single Step 2 section", async () => {
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
     const step2 = section("step-2");
     expect(within(step2).getByText(/Items requiring attention in Step 2/)).toBeInTheDocument();
     expect(
@@ -99,7 +99,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
 
   it("keeps Yes / No / Unanswered as three distinct judgment states", async () => {
     const user = userEvent.setup();
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
     const step1 = section("step-1");
     const yes = within(step1).getAllByRole("radio", { name: "Yes" })[0]!;
     const no = within(step1).getAllByRole("radio", { name: "No" })[0]!;
@@ -197,7 +197,7 @@ describe("ASC 606 Analysis accordion (Phase 2)", () => {
 
   it("still suppresses downstream output for a blocked draft", async () => {
     const user = userEvent.setup();
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
     await user.click(screen.getByRole("link", { name: "Journal Entries" }));
     expect(
       await screen.findByText(/Journal entries are not available until the Billing/i),
