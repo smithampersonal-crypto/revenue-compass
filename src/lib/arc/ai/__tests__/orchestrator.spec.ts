@@ -23,6 +23,7 @@ import { buildPdf } from "@/lib/arc/documents/__tests__/pdf-fixtures";
 import { buildAiRequestPackage } from "../request-package.server";
 import {
   AI_ALLOWANCE_EXHAUSTED,
+  AI_ATTEMPT_LIMITED,
   AI_PREFLIGHT_FAILED,
   AiApplyConflictError,
   executeAiRunHandler,
@@ -183,7 +184,9 @@ function harness(
     reserveAllowance: async () => {
       events.push("reserve");
       if (options.reserved === false) {
-        return { reserved: false, alreadyReserved: false, remainingAllowance: 0 };
+        return options.attemptLimited
+          ? { reserved: false, alreadyReserved: false, remainingAllowance: 2, attemptLimited: true }
+          : { reserved: false, alreadyReserved: false, remainingAllowance: 0 };
       }
       // The database routine enters `analyzing` in the same transaction.
       run.stage = "analyzing";
@@ -393,6 +396,15 @@ describe("Phase 9F — AI run orchestration", () => {
     expect(h.analyzeCalls).toBe(1);
     expect(h.applyAttempts).toBe(1);
     expect([first.stage, second.stage]).toContain("succeeded");
+  });
+
+  it("3D-T: the technical attempt ceiling refuses before the model with its own code", async () => {
+    const h = harness({ reserved: false, attemptLimited: true });
+    const status = await executeAiRunHandler(h.deps, CALLER, { runId: RUN_ID });
+    expect(h.analyzeCalls).toBe(0);
+    expect(status.safeError).toBe(AI_ATTEMPT_LIMITED);
+    expect(status.safeError).not.toBe(AI_ALLOWANCE_EXHAUSTED);
+    expect(h.applied).toBeNull();
   });
 
   it("never calls the model when the allowance is exhausted", async () => {
