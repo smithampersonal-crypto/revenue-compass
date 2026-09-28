@@ -32,7 +32,12 @@ const LONG: Record<string, string> = {
 function inv(date: string, amount: string, suffix = ""): AiExplicitInvoice {
   const [year, month, day] = date.split("-");
   const text = `Redwood will invoice $${Number(amount).toLocaleString("en-US")} on ${LONG[month!]} ${Number(day)}, ${year} for hosted subscription services${suffix}.`;
-  return { invoiceDateInput: date, amountInput: amount, coveragePeriodText: null, citations: [cite(text)] };
+  return {
+    invoiceDateInput: date,
+    amountInput: amount,
+    coveragePeriodText: null,
+    citations: [cite(text)],
+  };
 }
 
 function analysisWith(invoices: AiExplicitInvoice[]): AiContractAnalysis {
@@ -70,7 +75,11 @@ function applied(): { draft: WorkflowDraft; aiState: AiAnalysisState } {
   });
   return {
     draft: merged.draft,
-    aiState: { ...merged.aiState, lastSuccessfulRunId: R1_RUN_ID, sourceSetFingerprint: FINGERPRINT },
+    aiState: {
+      ...merged.aiState,
+      lastSuccessfulRunId: R1_RUN_ID,
+      sourceSetFingerprint: FINGERPRINT,
+    },
   };
 }
 
@@ -139,7 +148,11 @@ describe("Safe Re-analysis — incumbent explicit schedule", () => {
 
   it("D. declines an added invoice", () => {
     const { decision } = assess(
-      analysisWith([inv("2027-01-01", "30000"), inv("2027-04-01", "30000"), inv("2027-07-01", "30000")]),
+      analysisWith([
+        inv("2027-01-01", "30000"),
+        inv("2027-04-01", "30000"),
+        inv("2027-07-01", "30000"),
+      ]),
     );
     expect(decision.outcome).toBe("decline");
   });
@@ -150,7 +163,10 @@ describe("Safe Re-analysis — incumbent explicit schedule", () => {
   });
 
   it("F. permits citation, prose and coverage-text changes on an identical schedule", () => {
-    const changed = [inv("2027-01-01", "30000", ", first quarter"), inv("2027-04-01", "30000", ", second quarter")];
+    const changed = [
+      inv("2027-01-01", "30000", ", first quarter"),
+      inv("2027-04-01", "30000", ", second quarter"),
+    ];
     changed[0]!.coveragePeriodText = "January 1 – March 31, 2027";
     const { decision } = assess(analysisWith(changed));
     expect(decision.outcome).toBe("apply");
