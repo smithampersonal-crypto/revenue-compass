@@ -116,7 +116,12 @@ Accounting tests emphasize exact monetary reconciliation, date boundaries, alloc
 
 ## Production
 
-ARC recruiter-v1 is live at [ayden-rc.com](https://ayden-rc.com). Sign-in is email magic-link only. Guest analyses run in a temporary nine-hour workspace; saved contracts need sign-in. An hourly GitHub Actions workflow calls a secret-protected maintenance endpoint. That endpoint cleans up abandoned uploads, removes expired guest workspaces, and deletes queued private documents.
+ARC recruiter-v1 is live at [ayden-rc.com](https://ayden-rc.com). Sign-in is email magic-link only.
+
+- **Temporary analyses.** Without signing in, each **New Analysis** is an independent temporary analysis listed under **Recent Analyses** for a nine-hour browser session. Each has its own draft, source documents, AI state and review state. Recent Analyses is local to that browser and is not synced to an account.
+- **My Contracts.** Signed-in users save an analysis to My Contracts (from the workspace, or in one click from Recent Analyses). Saving creates durable, access-controlled ownership, does not rerun AI and leaves other temporary analyses in place.
+- **AI allowance.** Guests get 3 delivered AI analyses per browser session; signed-in users get 10 per calendar month. If ARC rejects an AI response, the allowance is released. A separate cap on provider attempts keeps retries bounded.
+- **Maintenance.** An hourly GitHub Actions workflow calls a secret-protected maintenance endpoint that cleans up abandoned uploads, removes expired temporary analyses and deletes queued private documents.
 
 ## Technology
 
@@ -128,6 +133,8 @@ ARC recruiter-v1 is live at [ayden-rc.com](https://ayden-rc.com). Sign-in is ema
 - **Verification:** Vitest, Testing Library, ESLint, TypeScript checks and SQL test suites
 
 ## Scope
+
+ARC v1 is an AI-assisted ASC 606 analysis and workpaper application: AI interprets and cites contract evidence, deterministic engines perform the authoritative accounting calculations, and the accountant remains responsible for judgment and review. It is not an ERP, a billing system, a GL-posting engine or a financial-close platform.
 
 ARC v1 is a portfolio application demonstrating curated ASC 606 workflows and accounting-control design. It is not a generalized commercial revenue subledger, does not claim to handle every contract pattern, and does not replace professional accounting judgment or authoritative accounting guidance.
 
