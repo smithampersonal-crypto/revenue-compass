@@ -56,7 +56,7 @@ function world() {
       return null;
     },
     createIntent: async (row) => {
-      intents.set(row.id, { ...row, state: "pending" } as IntentRow);
+      intents.set(row.id, { ...row, state: "pending" } as unknown as IntentRow);
       return { id: row.id, expiresAt: row.expires_at };
     },
     loadIntent: async (id) => intents.get(id) ?? null,
@@ -207,7 +207,7 @@ describe("Horizon New Analysis source document", () => {
     const w = world();
     const ws = await w.addWorkspace("ws-a");
     const tampered = CANONICAL.slice();
-    tampered[tampered.length - 1] ^= 0xff;
+    tampered[tampered.length - 1] = (tampered[tampered.length - 1] ?? 0) ^ 0xff;
     await expect(
       seedHorizonSampleSource(w.deps({ loadBytes: async () => tampered }), ws),
     ).rejects.toThrow(HORIZON_SAMPLE_UNAVAILABLE);
