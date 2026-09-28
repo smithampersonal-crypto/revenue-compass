@@ -143,6 +143,8 @@ export function cedarTest03Analysis(): AiContractAnalysis {
   } as Term;
   const subscription: Term = {
     ...common,
+    // $120,000 is the total being divided, not an invoiced amount (prompt v14).
+    amountKind: "pricing_basis_only",
     explicitInvoices: [],
     semanticKey: "billing:subscription",
     description: "Hosted subscription in four equal quarterly installments.",
