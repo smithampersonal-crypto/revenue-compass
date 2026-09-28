@@ -22,6 +22,9 @@ import {
   migrateGuestWorkspaceHandler,
   resumeGuestAnalysisHandler,
   saveGuestDraftHandler,
+  saveRecentAnalysisHandler,
+  type GuestMigrationDeps,
+  type RecentSaveResult,
   type GuestMigrationResult,
   type GuestSaveResult,
   type GuestStore,
@@ -225,6 +228,19 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
     );
   });
 
+/** The one authoritative guest → account save transaction, shared by every entry point. */
+async function migrationDeps(userId: string): Promise<GuestMigrationDeps> {
+  return {
+    store: await guestStore(),
+    now: () => new Date(),
+    userId,
+    migrateTransaction: async (args) => {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token_v3", args as never);
+    },
+  };
+}
+
 /**
  * Explicit "Save this analysis": the signed-in caller turns their temporary
  * workspace into a saved customer, contract, analysis and revision 1 in one
@@ -262,15 +278,7 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { token } = await analysisToken(data.analysisId);
     const result = await migrateGuestWorkspaceHandler(
-      {
-        store: await guestStore(),
-        now: () => new Date(),
-        userId: context.userId,
-        migrateTransaction: async (args) => {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          return supabaseAdmin.rpc("arc_migrate_guest_workspace_by_token_v3", args as never);
-        },
-      },
+      await migrationDeps(context.userId),
       {
         token,
         contractTitle: data.contractTitle,
@@ -282,4 +290,22 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
     // Package 3D-T: the session cookie survives saving. It still authorizes the
     // session's other analyses and its remaining allowance until it expires.
     return result;
+  });
+
+export type { RecentSaveResult } from "./guest.handlers";
+
+/**
+ * Package 3D-T: one-click "Save to My Contracts" from Recent Analyses. Signed
+ * in only; the analysis must belong to this browser session (its credential is
+ * re-derived from the HttpOnly cookie). Runs the same transaction as the
+ * in-workspace save, or reports what must be completed first.
+ */
+export const saveRecentAnalysis = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { analysisId: string }) => ({
+    analysisId: analysisIdSchema.parse(input?.analysisId),
+  }))
+  .handler(async ({ data, context }): Promise<RecentSaveResult> => {
+    const { token } = await analysisToken(data.analysisId);
+    return saveRecentAnalysisHandler(await migrationDeps(context.userId), { token });
   });

@@ -15,6 +15,7 @@ import {
   guestExpiresAt,
   hashGuestToken,
   isGuestExpired,
+  suggestedContractTitle,
   validateMigrationRequest,
 } from "./guest";
 import {
