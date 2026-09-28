@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AnalysisRouteRouteImport } from './routes/analysis/route'
 import { Route as EngineCheckRouteImport } from './routes/engine-check'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -34,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRouteRoute = AnalysisRouteRouteImport.update({
@@ -115,6 +121,7 @@ const ApiPublicMaintenanceRoute = ApiPublicMaintenanceRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analysis': typeof AnalysisRouteRouteWithChildren
+  '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap': typeof SitemapRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap': typeof SitemapRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/analysis': typeof AnalysisRouteRouteWithChildren
+  '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap': typeof SitemapRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analysis'
+    | '/about'
     | '/engine-check'
     | '/privacy'
     | '/sitemap'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/engine-check'
     | '/privacy'
     | '/sitemap'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/analysis'
+    | '/about'
     | '/engine-check'
     | '/privacy'
     | '/sitemap'
@@ -228,6 +240,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AnalysisRouteRoute: typeof AnalysisRouteRouteWithChildren
+  AboutRoute: typeof AboutRoute
   EngineCheckRoute: typeof EngineCheckRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapRoute: typeof SitemapRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -399,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AnalysisRouteRoute: AnalysisRouteRouteWithChildren,
+  AboutRoute: AboutRoute,
   EngineCheckRoute: EngineCheckRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapRoute: SitemapRoute,

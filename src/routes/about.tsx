@@ -38,9 +38,9 @@ function AboutPage() {
           <h1 className="text-3xl font-bold text-foreground">About ARC</h1>
           <p className="text-sm leading-6 text-muted-foreground">
             ARC — Ayden&apos;s Revenue Compass — is an ASC 606 workpaper application. It takes a
-            customer contract from review and accounting judgment through to deterministic
-            outputs: performance-obligation analysis, transaction-price treatment, allocation,
-            revenue schedules, contract balances and journal-entry workpapers. ARC supports the
+            customer contract from review and accounting judgment through to deterministic outputs:
+            performance-obligation analysis, transaction-price treatment, allocation, revenue
+            schedules, contract balances and journal-entry workpapers. ARC supports the
             accountant&apos;s work; it does not replace it.
           </p>
         </header>
@@ -66,40 +66,40 @@ function AboutPage() {
           </p>
           <p>
             <strong className="text-foreground">The accountant owns the judgment.</strong> Every
-            AI-drafted fact or conclusion remains reviewable and editable. Open review items
-            require an explicit decision by the accountant before an analysis can be finalized.
+            AI-drafted fact or conclusion remains reviewable and editable. Open review items require
+            an explicit decision by the accountant before an analysis can be finalized.
           </p>
         </Block>
 
         <Block title="Accounting judgment, software discipline">
           <p>
             Revenue recognition depends on judgment, and judgment is only as reliable as the
-            evidence behind it. ARC is built around that idea: conclusions stay tied to their
-            source evidence, calculations are validated and reconcile across workpapers, and
-            reviewable items are resolved explicitly rather than accepted silently.
+            evidence behind it. ARC is built around that idea: conclusions stay tied to their source
+            evidence, calculations are validated and reconcile across workpapers, and reviewable
+            items are resolved explicitly rather than accepted silently.
           </p>
           <p>
-            Where source evidence is insufficient, ARC stops and asks for review instead of
-            filling the gap with an assumption. Automation assists the accountant, but control
-            over the analysis stays with the accountant.
+            Where source evidence is insufficient, ARC stops and asks for review instead of filling
+            the gap with an assumption. Automation assists the accountant, but control over the
+            analysis stays with the accountant.
           </p>
         </Block>
 
         <Block title="A portfolio project">
           <p>
             ARC was built as a portfolio project to demonstrate how technical accounting and
-            software can work together. It brings together ASC 606 application, product and
-            workflow design, AI-assisted contract review, testing and validation of accounting
-            logic, and the traceability that audit-ready work requires.
+            software can work together. It brings together ASC 606 application, product and workflow
+            design, AI-assisted contract review, testing and validation of accounting logic, and the
+            traceability that audit-ready work requires.
           </p>
         </Block>
 
         <Block title="Scope">
           <p>
             ARC is a portfolio and workpaper application. It is not a commercial accounting system
-            and is not a substitute for professional accounting judgment. ARC prepares
-            journal-entry workpapers, but it does not post entries to a general ledger, issue
-            customer invoices or produce financial statements.
+            and is not a substitute for professional accounting judgment. ARC prepares journal-entry
+            workpapers, but it does not post entries to a general ledger, issue customer invoices or
+            produce financial statements.
           </p>
         </Block>
       </main>
