@@ -286,3 +286,7 @@ Fresh 3E evidence
 - [x] Archive ARC-recruiter-v1-source.zip built from tracked files only and validated programmatically
 - [x] No AI run, no publish, and no dependency change versus the accepted (161) baseline
 - [ ] GitHub application + database jobs green on the final 3E commit (owner-confirmed)
+
+## Package 3D-Q.1 — Explicit Billing Events
+- [x] Plan written (trace, root cause, design)
+- [ ] Implementation — waiting for owner approval of the plan (schema v8 / prompt v12 decision)
