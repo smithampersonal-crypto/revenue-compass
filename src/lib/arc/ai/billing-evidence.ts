@@ -242,3 +242,218 @@ export function aiFixedScheduleEligibility(
   }
   return checkFixedBillingEvidence(term);
 }
+
+/* ============================================ Package 3D-Q.1 explicit path */
+
+/**
+ * Package 3D-Q.1 — ARC-owned evidence check for a source-stated dated invoice.
+ *
+ * A separate path from the recurring-schedule check above, which stays
+ * unchanged. An explicit invoice needs no cadence and no timing phrase, and
+ * its date is never inferred. It is created only when ONE evidence unit of the
+ * invoice's OWN text citations states, together:
+ *
+ *   A. an invoicing word;
+ *   B. a currency amount exactly equal to the proposed amount, passing the
+ *      same rate / per-unit / interest exclusions as the recurring check;
+ *   C. a full calendar date, introduced by "on", "dated" or "as of", that
+ *      is exactly the proposed invoice date.
+ *
+ * Evidence units are never combined. Unfamiliar wording fails closed.
+ * Pure: no I/O, no mutation.
+ */
+
+export interface ExplicitInvoiceEvidenceInput {
+  invoiceDateInput: string;
+  amountInput: string | null;
+  citations: readonly { evidenceMode?: string; excerpt?: string | null }[];
+}
+
+export type ExplicitInvoiceEvidenceRefusal =
+  | "invalid_invoice_date"
+  | "no_text_evidence"
+  | "no_currency_amount"
+  | "rate_like_amount"
+  | "no_invoicing_language"
+  | "no_matching_invoice_date";
+
+export type ExplicitInvoiceEvidenceResult =
+  { ok: true } | { ok: false; reason: ExplicitInvoiceEvidenceRefusal };
+
+const MONTHS: Record<string, number> = {
+  january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3, april: 4, apr: 4,
+  may: 5, june: 6, jun: 6, july: 7, jul: 7, august: 8, aug: 8, september: 9,
+  sept: 9, sep: 9, october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12,
+};
+
+const MONTH_ABBREVIATION_END = /\b(?:jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\.$/i;
+
+/** Valid ISO calendar date, or null. */
+export function isoCalendarDate(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) return null;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return value;
+}
+
+function isoOf(year: number, month: number, day: number): string | null {
+  return isoCalendarDate(
+    `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+  );
+}
+
+/**
+ * Sentences of the invoice's own text citations. Same split as the recurring
+ * check, except a month abbreviation ("Jan.") never ends a sentence.
+ */
+function explicitEvidenceUnits(citations: ExplicitInvoiceEvidenceInput["citations"]): string[] {
+  const out: string[] = [];
+  for (const citation of citations) {
+    if (citation.evidenceMode !== undefined && citation.evidenceMode !== "text") continue;
+    const text = (citation.excerpt ?? "").replace(/\s+/g, " ").trim();
+    if (text.length === 0) continue;
+    const pieces = text.split(/(?<=[.;!?])\s+/);
+    let current = "";
+    for (const piece of pieces) {
+      current = current.length === 0 ? piece : `${current} ${piece}`;
+      if (MONTH_ABBREVIATION_END.test(current)) continue;
+      const trimmed = current.trim();
+      if (trimmed.length > 0) out.push(trimmed);
+      current = "";
+    }
+    if (current.trim().length > 0) out.push(current.trim());
+  }
+  return out;
+}
+
+const DATE_INTRODUCER = /\b(?:on|dated|as\s+of)\s+$/i;
+const NAMED_DATE =
+  /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\.?\s+(\d{1,2}),?\s+(\d{4})\b/gi;
+const ISO_DATE = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+const US_DATE = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+
+/** ISO dates stated in the unit and introduced as an invoice date. */
+function introducedDates(unit: string): string[] {
+  const out: string[] = [];
+  const introduced = (index: number) => DATE_INTRODUCER.test(unit.slice(0, index));
+  for (const found of unit.matchAll(NAMED_DATE)) {
+    if (!introduced(found.index ?? 0)) continue;
+    const month = MONTHS[found[1]!.toLowerCase()];
+    const iso = month === undefined ? null : isoOf(Number(found[3]), month, Number(found[2]));
+    if (iso !== null) out.push(iso);
+  }
+  for (const found of unit.matchAll(ISO_DATE)) {
+    if (!introduced(found.index ?? 0)) continue;
+    const iso = isoOf(Number(found[1]), Number(found[2]), Number(found[3]));
+    if (iso !== null) out.push(iso);
+  }
+  for (const found of unit.matchAll(US_DATE)) {
+    if (!introduced(found.index ?? 0)) continue;
+    const iso = isoOf(Number(found[3]), Number(found[1]), Number(found[2]));
+    if (iso !== null) out.push(iso);
+  }
+  return out;
+}
+
+export function checkExplicitInvoiceEvidence(
+  input: ExplicitInvoiceEvidenceInput,
+): ExplicitInvoiceEvidenceResult {
+  const invoiceDate = isoCalendarDate(input.invoiceDateInput);
+  if (invoiceDate === null) return { ok: false, reason: "invalid_invoice_date" };
+  const target = input.amountInput === null ? null : exactCents(input.amountInput);
+  if (target === null || target <= 0n) return { ok: false, reason: "no_currency_amount" };
+
+  const units = explicitEvidenceUnits(input.citations);
+  if (units.length === 0) return { ok: false, reason: "no_text_evidence" };
+
+  let sawRateLike = false;
+  let sawAmount = false;
+  let sawInvoicing = false;
+  for (const unit of units) {
+    const verdict = amountVerdict(unit, target);
+    if (verdict === "rate_like") sawRateLike = true;
+    if (verdict !== "match") continue;
+    sawAmount = true;
+    if (!INVOICING_WORD.test(unit)) continue;
+    sawInvoicing = true;
+    if (introducedDates(unit).includes(invoiceDate)) return { ok: true };
+  }
+  if (!sawAmount) return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
+  if (!sawInvoicing) return { ok: false, reason: "no_invoicing_language" };
+  return { ok: false, reason: "no_matching_invoice_date" };
+}
+
+export interface AiExplicitInvoiceTerm {
+  amountKind?: string | null | undefined;
+  reviewState: string;
+  explicitInvoices?:
+    | readonly {
+        invoiceDateInput: string;
+        amountInput: string | null;
+        citations: ExplicitInvoiceEvidenceInput["citations"];
+      }[]
+    | undefined;
+}
+
+export interface ExplicitInvoiceEvent {
+  period: number;
+  invoiceDate: string;
+  unconditionalRightDate: string;
+  amountInput: string;
+}
+
+export type AiExplicitInvoiceRefusal =
+  | "amount_not_fixed_invoice"
+  | "billing_term_not_source_supported"
+  | ExplicitInvoiceEvidenceRefusal;
+
+/**
+ * The deterministic boundary in front of every AI-stated dated invoice. The
+ * whole term passes or fails: one unsupported invoice refuses the term, so no
+ * partial schedule is ever created. Exact duplicates within the term (same
+ * date and same amount) collapse to one invoice. Events are ordered by date,
+ * then amount; `period` is that ordinal.
+ */
+export function aiExplicitInvoiceEligibility(
+  term: AiExplicitInvoiceTerm,
+):
+  | { ok: true; events: ExplicitInvoiceEvent[] }
+  | { ok: false; reason: AiExplicitInvoiceRefusal; invoiceIndex?: number } {
+  if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
+    return { ok: false, reason: "amount_not_fixed_invoice" };
+  }
+  if (!AI_FIXED_SCHEDULE_REVIEW_STATES.includes(term.reviewState)) {
+    return { ok: false, reason: "billing_term_not_source_supported" };
+  }
+  const invoices = term.explicitInvoices ?? [];
+  const seen = new Map<string, { date: string; cents: bigint; amountInput: string }>();
+  for (const [index, invoice] of invoices.entries()) {
+    const verdict = checkExplicitInvoiceEvidence(invoice);
+    if (!verdict.ok) return { ok: false, reason: verdict.reason, invoiceIndex: index };
+    const cents = exactCents(invoice.amountInput!)!;
+    const key = `${invoice.invoiceDateInput}|${cents}`;
+    if (!seen.has(key)) {
+      seen.set(key, { date: invoice.invoiceDateInput, cents, amountInput: invoice.amountInput! });
+    }
+  }
+  const ordered = [...seen.values()].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.cents < b.cents ? -1 : a.cents > b.cents ? 1 : 0,
+  );
+  return {
+    ok: true,
+    events: ordered.map((entry, index) => ({
+      period: index + 1,
+      invoiceDate: entry.date,
+      unconditionalRightDate: entry.date,
+      amountInput: entry.amountInput,
+    })),
+  };
+}
