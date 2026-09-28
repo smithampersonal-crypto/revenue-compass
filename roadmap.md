@@ -330,7 +330,7 @@ Fresh 3E evidence
 - [x] Docs reconciled (README, roadmap, operations); README screenshots refreshed
 - [x] Full verify + all SQL suites + bundle audit; archive arc-recruiter-v1.zip from tracked files only
 - [x] Final GitHub application and database jobs green
-- [ ] Final publish and light production smoke pending
+- [x] Published; light production smoke passed (Horizon source document, $153,000, allowance unchanged, no AI run)
 - [x] Horizon New Analysis source-document parity: opening Horizon from New Analysis now includes the canonical Horizon PDF as a real source document of that analysis (kept on Save, removed with expiry, fails closed with rollback); Recent keeps "Sample — Horizon". Verification: 2,908 tests / 234 files; 27 SQL suites
 
 ## Post-v1 possibilities (not planned, not required)
