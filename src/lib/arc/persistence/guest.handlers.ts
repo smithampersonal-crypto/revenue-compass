@@ -361,3 +361,57 @@ export async function migrateGuestWorkspaceHandler(
     recovered: created.idempotent === true,
   };
 }
+
+/* --------------------------- Package 3D-T — direct save from Recent Analyses */
+
+/** Where an incomplete analysis must be finished before it can be saved. */
+export type SaveDestination = "step1";
+
+export type RecentSaveResult =
+  | GuestMigrationResult
+  | { ok: false; code: "incomplete"; reason: string; destination: SaveDestination };
+
+/**
+ * One-click "Save to My Contracts" from Recent Analyses. Only another entry
+ * point into {@link migrateGuestWorkspaceHandler}: it reads the exact stored
+ * draft and its current lock version, applies the same save rules, and — only
+ * when they pass — runs the one authoritative transaction. The contract name
+ * is the same suggestion the in-workspace dialog starts from, and the customer
+ * is filed by the Step 1 customer name. Nothing is created when a rule fails.
+ */
+export async function saveRecentAnalysisHandler(
+  deps: GuestMigrationDeps,
+  input: { token: string | null },
+): Promise<RecentSaveResult> {
+  if (!input.token) return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
+  const row = await deps.store.findByHash(await hashGuestToken(input.token));
+  if (!row) return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
+  // An already-saved analysis (double click, lost response) goes straight to
+  // the transaction, which returns the committed rows instead of new ones.
+  if (row.status !== "migrated") {
+    if (row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) {
+      return { ok: false, code: "expired", reason: EXPIRED_MESSAGE };
+    }
+  }
+  const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
+  if (!parsed.ok) return { ok: false, code: "invalid", reason: parsed.reason };
+  const contractTitle = suggestedContractTitle({
+    customerName: parsed.draft.contract.customerName,
+    contractNumber: parsed.draft.contract.contractNumber,
+  });
+  const checked = validateMigrationRequest({
+    customerName: parsed.draft.contract.customerName,
+    contractTitle,
+    contractNumber: parsed.draft.contract.contractNumber,
+    existingCustomerId: null,
+  });
+  if (!checked.ok) {
+    return { ok: false, code: "incomplete", reason: checked.reason, destination: "step1" };
+  }
+  return migrateGuestWorkspaceHandler(deps, {
+    token: input.token,
+    contractTitle,
+    expectedLockVersion: row.lock_version,
+    existingCustomerId: null,
+  });
+}
