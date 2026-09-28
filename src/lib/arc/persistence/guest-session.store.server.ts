@@ -9,10 +9,13 @@ import type { GuestSessionStore } from "./guest-session.handlers";
 export async function createGuestSessionStore(): Promise<GuestSessionStore> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // The generated types may lag the 3D-T columns; the shapes are checked here.
+  /* eslint-disable @typescript-eslint/no-explicit-any -- untyped query builder; every
+     result is narrowed by the explicit row checks below before use. */
   const db = supabaseAdmin as unknown as {
     from(table: string): any;
     rpc(fn: string, args: Record<string, unknown>): any;
   };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
   const fail = (operation: string, error: { message?: string }): never => {
     throw new Error(`The temporary analysis store is unavailable (${operation}).`, {
       cause: error,
