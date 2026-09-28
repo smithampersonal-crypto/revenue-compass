@@ -79,9 +79,9 @@ function AboutPage() {
             items are resolved explicitly rather than accepted silently.
           </p>
           <p>
-            Where source evidence is insufficient, ARC stops and asks for review instead of filling
-            the gap with an assumption. Automation assists the accountant, but control over the
-            analysis stays with the accountant.
+            Where source evidence is insufficient, ARC surfaces the gap for review rather than
+            silently treating an assumption as established fact. Automation assists the accountant,
+            but control over the analysis stays with the accountant.
           </p>
         </Block>
 
@@ -90,7 +90,7 @@ function AboutPage() {
             ARC was built as a portfolio project to demonstrate how technical accounting and
             software can work together. It brings together ASC 606 application, product and workflow
             design, AI-assisted contract review, testing and validation of accounting logic, and the
-            traceability that audit-ready work requires.
+            traceability expected in reviewable accounting workpapers.
           </p>
         </Block>
 
