@@ -10,7 +10,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-
 import { scopedToCaller } from "./caller-scope";
 
 import {
@@ -38,7 +37,8 @@ import {
  * and therefore refused downstream — when the session does not own it.
  */
 async function guestCaller(): Promise<DocumentCaller> {
-  const { resolveRequestAnalysisToken } = await import("@/lib/arc/persistence/guest-request.server");
+  const { resolveRequestAnalysisToken } =
+    await import("@/lib/arc/persistence/guest-request.server");
   const { token } = await resolveRequestAnalysisToken();
   return { kind: "guest", token };
 }

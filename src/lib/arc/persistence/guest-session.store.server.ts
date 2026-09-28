@@ -27,9 +27,7 @@ export async function createGuestSessionStore(): Promise<GuestSessionStore> {
       });
       if (error) fail("session", error);
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { session_id: string; expires_at: string }
-        | null
-        | undefined;
+        { session_id: string; expires_at: string } | null | undefined;
       return row ? { id: row.session_id, expiresAt: row.expires_at } : null;
     },
     createSession: async (row) => {
@@ -115,7 +113,10 @@ export async function createGuestSessionStore(): Promise<GuestSessionStore> {
       }
       const stages = new Map<string, string[]>();
       for (const row of (runs.data ?? []) as Array<{ guest_workspace_id: string; stage: string }>) {
-        stages.set(row.guest_workspace_id, [...(stages.get(row.guest_workspace_id) ?? []), row.stage]);
+        stages.set(row.guest_workspace_id, [
+          ...(stages.get(row.guest_workspace_id) ?? []),
+          row.stage,
+        ]);
       }
       const review = new Map<string, unknown>();
       for (const row of (states.data ?? []) as Array<{

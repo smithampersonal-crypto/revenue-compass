@@ -276,7 +276,14 @@ export function AnalysisProvider({
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
-    () => ["arc-analysis-revision", mode, contractId ?? null, revisionId ?? null, guestAnalysisId ?? null] as const,
+    () =>
+      [
+        "arc-analysis-revision",
+        mode,
+        contractId ?? null,
+        revisionId ?? null,
+        guestAnalysisId ?? null,
+      ] as const,
     [mode, contractId, revisionId, guestAnalysisId],
   );
 

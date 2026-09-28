@@ -209,6 +209,8 @@ describe("ARC app shell (Phase 5)", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis/documents"));
     expect(await screen.findByRole("dialog", { name: /upload pdf/i })).toBeInTheDocument();
     // `upload=1` is a one-shot intent: it is consumed; the analysis id stays.
-    await waitFor(() => expect(router.state.location.search).toEqual({ a: "00000000-0000-4000-8000-000000000001" }));
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({ a: "00000000-0000-4000-8000-000000000001" }),
+    );
   });
 });

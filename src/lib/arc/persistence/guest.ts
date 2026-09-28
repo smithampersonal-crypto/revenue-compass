@@ -196,7 +196,10 @@ export function isAnalysisId(value: unknown): value is string {
  * base64url. It is derived server-side on every request and never stored or
  * sent anywhere; the row holds only its SHA-256 hash, like every credential.
  */
-export async function deriveAnalysisToken(sessionToken: string, analysisId: string): Promise<string> {
+export async function deriveAnalysisToken(
+  sessionToken: string,
+  analysisId: string,
+): Promise<string> {
   const key = await globalThis.crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(sessionToken),

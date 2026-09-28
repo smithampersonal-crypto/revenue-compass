@@ -91,7 +91,12 @@ function Index() {
               ARC’s deterministic accounting engines.
             </p>
             <div className="mt-5">
-              <StartAnalysisButton origin="upload" destination="upload" variant="outline" className="w-fit">
+              <StartAnalysisButton
+                origin="upload"
+                destination="upload"
+                variant="outline"
+                className="w-fit"
+              >
                 Upload PDF
               </StartAnalysisButton>
             </div>

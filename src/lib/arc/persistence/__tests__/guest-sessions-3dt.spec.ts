@@ -130,7 +130,11 @@ describe("derived per-analysis credentials", () => {
 describe("explicit creation", () => {
   it("starts a session only when there is none and reuses it afterwards", async () => {
     const { memory, deps } = setup();
-    const first = await createAnalysisHandler(deps, { sessionToken: null, origin: "blank", draft: null });
+    const first = await createAnalysisHandler(deps, {
+      sessionToken: null,
+      origin: "blank",
+      draft: null,
+    });
     expect(first.issuedToken).not.toBeNull();
     const second = await createAnalysisHandler(deps, {
       sessionToken: first.issuedToken,
@@ -157,7 +161,11 @@ describe("explicit creation", () => {
       draft: null,
     });
     for (let i = 0; i < 4; i += 1) {
-      await createAnalysisHandler(deps, { sessionToken: issuedToken, origin: "blank", draft: null });
+      await createAnalysisHandler(deps, {
+        sessionToken: issuedToken,
+        origin: "blank",
+        draft: null,
+      });
     }
     expect(memory.rows).toHaveLength(5);
   });
@@ -184,17 +192,26 @@ describe("explicit creation", () => {
     draft.contract.customerName = "Horizon Logistics";
     await createAnalysisHandler(deps, { sessionToken: null, origin: "sample:horizon", draft });
     expect(memory.rows[0]!.origin).toBe("sample:horizon");
-    expect((memory.rows[0]!.draft_json as { draft: { contract: { customerName: string } } }).draft.contract.customerName).toBe(
-      "Horizon Logistics",
-    );
+    expect(
+      (memory.rows[0]!.draft_json as { draft: { contract: { customerName: string } } }).draft
+        .contract.customerName,
+    ).toBe("Horizon Logistics");
   });
 });
 
 describe("resolving an analysis credential", () => {
   it("returns the derived credential only for the owning session", async () => {
     const { deps } = setup();
-    const mine = await createAnalysisHandler(deps, { sessionToken: null, origin: "blank", draft: null });
-    const theirs = await createAnalysisHandler(deps, { sessionToken: null, origin: "blank", draft: null });
+    const mine = await createAnalysisHandler(deps, {
+      sessionToken: null,
+      origin: "blank",
+      draft: null,
+    });
+    const theirs = await createAnalysisHandler(deps, {
+      sessionToken: null,
+      origin: "blank",
+      draft: null,
+    });
 
     const token = await resolveAnalysisToken(deps, {
       sessionToken: mine.issuedToken,
@@ -204,7 +221,10 @@ describe("resolving an analysis credential", () => {
 
     // Cross-session access is refused.
     expect(
-      await resolveAnalysisToken(deps, { sessionToken: mine.issuedToken, analysisId: theirs.analysisId }),
+      await resolveAnalysisToken(deps, {
+        sessionToken: mine.issuedToken,
+        analysisId: theirs.analysisId,
+      }),
     ).toBeNull();
     // Unknown, malformed and missing inputs fail closed.
     expect(
@@ -213,8 +233,12 @@ describe("resolving an analysis credential", () => {
         analysisId: "00000000-0000-4000-8000-00000000ffff",
       }),
     ).toBeNull();
-    expect(await resolveAnalysisToken(deps, { sessionToken: mine.issuedToken, analysisId: "x" })).toBeNull();
-    expect(await resolveAnalysisToken(deps, { sessionToken: null, analysisId: mine.analysisId })).toBeNull();
+    expect(
+      await resolveAnalysisToken(deps, { sessionToken: mine.issuedToken, analysisId: "x" }),
+    ).toBeNull();
+    expect(
+      await resolveAnalysisToken(deps, { sessionToken: null, analysisId: mine.analysisId }),
+    ).toBeNull();
     expect(
       await resolveAnalysisToken(deps, { sessionToken: "forged", analysisId: mine.analysisId }),
     ).toBeNull();
@@ -222,10 +246,17 @@ describe("resolving an analysis credential", () => {
 
   it("refuses a derived row whose stored hash does not match", async () => {
     const { memory, deps } = setup();
-    const mine = await createAnalysisHandler(deps, { sessionToken: null, origin: "blank", draft: null });
+    const mine = await createAnalysisHandler(deps, {
+      sessionToken: null,
+      origin: "blank",
+      draft: null,
+    });
     memory.rows[0]!.token_hash = "tampered";
     expect(
-      await resolveAnalysisToken(deps, { sessionToken: mine.issuedToken, analysisId: mine.analysisId }),
+      await resolveAnalysisToken(deps, {
+        sessionToken: mine.issuedToken,
+        analysisId: mine.analysisId,
+      }),
     ).toBeNull();
   });
 
@@ -245,8 +276,12 @@ describe("resolving an analysis credential", () => {
       updated_at: NOW.toISOString(),
     });
     const expected = await deriveAnalysisToken(cookie, id);
-    expect(await resolveAnalysisToken(deps, { sessionToken: cookie, analysisId: id })).toBe(expected);
-    expect(await resolveAnalysisToken(deps, { sessionToken: cookie, analysisId: id })).toBe(expected);
+    expect(await resolveAnalysisToken(deps, { sessionToken: cookie, analysisId: id })).toBe(
+      expected,
+    );
+    expect(await resolveAnalysisToken(deps, { sessionToken: cookie, analysisId: id })).toBe(
+      expected,
+    );
     expect(memory.upgrades).toBe(1);
     expect(memory.sessions).toHaveLength(1);
     expect(memory.rows).toHaveLength(1);
@@ -292,7 +327,11 @@ describe("Recent Analyses", () => {
       draft: null,
     });
     for (let i = 0; i < 24; i += 1) {
-      await createAnalysisHandler(deps, { sessionToken: issuedToken, origin: "blank", draft: null });
+      await createAnalysisHandler(deps, {
+        sessionToken: issuedToken,
+        origin: "blank",
+        draft: null,
+      });
     }
     await createAnalysisHandler(deps, { sessionToken: null, origin: "blank", draft: null });
     memory.rows[3]!.status = "migrated";
@@ -315,10 +354,25 @@ describe("Recent Analyses", () => {
       draft,
     });
     const token = sample.issuedToken;
-    const blank = await createAnalysisHandler(deps, { sessionToken: token, origin: "blank", draft: null });
-    const running = await createAnalysisHandler(deps, { sessionToken: token, origin: "upload", draft: null });
-    const review = await createAnalysisHandler(deps, { sessionToken: token, origin: "upload", draft: null });
-    memory.summaries.set(running.analysisId, { firstSourceName: "MSA.pdf", runStages: ["analyzing"] });
+    const blank = await createAnalysisHandler(deps, {
+      sessionToken: token,
+      origin: "blank",
+      draft: null,
+    });
+    const running = await createAnalysisHandler(deps, {
+      sessionToken: token,
+      origin: "upload",
+      draft: null,
+    });
+    const review = await createAnalysisHandler(deps, {
+      sessionToken: token,
+      origin: "upload",
+      draft: null,
+    });
+    memory.summaries.set(running.analysisId, {
+      firstSourceName: "MSA.pdf",
+      runStages: ["analyzing"],
+    });
     memory.summaries.set(review.analysisId, {
       firstSourceName: "MSA.pdf",
       runStages: ["succeeded"],
@@ -336,7 +390,10 @@ describe("Recent Analyses", () => {
       source: "Sample — Horizon Logistics",
       status: "Draft",
     });
-    expect(byId.get(blank.analysisId)).toMatchObject({ label: "Untitled analysis", status: "Not analyzed" });
+    expect(byId.get(blank.analysisId)).toMatchObject({
+      label: "Untitled analysis",
+      status: "Not analyzed",
+    });
     expect(byId.get(running.analysisId)).toMatchObject({
       source: "MSA.pdf",
       status: "Analysis in progress",
@@ -346,16 +403,36 @@ describe("Recent Analyses", () => {
 
   it("derives status with in-progress taking precedence", () => {
     expect(
-      recentAnalysisStatus({ origin: "blank", hasSource: true, runStages: ["created"], reviewNeeded: true }),
+      recentAnalysisStatus({
+        origin: "blank",
+        hasSource: true,
+        runStages: ["created"],
+        reviewNeeded: true,
+      }),
     ).toBe("Analysis in progress");
     expect(
-      recentAnalysisStatus({ origin: "blank", hasSource: false, runStages: ["succeeded"], reviewNeeded: false }),
+      recentAnalysisStatus({
+        origin: "blank",
+        hasSource: false,
+        runStages: ["succeeded"],
+        reviewNeeded: false,
+      }),
     ).toBe("Draft");
     expect(
-      recentAnalysisStatus({ origin: "blank", hasSource: false, runStages: ["api_failed"], reviewNeeded: false }),
+      recentAnalysisStatus({
+        origin: "blank",
+        hasSource: false,
+        runStages: ["api_failed"],
+        reviewNeeded: false,
+      }),
     ).toBe("Not analyzed");
     expect(
-      recentAnalysisStatus({ origin: "sample:apex", hasSource: false, runStages: [], reviewNeeded: false }),
+      recentAnalysisStatus({
+        origin: "sample:apex",
+        hasSource: false,
+        runStages: [],
+        reviewNeeded: false,
+      }),
     ).toBe("Draft");
   });
 });
@@ -364,7 +441,9 @@ describe("Continue without signing in", () => {
   const id = "00000000-0000-4000-8000-000000000001";
   it("returns to a safe internal analysis path with an analysis id", () => {
     expect(continueWithoutSignInPath(`/analysis?a=${id}&save=1`)).toBe(`/analysis?a=${id}&save=1`);
-    expect(continueWithoutSignInPath(`/analysis/documents?a=${id}`)).toBe(`/analysis/documents?a=${id}`);
+    expect(continueWithoutSignInPath(`/analysis/documents?a=${id}`)).toBe(
+      `/analysis/documents?a=${id}`,
+    );
   });
   it("falls back to Recent Analyses for anything else", () => {
     for (const next of [

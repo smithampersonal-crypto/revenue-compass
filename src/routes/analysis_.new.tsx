@@ -48,7 +48,9 @@ function NewAnalysisPage() {
             </div>
           </article>
           <article className="flex flex-col border-t-2 border-border bg-card p-5 sm:p-6">
-            <h2 className="text-lg font-semibold text-foreground">Enter Contract Details Manually</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              Enter Contract Details Manually
+            </h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
               Enter contract facts and accounting judgments directly.
             </p>
@@ -66,7 +68,10 @@ function NewAnalysisPage() {
           </h2>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {DEMO_SCENARIOS.map((scenario) => (
-              <li key={scenario.id} className="flex flex-col rounded-md border border-border bg-card p-4">
+              <li
+                key={scenario.id}
+                className="flex flex-col rounded-md border border-border bg-card p-4"
+              >
                 <p className="text-sm font-semibold text-foreground">{scenario.customer}</p>
                 <p className="text-xs text-muted-foreground">{scenario.headline}</p>
                 <p className="mt-2 flex-1 text-sm text-muted-foreground">{scenario.description}</p>

@@ -161,7 +161,10 @@ describe("explicit save of a guest analysis", () => {
     renderGuest();
     await screen.findByText("Northwind");
     fireEvent.click(screen.getByRole("button", { name: "Save this analysis" }));
-    expect(navigate).toHaveBeenCalledWith({ to: "/auth", search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" } });
+    expect(navigate).toHaveBeenCalledWith({
+      to: "/auth",
+      search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" },
+    });
     expect(migrate).not.toHaveBeenCalled();
   });
 
@@ -236,7 +239,10 @@ describe("explicit save of a guest analysis", () => {
     await waitFor(() => expect(saveGuest).toHaveBeenCalledTimes(1));
     expect(saveGuest.mock.calls[0]![0].data.draft.contract.customerName).toBe("Edited");
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: "/auth", search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" } }),
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/auth",
+        search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" },
+      }),
     );
     expect(migrate).not.toHaveBeenCalled();
   });

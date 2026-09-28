@@ -136,7 +136,9 @@ const SAMPLE_ORIGIN = /^sample:[a-z0-9-]{1,40}$/;
 
 export function isNewAnalysisOrigin(value: unknown): value is NewAnalysisOrigin {
   return (
-    value === "blank" || value === "upload" || (typeof value === "string" && SAMPLE_ORIGIN.test(value))
+    value === "blank" ||
+    value === "upload" ||
+    (typeof value === "string" && SAMPLE_ORIGIN.test(value))
   );
 }
 
@@ -158,7 +160,9 @@ export async function createAnalysisHandler(
   const now = deps.now();
   let sessionToken = input.sessionToken;
   let issuedToken: string | null = null;
-  let session = sessionToken ? await deps.store.resolveSession(await hashGuestToken(sessionToken)) : null;
+  let session = sessionToken
+    ? await deps.store.resolveSession(await hashGuestToken(sessionToken))
+    : null;
 
   if (!session || isGuestExpired(session.expiresAt, now)) {
     sessionToken = (deps.newToken ?? createGuestToken)();
@@ -190,7 +194,8 @@ export async function createAnalysisHandler(
 
 /* ----------------------------------------------------------------- list -- */
 
-export type RecentAnalysisStatus = "Analysis in progress" | "Review needed" | "Not analyzed" | "Draft";
+export type RecentAnalysisStatus =
+  "Analysis in progress" | "Review needed" | "Not analyzed" | "Draft";
 
 export interface RecentAnalysisDto {
   analysisId: string;

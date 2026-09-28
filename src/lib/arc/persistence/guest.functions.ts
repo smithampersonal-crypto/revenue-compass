@@ -120,7 +120,8 @@ export const createTemporaryAnalysis = createServerFn({ method: "POST" })
       { store: await createGuestSessionStore(), now: () => new Date() },
       { sessionToken: context.sessionToken, origin: data.origin, draft },
     );
-    if (result.issuedToken) await setCookieHeader(buildGuestCookie(result.issuedToken, context.secure));
+    if (result.issuedToken)
+      await setCookieHeader(buildGuestCookie(result.issuedToken, context.secure));
     return { analysisId: result.analysisId };
   });
 
@@ -155,11 +156,13 @@ export const listRecentAnalyses = createServerFn({ method: "POST" }).handler(
 
 /** Optimistically locked autosave for the credential's temporary workspace. */
 export const saveGuestDraft = createServerFn({ method: "POST" })
-  .inputValidator((input: { analysisId: string; expectedLockVersion: number; draft: WorkflowDraft }) => ({
-    analysisId: analysisIdSchema.parse(input?.analysisId),
-    expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
-    draft: input.draft,
-  }))
+  .inputValidator(
+    (input: { analysisId: string; expectedLockVersion: number; draft: WorkflowDraft }) => ({
+      analysisId: analysisIdSchema.parse(input?.analysisId),
+      expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
+      draft: input.draft,
+    }),
+  )
   .handler(async ({ data }): Promise<GuestSaveResult> => {
     const { token } = await analysisToken(data.analysisId);
     const store = await guestStore();

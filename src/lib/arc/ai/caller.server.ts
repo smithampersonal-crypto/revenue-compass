@@ -81,7 +81,8 @@ export async function resolveAiCallerFromRequest(
   const request = getRequest();
   // Package 3D-T: the credential of the temporary analysis named by the
   // request, derived from and proven against the HttpOnly session cookie.
-  const { resolveRequestAnalysisToken } = await import("@/lib/arc/persistence/guest-request.server");
+  const { resolveRequestAnalysisToken } =
+    await import("@/lib/arc/persistence/guest-request.server");
   const { token: rawToken } = await resolveRequestAnalysisToken();
 
   const identity: AiCallerRequest = {
