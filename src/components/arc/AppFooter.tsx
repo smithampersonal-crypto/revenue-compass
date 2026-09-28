@@ -29,13 +29,7 @@ export function AppFooter() {
           </nav>
           <span>© 2026 Ayden&apos;s Revenue Compass (ARC)</span>
         </div>
-        <p>
-          Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan from{" "}
-          <a href="https://thenounproject.com" target="_blank" rel="noreferrer" className={LINK}>
-            Noun Project
-          </a>
-          .
-        </p>
+        <p>{"\n"}</p>
       </div>
     </footer>
   );
