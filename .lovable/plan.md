@@ -1,84 +1,100 @@
-# 3D-T narrow allowance-refund patch — PLAN ONLY
+# Package 3E — Final verification, documentation and recruiter-v1 archive (PLAN ONLY)
 
-Goal: the visible "3 per 9 hours" / "10 per month" allowance counts only analyses ARC validated and applied. Validation, limits, model, prompt, schema, citation checks, accounting, billing and Safe Re-analysis are unchanged. Failed run rows are kept as they are.
+No edits, publish, AI run, migration or archive until this plan is approved.
 
-## 1. Trace of current behaviour
+## 1. Baseline audit (read today)
 
-**Guest allowance.** `arc_reserve_ai_allowance` (latest migration 20260928190250) locks the session (or the workspace, for legacy runs). It counts usage with `arc_guest_session_usage`, which counts every guest run in the session with `openai_started_at IS NOT NULL`, plus legacy runs matched exactly by `guest_token_hash`. If usage is below 3, it moves the run to `analyzing` and stamps `openai_started_at`. The UI reads the same count through `arc_guest_workspace_usage` (runs.store.server.ts `guestConsumed`). Result: any run that reached the provider counts, whatever its outcome.
+- HEAD `d1957509`; accepted product baseline for frozen files `b1ea538e`.
+- Genomix `fixtures/genomix-synthesis-contract-package.pdf` SHA-256 = `7487979e…d4c7` — unchanged.
+- **Drift is present again** (from the last publish): `.env` has 6 keys (extra `SUPABASE_*` and `VITE_SUPABASE_PROJECT_ID`); `package.json` has `@lovable.dev/vite-tanstack-config` `2.23.1`; `bun.lock` is not the 2.15.0 Europe West 4 form.
+- Accepted `.env` at `b1ea538e` = exactly `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`. That matches this brief. (My earlier reports named PROJECT_ID instead of URL. That was a wording mistake: every restore used the `b1ea538e` copy, so the files themselves were right.)
+- First implementation step: restore all three files from `b1ea538e`, re-hash Genomix, then capture `git status` and `git diff --stat b1ea538e..HEAD` as the pre-edit record.
 
-**Authenticated monthly usage.** The same function upserts `ai_monthly_usage (user_id, usage_month)` and runs `runs_consumed = runs_consumed + 1` when it reserves, before the provider call. It never decrements. The UI reads `runs_consumed` directly (`monthlyUsage`).
+## 2. Product verification (no code change)
 
-**Stages** (`AiRunStage`):
-- Active: `created`, `extracting`, `preflight_ready`, `analyzing`, `validating`, `applying`.
-- Terminal: `succeeded`, `preflight_failed`, `api_failed`, `response_invalid`, `application_failed`.
+- Accounting, billing (3D-Q.1/Q.2), Safe Re-analysis: the full vitest suite, including the Genomix acceptance and Horizon suites.
+- AI constants: confirm model `gpt-5.6-terra`, prompt `arc.ai.prompt.v14`, schema `arc.ai.schema.v9`, `store:false`, and the 10 MB / 500 pages / 200k-token limits, by reading the source and running the existing tests.
+- Allowance: guest 3 per session and 6 attempts; signed-in 10 per month and 20 attempts; refund on failure. Covered by `phase3dt_allowance_refund.sql` and `phase3dt_sessions.sql`.
+- New/Recent/Save: the existing 3D-T specs (`guest-sessions-3dt`, `new-analysis-samples`, `recent-direct-save`). Also a grep check that temporary analyses are only created by POST.
+- Auth: email magic link only. Grep for OAuth/Google providers in source and config.
+- Maintenance: read `.github/workflows/maintenance.yml` (`17 * * * *`) and the endpoint auth tests. Confirm pg_cron is still optional and not applied.
+- Routing: a Playwright check on the local preview for `/`, `/about`, `/analysis/new`, `/recent`, `/auth`, `/privacy`, `/sitemap` and the Horizon sample path, plus the analysis subpages (documents, review, schedule, balances, journals). It checks for 404s, redirect loops and console errors, and confirms no temporary analysis is created just by navigating.
 
-**Failure categories** (orchestrator `AiFailureCategory`):
-- `preflight`: the provider never started.
-- `api`: authentication or configuration, model access, request validation, token limit, api_failure. The provider started but returned nothing usable.
-- `response`: output parse failure, `response_invalid`, `citation_anchor_failure`, `citation_validation_failure`. Set at stage `validating`.
-- `application`: apply declined, apply conflict or apply error. Set at stage `applying`, and nothing is applied.
+## 3. Approved copy corrections
 
-All failures go through `arc_mark_ai_run_failure`, which only moves a run from an active stage to a terminal stage, so each run can fail once.
+**A. Step 4 review summary.** `src/lib/arc/ai/merge.ts` (reason for `provisional_ssp_basis`, about line 1977). This one sentence covers every provisional-SSP case, whether the contract states an SSP amount or only a contract price. It is triggered by method `stated_contract_price_assumption`. So I'll use wording that is accurate in both cases:
+> "ARC used the standalone selling price amounts stated in the contract provisionally for {names}. The contract does not provide evidence of observable standalone sales, so confirm this basis or enter your own."
 
-**The point a result counts as delivered.** `arc_apply_ai_run` needs stage `applying` and, in one transaction, writes the draft and review state and sets `stage = 'succeeded'`. It is the only path to `succeeded`. `arc_restore_pre_ai_run` sets `restored_at` but leaves the stage at `succeeded`.
+Only the sentence changes. Logic, value, fingerprint inputs and the reason code stay the same. Before editing I'll confirm the reason text isn't part of any review fingerprint or persisted comparison key. If it is, I stop and report back. Test: update or add an assertion in the existing merge provisional-SSP spec (found with `rg provisional_ssp_basis src/**/__tests__`).
 
-**Provider attempt vs delivered analysis.**
-- Provider attempt: `openai_started_at IS NOT NULL`. This stays as it is now.
-- Delivered analysis: `stage = 'succeeded'`.
-- A run still in progress holds a provisional reservation: its provider has started and its stage is active.
+**B. Allowance wording.** `src/components/arc/AiAnalysisAction.tsx:50` changes from "{n} of {limit} analyses remaining" to "{n} of {limit} AI analyses remaining". I'll also update `AI_ALLOWANCE_HEADLINE` in `failure-presentation.ts` ("No analyses remaining" becomes "No AI analyses remaining") so the two messages match. **Owner to confirm** that the headline change is covered by item B. Tests: any spec asserting the old strings gets updated.
 
-## 2. Design (database only, one migration, no new columns or tables)
+## 4. Newly discovered copy issues (list only, not fixing)
 
-**Visible allowance = succeeded runs + runs in progress.** Counting runs in progress keeps the current locking: two runs at once can never both pass the limit. When a run in progress fails, it stops counting automatically. A success stays counted even after the user restores the earlier version.
+- README "Quality & Testing" says 2,812 tests / 223 files. It is now about 2,897 / 232. This is a docs change, covered in section 6.
+- The full public-surface copy review (section 20 of the brief) runs during implementation. Anything found will be listed for your approval, not changed.
 
-1. **`arc_guest_session_usage` / `arc_guest_workspace_usage`**
-   - Change the filter from `openai_started_at IS NOT NULL` to `openai_started_at IS NOT NULL AND stage IN ('succeeded', <active stages>)`.
-   - Legacy matching by exact credential, the fallback for workspaces without a session, and the service_role-only access all stay the same.
-   - The reserve check and the UI still share this one definition.
-2. **Monthly allowance: release on failure.** `arc_mark_ai_run_failure` gains one step, inside the same transaction: if the run's `quota_scope = 'authenticated'` and its provider has started, it runs `runs_consumed = greatest(runs_consumed - 1, 0)` for the run's UTC month. That month comes from the reserve step's `openai_started_at`, so a run that crosses midnight at month end still refunds the right month.
-   - The refund can only happen once, because the active-to-terminal move can only happen once. Runs that failed at preflight never reserved, so there is nothing to refund.
-3. **Separate technical-attempt safeguard (fail closed).** `arc_reserve_ai_allowance` also counts all provider attempts, whatever their outcome, under the same lock:
-   - Guest: at most **6** provider attempts per browser session (a 9-hour window).
-   - Signed in: at most **25** provider attempts per UTC month, counted from `ai_runs.owner_user_id` and `openai_started_at`.
-   - When the cap is reached, the reservation is refused with a distinct code, `attempt_limit`. The run ends `preflight_failed` and the provider is not called.
-   - The UI shows a separate message: "Too many unsuccessful AI attempts in this session. Try again later." It never says "0 analyses remaining", and the visible allowance numbers don't change.
-   - The two caps are constants in SQL and are not configurable. **Owner to confirm 6 / 25.**
-4. **App code (small).**
-   - Map the new reservation code `attempt_limit` to its own safe message in failure-presentation.
-   - No change to the orchestrator flow, validation, the Terra client, prompt, schema or accounting.
-   - `guestConsumed` and `monthlyUsage` keep calling the same database sources, so the TypeScript never works out the count itself.
+## 5. Documentation audit: what is stale now
 
-**Not touched.** Limits 3 / 10, the 9-hour expiry, sessions and credentials, Save/migration (it moves runs across but doesn't change their stage, so the count is unchanged), New Analysis, manual edits, access rules, the storage bucket, and `ai_runs` rows. Failed rows keep `openai_started_at`, `failure_*`, `usage_metadata` and the other metadata.
+- **README.md**: the test counts. The quota and temporary-analysis model isn't described (guest allowance per 9-hour session, delivered analyses only, Recent Analyses, direct Save). Otherwise accurate: no Google, and the scope boundaries are correct.
+- **roadmap.md**: the production line says "schema v7, prompt v11" and "guest 3 per 9-hour workspace". Open items remain for 3D-Q.1/Q.2 (the Redwood live run, schema v9/prompt v13), even though they were accepted. 3D-T and the allowance refund are missing, and 3E isn't marked as final.
+- **AGENTS.md** (11 lines): to be checked against the section 19 list. I'll only update rules that are now wrong (for example, one guest workspace per session, or failed runs counting).
+- **docs/operations.md**: the maintenance and www→apex sections look current. I'll check the quota and guest-model wording.
+- **docs/phase-8-acceptance.md**: historical record. I'll only add a one-line note that it is historical, if needed.
 
-**Existing live data.** The Test 03 `response_invalid` run stops counting as soon as the new functions apply. The session's usage goes from 2 to 1, so it shows 2 remaining. Past authenticated failures are not refunded retroactively, because we don't rewrite history. **Owner to confirm** that this is acceptable. The alternative is a one-time recount of `ai_monthly_usage` from succeeded runs for the current month.
+## 6. Documentation change plan
 
-## 3. Tests
+- README: correct the counts; add short "Allowance" and "Temporary & saved analyses" notes; add the final scope statement from brief section 30 (not an ERP, billing system, posting engine or close platform).
+- roadmap.md: mark 3D-Q.1, 3D-Q.2, 3D-T and the allowance refund complete; fix the production facts line; add a 3E final-verification/archive section; move leftover ideas to a short "Post-v1 (not planned)" list. No new Phase 4.
+- AGENTS.md and operations.md: targeted line fixes only.
 
-**SQL suite `supabase/tests/phase3dt_allowance_refund.sql`** (real local DB, synthetic data, rolled back, every row `passed = true`). It drives runs through the real RPCs: reserve, then advance, then `arc_apply_ai_run` or `arc_mark_ai_run_failure`.
-- Live case: a new session has 3 remaining. A succeeds, leaving 2. B's provider starts, then B ends `response_invalid` with `citation_anchor_failure`, still 2. B is retried and succeeds, leaving 1.
-- The failed B row still exists with its `openai_started_at`, `failure_code` and stage kept.
-- Two analyses in the same session report the same usage at every step.
-- Saving A to My Contracts leaves usage unchanged.
-- A successful run that is later restored still counts.
-- `api_failed` and `application_failed` don't count. `preflight_failed` never reserved.
-- Signed in: success adds 1 to `runs_consumed`. A `response_invalid` run adds 1 while in progress and removes it on failure. Marking the same run failed twice is refused, so there is no double refund. The refund goes to the month the reservation was made in.
-- Concurrency: a run in progress counts. With 2 used and 1 in progress, a fourth reservation is refused. Once the in-progress run fails, a new reservation is allowed.
-- Attempt safeguard: after 6 guest provider failures, the next reservation is refused with `attempt_limit` while the visible allowance still reads 3 remaining. The signed-in cap of 25 per month works the same way.
-- Security: the helpers can still only be called by service_role.
-- Update `phase3dt_sessions.sql` assertions only where they assumed failed runs count (for example, test 15 must use succeeded runs). All other existing suites must still pass.
+## 7. Security and database review
 
-**App tests (vitest).**
-- workspace-handlers: a `response_invalid` run leaves remaining unchanged for both analyses in the session.
-- runs-handlers and failure-presentation: `attempt_limit` shows its own message and never the "no analyses remaining" wording.
-- Then the full `bun run verify`, plus both GitHub jobs run by the owner.
+- Run the security scan and list every warning, classified as intentional service-only/private-table pattern, informational (leaked-password protection), or genuine concern. Nothing is "fixed" by loosening access. A genuine blocker means stopping.
+- Migration chain: list the applied migrations and map them to sessions, per-analysis workspaces, session quota, legacy upgrade, refund, attempt caps, cleanup, account deletion and Save. No new migration.
+- Run all SQL suites with `scripts/run-sql-suites-local.sh`. They cover RLS, cross-session and cross-user denial, private storage, and service-only guest tables.
+- Run the bundle audit (`scripts/audit-bundle.sh`) for service-role and secret material.
 
-## 4. Delivery rules
+## 8. Verification matrix
 
-- One migration: replace the 3 usage/reserve functions and `arc_mark_ai_run_failure`. No new columns or tables, and no changes to access rules.
-- Afterwards, restore the frozen `.env`, `package.json` and `bun.lock`, and confirm the Genomix hash is unchanged.
-- No publish and no AI run.
+Focused specs for A and B, then `bun run verify` (tests, typecheck, lint, build, bundle audit), all SQL suites, and both GitHub jobs (owner). Final counts go in the report.
+
+## 9. Production smoke test (after owner-approved publish only)
+
+HTTP and Playwright checks of `/`, `/about`, `/analysis/new` (Horizon only), `/recent`, `/auth` and the sample path on https://ayden-rc.com, plus a console-error capture. Authenticated My Contracts only if the owner logs in. No AI runs.
+
+## 10. Archive construction
+
+After final acceptance, restore the frozen files, then run:
+`git archive --format=zip --prefix=arc-recruiter-v1/ -o /tmp/arc-recruiter-v1.zip HEAD`
+This includes tracked files only. Any path that is tracked but must be excluded is removed with `export-ignore` applied through `git archive` pathspec exclusions (`:(exclude).env` and so on). No `.gitattributes` is committed unless you approve it. After the audit, copy the archive to `/mnt/documents/`.
+
+## 11. Archive exclusions
+
+`.git`, `.env` and any `.env*`, `node_modules`, `dist`/`.output`/caches, `/tmp` residue, screenshots and renders outside `docs/assets`, uploaded mock contracts (Test 03/06 and others) unless intentionally tracked, `.lovable/plan.md` and the `.lovable/plan/` archives (internal working plans), and `.workspace`/`.agents`/`.claude`. Kept: `fixtures/genomix…pdf`, `public/samples/horizon…pdf`, `docs/assets/*`, `supabase/` migrations and tests.
+
+## 12. Archive verification
+
+`unzip -l` listing reviewed file by file; `.env` confirmed absent; `rg` over the extracted tree for JWTs, `sb_secret_`, `service_role` key values, `sk-`, `OPENAI_API_KEY=` values, and private keys; the bundle audit re-run; the PDF list checked against the intended fixtures; Genomix re-hashed inside the archive.
+
+## 13. Filename
+
+`arc-recruiter-v1.zip`.
+
+## 14. Expected file changes
+
+- `src/lib/arc/ai/merge.ts` (one sentence), plus its spec
+- `src/components/arc/AiAnalysisAction.tsx`, and `src/lib/arc/ai/failure-presentation.ts` if you confirm, plus the affected specs
+- `README.md`, `roadmap.md`, `AGENTS.md` (if needed), `docs/operations.md` (if needed)
+- `.env`, `package.json`, `bun.lock` restored to `b1ea538e`, so they show no net diff against the accepted state
+
+Dependency change: none.
+
+## 15. Stop conditions
+
+Any need to touch accounting, billing, prompt/schema/model, citations, Safe Re-analysis, quota semantics, guest-session or auth architecture, Recent/My Contracts design, or RLS; a migration; a dependency change; another public sample; a genuine security-scan blocker; the Step 4 reason text feeding a fingerprint; a Genomix hash change; or sensitive content found in the archive.
 
 ## Decisions needed
 
-1. Attempt safeguard caps: guest 6 per session, signed in 25 per month?
-2. No retroactive refund of past signed-in failures (recommended), or a one-time recount for the current month?
+1. Is the "No AI analyses remaining" headline change covered by item B?
+2. Should the `.lovable/plan/` archives be excluded from the recruiter archive? (Recommended: yes.)
