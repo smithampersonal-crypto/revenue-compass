@@ -153,6 +153,50 @@ export function derivableRuleSignature(term: {
   ].join("|");
 }
 
+/**
+ * Package 3D-Q.2. The linked-obligation source dates a v9 derivable rule
+ * resolves against, read from the SAME immutable AI result as the term. The
+ * AI-side `targetPerformanceObligationKey` is resolved exactly (no fuzzy
+ * matching); missing or duplicated references stay distinct and so decline.
+ * Null when the term carries no derivable-rule facts. Citation wording is
+ * never part of this signature.
+ */
+export function resolvedLinkedDateSignature(
+  term: AiContractAnalysis["billingTerms"][number],
+  analysis: Pick<AiContractAnalysis, "performanceObligations" | "recognitionProposals">,
+): string | null {
+  const installment =
+    term.installmentCount != null ||
+    term.equalInstallments != null ||
+    (term.billingBasisTotalInput ?? null) !== null;
+  const triggerKind = term.invoiceTriggerKind ?? "none";
+  if (!installment && triggerKind === "none") return null;
+  const key = term.targetPerformanceObligationKey ?? null;
+  if (key === null) return "unlinked";
+  const pos = analysis.performanceObligations.filter((po) => po.semanticKey === key);
+  const proposals = analysis.recognitionProposals.filter(
+    (proposal) => proposal.performanceObligationKey === key,
+  );
+  if (pos.length !== 1 || proposals.length !== 1) {
+    return `unresolved:${pos.length}:${proposals.length}`;
+  }
+  const po = pos[0]!;
+  const proposal = proposals[0]!;
+  const start = proposal.serviceStartDate ?? "";
+  const end = proposal.serviceEndDate ?? "";
+  const parts: string[] = [];
+  if (installment) parts.push(`installment|${start}|${end}`);
+  if (triggerKind === "commencement") parts.push(`commencement|${start}`);
+  else if (triggerKind === "completion_of_linked_obligation") {
+    parts.push(
+      po.satisfactionPattern === "point_in_time"
+        ? `completion_pit|${proposal.recognitionDateIfContractuallyDeterminable ?? ""}`
+        : `completion_ot|${end}`,
+    );
+  }
+  return parts.join(";");
+}
+
 function spansOf(citations: readonly AiCitation[] | undefined): CitationSpan[] {
   return (citations ?? []).map((citation) => ({
     documentId: citation.documentId,
@@ -593,6 +637,14 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       const ruleBefore = derivableRuleSignature(priorTerm);
       const ruleAfter = derivableRuleSignature(next);
       if (ruleBefore !== ruleAfter) {
+        return { outcome: "decline", reason: "unmatched", objectKind: "billing_term" };
+      }
+      // Package 3D-Q.2: the linked-obligation dates that drive a v9 schedule
+      // are structural too. A changed date declines; no stale re-derivation.
+      if (
+        resolvedLinkedDateSignature(priorTerm, prior) !==
+        resolvedLinkedDateSignature(next, input.analysis)
+      ) {
         return { outcome: "decline", reason: "unmatched", objectKind: "billing_term" };
       }
       if (before === null && after === null) continue;
