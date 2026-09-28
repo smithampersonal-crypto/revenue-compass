@@ -9,5 +9,5 @@ it("p", () => {
   const pr = parseAiContractAnalysis(a);
   const { draft, issues } = mergeAiAnalysis({ currentDraft: createEmptyDraft(), currentAiState: createEmptyAiAnalysisState(), analysis: a, runId: RUN_ID, guidancePack: guidancePackFixture(), priorContext: null });
   const r = analyzeWorkflow(draft);
-  process.stdout.write("X"+JSON.stringify({parse: pr.ok || pr, blocked:r.blockedReason, wv: r.workflowValidation.blocking, ev: draft.contractBalances.considerationEvents.map(e=>[e.invoiceDate,e.amountInput]), tp: draft.transactionPriceInput, pos: draft.performanceObligations.map(p=>[p.recognitionMethod,p.serviceStart,p.serviceEnd,p.recognitionDate]), issues: issues.map(i=>[i.reasonCode,i.severity,i.targetKey])})+"\n");
+  process.stdout.write("X"+JSON.stringify({al: r.allocation, rs: r.revenueSchedule && Object.keys(r.revenueSchedule), un: r.unscheduledRevenueCents, cb: Object.keys(r.lifecycle ?? {}), bi: issues.filter(i=>/billing/.test(i.reasonCode)).length}).slice(0,1500)+"\n");
 });
