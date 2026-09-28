@@ -855,6 +855,7 @@ export function AnalysisProvider({
       applyLockVersion,
       retrySave,
       finalizing,
+      guestAnalysisId,
     ],
   );
 

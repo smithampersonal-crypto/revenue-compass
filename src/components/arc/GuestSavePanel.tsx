@@ -44,6 +44,8 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const session = useSupabaseSession();
   const navigate = useNavigate();
   const migrate = useServerFn(migrateGuestWorkspace);
+  // Package 3D-T: the temporary analysis this panel saves.
+  const guestAnalysisId = persistence.guestAnalysisId ?? "";
 
   const listCustomers = useServerFn(listCustomerChoices);
 
