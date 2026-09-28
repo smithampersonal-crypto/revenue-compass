@@ -222,10 +222,11 @@ export function recentAnalysisStatus(input: {
   return "Draft";
 }
 
+/** Stored drafts are canonical inputs: `{ schemaVersion, draft: WorkflowDraft }`. */
 function customerNameOf(draftJson: unknown): string {
-  const contract = (draftJson as { contract?: { customerName?: unknown } } | null)?.contract;
-  const name = typeof contract?.customerName === "string" ? contract.customerName.trim() : "";
-  return name;
+  const draft = (draftJson as { draft?: { contract?: { customerName?: unknown } } } | null)?.draft;
+  const name = draft?.contract?.customerName;
+  return typeof name === "string" ? name.trim() : "";
 }
 
 export async function listRecentAnalysesHandler(

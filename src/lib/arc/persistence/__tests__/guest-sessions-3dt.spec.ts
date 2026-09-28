@@ -184,7 +184,7 @@ describe("explicit creation", () => {
     draft.contract.customerName = "Horizon Logistics";
     await createAnalysisHandler(deps, { sessionToken: null, origin: "sample:horizon", draft });
     expect(memory.rows[0]!.origin).toBe("sample:horizon");
-    expect((memory.rows[0]!.draft_json as { contract: { customerName: string } }).contract.customerName).toBe(
+    expect((memory.rows[0]!.draft_json as { draft: { contract: { customerName: string } } }).draft.contract.customerName).toBe(
       "Horizon Logistics",
     );
   });
