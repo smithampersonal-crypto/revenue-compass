@@ -262,12 +262,13 @@
 - [x] Focused tests A–F; full `bun run verify`; frozen state confirmed
 - [x] Publish + live smoke (About page, footer links, sitemap order verified on ayden-rc.com)
 
-## Package 3E — Final Production Verification, Docs Reconciliation & Recruiter Archive
+## Package 3E (first pass, superseded by the final 3E closeout below) — Production Verification & Docs
 
 Current production truth
 - Live at https://ayden-rc.com (HTTPS; www → apex). Email magic-link only, sent through SMTP on mail.ayden-rc.com.
 - Maintenance: GitHub Actions runs hourly at :17 and calls /api/public/maintenance (authoritative). The pg_cron SQL is optional and unapplied.
-- AI: GPT-5.6 Terra, schema v7, prompt v11. Quotas: guest 3 per 9-hour workspace, signed-in 10 per calendar month. Limits: 10 MB / 500 pages / 200k tokens.
+- AI: GPT-5.6 Terra (`arc.ai.prompt.v14`, `arc.ai.schema.v9`), one call per Analyze/Re-analyze, `store:false`. Visible allowance counts delivered analyses: guest 3 per 9-hour browser session (shared by every temporary analysis in it), signed-in 10 per calendar month; rejected runs release it. Attempt safeguard: 6 per guest session, 20 per signed-in month. Limits: 10 MB / 500 pages / 200k tokens.
+- Horizon Logistics is the only sample on New Analysis; other fixtures stay internal.
 
 Previously accepted (not re-run in 3E)
 - [x] 3D owner-session persistence (owner-verified)
@@ -285,19 +286,19 @@ Fresh 3E evidence
 - [x] Documentation reconciled (README count + production section, operations scheduling + completed configuration, Phase 8 checkpoint note, 3D step 7)
 - [x] Archive ARC-recruiter-v1-source.zip built from tracked files only and validated programmatically
 - [x] No AI run, no publish, and no dependency change versus the accepted (161) baseline
-- [ ] GitHub application + database jobs green on the final 3E commit (owner-confirmed)
+- [x] Superseded by the final 3E closeout after 3D-Q.1, 3D-Q.2 and 3D-T
 
 ## Package 3D-Q.1 — Explicit Billing Events
 - [x] Plan written (trace, root cause, design)
 - [x] Plan approved with corrections (per-invoice citations, same-stream-only dedup, no table path)
 - [x] Implementation + local verification
-- [ ] Owner acceptance, then publish + one live Redwood run (owner-approved)
+- [x] Owner acceptance, publish and live run (accepted)
 
 ## Package 3D-Q.2 — Transaction price independent of billing + derivable billing rules
 - [x] Plan approved (billing never overrides Step 3; cohesive installment+timing evidence; AI-side PO references only; inclusive-end coverage rule)
-- [ ] Step 3: remove billing override; blocking source_conflict when a complete billing total disagrees
-- [ ] Schema v9 / prompt v13; installment + trigger evidence checks; deterministic derivation; merge + Safe Re-analysis
-- [ ] Tests + full verify + frozen state + ZIP (no publish, no AI run)
+- [x] Step 3: remove billing override; blocking source_conflict when a complete billing total disagrees
+- [x] Schema v9 / prompt v14; installment + trigger evidence checks; deterministic derivation; merge + Safe Re-analysis
+- [x] Tests + full verify + frozen state; published and live-accepted on multiple contracts
 
 ## Package 3D-T — New Analysis & Recent Analyses
 - [x] Plan approved (Option A guest_sessions; derived per-analysis credentials; lazy legacy upgrade; session-level guest quota; cookie survives save; explicit creation; safe Continue return)
@@ -305,8 +306,21 @@ Fresh 3E evidence
 - [x] Server: session/derived-credential resolution across guest, document and AI callers; create/list/resume
 - [x] UI: /analysis/new chooser, /recent, header, entry points, missing-item state
 - [x] Tests (full matrix) + full verify + frozen state + ZIP (no publish, no AI run)
-- [ ] 3D-T owner acceptance review (not published; no AI run)
+- [x] Horizon-only New Analysis sample; one-click Save to My Contracts from Recent Analyses
+- [x] Owner acceptance; published and live-accepted (independent analyses, source isolation, shared session allowance, sibling preservation after save)
 
 ## 3D-T allowance refund
 - [x] Migration: visible usage = succeeded + active; monthly refund on failure; attempt caps 6 guest / 20 auth
 - [x] App: attempt_limit messages; SQL suite + vitest; verify; restore frozen state
+- [x] Published and live-accepted (a citation_anchor_failure run released the guest allowance)
+
+## Package 3E — Final verification, documentation & recruiter-v1 archive
+- [x] Frozen files restored (.env, package.json ^2.15.0, bun.lock 2.15.0); Genomix hash confirmed
+- [x] Approved copy: Step 4 provisional-SSP summary; "AI analyses remaining" wording
+- [x] Docs reconciled (README, roadmap, operations); README screenshots refreshed
+- [x] Full verify + all SQL suites + bundle audit; archive arc-recruiter-v1.zip from tracked files only
+- [ ] Owner: both GitHub jobs green; publish approval for the two copy changes, then light production smoke
+
+## Post-v1 possibilities (not planned, not required)
+- A curated advanced-sample gallery (for example variable consideration)
+- Additional document formats or OCR
