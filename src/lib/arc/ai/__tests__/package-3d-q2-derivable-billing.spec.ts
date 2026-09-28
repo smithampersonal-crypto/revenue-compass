@@ -260,9 +260,10 @@ describe("merge — derivable billing rules", () => {
     const { draft, issues } = run(analysisWith([installmentTerm()], "245000"));
     expect(draft.transactionPriceInput).toBe("245000");
     const conflicts = issues.filter(
-      (i) => i.reasonCode === "source_conflict" && i.section === "step_3" && i.blocking,
+      (i) => i.reasonCode === "source_conflict" && i.section === "step_3",
     );
     expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.severity).toBe("red");
   });
 
   it("raises no conflict when the billing total agrees", () => {
