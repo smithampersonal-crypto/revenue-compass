@@ -120,9 +120,10 @@ describe("ARC identity header (Phase 7B)", () => {
     expect(screen.queryByRole("button", { name: /google/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/google/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/create an account|sign up/i)).not.toBeInTheDocument();
+    // Package 3D-T: with no safe analysis to return to, Recent Analyses.
     expect(screen.getByRole("link", { name: "Continue without signing in" })).toHaveAttribute(
       "href",
-      "/analysis",
+      "/recent",
     );
   });
 

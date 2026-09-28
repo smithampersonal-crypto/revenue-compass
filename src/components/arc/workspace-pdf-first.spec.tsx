@@ -8,7 +8,7 @@
  * panel later defaults to creating a customer. No accounting behaviour here.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@tanstack/react-start", async (importOriginal) => {
@@ -16,11 +16,13 @@ vi.mock("@tanstack/react-start", async (importOriginal) => {
   return { ...actual, useServerFn: (fn: unknown) => fn };
 });
 
+const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigate,
     createFileRoute: () => (options: unknown) => options,
     Link: ({
       children,
@@ -87,15 +89,21 @@ describe("My Contracts PDF-first entry", () => {
     listWorkspace.mockResolvedValue({ customers: [] });
     renderWorkspace();
 
-    const link = await screen.findByRole("link", { name: "Upload Contract PDF" });
-    expect(link).toHaveAttribute("href", "/analysis?upload=1");
+    // Package 3D-T: a button that creates exactly one analysis, then opens upload.
+    fireEvent.click(await screen.findByRole("button", { name: "Upload Contract PDF" }));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/analysis/documents",
+        search: { a: "00000000-0000-4000-8000-000000000001", upload: "1" },
+      }),
+    );
   });
 
   it("does not offer manual contract creation without a customer", async () => {
     listWorkspace.mockResolvedValue({ customers: [] });
     renderWorkspace();
 
-    await screen.findByRole("link", { name: "Upload Contract PDF" });
+    await screen.findByRole("button", { name: "Upload Contract PDF" });
     expect(screen.queryByRole("button", { name: "Create manually" })).not.toBeInTheDocument();
     expect(screen.getByText(/Add a customer first to create a contract manually/i)).toBeVisible();
   });
@@ -107,11 +115,15 @@ describe("My Contracts PDF-first entry", () => {
     renderWorkspace();
 
     // The hint only appears once the authoritative customer list has loaded.
+    await screen.findByText("Acme Industries", { exact: false }).catch(() => null);
+    await waitFor(() => expect(listWorkspace).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    fireEvent.click(screen.getByRole("button", { name: "Upload Contract PDF" }));
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Upload Contract PDF" })).toHaveAttribute(
-        "href",
-        `/analysis?upload=1&customer=${CUSTOMER_ID}`,
-      ),
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/analysis/documents",
+        search: { a: "00000000-0000-4000-8000-000000000001", upload: "1", customer: CUSTOMER_ID },
+      }),
     );
   });
 });

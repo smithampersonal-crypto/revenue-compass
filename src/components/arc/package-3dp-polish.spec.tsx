@@ -80,7 +80,8 @@ describe("Package 3D-P polish", () => {
     expect(hrefs).toEqual(
       expect.arrayContaining([
         "/",
-        "/analysis",
+        "/analysis/new",
+        "/recent",
         "/auth",
         "/workspace",
         "/account",
