@@ -205,6 +205,7 @@ export function fixtureAAnalysis(): AiContractAnalysis {
         ],
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
+        explicitInvoices: [],
       },
     ],
     projectedCollectionAssumptions: {

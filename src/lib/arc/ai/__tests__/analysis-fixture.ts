@@ -245,6 +245,7 @@ export function validAnalysisFixture(): AiContractAnalysis {
         citations: [textCitation(3, "Billing Schedule Annual Advance ($245,000/yr Net 30)")],
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
+        explicitInvoices: [],
       },
     ],
     projectedCollectionAssumptions: {
