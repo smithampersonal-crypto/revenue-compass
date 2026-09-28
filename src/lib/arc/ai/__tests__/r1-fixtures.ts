@@ -248,6 +248,11 @@ export function genomixR1Analysis(): AiContractAnalysis {
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
         explicitInvoices: [],
+        targetPerformanceObligationKey: null,
+        billingBasisTotalInput: null,
+        installmentCount: null,
+        equalInstallments: null,
+        invoiceTriggerKind: "none",
       },
       {
         semanticKey: "billing:overage",
@@ -262,6 +267,11 @@ export function genomixR1Analysis(): AiContractAnalysis {
         reviewState: "supported",
         amountKind: "per_unit_rate",
         explicitInvoices: [],
+        targetPerformanceObligationKey: null,
+        billingBasisTotalInput: null,
+        installmentCount: null,
+        equalInstallments: null,
+        invoiceTriggerKind: "none",
       },
     ],
     projectedCollectionAssumptions: {

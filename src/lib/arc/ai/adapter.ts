@@ -273,6 +273,112 @@ export function deriveBillingSchedule(input: BillingScheduleInput): BillingSched
   return { ok: true, events };
 }
 
+/* ------------------------------------------- Package 3D-Q.2 derivations */
+
+export type InstallmentScheduleResult =
+  | { ok: true; events: DerivedBillingEvent[] }
+  | {
+      ok: false;
+      reason:
+        | "unsupported_timing"
+        | "unsupported_frequency"
+        | "missing_amount"
+        | "invalid_installment_count"
+        | "not_exact_cents"
+        | "missing_service_period"
+        | "term_not_covered";
+    };
+
+/**
+ * Equal installments of a stated total. ARC — never the model — divides the
+ * total and generates the dates. The division must be exact to the cent (no
+ * rounding, ever), and the installments must cover the linked service period
+ * exactly under ARC's inclusive-end convention: the exclusive boundary is the
+ * day after serviceEnd, so Jan 1–Dec 31 is exactly four quarterly periods.
+ */
+export function deriveInstallmentSchedule(input: {
+  billingTiming: "advance" | "arrears" | "milestone" | "on_usage" | "unknown";
+  frequency: BillingFrequency;
+  totalInput: string | null;
+  installmentCount: number | null;
+  serviceStart: IsoDate | null;
+  serviceEnd: IsoDate | null;
+}): InstallmentScheduleResult {
+  if (input.billingTiming !== "advance" && input.billingTiming !== "arrears") {
+    return { ok: false, reason: "unsupported_timing" };
+  }
+  const monthsPerPeriod = MONTHS_PER_PERIOD[input.frequency];
+  if (monthsPerPeriod === undefined) return { ok: false, reason: "unsupported_frequency" };
+  const total = input.totalInput === null ? null : usableAmount(input.totalInput);
+  const totalCents = total === null ? null : exactCents(total);
+  if (totalCents === null || totalCents <= 0n) return { ok: false, reason: "missing_amount" };
+  const count = input.installmentCount;
+  if (count === null || !Number.isInteger(count) || count < 1) {
+    return { ok: false, reason: "invalid_installment_count" };
+  }
+  if (totalCents % BigInt(count) !== 0n) return { ok: false, reason: "not_exact_cents" };
+  if (input.serviceStart === null || input.serviceEnd === null) {
+    return { ok: false, reason: "missing_service_period" };
+  }
+  const exclusiveEnd = addDays(input.serviceEnd, 1);
+  const totalMonths = wholeMonthsBetween(input.serviceStart, exclusiveEnd);
+  if (totalMonths === null || totalMonths !== count * monthsPerPeriod) {
+    return { ok: false, reason: "term_not_covered" };
+  }
+  const amountInput = formatCents(totalCents / BigInt(count));
+  const events: DerivedBillingEvent[] = [];
+  for (let period = 0; period < count; period += 1) {
+    const invoiceDate =
+      input.billingTiming === "advance"
+        ? addMonths(input.serviceStart, period * monthsPerPeriod)
+        : addDays(addMonths(input.serviceStart, (period + 1) * monthsPerPeriod), -1);
+    events.push({
+      period: period + 1,
+      invoiceDate,
+      unconditionalRightDate: invoiceDate,
+      amountInput,
+    });
+  }
+  return { ok: true, events };
+}
+
+export interface TriggerLinkedObligation {
+  recognitionMethod: string | null;
+  serviceStart: string;
+  serviceEnd: string;
+  recognitionDate: string;
+}
+
+export type TriggerDateResult =
+  | { ok: true; date: IsoDate }
+  | { ok: false; reason: "unsupported_trigger" | "linked_obligation_date_missing" };
+
+/**
+ * The date of an event-triggered invoice, resolved ONLY from the linked
+ * obligation's own date already in the workpaper. Never from prose, never
+ * from another obligation, never guessed.
+ */
+export function resolveTriggerDate(
+  kind: "commencement" | "completion_of_linked_obligation" | "none",
+  po: TriggerLinkedObligation,
+): TriggerDateResult {
+  const iso = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? (value as IsoDate) : null);
+  if (kind === "commencement") {
+    const start = po.recognitionMethod === "point_in_time" ? null : iso(po.serviceStart);
+    return start === null
+      ? { ok: false, reason: "linked_obligation_date_missing" }
+      : { ok: true, date: start };
+  }
+  if (kind === "completion_of_linked_obligation") {
+    const done =
+      po.recognitionMethod === "point_in_time" ? iso(po.recognitionDate) : iso(po.serviceEnd);
+    return done === null
+      ? { ok: false, reason: "linked_obligation_date_missing" }
+      : { ok: true, date: done };
+  }
+  return { ok: false, reason: "unsupported_trigger" };
+}
+
 /**
  * The full-term fixed consideration implied by the contract's own billing
  * schedule.
@@ -363,7 +469,7 @@ export function exactCents(value: string): bigint | null {
   return negative ? -cents : cents;
 }
 
-function formatCents(cents: bigint): string {
+export function formatCents(cents: bigint): string {
   const negative = cents < 0n;
   const absolute = negative ? -cents : cents;
   const text = `${absolute / 100n}.${String(absolute % 100n).padStart(2, "0")}`;

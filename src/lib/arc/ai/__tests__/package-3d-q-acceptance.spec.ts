@@ -249,7 +249,16 @@ function v6Payload(): Record<string, unknown> {
   const analysis = structuredClone(genomixAnalysis()) as unknown as Record<string, unknown>;
   analysis["schemaVersion"] = LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION;
   analysis["billingTerms"] = (analysis["billingTerms"] as Record<string, unknown>[]).map(
-    ({ amountKind: _amountKind, explicitInvoices: _explicitInvoices, ...rest }) => rest,
+    ({
+      amountKind: _amountKind,
+      explicitInvoices: _explicitInvoices,
+      targetPerformanceObligationKey: _target,
+      billingBasisTotalInput: _basis,
+      installmentCount: _count,
+      equalInstallments: _equal,
+      invoiceTriggerKind: _trigger,
+      ...rest
+    }) => rest,
   );
   return analysis;
 }

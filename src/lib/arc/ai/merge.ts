@@ -40,8 +40,10 @@ import {
 
 import {
   deriveBillingSchedule,
+  deriveInstallmentSchedule,
+  formatCents,
   deriveProjectedCollectionDate,
-  deriveUnambiguousFixedBillingTotal,
+  resolveTriggerDate,
   exactCents,
   isUnclaimedString,
   mapEstimationMethod,
@@ -107,6 +109,7 @@ import {
 } from "./review-state";
 import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
 import { isEvidenceGatedSchemaVersion } from "./schema";
+import { aiInstallmentEligibility, aiTriggerEligibility } from "./billing-evidence";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
@@ -141,7 +144,7 @@ export interface AiObjectProvenance extends AiFieldProvenance {
    * claimed by a v7 merge whose schedule passed ARC's evidence gate. Its
    * absence on a billing object marks legacy (pre-v7) derivation.
    */
-  derivation?: "evidence_gated_v7" | "explicit_invoice_v8";
+  derivation?: "evidence_gated_v7" | "explicit_invoice_v8" | "installment_v9" | "trigger_v9";
 }
 
 export interface AiAnalysisState {
@@ -1991,24 +1994,174 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     });
   }
 
+  /* ------------------------------------ Package 3D-Q.2 derivable billing rules */
+
+  // The model's obligation reference is an AI-side semanticKey in THIS
+  // result. ARC validates it exactly and resolves it through its own
+  // deterministic mapping; the model never supplies a canonical ID.
+  const resolveLinkedObligation = (
+    key: string | null | undefined,
+  ):
+    | { ok: true; po: WorkflowDraft["performanceObligations"][number] }
+    | { ok: false; reason: string } => {
+    if (key === null || key === undefined || key === "") {
+      return { ok: false, reason: "linked_obligation_missing" };
+    }
+    const matches = analysis.performanceObligations.filter((po) => po.semanticKey === key);
+    if (matches.length === 0) return { ok: false, reason: "linked_obligation_unknown" };
+    if (matches.length > 1) return { ok: false, reason: "linked_obligation_ambiguous" };
+    const canonicalId = poIdBySemanticKey.get(key);
+    const pos = draft.performanceObligations.filter((po) => po.id === canonicalId);
+    if (canonicalId === undefined || pos.length === 0) {
+      return { ok: false, reason: "linked_obligation_unknown" };
+    }
+    if (pos.length > 1) return { ok: false, reason: "linked_obligation_ambiguous" };
+    return { ok: true, po: pos[0]! };
+  };
+
+  type V9Derivation =
+    | {
+        ok: true;
+        mode: "installment_v9" | "trigger_v9";
+        events: {
+          period: number;
+          invoiceDate: string;
+          unconditionalRightDate: string;
+          amountInput: string;
+        }[];
+      }
+    | { ok: false; mode: "installment_v9" | "trigger_v9" | null; reason: string };
+
+  function deriveV9Events(term: AiContractAnalysis["billingTerms"][number]): V9Derivation {
+    const installment =
+      term.installmentCount != null ||
+      term.equalInstallments != null ||
+      (term.billingBasisTotalInput ?? null) !== null;
+    const trigger = (term.invoiceTriggerKind ?? "none") !== "none";
+    if (installment) {
+      const evidence = aiInstallmentEligibility(term);
+      if (!evidence.ok) return { ok: false, mode: "installment_v9", reason: evidence.reason };
+      const linked = resolveLinkedObligation(term.targetPerformanceObligationKey);
+      if (!linked.ok) return { ok: false, mode: "installment_v9", reason: linked.reason };
+      if (linked.po.recognitionMethod === "point_in_time") {
+        return { ok: false, mode: "installment_v9", reason: "linked_obligation_date_missing" };
+      }
+      const schedule = deriveInstallmentSchedule({
+        billingTiming: term.billingTiming,
+        frequency: term.frequency,
+        totalInput: term.billingBasisTotalInput ?? null,
+        installmentCount: term.installmentCount ?? null,
+        serviceStart: parseIsoDate(linked.po.serviceStart),
+        serviceEnd: parseIsoDate(linked.po.serviceEnd),
+      });
+      return schedule.ok
+        ? { ok: true, mode: "installment_v9", events: schedule.events }
+        : { ok: false, mode: "installment_v9", reason: schedule.reason };
+    }
+    if (trigger) {
+      const evidence = aiTriggerEligibility(term);
+      if (!evidence.ok) return { ok: false, mode: "trigger_v9", reason: evidence.reason };
+      const amount = usableAmount(term.amountOrRateInput);
+      if (amount === null) return { ok: false, mode: "trigger_v9", reason: "no_currency_amount" };
+      const linked = resolveLinkedObligation(term.targetPerformanceObligationKey);
+      if (!linked.ok) return { ok: false, mode: "trigger_v9", reason: linked.reason };
+      const date = resolveTriggerDate(term.invoiceTriggerKind ?? "none", linked.po);
+      if (!date.ok) return { ok: false, mode: "trigger_v9", reason: date.reason };
+      return {
+        ok: true,
+        mode: "trigger_v9",
+        events: [
+          {
+            period: 1,
+            invoiceDate: date.date,
+            unconditionalRightDate: date.date,
+            amountInput: amount,
+          },
+        ],
+      };
+    }
+    return { ok: false, mode: null, reason: "not_derivable" };
+  }
+
   /* ------------------------------------------------------- transaction price */
 
-  // Model arithmetic is never authoritative. When the contract's own billing
-  // schedule unambiguously determines the full-term fixed total, ARC's
-  // deterministic total is the canonical amount whatever the model reported —
-  // a period fee, the correct total, a wrong total or nothing at all. The
-  // model's validated full-term conclusion is used only when no unambiguous
-  // schedule exists, and neither ever overwrites the accountant's own amount.
-  // Package 3D-Q. Only a term that passes the same evidence gate as schedule
-  // derivation may determine — or contest — the billing-derived total. A rate,
-  // pricing basis or unsupported term never overrides the transaction price.
-  const fixedDerivation = deriveUnambiguousFixedBillingTotal({
-    billingTerms: analysis.billingTerms.filter((term) => aiFixedScheduleEligibility(term).ok),
-    servicePeriod: deriveContractServicePeriod(draft),
+  // Package 3D-Q.2. Step 3 is an ASC 606 conclusion, never a billing checksum.
+  // The model's validated full-term fixed consideration is the proposed Step 3
+  // figure; the accountant's own amount is never overwritten. A deterministic
+  // billing total only corroborates or challenges it, and only when the
+  // billing schedule is COMPLETE: every term the model typed as a fixed invoice
+  // amount passed ARC's evidence gate. Refused terms are counted BEFORE
+  // filtering, so a schedule built from one surviving term can never pose as
+  // the whole contract. A complete schedule that disagrees raises a blocking
+  // conflict; neither figure is silently replaced.
+  const fixedTypedTerms = analysis.billingTerms.filter(
+    (term) => (term.amountKind ?? "unknown") === "fixed_invoice_amount",
+  );
+  const contractPeriodForTotal = deriveContractServicePeriod(draft);
+  const termTotals = fixedTypedTerms.map((term) => {
+    const invoices = term.explicitInvoices ?? [];
+    if (invoices.length > 0) {
+      const explicit = aiExplicitInvoiceEligibility(term);
+      return explicit.ok ? explicit.events : null;
+    }
+    if (aiFixedScheduleEligibility(term).ok) {
+      const rule = deriveBillingSchedule({
+        billingTiming: term.billingTiming,
+        frequency: term.frequency,
+        amountOrRateInput: term.amountOrRateInput,
+        serviceStart: contractPeriodForTotal?.start ?? null,
+        serviceEnd: contractPeriodForTotal?.end ?? null,
+      });
+      return rule.ok ? rule.events : null;
+    }
+    const derived = deriveV9Events(term);
+    return derived.ok ? derived.events : null;
   });
+  const eligibleFixedTerms = fixedTypedTerms.filter((_, index) => termTotals[index] !== null);
+  const billingComplete =
+    fixedTypedTerms.length > 0 && termTotals.every((events) => events !== null);
+  let billingTotal: string | null = null;
+  if (billingComplete) {
+    let cents = 0n;
+    let exact = true;
+    for (const events of termTotals) {
+      for (const event of events!) {
+        const parsed = exactCents(event.amountInput);
+        if (parsed === null) exact = false;
+        else cents += parsed;
+      }
+    }
+    if (exact) billingTotal = formatCents(cents);
+  }
   const proposedFixed = usableAmount(analysis.transactionPrice.fixedConsiderationInput);
-  const derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null;
-  const fixed = derivedTotal ?? proposedFixed;
+  // An agreeing billing total is the same amount; it only supplies ARC's
+  // canonical exact-cents spelling. It can never change the amount.
+  const billingAgrees =
+    billingTotal !== null &&
+    proposedFixed !== null &&
+    exactCents(billingTotal) === exactCents(proposedFixed);
+  const fixed = billingAgrees ? billingTotal : proposedFixed;
+  if (
+    billingTotal !== null &&
+    proposedFixed !== null &&
+    exactCents(billingTotal) !== exactCents(proposedFixed)
+  ) {
+    raise({
+      targetKey: `${fieldKeys.transactionPrice("input")}:billing-conflict`,
+      section: "step_3",
+      reasonCode: "source_conflict",
+      reason: `The contract's billing schedule totals ${billingTotal}, but the fixed consideration determined for Step 3 is ${proposedFixed}. ARC did not replace either figure. Confirm the transaction price before finalizing.`,
+      guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
+      citations: [
+        ...analysis.transactionPrice.fixedConsiderationCitations,
+        ...eligibleFixedTerms.flatMap((term) => term.citations),
+      ],
+      value: `${proposedFixed}|${billingTotal}`,
+      material: { step3FixedInput: proposedFixed, billingTotalInput: billingTotal },
+      aiReviewState: "needs_review",
+      blocking: true,
+    });
+  }
   if (fixed !== null) {
     mergeText({
       key: fieldKeys.transactionPrice("input"),
@@ -2038,10 +2191,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         // When ARC replaced the amount, the note must describe ARC's own
         // derivation. Keeping the model's wording beside a different number
         // would make the audit trail self-contradictory.
-        proposed:
-          derivedTotal !== null && fixedDerivation.ok
-            ? `ARC derived the full-term fixed consideration of ${derivedTotal} from the contract's ${fixedDerivation.frequency.replace(/_/g, " ")} billing schedule of ${fixedDerivation.amountInput} across ${fixedDerivation.eventCount} billing periods in the contract service period.`
-            : `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
+        proposed: `${analysis.transactionPrice.fixedConsiderationRationale}\n\n${analysis.transactionPrice.transactionPriceConclusion.conclusion}`,
         apply: (value) => {
           draft.transactionPriceNotes = value;
         },
@@ -2058,7 +2208,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       section: "step_3",
       reasonCode: "missing_required_input",
       reason:
-        "No exact fixed consideration amount was determinable from the contract. Enter the transaction price.",
+        billingTotal === null
+          ? "No exact fixed consideration amount was determinable from the contract. Enter the transaction price."
+          : `No exact fixed consideration amount was determinable from the contract. Enter the transaction price. For reference only, the contract's billing schedule totals ${billingTotal}; ARC does not use billing as the transaction price.`,
       guidanceIds: analysis.transactionPrice.transactionPriceConclusion.guidanceIds,
       // The evidence of this conclusion is both the fixed-consideration
       // evidence and the transaction-price conclusion's own evidence.
@@ -2069,6 +2221,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       value: null,
       material: {
         fixedConsiderationInput: analysis.transactionPrice.fixedConsiderationInput,
+        ...(billingTotal === null ? {} : { billingTotalReference: billingTotal }),
         fixedConsiderationRationale: analysis.transactionPrice.fixedConsiderationRationale,
         currency: analysis.transactionPrice.currency.value,
         currencyRationale: analysis.transactionPrice.currency.rationale,
@@ -2879,6 +3032,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const gatedBillingKeys = new Set<string>();
   // Package 3D-Q.1. Billing objects created from source-stated dated invoices.
   const explicitBillingKeys = new Set<string>();
+  // Package 3D-Q.2. Billing objects created from a derivable installment /
+  // trigger rule, by mode.
+  const v9BillingKeys = new Map<string, "installment_v9" | "trigger_v9">();
 
   // Phase L. A billing-term key is a model alias, so the SCHEDULE is
   // reconciled before any invoice can be derived from it. Event identity then
@@ -3019,8 +3175,12 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     );
     const explicitInvoices = term.explicitInvoices ?? [];
 
-    let schedule: ReturnType<typeof deriveBillingSchedule>;
+    let schedule: ReturnType<typeof deriveBillingSchedule> = {
+      ok: false,
+      reason: "unsupported_timing",
+    };
     let explicitMode = false;
+    let v9Mode: "installment_v9" | "trigger_v9" | null = null;
     if (explicitInvoices.length > 0) {
       const explicit = aiExplicitInvoiceEligibility(term);
       if (!explicit.ok) {
@@ -3097,6 +3257,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       schedule = { ok: true, events: explicit.events };
       explicitMode = true;
     } else {
+      if (
+        [...incumbentDerivations].some(
+          (derivation) => derivation === "installment_v9" || derivation === "trigger_v9",
+        ) &&
+        aiFixedScheduleEligibility(term).ok
+      ) {
+        incumbentDerivations.add("explicit_invoice_v8");
+      }
       if (incumbentDerivations.has("explicit_invoice_v8")) {
         raise({
           targetKey: `billing:${semanticKey}`,
@@ -3117,7 +3285,45 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // are proposals, and ARC creates no invoice (and so no projected
       // collection) unless its own reading of the cited source text agrees.
       const eligibility = aiFixedScheduleEligibility(term);
-      if (!eligibility.ok) {
+      // Package 3D-Q.2. Only a term the unchanged recurring path refuses may
+      // use a derivable installment / trigger rule, and only with its own
+      // cohesive evidence and an exactly resolved linked obligation.
+      const v9 = eligibility.ok ? null : deriveV9Events(term);
+      if (v9 !== null && v9.mode !== null) {
+        const otherModes = [...incumbentDerivations].filter((mode) => mode !== v9.mode);
+        if (!v9.ok) {
+          raise({
+            targetKey: `billing:${semanticKey}`,
+            section: "additional_topics",
+            reasonCode: "billing_schedule_not_derivable",
+            reason: `ARC did not create invoices for "${term.description.slice(0, 100)}" because the contract evidence does not establish every fact needed to derive them (${v9.reason.replace(/_/g, " ")}). Enter the actual billing events if known.`,
+            guidanceIds: [],
+            citations: term.citations,
+            value: v9.reason,
+            material: { reason: v9.reason, ...billingMaterial(term) },
+            aiReviewState: term.reviewState,
+            blocking: true,
+          });
+          continue;
+        }
+        if (otherModes.length > 0) {
+          raise({
+            targetKey: `billing:${semanticKey}`,
+            section: "additional_topics",
+            reasonCode: "unsafe_semantic_relationship",
+            reason: `The latest AI analysis now derives "${term.description.slice(0, 100)}" differently from how ARC previously created this billing schedule. Existing invoices were left unchanged and no new invoices were created. Review the billing events yourself.`,
+            guidanceIds: [],
+            citations: term.citations,
+            value: "billing_derivation_mode_changed",
+            material: { reason: "billing_derivation_mode_changed", ...billingMaterial(term) },
+            aiReviewState: "needs_review",
+            blocking: true,
+          });
+          continue;
+        }
+        schedule = { ok: true, events: v9.events };
+        v9Mode = v9.mode;
+      } else if (!eligibility.ok) {
         raise({
           targetKey: `billing:${semanticKey}`,
           section: "additional_topics",
@@ -3133,13 +3339,15 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         continue;
       }
 
-      schedule = deriveBillingSchedule({
-        billingTiming: term.billingTiming,
-        frequency: term.frequency,
-        amountOrRateInput: term.amountOrRateInput,
-        serviceStart: servicePeriod?.start ?? null,
-        serviceEnd: servicePeriod?.end ?? null,
-      });
+      if (v9Mode === null) {
+        schedule = deriveBillingSchedule({
+          billingTiming: term.billingTiming,
+          frequency: term.frequency,
+          amountOrRateInput: term.amountOrRateInput,
+          serviceStart: servicePeriod?.start ?? null,
+          serviceEnd: servicePeriod?.end ?? null,
+        });
+      }
     }
 
     if (!schedule.ok) {
@@ -3226,7 +3434,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // The schedule identity is recorded on the derived invoice, so a later
       // run that renames the billing term can still find this lineage.
       claimObject(eventSemanticKey, eventId, eventSignature);
-      if (explicitMode) explicitBillingKeys.add(eventSemanticKey);
+      if (v9Mode !== null) v9BillingKeys.set(eventSemanticKey, v9Mode);
+      else if (explicitMode) explicitBillingKeys.add(eventSemanticKey);
       else if (isV7Merge) gatedBillingKeys.add(eventSemanticKey);
 
       // The contract never proves cash was received. The only derived cash row
@@ -3299,7 +3508,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // A projected collection is subordinate to its canonical invoice: it
       // inherits the same schedule identity and is never matched on its own.
       claimObject(cashSemanticKey, cashId, collectionSignature);
-      if (explicitMode) explicitBillingKeys.add(cashSemanticKey);
+      if (v9Mode !== null) v9BillingKeys.set(cashSemanticKey, v9Mode);
+      else if (explicitMode) explicitBillingKeys.add(cashSemanticKey);
       else if (isV7Merge) gatedBillingKeys.add(cashSemanticKey);
     }
   }
@@ -3533,11 +3743,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const carried = objectProvenance[semanticKey];
     const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
-    const derivation = explicitBillingKeys.has(semanticKey)
-      ? "explicit_invoice_v8"
-      : gatedBillingKeys.has(semanticKey)
-        ? "evidence_gated_v7"
-        : carried?.derivation;
+    const derivation = v9BillingKeys.has(semanticKey)
+      ? v9BillingKeys.get(semanticKey)
+      : explicitBillingKeys.has(semanticKey)
+        ? "explicit_invoice_v8"
+        : gatedBillingKeys.has(semanticKey)
+          ? "evidence_gated_v7"
+          : carried?.derivation;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
     // ARC last wrote. A difference created by ARC applying this very analysis

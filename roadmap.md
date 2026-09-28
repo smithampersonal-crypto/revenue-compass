@@ -292,3 +292,9 @@ Fresh 3E evidence
 - [x] Plan approved with corrections (per-invoice citations, same-stream-only dedup, no table path)
 - [x] Implementation + local verification
 - [ ] Owner acceptance, then publish + one live Redwood run (owner-approved)
+
+## Package 3D-Q.2 — Transaction price independent of billing + derivable billing rules
+- [x] Plan approved (billing never overrides Step 3; cohesive installment+timing evidence; AI-side PO references only; inclusive-end coverage rule)
+- [ ] Step 3: remove billing override; blocking source_conflict when a complete billing total disagrees
+- [ ] Schema v9 / prompt v13; installment + trigger evidence checks; deterministic derivation; merge + Safe Re-analysis
+- [ ] Tests + full verify + frozen state + ZIP (no publish, no AI run)

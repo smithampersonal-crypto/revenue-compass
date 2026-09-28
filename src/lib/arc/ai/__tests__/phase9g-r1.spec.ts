@@ -58,7 +58,7 @@ function term(
 
 describe("R1 — schema and prompt versions", () => {
   it("pins new AI output to schema v6", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v8");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
   });
 
   it("accepts the Genomix benchmark analysis under the strict current schema", () => {
@@ -171,9 +171,13 @@ describe("R1 — deterministic fixed billing derivation", () => {
 });
 
 describe("R1 — Genomix full-term fixed consideration", () => {
-  it("derives 490,000.00 from two annual billings of 245,000", () => {
-    const { draft } = merge();
-    expect(draft.transactionPriceInput).toBe("490000.00");
+  it("keeps the Step 3 figure and blocks when two annual billings of 245,000 disagree (3D-Q.2)", () => {
+    const { draft, issues } = merge();
+    expect(draft.transactionPriceInput).toBe("245000");
+    const conflict = issues.filter((item) => item.reasonCode === "source_conflict");
+    expect(conflict).toHaveLength(1);
+    expect(conflict[0]!.severity).toBe("red");
+    expect(conflict[0]!.reason).toContain("490000.00");
   });
 
   it("keeps the billing events reconciled with the transaction price", () => {
@@ -298,7 +302,7 @@ describe("R1 — Genomix acceptance fixture", () => {
   it("produces the whole expected canonical result in one merge", () => {
     const { draft, issues } = merge();
     expect(draft.contract.contractNumber).toBe(R1_CONTRACT_REFERENCE);
-    expect(draft.transactionPriceInput).toBe("490000.00");
+    expect(draft.transactionPriceInput).toBe("245000");
     expect(draft.hasVariableConsideration).toBe(true);
     expect(draft.variableConsiderationComponents).toHaveLength(2);
     expect(issues.some((item) => /manually entered/i.test(item.reason))).toBe(false);

@@ -206,6 +206,11 @@ export function fixtureAAnalysis(): AiContractAnalysis {
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
         explicitInvoices: [],
+        targetPerformanceObligationKey: null,
+        billingBasisTotalInput: null,
+        installmentCount: null,
+        equalInstallments: null,
+        invoiceTriggerKind: "none",
       },
     ],
     projectedCollectionAssumptions: {
