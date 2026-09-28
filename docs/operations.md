@@ -103,6 +103,29 @@ completed, already-absent and released, plus failures by safe category
 bytes, signed URLs, object paths, auth tokens and guest credentials are never
 recorded.
 
+## Temporary analyses and AI allowance (recruiter-v1)
+
+- **Browser session.** One nine-hour browser session groups any number of
+  temporary analyses (Recent Analyses). Each analysis has its own draft,
+  source documents, AI state, review state and lock, and is reached with a
+  server-derived per-analysis credential. A temporary analysis is created only
+  by an explicit action (POST), never by navigation.
+- **Save to My Contracts** (signed in, from the workspace or directly from
+  Recent Analyses) moves one analysis into durable ownership through the same
+  migration path. It removes only that analysis from Recent, keeps its
+  siblings, does not rerun AI, does not use allowance and does not reset the
+  session. Signing in never saves or syncs temporary analyses automatically.
+- **Visible AI allowance** counts delivered analyses: guest 3 per browser
+  session, signed in 10 per calendar month (UTC). Runs still in progress hold a
+  place for concurrency; a run ARC rejects (invalid response, citation
+  rejection, API or application failure) releases it, and the failed run
+  record is kept.
+- **Technical attempt safeguard** counts every provider start regardless of
+  outcome: 6 per guest session, 20 per signed-in month. Reaching it refuses the
+  run before the provider is called, with its own message.
+- Both counts are defined once in the database and read by the UI; the app
+  never re-derives them.
+
 ## Verification
 
 - `bun run verify` — application tests, typecheck, lint, production build and

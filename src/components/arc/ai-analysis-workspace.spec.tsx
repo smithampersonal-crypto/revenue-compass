@@ -60,7 +60,7 @@ describe("Task 6 AI analysis action", () => {
     const ai = controller();
     render(<AiAnalysisAction ai={ai} />);
     const button = screen.getByRole("button", { name: "Analyze Contract" });
-    expect(screen.getByText("3 of 10 analyses remaining")).toBeInTheDocument();
+    expect(screen.getByText("3 of 10 AI analyses remaining")).toBeInTheDocument();
     await userEvent.click(button);
     expect(ai.analyze).toHaveBeenCalledTimes(1);
   });

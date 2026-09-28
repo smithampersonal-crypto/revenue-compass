@@ -1974,7 +1974,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       targetKey: PROVISIONAL_SSP_TARGET_KEY,
       section: "step_4",
       reasonCode: "provisional_ssp_basis",
-      reason: `ARC used the separately stated contract price as a provisional standalone selling price for ${names.join(", ")}. The contract evidences no observable standalone selling price, so confirm this basis or enter your own.`,
+      reason: `ARC provisionally used the amounts stated in the contract as the standalone selling price basis for ${names.join(", ")}. The contract does not provide evidence of observable standalone sales, so confirm this basis or enter your own.`,
       guidanceIds: [...new Set(provisionalSsp.flatMap(({ item }) => item.guidanceIds))].sort(
         (a, b) => a - b,
       ),

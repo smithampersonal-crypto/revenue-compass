@@ -358,6 +358,21 @@ describe("R2 — provisional stated contract price as a standalone selling price
     expect(consolidated).toHaveLength(1);
     expect(consolidated[0]?.state).toBe("yellow");
   });
+
+  it("3E: describes the basis as contract-stated amounts, and the wording never moves the fingerprint", () => {
+    const [item] = merge(provisional(1)).issues.filter(
+      (entry) => entry.targetKey === PROVISIONAL_SSP_TARGET_KEY,
+    );
+    expect(item?.reason).toMatch(
+      /^ARC provisionally used the amounts stated in the contract as the standalone selling price basis for .+\. The contract does not provide evidence of observable standalone sales, so confirm this basis or enter your own\.$/,
+    );
+    expect(item?.reason).not.toContain("separately stated contract price");
+    expect(item?.reasonCode).toBe("provisional_ssp_basis");
+    const again = merge(provisional(1)).issues.find(
+      (entry) => entry.targetKey === PROVISIONAL_SSP_TARGET_KEY,
+    );
+    expect(again?.reviewFingerprint).toBe(item?.reviewFingerprint);
+  });
 });
 
 /* -------------------------------------------------------- duplicate defences */
