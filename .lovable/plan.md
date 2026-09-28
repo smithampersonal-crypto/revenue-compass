@@ -62,7 +62,7 @@ ai_runs
 
 ## 5. Guest lifecycle
 
-- **Create:** New Analysis chooser → a server function looks up or creates the session. It inserts a workspace row with `session_id` set, the session's `expires_at`, the derived credential and `origin`, then returns the id. The browser goes to `/analysis?a=<id>`.
+- **Create (explicit mutation only):** a workspace row is created only by a POST server function (`createTemporaryAnalysis`), fired by a button click. That function looks up or creates the session. It inserts a row with `session_id` set, the session's `expires_at`, the derived credential and `origin`, then returns the id. The browser then goes to the canonical `/analysis?a=<id>` (replace navigation). No GET loader, query param, prefetch, refresh or page render ever creates a row. `/analysis/new` is side-effect free. Reloading, going back/forward or revisiting the canonical URL resumes that row. The action button is disabled while a creation is in flight, so one click creates one row.
 - **Resume:** `?a=<id>` loads the row only if `session_id` equals the cookie session's id, the row's `token_hash` matches the derived credential, and the row is active and not expired. Otherwise it shows "This analysis is no longer available", with links to Recent Analyses and New Analysis. It never falls back to another row.
 - **Expiry:** 9 h from session creation. Starting a new analysis never extends it (D2 applies the same rule to signed-in unsaved work).
 - **Multi-tab:** each tab autosaves its own row with its own lock version, so there is no shared lock across analyses.
@@ -91,12 +91,13 @@ Links that go to bare `/analysis`, with their new behaviour:
 | Header "New Analysis" (`AppHeader`) | resumes current row | `/analysis/new` chooser |
 | Bare `/analysis` URL | resume/create | redirect to `/analysis/new` |
 | Home "Try the Sample" (`?sample=horizon`) | read-only sample | **unchanged** (D4) |
-| Home "Upload PDF" (`?upload=1`) | current row → documents upload | creates a new analysis (`origin=upload`) → `/analysis/documents?a=<id>&upload=1` |
-| Home "Start Manually" | resumes current row | creates a new blank analysis → `/analysis?a=<id>` |
+| Home "Upload PDF" | current row → documents upload | button runs the POST mutation (`origin=upload`) → `/analysis/documents?a=<id>&upload=1` |
+| Home "Start Manually" | resumes current row | button runs the POST mutation (blank) → `/analysis?a=<id>` |
+| Legacy `?upload=1` URL with no `a` | creates/resumes | redirect to `/analysis/new` (no row created) |
 | Sitemap "ASC 606 Analysis" | resumes | `/analysis/new` |
 | Sitemap sample link | read-only sample | unchanged |
-| Auth page "Continue without signing in" | resumes | `/recent` |
-| My Contracts "Upload PDF" (`?upload=1&customer=`) | current row → upload | new analysis → documents upload, keeping the `customer` hint |
+| Auth page "Continue without signing in" | resumes | the validated `next` target if it is an internal `/analysis…?a=<uuid>` path (same safe-`next` validator as 3B-2, no external or protocol URLs); otherwise `/recent`. The analysis route still checks session ownership independently |
+| My Contracts "Upload PDF" | current row → upload | button runs the POST mutation → documents upload, keeping the `customer` hint |
 | My Contracts "Open analysis workspace" | resumes | `/recent` |
 | My Contracts contract/revision links (`?contract=`) | saved contract | unchanged |
 | `AnalysisNavigation`, `analysis/index` review cleanup, `review.tsx`, `CreateRevisionAction`, `AmendmentDraftActions` | keep current search params | unchanged; they carry `a` because they spread the current search |
@@ -121,8 +122,8 @@ Actions: **Resume Analysis**, plus **Save to My Contracts** when signed in.
 Status comes from existing fields only:
 - an `ai_runs` row that is not yet completed or failed → "Analysis in progress";
 - `ai_analysis_state.review_items` with unresolved blocking items → "Review needed";
-- no selected source and no successful run → "Not analyzed";
-- otherwise → "Draft".
+- no selected source, no successful run and `origin` not `sample:*` → "Not analyzed";
+- otherwise → "Draft". A successfully seeded sample is therefore "Draft", unless the rules above give "Analysis in progress" or "Review needed". There is no separate sample status.
 
 Empty state: "No recent analyses yet." plus a New Analysis button. There is no cap on how many can be listed (D5).
 
@@ -142,7 +143,7 @@ The migration backfills `guest_session_id` for existing runs whose workspace is 
 - The existing transaction runs unchanged on that one row. It moves the row's AI runs, state, review events and documents to the new revision, creating a new durable identity.
 - It does not re-run AI and does not use any allowance.
 - The row becomes `migrated` and leaves Recent Analyses.
-- The session cookie is cleared only if no other active rows remain.
+- **The session cookie is never cleared or replaced by a save**, even when the last active row is saved. The session stays valid until its original `expires_at`. A later New Analysis in the same session reuses it and its remaining guest allowance. Only the normal 9-hour expiry ends the session, after which a fresh bucket is allowed. (Today's `clearGuestCookie` call after migration is removed.)
 
 ## 12. Security
 
@@ -189,6 +190,18 @@ The brief's G1–G7, A1–A6, S1–S3, I1–I6, N1–N5 and Q1–Q3, plus:
   - sign in and save A: no run is used, and B stays temporary;
   - the session count still reads 2 used;
   - no fresh bucket comes from saving, New Analysis, another analysis or the legacy upgrade.
+- **Cookie survives save:** session has only A; 2 of 3 guest runs used; sign in and save A; Recent is empty; the session cookie is still present; create B before expiry; the allowance still shows 1 of 3; no fresh bucket. After the session expires, a new session is allowed.
+- **Explicit creation:**
+  - GET `/analysis/new`, bare `/analysis` and legacy `?upload=1` create no row;
+  - one click creates exactly one row;
+  - reloading, going back/forward or opening the canonical `?a=` again creates none;
+  - a double click still creates one row.
+- **Sample status:** a seeded `sample:horizon` row with no source and no run shows "Draft", not "Not analyzed".
+- **Continue without signing in:**
+  - a safe `next=/analysis?a=<A>` returns to A;
+  - a foreign A is refused by the ownership check;
+  - external, protocol-relative or malformed `next` → `/recent`;
+  - no `next` → `/recent`.
 - **Isolation:** a `?a` from another session is refused; an expired session refuses every row; two tabs autosave A and B without conflict.
 - **Entry points:** every row of the section 9 table.
 
