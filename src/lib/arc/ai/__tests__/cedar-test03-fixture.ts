@@ -128,7 +128,6 @@ export function cedarTest03Analysis(): AiContractAnalysis {
     dueDateRule: "Net 30 from invoice date.",
     reviewState: "supported",
     amountKind: "fixed_invoice_amount",
-    explicitInvoices: [],
   } as const;
   const implementation: Term = {
     ...common,
@@ -151,6 +150,7 @@ export function cedarTest03Analysis(): AiContractAnalysis {
   } as Term;
   const subscription: Term = {
     ...common,
+    explicitInvoices: [],
     semanticKey: "billing:subscription",
     description: "Hosted subscription in four equal quarterly installments.",
     billingTiming: "advance",
@@ -166,6 +166,7 @@ export function cedarTest03Analysis(): AiContractAnalysis {
   } as Term;
   const training: Term = {
     ...common,
+    explicitInvoices: [],
     semanticKey: "billing:training",
     description: "Training fee invoiced upon completion.",
     billingTiming: "milestone",
