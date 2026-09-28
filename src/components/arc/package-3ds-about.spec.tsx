@@ -62,7 +62,10 @@ describe("Package 3D-S — About ARC", () => {
     expect(text).toMatch(/AI interprets contract evidence/);
     expect(text).toMatch(/Deterministic accounting engines calculate results/);
     expect(text).toMatch(/accountant owns the judgment/i);
+    expect(text).toMatch(/surfaces the gap for review/i);
+    expect(text).toMatch(/rather than silently treating an assumption as established fact/i);
     expect(text).toMatch(/portfolio project/i);
+    expect(text).toMatch(/traceability expected in reviewable accounting workpapers/i);
     expect(text).toMatch(/not a substitute for professional accounting judgment/);
     expect(text).toMatch(/not a commercial accounting system/);
     expect(text).toMatch(/does not post entries to a general ledger/);
