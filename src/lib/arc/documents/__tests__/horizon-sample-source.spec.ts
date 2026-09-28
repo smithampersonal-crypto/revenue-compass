@@ -95,6 +95,16 @@ function world() {
     commit: async (args) => {
       const intent = intents.get(args.intentId)!;
       const id = intent.resolved_source_document_id!;
+      // Mirrors the commit RPC: inclusion only at the workspace's current lock.
+      if (args.expectedLockVersion !== 1) {
+        return {
+          sourceDocumentId: id,
+          duplicate: false,
+          associated: false,
+          associationConflict: true,
+          lockVersion: 1,
+        };
+      }
       selections.add(`${intent.guest_workspace_id}:${id}`);
       intents.set(args.intentId, { ...intent, state: "finalized" });
       return {

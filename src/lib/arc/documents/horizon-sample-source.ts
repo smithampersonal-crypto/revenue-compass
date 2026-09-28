@@ -68,15 +68,19 @@ export async function seedHorizonSampleSource(
     });
     pendingPath = intent.path;
     await deps.uploadPending(intent.path, bytes);
+    // The browser flow includes a document at the workspace's current lock;
+    // the seed uses the same authoritative lock from the same credential.
+    const workspace = await deps.documents.store.findActiveGuest(input.tokenHash);
+    if (!workspace) throw new Error("Temporary analysis is unavailable.");
     const result = await finalizeUploadHandler(deps.documents, caller, {
       intentId: intent.intentId,
+      expectedLockVersion: workspace.lockVersion,
     });
     if (!result.ok || !result.associated) {
       throw new Error("Horizon sample source document was not included.");
     }
     return { sourceDocumentId: result.sourceDocumentId };
   } catch (cause) {
-    await import("node:fs").then((fs) => fs.appendFileSync("/tmp/hz.log", String((cause as Error)?.stack) + " CAUSE " + String(((cause as {cause?: {message?: string}})?.cause)?.message ?? JSON.stringify((cause as {cause?: unknown})?.cause)) + "\n"));
     try {
       await deps.deleteWorkspace(input.analysisId, input.tokenHash);
     } catch (cleanupError) {
