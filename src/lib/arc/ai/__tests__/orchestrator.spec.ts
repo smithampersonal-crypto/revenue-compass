@@ -78,6 +78,7 @@ interface Harness {
 function harness(
   options: {
     reserved?: boolean;
+    attemptLimited?: boolean;
     analyzeError?: unknown;
     /** Number of leading apply attempts that lose the optimistic lock. */
     applyConflicts?: number;
