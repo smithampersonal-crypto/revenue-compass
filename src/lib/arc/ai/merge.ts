@@ -95,7 +95,7 @@ import {
   type AiTombstoneKind,
 } from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
-import { aiFixedScheduleEligibility } from "./billing-evidence";
+import { aiExplicitInvoiceEligibility, aiFixedScheduleEligibility } from "./billing-evidence";
 import {
   carryForwardReviewResolutions,
   deriveReviewItem,
@@ -106,7 +106,7 @@ import {
   type AiReviewReasonCode,
 } from "./review-state";
 import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
-import { AI_OUTPUT_SCHEMA_VERSION } from "./schema";
+import { isEvidenceGatedSchemaVersion } from "./schema";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
@@ -141,7 +141,7 @@ export interface AiObjectProvenance extends AiFieldProvenance {
    * claimed by a v7 merge whose schedule passed ARC's evidence gate. Its
    * absence on a billing object marks legacy (pre-v7) derivation.
    */
-  derivation?: "evidence_gated_v7";
+  derivation?: "evidence_gated_v7" | "explicit_invoice_v8";
 }
 
 export interface AiAnalysisState {
@@ -586,6 +586,17 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     amountKind: term.amountKind ?? "unknown",
     paymentTermsDays: term.paymentTermsDays,
     dueDateRule: term.dueDateRule,
+    // Package 3D-Q.1. Present only when dated invoices were proposed, so the
+    // review fingerprints of every earlier billing item are unchanged.
+    ...((term.explicitInvoices?.length ?? 0) > 0
+      ? {
+          explicitInvoices: term.explicitInvoices!.map((invoice) => ({
+            invoiceDateInput: invoice.invoiceDateInput,
+            amountInput: invoice.amountInput,
+            coveragePeriodText: invoice.coveragePeriodText,
+          })),
+        }
+      : {}),
   });
 
   const projectionMaterial = () => ({
@@ -2864,8 +2875,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   const projection = analysis.projectedCollectionAssumptions;
   // Package 3D-Q. Only a deliberate v7 merge marks evidence-gated billing
   // objects and may retract untouched legacy ones.
-  const isV7Merge = analysis.schemaVersion === AI_OUTPUT_SCHEMA_VERSION;
+  const isV7Merge = isEvidenceGatedSchemaVersion(analysis.schemaVersion);
   const gatedBillingKeys = new Set<string>();
+  // Package 3D-Q.1. Billing objects created from source-stated dated invoices.
+  const explicitBillingKeys = new Set<string>();
 
   // Phase L. A billing-term key is a model alias, so the SCHEDULE is
   // reconciled before any invoice can be derived from it. Event identity then
@@ -2993,6 +3006,109 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
+    // Package 3D-Q.1. The incumbent schedule this proposal continues, and how
+    // its invoices were derived. A schedule never silently switches between
+    // rule-derived and explicitly dated invoices: that would re-date or
+    // re-key canonical invoices, so ARC creates nothing and asks instead.
+    const lineageKey =
+      billingAlias?.status === "matched" ? billingAlias.previousSemanticKey : semanticKey;
+    const incumbentDerivations = new Set(
+      [...(incumbentLineages.get(lineageKey)?.events.values() ?? [])].map(
+        (member) => objectProvenance[member.semanticKey]?.derivation ?? "legacy",
+      ),
+    );
+    const explicitInvoices = term.explicitInvoices ?? [];
+
+    let schedule: ReturnType<typeof deriveBillingSchedule>;
+    let explicitMode = false;
+    if (explicitInvoices.length > 0) {
+      const explicit = aiExplicitInvoiceEligibility(term);
+      if (!explicit.ok) {
+        raise({
+          targetKey: `billing:${semanticKey}`,
+          section: "additional_topics",
+          reasonCode: "billing_schedule_not_derivable",
+          reason: `ARC did not create the dated invoices for "${term.description.slice(0, 100)}" because at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together. No invoices from this billing stream were created. Enter the actual billing events if known.`,
+          guidanceIds: [],
+          citations: term.citations,
+          value: explicit.reason,
+          material: {
+            reason: explicit.reason,
+            invoiceIndex: explicit.invoiceIndex ?? null,
+            ...billingMaterial(term),
+          },
+          aiReviewState: term.reviewState,
+          blocking: true,
+        });
+        continue;
+      }
+      // Same-stream precedence: explicit invoices outrank this term's own
+      // recurrence rule. A derivable rule must describe exactly the same
+      // invoices (then it is simply superseded); anything else conflicts.
+      if (aiFixedScheduleEligibility(term).ok) {
+        const rule = deriveBillingSchedule({
+          billingTiming: term.billingTiming,
+          frequency: term.frequency,
+          amountOrRateInput: term.amountOrRateInput,
+          serviceStart: servicePeriod?.start ?? null,
+          serviceEnd: servicePeriod?.end ?? null,
+        });
+        if (rule.ok) {
+          const pairs = (events: readonly { invoiceDate: string; amountInput: string }[]) =>
+            [...new Set(events.map((event) => `${event.invoiceDate}|${exactCents(event.amountInput)}`))]
+              .sort()
+              .join(",");
+          if (pairs(rule.events) !== pairs(explicit.events)) {
+            raise({
+              targetKey: `billing:${semanticKey}`,
+              section: "additional_topics",
+              reasonCode: "billing_schedule_not_derivable",
+              reason: `ARC did not create invoices for "${term.description.slice(0, 100)}" because the contract's dated invoices and its recurring billing rule describe different invoices. Enter the actual billing events.`,
+              guidanceIds: [],
+              citations: term.citations,
+              value: "explicit_rule_conflict",
+              material: { reason: "explicit_rule_conflict", ...billingMaterial(term) },
+              aiReviewState: term.reviewState,
+              blocking: true,
+            });
+            continue;
+          }
+        }
+      }
+      if ([...incumbentDerivations].some((derivation) => derivation !== "explicit_invoice_v8")) {
+        raise({
+          targetKey: `billing:${semanticKey}`,
+          section: "additional_topics",
+          reasonCode: "unsafe_semantic_relationship",
+          reason: `The latest AI analysis now describes "${term.description.slice(0, 100)}" as dated invoices, but ARC previously created this billing schedule from a recurring rule. Existing invoices were left unchanged and no new invoices were created. Review the billing events yourself.`,
+          guidanceIds: [],
+          citations: term.citations,
+          value: "billing_derivation_mode_changed",
+          material: { reason: "billing_derivation_mode_changed", ...billingMaterial(term) },
+          aiReviewState: "needs_review",
+          blocking: true,
+        });
+        continue;
+      }
+      schedule = { ok: true, events: explicit.events };
+      explicitMode = true;
+    } else {
+    if (incumbentDerivations.has("explicit_invoice_v8")) {
+      raise({
+        targetKey: `billing:${semanticKey}`,
+        section: "additional_topics",
+        reasonCode: "unsafe_semantic_relationship",
+        reason: `The latest AI analysis now describes "${term.description.slice(0, 100)}" as a recurring rule, but ARC previously created this billing schedule from dated invoices. Existing invoices were left unchanged and no new invoices were created. Review the billing events yourself.`,
+        guidanceIds: [],
+        citations: term.citations,
+        value: "billing_derivation_mode_changed",
+        material: { reason: "billing_derivation_mode_changed", ...billingMaterial(term) },
+        aiReviewState: "needs_review",
+        blocking: true,
+      });
+      continue;
+    }
+
     // Package 3D-Q. The deterministic evidence boundary: the model's labels
     // are proposals, and ARC creates no invoice (and so no projected
     // collection) unless its own reading of the cited source text agrees.
@@ -3013,13 +3129,14 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       continue;
     }
 
-    const schedule = deriveBillingSchedule({
+    schedule = deriveBillingSchedule({
       billingTiming: term.billingTiming,
       frequency: term.frequency,
       amountOrRateInput: term.amountOrRateInput,
       serviceStart: servicePeriod?.start ?? null,
       serviceEnd: servicePeriod?.end ?? null,
     });
+    }
 
     if (!schedule.ok) {
       raise({
@@ -3105,7 +3222,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // The schedule identity is recorded on the derived invoice, so a later
       // run that renames the billing term can still find this lineage.
       claimObject(eventSemanticKey, eventId, eventSignature);
-      if (isV7Merge) gatedBillingKeys.add(eventSemanticKey);
+      if (explicitMode) explicitBillingKeys.add(eventSemanticKey);
+      else if (isV7Merge) gatedBillingKeys.add(eventSemanticKey);
 
       // The contract never proves cash was received. The only derived cash row
       // is the contractual due date, always recorded as a projection.
@@ -3177,7 +3295,8 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
       // A projected collection is subordinate to its canonical invoice: it
       // inherits the same schedule identity and is never matched on its own.
       claimObject(cashSemanticKey, cashId, collectionSignature);
-      if (isV7Merge) gatedBillingKeys.add(cashSemanticKey);
+      if (explicitMode) explicitBillingKeys.add(cashSemanticKey);
+      else if (isV7Merge) gatedBillingKeys.add(cashSemanticKey);
     }
   }
 
@@ -3410,9 +3529,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     const carried = objectProvenance[semanticKey];
     const signature = identitySignature ?? carried?.identitySignature;
     const lineage = carried?.previousSemanticKeys;
-    const derivation = gatedBillingKeys.has(semanticKey)
-      ? "evidence_gated_v7"
-      : carried?.derivation;
+    const derivation = explicitBillingKeys.has(semanticKey)
+      ? "explicit_invoice_v8"
+      : gatedBillingKeys.has(semanticKey)
+        ? "evidence_gated_v7"
+        : carried?.derivation;
     const preMerge = preMergeFingerprints.get(semanticKey);
     // User-edit detection compares the PRE-merge canonical object with what
     // ARC last wrote. A difference created by ARC applying this very analysis
