@@ -11,6 +11,11 @@ export function AppFooter() {
           <nav aria-label="Footer">
             <ul className="flex items-center gap-4">
               <li>
+                <Link to="/about" className={LINK}>
+                  About
+                </Link>
+              </li>
+              <li>
                 <Link to="/privacy" className={LINK}>
                   Privacy
                 </Link>
