@@ -301,7 +301,8 @@ Fresh 3E evidence
 
 ## Package 3D-T — New Analysis & Recent Analyses
 - [x] Plan approved (Option A guest_sessions; derived per-analysis credentials; lazy legacy upgrade; session-level guest quota; cookie survives save; explicit creation; safe Continue return)
-- [ ] Migration (guest_sessions, session links, ai_runs.guest_session_id, quota count, cleanup, purge, legacy backfill)
-- [ ] Server: session/derived-credential resolution across guest, document and AI callers; create/list/resume
-- [ ] UI: /analysis/new chooser, /recent, header, entry points, missing-item state
-- [ ] Tests (full matrix) + full verify + frozen state + ZIP (no publish, no AI run)
+- [x] Migration (guest_sessions, session links, ai_runs.guest_session_id, quota count, cleanup, purge, legacy backfill)
+- [x] Server: session/derived-credential resolution across guest, document and AI callers; create/list/resume
+- [x] UI: /analysis/new chooser, /recent, header, entry points, missing-item state
+- [x] Tests (full matrix) + full verify + frozen state + ZIP (no publish, no AI run)
+- [ ] 3D-T owner acceptance review (not published; no AI run)
