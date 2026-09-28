@@ -123,6 +123,22 @@ export const createTemporaryAnalysis = createServerFn({ method: "POST" })
       { store: await createGuestSessionStore(), now: () => new Date() },
       { sessionToken: context.sessionToken, origin: data.origin, draft },
     );
+    // Horizon from New Analysis carries its canonical source document. Seeding
+    // failure removes the new workspace and fails the whole click.
+    const { HORIZON_SAMPLE_ORIGIN, seedHorizonSampleSource } =
+      await import("@/lib/arc/documents/horizon-sample-source");
+    if (data.origin === HORIZON_SAMPLE_ORIGIN) {
+      const { deriveAnalysisToken, hashGuestToken } = await import("./guest");
+      const { horizonSeedDeps } = await import("@/lib/arc/documents/horizon-sample-source.server");
+      const sessionToken = result.issuedToken ?? context.sessionToken;
+      if (!sessionToken) throw new Error("A temporary analysis could not be started.");
+      const token = await deriveAnalysisToken(sessionToken, result.analysisId);
+      await seedHorizonSampleSource(await horizonSeedDeps(), {
+        analysisId: result.analysisId,
+        token,
+        tokenHash: await hashGuestToken(token),
+      });
+    }
     if (result.issuedToken)
       await setCookieHeader(buildGuestCookie(result.issuedToken, context.secure));
     return { analysisId: result.analysisId };

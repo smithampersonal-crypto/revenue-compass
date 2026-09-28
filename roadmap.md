@@ -329,7 +329,8 @@ Fresh 3E evidence
 - [x] Approved copy: Step 4 provisional-SSP summary; "AI analyses remaining" wording
 - [x] Docs reconciled (README, roadmap, operations); README screenshots refreshed
 - [x] Full verify + all SQL suites + bundle audit; archive arc-recruiter-v1.zip from tracked files only
-- [ ] Owner: both GitHub jobs green; publish approval for the two copy changes, then light production smoke
+- [x] Owner: both GitHub jobs green; published; light production smoke passed
+- [x] Horizon New Analysis source-document parity: opening Horizon from New Analysis now includes the canonical Horizon PDF as a real source document of that analysis (kept on Save, removed with expiry, fails closed with rollback); Recent keeps "Sample — Horizon". Verification: 2,908 tests / 234 files; 27 SQL suites
 
 ## Post-v1 possibilities (not planned, not required)
 

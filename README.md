@@ -104,7 +104,7 @@ ARC is designed to fail safely when automation is uncertain.
 
 ## Quality & Testing
 
-The current repository passes **2,898 automated tests across 232 test files**. The verification workflow also includes:
+The current repository passes **2,908 automated tests across 234 test files**. The verification workflow also includes:
 
 - TypeScript type checking;
 - ESLint and formatting enforcement;
