@@ -129,7 +129,8 @@ describe("ARC app shell (Phase 5)", () => {
     const sampleAction = screen.getByRole("link", { name: "Try the Sample" });
     expect(sampleAction.className).toContain("bg-primary");
     for (const secondary of ["Upload PDF", "Start Manually"]) {
-      const action = screen.getByRole("link", { name: secondary });
+      // Package 3D-T: creating an analysis is a button (POST), never a link.
+      const action = screen.getByRole("button", { name: secondary });
       expect(action.className).not.toContain("bg-primary");
       expect(action.className).toContain("border");
     }
@@ -161,9 +162,9 @@ describe("ARC app shell (Phase 5)", () => {
     const user = userEvent.setup();
     const router = await renderAt("/");
 
-    await user.click(await screen.findByRole("link", { name: "Start Manually" }));
+    await user.click(await screen.findByRole("button", { name: "Start Manually" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
-    expect(router.state.location.search).toEqual({});
+    expect(router.state.location.search).toEqual({ a: "00000000-0000-4000-8000-000000000001" });
 
     await user.click(screen.getByRole("link", { name: "Ayden's Revenue Compass home" }));
     await user.click(await screen.findByRole("link", { name: "Try the Sample" }));
@@ -178,8 +179,9 @@ describe("ARC app shell (Phase 5)", () => {
     const router = await renderAt("/");
     const primaryNav = await screen.findByRole("navigation", { name: "Primary navigation" });
 
-    expect(within(primaryNav).getAllByRole("link")).toHaveLength(1);
+    expect(within(primaryNav).getAllByRole("link")).toHaveLength(2);
     expect(within(primaryNav).getByRole("link", { name: "New Analysis" })).toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: "Recent Analyses" })).toBeInTheDocument();
     expect(within(primaryNav).queryByRole("link", { name: "Analyze" })).not.toBeInTheDocument();
     expect(within(primaryNav).queryByText("Case Studies")).not.toBeInTheDocument();
     expect(within(primaryNav).queryByText("Guidance Library")).not.toBeInTheDocument();
@@ -192,8 +194,9 @@ describe("ARC app shell (Phase 5)", () => {
     expect(newAnalysis.className).toContain("bg-primary");
     expect(within(primaryNav).queryByRole("link", { name: "Sign in" })).not.toBeInTheDocument();
 
+    // Package 3D-T: New Analysis opens the chooser and creates nothing.
     await user.click(newAnalysis);
-    await waitFor(() => expect(router.state.location.pathname).toBe("/analysis"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/analysis/new"));
     expect(router.state.location.search).toEqual({});
   });
 
@@ -202,10 +205,10 @@ describe("ARC app shell (Phase 5)", () => {
     const user = userEvent.setup();
     const router = await renderAt("/");
 
-    await user.click(await screen.findByRole("link", { name: "Upload PDF" }));
+    await user.click(await screen.findByRole("button", { name: "Upload PDF" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/analysis/documents"));
     expect(await screen.findByRole("dialog", { name: /upload pdf/i })).toBeInTheDocument();
-    // `upload=1` is a one-shot intent: it is consumed and removed from the URL.
-    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    // `upload=1` is a one-shot intent: it is consumed; the analysis id stays.
+    await waitFor(() => expect(router.state.location.search).toEqual({ a: "00000000-0000-4000-8000-000000000001" }));
   });
 });
