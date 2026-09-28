@@ -76,9 +76,9 @@ describe("ARC identity header (Phase 7B)", () => {
     expect(await within(header).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
     expect(within(header).queryByText("My Contracts")).not.toBeInTheDocument();
     expect(within(header).queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument();
-    // The primary navigation itself stays unchanged.
+    // Package 3D-T: guest header is New Analysis · Recent Analyses · Sign in.
     const nav = within(header).getByRole("navigation", { name: "Primary navigation" });
-    expect(within(nav).getAllByRole("link")).toHaveLength(1);
+    expect(within(nav).getAllByRole("link")).toHaveLength(2);
   });
 
   it("shows My Contracts and an account menu with email, settings and sign out", async () => {
