@@ -101,7 +101,7 @@ begin
     ('20 saving A leaves session usage unchanged', public.arc_guest_session_usage(v_session) = v_before),
     ('21 B keeps the same allowance after A is saved', public.arc_guest_workspace_usage(v_b) = 3),
     ('22 re-homed runs keep their session stamp',
-     (select count(*) from public.ai_runs where guest_session_id = v_session and revision_id is not null) = 2),
+     (select count(*) from public.ai_runs where guest_session_id = v_session and revision_id is not null and openai_started_at is not null) = 2),
     ('23 saving consumed no monthly allowance',
      not exists (select 1 from public.ai_monthly_usage where user_id = v_user));
 
