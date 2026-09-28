@@ -76,6 +76,7 @@ export async function seedHorizonSampleSource(
     }
     return { sourceDocumentId: result.sourceDocumentId };
   } catch (cause) {
+    console.error("HZDEBUG", cause instanceof Error ? cause.message : cause, (cause as {cause?: unknown})?.cause);
     try {
       await deps.deleteWorkspace(input.analysisId, input.tokenHash);
     } catch (cleanupError) {
