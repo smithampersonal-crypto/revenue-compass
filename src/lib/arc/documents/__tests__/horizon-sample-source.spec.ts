@@ -52,7 +52,8 @@ function world() {
     contractIsOwnedBy: async () => false,
     findDraftRevision: async () => null,
     findActiveGuest: async (tokenHash) => {
-      for (const [id, ws] of workspaces) if (ws.tokenHash === tokenHash) return { id, lockVersion: 1 };
+      for (const [id, ws] of workspaces)
+        if (ws.tokenHash === tokenHash) return { id, lockVersion: 1 };
       return null;
     },
     createIntent: async (row) => {
@@ -79,15 +80,30 @@ function world() {
         displayName: intent.display_name,
         originalFilename: intent.original_filename,
       });
-      intents.set(args.intentId, { ...intent, state: "prepared", resolved_source_document_id: id } as IntentRow);
-      return { sourceDocumentId: id, permanentObjectPath: path, duplicate: false, requiresPromotion: true };
+      intents.set(args.intentId, {
+        ...intent,
+        state: "prepared",
+        resolved_source_document_id: id,
+      } as IntentRow);
+      return {
+        sourceDocumentId: id,
+        permanentObjectPath: path,
+        duplicate: false,
+        requiresPromotion: true,
+      };
     },
     commit: async (args) => {
       const intent = intents.get(args.intentId)!;
       const id = intent.resolved_source_document_id!;
       selections.add(`${intent.guest_workspace_id}:${id}`);
       intents.set(args.intentId, { ...intent, state: "finalized" });
-      return { sourceDocumentId: id, duplicate: false, associated: true, associationConflict: false, lockVersion: 2 };
+      return {
+        sourceDocumentId: id,
+        duplicate: false,
+        associated: true,
+        associationConflict: false,
+        lockVersion: 2,
+      };
     },
     findOwnedDocument: async () => null,
     findGuestDocument: async (docId, workspaceId) => {
@@ -156,7 +172,19 @@ function world() {
     return { analysisId: id, token, tokenHash };
   }
 
-  return { workspaces, docs, selections, objects, queued, aiRuns, storage, store, deps, addWorkspace, deleteWorkspace };
+  return {
+    workspaces,
+    docs,
+    selections,
+    objects,
+    queued,
+    aiRuns,
+    storage,
+    store,
+    deps,
+    addWorkspace,
+    deleteWorkspace,
+  };
 }
 
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");

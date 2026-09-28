@@ -28,7 +28,8 @@ export const HORIZON_SAMPLE_DISPLAY_NAME = "Horizon Logistics — SaaS Order For
 export const HORIZON_SAMPLE_SHA256 =
   "a39c8883c51ea97c83166ce61d0ec506fb86324348afbcaa5c846edabb859c70";
 
-export const HORIZON_SAMPLE_UNAVAILABLE = "The Horizon sample couldn't be opened. Please try again.";
+export const HORIZON_SAMPLE_UNAVAILABLE =
+  "The Horizon sample couldn't be opened. Please try again.";
 
 export interface HorizonSeedDeps {
   documents: DocumentDeps;
