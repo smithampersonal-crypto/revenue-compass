@@ -1,178 +1,137 @@
-# Package 3D-Q.2 — Transaction price independent of billing, plus billing rules ARC can work out itself
+# Package 3D-T — New Analysis & Recent Analyses (PLAN ONLY)
 
-PLAN ONLY. Nothing edited, published or run.
+No accounting, billing, AI model/prompt/schema, quota amounts, or Safe Re-analysis changes. No publish, no AI run, no production data change. **This package needs a database migration**, so per the stop conditions it goes back to you for decisions (section 19) before any code.
 
-## 1. Why the transaction price dropped from $150,000 to $24,000
+## 1. How it works today (checked in code)
 
-Where it happens: `src/lib/arc/ai/merge.ts`, in the transaction-price block (around line 2005).
+- **`/analysis` with no sample or contract:** `AnalysisLayout` passes `guest = !sample && !contract` to `AnalysisProvider`. That calls `resumeGuestWorkspace` → `resumeOrCreateGuestHandler`. It hashes the HttpOnly `__Host-arc_guest` cookie, finds that `guest_workspaces` row, and resumes it if it is active and not expired. Only if there is no row does it create one. This also happens for signed-in users: bare `/analysis` is backed by the cookie workspace, not a saved contract.
+- **New Analysis:** `AppHeader` links to `/analysis` with no search params, which goes down the same resume path.
+- **Temporary workspace:** the `guest_workspaces` table has `token_hash` (unique), `draft_json`, `schema_version`, `lock_version`, `status` (active/migrated), `migrated_user_id` and `expires_at` (created + 9 h, `GUEST_LIFETIME_SECONDS = 32400`). Expiry is checked on every load/save. The cookie Max-Age is 9 h, and the hourly maintenance job cleans up.
+- **Draft storage:** a guest draft lives in `guest_workspaces.draft_json`, saved with an optimistic lock (`saveGuestDraftHandler`, or `arc_save_draft_with_ai_reconciliation` when AI data exists). A saved-contract draft lives in `analysis_revisions`.
+- **Records tied 1:1 to the workspace:** `guest_source_document_selections`, `source_documents`, `document_upload_intents`, `ai_runs`, `ai_analysis_state`, `ai_review_events`. Each has a `guest_workspace_id` foreign key (cascade delete), and about 15 trusted functions authorise with `p_guest_token_hash` + `guest_workspace_id`.
+- **My Contracts:** `/workspace` (in `_authenticated`) reads the `customers → contracts → analyses → analysis_revisions` rows the user owns, under RLS.
+- **Samples:** `?sample=horizon` etc. use the in-memory `sample` mode. Nothing is saved. A refresh reloads the canonical sample.
+- **AI allowance:** `arc_reserve_ai_allowance`. Guest runs are counted with `count(ai_runs where guest_workspace_id = X and quota_scope='guest')`. Signed-in runs count against `ai_monthly_usage` per user per month.
+- **Save to My Contracts:** `migrateGuestWorkspaceHandler` → `arc_migrate_guest_workspace_by_token_v3`. It is one transaction that creates customer (or reuses one) → contract → analysis → revision 1 from the guest draft, moves the AI state, review events and documents, marks the workspace `migrated`, and then clears the cookie.
+
+## 2. Root cause
+
+The system assumes "one browser cookie = one `guest_workspaces` row = one draft". New Analysis goes to `/analysis`, which resumes that single row. There is nowhere to hold a second analysis, so "new" always reopens the current one.
+
+## 3. Proposed identity model
 
 ```text
-eligible = analysis.billingTerms.filter(aiFixedScheduleEligibility(term).ok)   // 3D-Q gate
-fixedDerivation = deriveUnambiguousFixedBillingTotal({ billingTerms: eligible, servicePeriod })
-derivedTotal = fixedDerivation.ok ? fixedDerivation.totalInput : null
-fixed = derivedTotal ?? proposedFixed          // billing total wins over the model's Step 3 figure
-mergeText(transaction-price:fixed, fixed)
+Browser session (cookie, 9 h)  ── AI allowance bucket (3 runs), expiry
+   ├── Temporary analysis A  (own draft, docs, AI state, review events, lock)
+   ├── Temporary analysis B
+   └── ...
+Signed-in user ── AI allowance bucket (10/month)
+   ├── Temporary analyses (unsaved)      → Recent Analyses
+   └── Saved contracts (existing tables) → My Contracts
 ```
 
-For Test 03:
-1. Subscription ($120,000, "four equal quarterly installments"): refused by the recurring check. The $30,000 per-invoice amount never appears in the text, so no single sentence contains amount + cadence + timing.
-2. Training ("upon completion"): refused. There is no way to represent the timing, and no sentence has a cadence.
-3. Implementation ($24,000, one-time, in advance): passes.
-4. The refused terms are filtered out **before** `deriveUnambiguousFixedBillingTotal` counts fixed terms. Its `multiple_fixed_schedules` guard therefore sees only one term, and wrongly concludes that one schedule covers the whole contract.
-5. It returns ok with a total of $24,000, one event. `derivedTotal ?? proposedFixed` then replaces the model's own Step 3 figure with $24,000. Allocation, revenue and the reconciliation all follow from that number.
+## 4. Persistence model — options
 
-Answers:
-- **Q1 – what feeds the price today:** (a) the accountant's own amount, which is never overwritten; (b) the billing-derived total; (c) the model's `transactionPrice.fixedConsiderationInput`, used only when (b) is absent. Per-obligation contract prices feed only the provisional SSP basis, not Step 3. There are no other fallbacks.
-- **Q2 – what happened to the $120,000 and $6,000:** they were left out because billing couldn't be worked out, and then the billing-derived total took precedence over the model's figure. They were not missing from the AI output as billing terms. Whether the model's own `fixedConsiderationInput` said $150,000 will be confirmed read-only from the stored Test 03 result before implementation. The code path overrides it either way.
-- **Q3 – is the billing total authoritative for Step 3:** yes. It was added in 3D-Q to stop a periodic fee being taken as the contract total (e.g. $245,000 a year on a two-year term = $490,000). That's appropriate only when the billing schedule covers all of the fixed consideration. Nothing checks that today.
-- **Q4 – does a billing check affect the price:** yes. `aiFixedScheduleEligibility`, used as a pre-filter, together with `derivedTotal ?? proposedFixed`.
-- **Q5 – proposed order of authority:** see section 3.
+- **Option A (recommended): one `guest_workspaces` row per analysis, grouped by a new session.** Add a `guest_sessions` table (token_hash, expires_at, optional `user_id`). Add `guest_workspaces.session_id` and `label_hint`, and drop `token_hash` uniqueness per session. The cookie holds only the session credential. For each analysis row, the server stores `hash(HMAC(sessionToken, analysisId))`. Because each row still has its own token hash, every existing trusted function, RLS rule and document path keeps working unchanged: saving, AI, review, restore and migration still see "one workspace = one analysis". Only two functions change:
+  - `arc_reserve_ai_allowance`, so the guest count is per **session** (sum across its rows), not per row. Without this, each new analysis would get 3 fresh runs.
+  - Maintenance cleanup, so it expires by session.
+- **Option B:** a new `temporary_analyses` child table, with all six tables and about 15 functions re-pointed from `guest_workspace_id` to it. This is much larger and touches the frozen AI and document functions. Not recommended.
 
-## 2. Current rule-based billing: why Test 03 fails
-- `deriveBillingSchedule` uses one contract-wide service period (`deriveContractServicePeriod`). It has no link from a billing term to an obligation.
-- A one-time bill goes on the service start ("advance") or the service end ("arrears"). There is no "on completion of obligation X" trigger.
-- A recurring bill needs a per-invoice amount. It can't split a stated total into N equal installments.
-- The evidence check needs the per-invoice amount stated in the text, so "$120,000 in four equal installments" can never pass.
+## 5. Guest lifecycle (Option A)
 
-## 3. Step 3 correction (keeps billing out of the price)
-Order of authority for the fixed transaction price:
-1. **The accountant's amount.** It decides the price, as it does today, and is never overwritten.
-2. **The model's validated full-term fixed consideration** (`fixedConsiderationInput`). This is the proposed Step 3 figure.
-3. **The billing-derived total.** It only confirms or challenges the Step 3 figure and **never replaces** it. The `derivedTotal ?? proposedFixed` override is removed.
+- **Create:** New Analysis → the server creates a session if needed, then a new analysis row with an empty draft (or a sample seed, section 14). It redirects to `/analysis?a=<analysisId>`.
+- **Resume:** `?a=<id>` loads the row only if its `session_id` matches the cookie session and it is active and not expired. Otherwise it shows "This analysis is no longer available", with links back. It never falls back to another row.
+- **Expiry:** each row keeps `expires_at = session expires_at` (9 h from session start, unchanged). Opening a new analysis does not extend the session.
+- **Isolation:** the browser never lists by ID. The list server function filters by the cookie session hash only.
 
-How the billing total is used:
-- **Complete** means every billing term the model marked `fixed_invoice_amount` passed its evidence check and was used. ARC counts these before filtering out refused terms.
-- **Incomplete or can't be worked out:** billing has no authority over Step 3, and no comparison is made.
-- **Complete and agrees with Step 3:** nothing is raised.
-- **Complete but disagrees with Step 3:** the Step 3 amount stays. ARC raises a **blocking** Step 3 / billing conflict item on the transaction price (reason code `source_conflict`, which already exists). Neither figure is silently changed, and the accountant must resolve it before finalizing.
-- **The model gives no Step 3 figure:** the existing "enter the transaction price" item is raised. If a complete billing total exists, it is shown in that item for reference only and is never applied.
-- **The $245,000 a year × 2 years case:** ARC now detects the disagreement and blocks for review instead of using the billing total.
+## 6. Signed-in lifecycle
 
-For Test 03, the model's $150,000 stands. Once section 4 is in place, the schedule is complete, totals $150,000 and agrees, so nothing is raised.
+Signed-in users already use the cookie workspace for unsaved work, and this stays the same. The list function also includes session rows stamped with `user_id` (section 7). Save moves exactly one analysis through the existing migration transaction (section 11). **Retention for signed-in unsaved work does not exist today apart from the 9-hour guest lifetime.** Keeping it at 9 h is the default. A longer period is an owner decision.
 
-No change to allocation, recognition or reconciliation math, or to how variable consideration is derived.
+Three separate clocks: AI allowance (3 per 9-h session / 10 per calendar month), temporary retention (9 h), sign-in session (Supabase, unrelated).
 
-## 4. New billing rules ARC can work out itself
-Two narrow patterns. All arithmetic and dates are done in TypeScript, never by the model.
+## 7. Signing in with temporary work
 
-**A. Equal installments of a stated total** (subscription)
-- Facts from the model: `billingBasisTotalInput` = 120000, `installmentCount` = 4, `equalInstallments` = true, frequency quarterly, timing advance, `firstInvoiceTrigger` = `commencement`, linked obligation.
-- ARC works out: 120000 ÷ 4 = 30000.00 exactly. A remainder in cents fails closed; ARC never rounds.
-- Dates: the linked obligation's service start, plus 0/3/6/9 months (Jan 1, Apr 1, Jul 1, Oct 1). Coverage uses ARC's existing inclusive-end convention (exclusive boundary = serviceEnd + 1 day, as `deriveBillingSchedule` does): count × months must equal the whole months from serviceStart to that exclusive boundary. Jan 1–Dec 31 with 4 quarterly periods (Jan 1–Mar 31 … Oct 1–Dec 31) is accepted; a count/cadence that cannot cover the period fails closed.
+Today the cookie survives sign-in, so the unsaved analysis is still there, and it moves only when "Save to account" is used. Proposal: on sign-in, stamp `guest_sessions.user_id` if it is unset. Recent Analyses then shows that session's analyses to that user on this browser. No automatic save and no merging by name. Sessions from other browsers are not pulled in. **Owner decision D3.**
 
-**B. A single invoice triggered by an event**
-- `invoiceTrigger` = `commencement` → the linked obligation's service start (Implementation: Jan 1).
-- `invoiceTrigger` = `completion_of_linked_obligation` → the linked obligation's own completion date: its recognition date if recognised at a point in time, otherwise its service end (Training: Apr 15). This date must already be in the workpaper for that obligation.
+## 8. Routing
 
-The existing recurring and one-time paths and the 3D-Q.1 dated-invoice path stay as they are. A term uses the new path only when the new fields are present.
+- `/analysis` = a safe entry point. With a valid session and no `a`, it goes to `/analysis/new` (never auto-resumes).
+- `/analysis/new` = chooser.
+- `/analysis?a=<uuid>` = the exact temporary analysis, carried to child pages (`/analysis/documents?a=…` etc.).
+- `/recent` = Recent Analyses.
+- `?sample=` (read-only preview) and `?contract=&revision=` stay as they are.
+- A row UUID is fine in the address bar: it is useless without the session cookie, and it is not the credential.
+- 3D-R view state is keyed by an identity string, which gains `a`, so accordion state does not carry across analyses.
 
-## 5. Schema / prompt decision
-- **Schema v9 is needed.** Billing terms are strict objects, so adding fields to v8 would make stored v8 results fail to load. v9 adds five nullable fields to billing terms: `targetPerformanceObligationKey`, `billingBasisTotalInput`, `installmentCount`, `equalInstallments`, `invoiceTriggerKind` (`commencement` | `completion_of_linked_obligation` | `none`).
-- Stored v7 and v8 results still load, with the new fields set to null. They are never rewritten on load or autosave. A deliberate Analyze or Reanalyze is still required, as in 3D-Q.1.
-- **Prompt v13.** Prompt v12 doesn't ask for installment count, the equal-installment flag, a trigger or a linked obligation. The change is one short added paragraph. The existing "never divide a total unless the contract states the number…" line stays.
+## 9. Recent Analyses page
 
-## 6. Evidence and linkage rules
-- **Unsafe combining stays blocked:** the recurring check and the 3D-Q.1 check are unchanged. Separate sentences are never merged.
-- **New installment check.** One sentence from that term's own citations must state all of the following:
-  - an invoicing word;
-  - the exact total billing basis;
-  - the installment count, in words or digits;
-  - the word "equal";
-  - the cadence;
-  - the timing or first-invoice trigger that sets the dates. This is an advance or commencement phrase such as "in advance", "upon commencement", "beginning on the Effective Date" or "at the start of each".
+A single list with newest first. Each row shows:
+- the customer/contract label (Step 1 customer name, otherwise "Untitled analysis");
+- the source file name or "Sample — Horizon";
+- status;
+- "Updated 2h ago";
+- when it expires.
 
-  The check applies the same rate, percentage, interest and per-unit exclusions as the existing checks. A `commencement` trigger or `advance` timing from the model is never accepted on the model's word: if the qualifying sentence doesn't state it, the stream is blocked. No second clause is combined with it, not even one from the same billing section.
-- **New trigger check.** One sentence must state an invoicing word, the exact amount, and a trigger phrase matching the trigger kind the model returned: "upon completion of" for `completion_of_linked_obligation`; "upon commencement" or "at signing/effective date" for `commencement`. If the phrase doesn't match the kind, the term is blocked. The date is never taken from that sentence. It comes only from the linked obligation's date already in the workpaper.
-- **Who owns the obligation link.** `targetPerformanceObligationKey` is only an AI-side reference to a performance obligation's `semanticKey` in the same AI result. It is never an ARC ID. ARC:
-  1. checks the reference matches exactly one AI obligation in that result;
-  2. resolves it to the canonical workflow obligation using the adapter's existing semantic-key mapping (`poIdBySemanticKey`);
-  3. fails closed if the reference is missing, unknown, matches more than one obligation, or maps ambiguously.
+Actions: **Resume Analysis** (primary), and **Save to My Contracts** for signed-in users.
 
-  The model never supplies or changes ARC's canonical IDs or relationships.
-- **It also fails closed when:**
-  - the linked obligation has no date;
-  - the trigger is a completion trigger but the linked obligation is ongoing with no end date.
-- No fuzzy matching of names or descriptions.
+Status comes from existing fields only: no selected source and no AI run → "Not analyzed"; an `ai_runs` row that is running → "Analysis in progress"; `ai_analysis_state.review_items` with unresolved blocking items → "Review needed"; otherwise "Draft".
 
-## 7. Identity / re-analysis
-- Event IDs use the existing term identity plus the installment number, so they stay stable across runs.
-- The trigger identity is the linked obligation's canonical ID plus the trigger kind.
-- The derivation mode becomes `installment_v9` or `trigger_v9`. Switching between modes (rule, dated, installment, trigger) goes through the existing mode-change block.
-- Safe Re-analysis gets a signature per stream made of (installment count, frequency, trigger kind, linked obligation, resolved dates, exact cents). If anything changes (count, frequency, trigger, the resolved date, or the linked obligation's date changing), the stream is declined as "unmatched" and existing rows stay.
-- Deleted-item markers, collections (projected only, from Net 30), and the structural safeguard all work as they do today.
+Empty state: "No recent analyses yet." plus a New Analysis button.
 
-## 8. Files proposed to change
-- `src/lib/arc/ai/schema.ts` — v9 fields, legacy v8 schema kept for loading old results.
-- `src/lib/arc/ai/prompt.ts` — v13 paragraph.
-- `src/lib/arc/ai/billing-evidence.ts` — installment and trigger checks.
-- `src/lib/arc/ai/adapter.ts` — `deriveInstallmentSchedule` and `resolveTriggerDate`, both pure. `deriveUnambiguousFixedBillingTotal` gets a completeness input.
-- `src/lib/arc/ai/merge.ts` — completeness count before filtering, the new order of authority, the conflict and derived-figure review items, and the new derivation modes.
-- `src/lib/arc/ai/safe-reanalysis.ts` — v9 signature and schema gate.
-- Loading paths for stored results (`persistence/snapshot.ts` only if it pins schema versions).
-- New tests under `src/lib/arc/ai/__tests__/`, plus a Test 03 fixture (synthetic).
-- `roadmap.md`.
+## 10. Header
 
-No changes to the UI, database, security rules, sign-in, allocation or recognition engines.
+- Guest: **New Analysis · Recent Analyses · Sign in**.
+- Signed in: **New Analysis · Recent Analyses · My Contracts · Account** (My Contracts moves out of the account menu).
+- On small screens the links wrap as they do today, and "Recent Analyses" shortens to "Recent".
 
-## 9. Test matrix
-- **Transaction price:**
-  - TP1: billing can't be worked out, and the price keeps $120,000.
-  - TP2: Test 03 gives $150,000.
-  - TP3: a complete billing total differs from the Step 3 figure → a blocking conflict item; Step 3 is not replaced.
-  - TP4: no billing total, and the price still comes from the contract figure.
-  - TP5: usage, rate and variable amounts never become fixed price.
-  - A complete billing total agrees with Step 3 → no item.
-  - The model gives no Step 3 figure → the missing-input item is raised and the billing total is never applied.
-  - The $245,000 × 2 case now gives a blocking conflict instead of a silent $490,000. Existing 3D-Q tests that expected the replacement are updated to match.
-  - Horizon, the deterministic sample, is unchanged.
-- **Billing positives:**
-  - B1: four quarterly installments of $30,000.
-  - B2: implementation billed Jan 1, $24,000.
-  - B3: training billed Apr 15, $6,000.
-  - B4: full Test 03 gives six events, $150,000, balances unblocked, allocation $28,125 / $112,500 / $9,375, revenue $150,000.
-- **Negatives:**
-  - N1: equal installments not stated.
-  - N2: installment count missing.
-  - N3: event date missing.
-  - N4: ambiguous or unknown obligation link.
-  - N5: the implementation date is not used for training.
-  - N6: rate, interest and percentage language is still refused.
-  - A total that doesn't divide exactly into cents.
-  - The installment count doesn't fit the service period (e.g. 3 quarterly over Jan 1–Dec 31) → blocked.
-  - Jan 1–Dec 31 + four quarterly installments → Jan 1 / Apr 1 / Jul 1 / Oct 1, accepted.
-  - Installment facts are complete, but the advance/commencement wording is missing from the qualifying sentence → blocked.
-  - The model returns a `commencement` trigger that its citation doesn't support → blocked.
-  - The trigger phrase doesn't match the trigger kind → blocked.
-  - An unknown or missing obligation reference → blocked.
-  - An obligation reference that matches more than one obligation → blocked.
-  - All existing 3D-Q and 3D-Q.1 negatives.
-- **Re-analysis:**
-  - Unchanged facts keep the same IDs with no duplicates.
-  - Blocked when any of these changes: installment count, frequency, trigger, the resolved date, or the mode.
-  - A citation-wording change still applies.
-- **Regression:** Test 02 (Redwood) still gives six events and $150,000; the Horizon and Genomix fixtures are unchanged.
+## 11. Saving to My Contracts
 
-## 10. Verification
-Focused tests first, then the full `bun run verify`. Then check the frozen state:
-- `.env` has exactly the two public VITE values.
-- `^2.15.0`, lock at 2.15.0 with the Europe West 4 metadata (restored from the (161) baseline if it drifts).
-- Genomix SHA-256 is `7487979e…c4fdd4c7`.
+The existing transaction is reused unchanged for the one analysis row. It creates a new durable identity (contract/analysis/revision IDs) and moves that row's AI state, review events, runs and documents. It never re-runs AI and never uses allowance. The row becomes `migrated`, so it drops out of Recent. Change: **the cookie is cleared only when the session has no other active rows.** The migration is identity-changing (temporary ID → new revision ID), not a copy.
 
-Then deliver the ZIP. No publish and no AI run.
+## 12. Security / access rules
 
-## 11. Live acceptance (after owner approval only)
-Publish, then one Test 03 run:
-- 3 performance obligations.
-- Transaction price, allocated amount and revenue all $150,000.
-- Allocation $28,125 / $112,500 / $9,375.
-- Six billing events: Jan 1 $24,000; Jan 1, Apr 1, Jul 1, Oct 1 at $30,000 each; Apr 15 $6,000.
-- Balances not blocked.
-- Collections projected only.
+New table `guest_sessions` has no browser access at all (same pattern as `guest_workspaces`: revoke anon/authenticated, service_role only). No existing RLS rule is relaxed, and storage paths are unchanged. The list function returns metadata for the caller's session only.
 
-Restore any drift afterwards without republishing.
+## 13. Existing workspaces
 
-## 12. Risks / stop conditions
-- If the stored Test 03 result shows the model's own figure was not $150,000, the Step 3 fix alone won't reach $150,000 until the billing rules are in place. Report it and don't add any new source for the price.
-- Removing the billing override changes the accepted 3D-Q behaviour for the periodic-fee case, from a silent $490,000 to a blocking conflict. Existing 3D-Q tests asserting the override will be updated as part of this package. Any Horizon or Genomix output change is a stop condition.
-- Stop if this needs obligation-level contract prices to become a new Step 3 source, fuzzy linking, changes to allocation or recognition, or changes outside billing and consideration.
-- 3E and Recent Analyses stay paused.
+The migration creates one `guest_sessions` row for each active workspace. On the first request after release, the existing cookie is recognised as a legacy token: the server wraps the row into a session, and it appears in Recent. Nothing is lost, and nothing needs re-uploading or re-running.
+
+## 14. Samples
+
+Opening a sample from the chooser creates a temporary row seeded from the canonical sample draft, and it shows in Recent. The accounting inputs are copied from the frozen sample definition and are not changed. The Home page "Try the Sample" read-only preview keeps working. **Owner decision D4:** also make the Home button create a temporary analysis?
+
+## 15. Exact files (planned)
+
+- Migration: `guest_sessions`, `guest_workspaces.session_id`/`label_hint`/index, updated `arc_reserve_ai_allowance` (guest count by session; limits unchanged), maintenance cleanup, and the legacy backfill.
+- `persistence/guest.ts`, `guest.handlers.ts`, `guest.store.server.ts`, `guest.functions.ts`: session cookie, derived per-analysis hash, create/resume by id, list, partial cookie clear.
+- `ai/*` and `documents/*` callers: pass the derived per-analysis hash (the signature stays the same).
+- `routes/analysis/route.tsx` (`a` param, identity key, entry redirect), `routes/analysis/new.tsx`, `routes/recent.tsx`.
+- `AppHeader.tsx`, `AccountMenu.tsx`, `analysis-context.tsx` (resume by id, missing-item state), `GuestSavePanel.tsx` (after save → My Contracts).
+- New SQL suite `supabase/tests/phase3dt_sessions.sql`, plus unit and screen tests.
+
+## 16. Tests
+
+G1–G7, A1–A6, S1–S3, I1–I6, N1–N5 and Q1–Q3 exactly as in the brief. Additions:
+- two tabs on A and B autosaving without conflict;
+- a legacy cookie upgrading into a session;
+- a forged `?a=` from another session being refused;
+- an expired session refusing every row.
+
+## 17. Verification
+
+- Focused unit, routing and SQL suites (local harness).
+- Full `bun run verify`, then both GitHub jobs green.
+- Frozen-state check: `.env` has the two public values, `^2.15.0`, lock at 2.15.0 Europe West 4, Genomix SHA unchanged.
+
+## 18. Live acceptance
+
+The guest and signed-in flows from brief section 33, after publish approval. No AI run beyond what the owner chooses.
+
+## 19. Owner decisions needed before implementation
+
+- **D1:** approve a database migration and Option A (session grouping), including the change to how `arc_reserve_ai_allowance` **counts** guest runs (per session instead of per analysis; amounts unchanged).
+- **D2:** signed-in unsaved retention: keep 9 h (default), or set a longer period.
+- **D3:** on sign-in, attach this browser's temporary session to the user (proposed), or leave it guest-only.
+- **D4:** should Home "Try the Sample" also create a Recent entry, or stay a read-only preview?
+- **D5:** is a cap on temporary analyses per session wanted? None is proposed; the AI allowance is unaffected.
