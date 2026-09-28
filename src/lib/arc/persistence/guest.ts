@@ -175,3 +175,39 @@ export function suggestedContractTitle(fields: {
   if (number !== "" && customer !== "") return `${customer} — ${number}`;
   return number !== "" ? number : customer;
 }
+
+/* ------------------------------------------------ Package 3D-T — sessions */
+
+/**
+ * Request header that names which temporary analysis a server call targets.
+ * It is a resource target only, never a credential: the server re-derives the
+ * analysis credential from the HttpOnly session cookie and proves ownership.
+ */
+export const GUEST_ANALYSIS_HEADER = "x-arc-guest-analysis";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isAnalysisId(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+/**
+ * The per-analysis credential: HMAC-SHA256(session credential, analysis id),
+ * base64url. It is derived server-side on every request and never stored or
+ * sent anywhere; the row holds only its SHA-256 hash, like every credential.
+ */
+export async function deriveAnalysisToken(sessionToken: string, analysisId: string): Promise<string> {
+  const key = await globalThis.crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(sessionToken),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await globalThis.crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(`arc.guest.analysis.v1:${analysisId.toLowerCase()}`),
+  );
+  return base64Url(new Uint8Array(signature));
+}
