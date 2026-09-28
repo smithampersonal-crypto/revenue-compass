@@ -305,6 +305,43 @@ describe("AI workspace read boundary", () => {
       expect(b.allowance.remaining).toBe(0);
       expect(b.allowance.used).toBe(3);
     });
+
+    it("refund: a citation_anchor_failure leaves the shared count at the database value and says no allowance was used", async () => {
+      // Live case: A succeeded (1), B reached the provider but failed validation.
+      // The authoritative database count excludes the failed run -> used 1.
+      const deps = sessionFixture(1);
+      deps.store.findLatestRunForScope = async () =>
+        runRow({
+          stage: "response_invalid",
+          failureStage: "validating",
+          failureCategory: "response",
+          failureCode: "citation_anchor_failure",
+          allowanceConsumed: true,
+        });
+      const a = await aiWorkspaceStateHandler(deps, guestCaller);
+      const b = await aiWorkspaceStateHandler(deps, callerB);
+      expect(a.allowance.remaining).toBe(2);
+      expect(b.allowance.remaining).toBe(2);
+      expect(b.failure?.category).toBe("arc_validation");
+      expect(b.failure?.allowance).toContain("No AI allowance was used");
+    });
+
+    it("attempt ceiling: presented separately while the visible allowance stays intact", async () => {
+      const deps = sessionFixture(1);
+      deps.store.findLatestRunForScope = async () =>
+        runRow({
+          stage: "preflight_failed",
+          failureStage: "preflight_ready",
+          failureCategory: "preflight",
+          failureCode: "attempt_limit",
+          allowanceConsumed: false,
+          quotaScope: "guest",
+        });
+      const b = await aiWorkspaceStateHandler(deps, callerB);
+      expect(b.allowance.remaining).toBe(2);
+      expect(b.failure?.category).toBe("attempt_limited");
+      expect(b.failure?.whatHappened).toContain("temporary AI processing limit for this session");
+    });
   });
 
   it("has no side effects: no run, no allowance, no event, no acknowledgment", async () => {
