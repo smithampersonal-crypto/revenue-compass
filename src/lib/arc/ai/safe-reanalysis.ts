@@ -38,6 +38,7 @@ import {
 } from "./identity-facts";
 import { canonicalGroupDecompositionRules, resolveIdentityGraph } from "./identity-graph";
 import type { AiAnalysisState } from "./merge";
+import { exactCents } from "./adapter";
 import { parseBillingEventSemanticKey } from "./billing-identity";
 import { isEvidenceGatedSchemaVersion, type AiCitation, type AiContractAnalysis } from "./schema";
 
@@ -92,6 +93,25 @@ export interface SafeReanalysisInput {
 }
 
 /* ---------------------------------------------------------------- helpers */
+
+/**
+ * Package 3D-Q.1. Deterministic structural signature of an explicit invoice
+ * schedule: sorted distinct (ISO date, exact cents) pairs. Null when the term
+ * states no explicit invoices. An unparseable amount stays distinct verbatim,
+ * so it can never collide with a valid one.
+ */
+export function explicitScheduleSignature(
+  invoices: readonly { invoiceDateInput: string; amountInput: string | null }[] | undefined,
+): string | null {
+  if (invoices === undefined || invoices.length === 0) return null;
+  const entries = new Set(
+    invoices.map((entry) => {
+      const cents = entry.amountInput === null ? null : exactCents(entry.amountInput);
+      return `${entry.invoiceDateInput}|${cents === null ? `raw:${entry.amountInput ?? ""}` : cents.toString()}`;
+    }),
+  );
+  return [...entries].sort().join(";");
+}
 
 function spansOf(citations: readonly AiCitation[] | undefined): CitationSpan[] {
   return (citations ?? []).map((citation) => ({
@@ -516,6 +536,24 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
     });
     if (!billingStage.ok) {
       return { outcome: "decline", reason: billingStage.reason, objectKind: "billing_term" };
+    }
+
+    // Package 3D-Q.1: an incumbent explicit schedule is structural. Any change
+    // to its dated invoices (date, amount, added, removed) is declined, never
+    // silently re-derived. Citation prose and coverage text are not identity.
+    const proposedByKey = new Map(
+      input.analysis.billingTerms.map((term) => [term.semanticKey, term] as const),
+    );
+    for (const priorTerm of prior.billingTerms) {
+      if (!canonicalTermKeys.has(priorTerm.semanticKey)) continue;
+      const next = proposedByKey.get(priorTerm.semanticKey);
+      if (next === undefined) continue;
+      const before = explicitScheduleSignature(priorTerm.explicitInvoices);
+      const after = explicitScheduleSignature(next.explicitInvoices);
+      if (before === null && after === null) continue;
+      if (before !== after) {
+        return { outcome: "decline", reason: "unmatched", objectKind: "billing_term" };
+      }
     }
   }
 
