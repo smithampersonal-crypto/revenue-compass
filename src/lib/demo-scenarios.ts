@@ -441,3 +441,13 @@ export function createDemoDraft(id: DemoScenarioId): WorkflowDraft {
 export function createDemoDraftIfKnown(value: unknown): WorkflowDraft | null {
   return isDemoScenarioId(value) ? createDemoDraft(value) : null;
 }
+
+/**
+ * Recruiter v1 public display subset. Only these samples are offered on the
+ * New Analysis page; every scenario in DEMO_SCENARIOS remains a deterministic
+ * internal fixture.
+ */
+export const PUBLIC_SAMPLE_SCENARIO_IDS: readonly DemoScenarioId[] = ["horizon"];
+export const PUBLIC_SAMPLE_SCENARIOS: readonly DemoScenario[] = DEMO_SCENARIOS.filter((s) =>
+  PUBLIC_SAMPLE_SCENARIO_IDS.includes(s.id),
+);
