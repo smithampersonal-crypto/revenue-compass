@@ -11,9 +11,7 @@ import {
   type RecentSaveResult,
 } from "@/lib/arc/persistence/guest.functions";
 
-type RowNotice =
-  | { kind: "incomplete"; reason: string }
-  | { kind: "error"; reason: string };
+type RowNotice = { kind: "incomplete"; reason: string } | { kind: "error"; reason: string };
 
 type SavedNotice = { label: string; contractId: string; revisionId: string };
 
@@ -192,13 +190,8 @@ function RecentAnalysesPage() {
                   ) : null}
                 </div>
                 {notices[item.analysisId] ? (
-                  <p
-                    role="alert"
-                    className="text-sm text-destructive sm:basis-full"
-                  >
-                    {notices[item.analysisId]!.kind === "incomplete"
-                      ? "Not saved yet. "
-                      : ""}
+                  <p role="alert" className="text-sm text-destructive sm:basis-full">
+                    {notices[item.analysisId]!.kind === "incomplete" ? "Not saved yet. " : ""}
                     {notices[item.analysisId]!.reason}{" "}
                     {notices[item.analysisId]!.kind === "incomplete" ? (
                       <Link

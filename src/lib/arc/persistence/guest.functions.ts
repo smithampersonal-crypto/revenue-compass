@@ -277,15 +277,12 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
     const { token } = await analysisToken(data.analysisId);
-    const result = await migrateGuestWorkspaceHandler(
-      await migrationDeps(context.userId),
-      {
-        token,
-        contractTitle: data.contractTitle,
-        expectedLockVersion: data.expectedLockVersion,
-        existingCustomerId: data.existingCustomerId ?? null,
-      },
-    );
+    const result = await migrateGuestWorkspaceHandler(await migrationDeps(context.userId), {
+      token,
+      contractTitle: data.contractTitle,
+      expectedLockVersion: data.expectedLockVersion,
+      existingCustomerId: data.existingCustomerId ?? null,
+    });
 
     // Package 3D-T: the session cookie survives saving. It still authorizes the
     // session's other analyses and its remaining allowance until it expires.
