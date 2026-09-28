@@ -2047,7 +2047,7 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         return { ok: false, mode: "installment_v9", reason: "linked_obligation_date_missing" };
       }
       const schedule = deriveInstallmentSchedule({
-        billingTiming: term.billingTiming,
+        billingTiming: evidence.timing,
         frequency: term.frequency,
         totalInput: term.billingBasisTotalInput ?? null,
         installmentCount: term.installmentCount ?? null,

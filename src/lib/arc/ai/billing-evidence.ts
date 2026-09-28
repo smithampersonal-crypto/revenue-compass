@@ -544,12 +544,12 @@ export interface AiInstallmentTerm {
 
 /**
  * One sentence must state: an invoicing word, the exact total, the installment
- * count, "equal", the cadence, AND the timing / first-invoice trigger that
- * fixes the dates (advance or commencement; arrears for period-end billing).
+ * count, "equal", the cadence, AND at least one supported date-driving basis:
+ * the term's advance / arrears timing phrase, or a commencement trigger phrase.
  */
 export function aiInstallmentEligibility(
   term: AiInstallmentTerm,
-): { ok: true } | { ok: false; reason: InstallmentEvidenceRefusal } {
+): { ok: true; timing: "advance" | "arrears" } | { ok: false; reason: InstallmentEvidenceRefusal } {
   if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
     return { ok: false, reason: "amount_not_fixed_invoice" };
   }
@@ -586,16 +586,22 @@ export function aiInstallmentEligibility(
       continue;
     }
     sawInstallment = true;
-    const trigger = term.invoiceTriggerKind ?? "none";
-    if (trigger === "completion_of_linked_obligation") continue;
-    if (trigger === "commencement" && !COMMENCEMENT_PHRASE.test(sentence)) continue;
-    const timingOk =
-      term.billingTiming === "advance"
-        ? ADVANCE_PHRASE.test(sentence) || COMMENCEMENT_PHRASE.test(sentence)
-        : term.billingTiming === "arrears"
-          ? ARREARS_PHRASE.test(sentence)
-          : false;
-    if (timingOk) return { ok: true };
+    // ONE supported date-driving basis is enough: a stated advance / arrears
+    // timing, OR a stated commencement trigger. A populated model field that
+    // this same sentence does not support is never relied on, and a basis
+    // stated only in another sentence is corroborative, never required.
+    if (term.billingTiming === "advance" && ADVANCE_PHRASE.test(sentence)) {
+      return { ok: true, timing: "advance" };
+    }
+    if (term.billingTiming === "arrears" && ARREARS_PHRASE.test(sentence)) {
+      return { ok: true, timing: "arrears" };
+    }
+    if (
+      (term.invoiceTriggerKind ?? "none") === "commencement" &&
+      COMMENCEMENT_PHRASE.test(sentence)
+    ) {
+      return { ok: true, timing: "advance" };
+    }
   }
   if (!sawAmount)
     return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
