@@ -289,4 +289,6 @@ Fresh 3E evidence
 
 ## Package 3D-Q.1 — Explicit Billing Events
 - [x] Plan written (trace, root cause, design)
-- [ ] Implementation — waiting for owner approval of the plan (schema v8 / prompt v12 decision)
+- [x] Plan approved with corrections (per-invoice citations, same-stream-only dedup, no table path)
+- [ ] Implementation + local verification
+- [ ] Owner acceptance, then publish + one live Redwood run (owner-approved)

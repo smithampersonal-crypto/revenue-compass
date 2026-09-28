@@ -26,7 +26,7 @@ Each refusal raises a blocking `billing_schedule_not_derivable` review item, so 
 - **Q6 — Can ARC hold enumerated schedules?** No. A billing term expands by rule only (period ordinal 1..n from start + frequency). There is no way to represent six independently dated rows.
 
 ## 3. Design — add an explicit-invoice path (the recurring gate is not loosened)
-**Schema v8 (additive).** Each billing term gets `explicitInvoices`: an array of at most 24 items `{ invoiceDateInput: "YYYY-MM-DD", amountInput: decimal, coveragePeriodText: nullable short text }`, with an empty array allowed. Payment terms stay on the term (`paymentTermsDays`). Nothing else changes.
+**Schema v8 (additive).** Each billing term gets `explicitInvoices`: an array of at most 24 items `{ invoiceDateInput: "YYYY-MM-DD", amountInput: decimal, coveragePeriodText: nullable short text, citations: <existing ARC citation type> }`. Each invoice is verified only against its own citations, never the term's shared citation bag, with an empty array allowed. Payment terms stay on the term (`paymentTermsDays`). Nothing else changes.
 
 **Prompt v12 (smallest change).** Two instructions:
 1. When the contract states a dated invoice ("invoice $X on <date>"), list each one in `explicitInvoices` and cite the sentence or table row that states it.
@@ -43,7 +43,7 @@ The v11 amountKind, rate and Net 30 rules stay verbatim.
 - Nothing is composed across evidence units. A missing, mismatched or ambiguous date fails closed. No date is ever inferred.
 - The evidence unit is a sentence. Splitting uses the existing rule, except month abbreviations ("Jan.", "Mar.") no longer split a sentence. This change applies only to the new path; the 3D-Q path keeps its splitter byte-identical.
 
-**Table rows (Positive 4).** A citation qualifies as table evidence only if its excerpt contains the column-header words "Invoice Date" and "Amount", plus a row holding the date and matching amount. The header stands in for the invoicing word. If the citation layer cannot anchor such a row cleanly, table rows are not accepted. Redwood still passes without them, because every invoice also has its own narrative sentence.
+**Table rows.** Out of scope for 3D-Q.1. Narrative evidence only; the billing summary table is corroborative source text, not an eligibility path.
 
 **Derivation.** When a term has any explicit invoices:
 - All of them must pass the gate. If any fails, the whole term is refused with one blocking item; there are no partial schedules.
@@ -51,12 +51,11 @@ The v11 amountKind, rate and Net 30 rules stay verbatim.
 - Cadence, timing and service period are not consulted.
 - If `explicitInvoices` is empty, the existing rule path runs exactly as today.
 
-**Deduplication and precedence (deterministic).**
-- *Within one term:* explicit invoices outrank the rule, so four quarterly events are never added on top.
-- *Across terms:* suppose a gated rule term would derive a set of (date, amount) pairs.
-  - If an explicit term in the same analysis already covers every one of those pairs, the rule term is dropped. It gets a non-blocking note and no events.
-  - If the pairs only partly overlap, both terms are refused with a blocking "conflicting billing evidence" item.
-  - The same (date, amount) pair from two explicit terms is also refused as a conflict. Redwood's two separate $30,000/$24,000 items on Jan 1 are not duplicates, because their amounts differ.
+**Deduplication and precedence (within one billing-stream identity only).**
+- Scope is the existing billing-term semantic key / identity lineage. No global (date, amount) identity and no fuzzy matching.
+- If a term carries explicit invoices, they outrank its rule: the rule-derived schedule is suppressed only when the explicit invoices exactly cover the (date, amount) pairs the rule would derive. A partial overlap blocks as conflicting evidence. When the rule cannot be derived at all, the explicit invoices stand alone.
+- Exact duplicate explicit invoices within one term produce a single event.
+- Across different billing-term identities, the same date and amount are allowed and never conflict or suppress each other.
 
 **Collections.** Unchanged. The existing accepted projected-collection path records only the contractual due date (invoice date + Net 30) as a projection. No actual cash is ever recorded. Invoice date, unconditional-right date, due date and actual collection stay distinct.
 
@@ -82,7 +81,7 @@ The v11 amountKind, rate and Net 30 rules stay verbatim.
 - `roadmap.md` — 3D-Q.1 section
 
 ## 6. Tests
-- **Positive:** P1 implementation $24,000 on 2027-01-01. P2 training $6,000 on 2027-04-15 (date not from the service period). P3 four quarterly $30,000 events. P4 table row (if anchorable). P5 full Redwood merge: exactly six events totalling $150,000, the Contract Balances block cleared, and the revenue schedule deep-equal to the pre-patch result.
+- **Positive:** P1 implementation $24,000 on 2027-01-01. P2 training $6,000 on 2027-04-15 (date not from the service period). P3 four quarterly $30,000 events. P5 full Redwood merge: exactly six events totalling $150,000, the Contract Balances block cleared, and the revenue schedule deep-equal to the pre-patch result.
 - **Negative (all current 3D-Q regressions kept verbatim, plus):**
   - N1 "1.5% per month on overdue balances"
   - N2 "5% of usage"
@@ -94,7 +93,10 @@ The v11 amountKind, rate and Net 30 rules stay verbatim.
   - date in a different sentence from the amount
   - `inference` review state
   - non-fixed amountKind
-- **Precedence:** a quarterly rule term plus four explicit rows gives exactly 4 events, not 8. Partial overlap is refused. Duplicate explicit pairs are refused.
+- **Precedence and identity:**
+  - Within one term: rule + four explicit rows gives 4 events, not 8. Partial overlap blocks. An exact duplicate explicit invoice gives 1 event.
+  - Across streams: Implementation Jan 1 $10,000 and Training Jan 1 $10,000 give 2 events and no conflict. An explicit invoice on stream A does not suppress a rule invoice on stream B.
+  - Per-invoice provenance: a Q1 citation cannot satisfy Q2's invoice.
 - **Rule path intact:** monthly/quarterly/annual in advance and upon-signing fixtures unchanged. The Horizon and Genomix deterministic results are unchanged.
 - **Identity:** v7 legacy result gives zero new rows. Re-analysis from rule to explicit on an incumbent is blocked. Tombstoned explicit event stays deleted. Collections are only projected due dates.
 - Then full `bun run verify` and the frozen-state checks.
@@ -103,6 +105,4 @@ The v11 amountKind, rate and Net 30 rules stay verbatim.
 No AI run during implementation, and no publish until approved. A live check on Redwood needs one owner-approved guest run after publishing. No change to accounting engines, auth, RLS, database or UI. Frozen `.env`, `^2.15.0` / 2.15.0 and the Genomix hash stay as they are.
 
 ## 8. Owner decisions
-1. Approve **schema v8 + prompt v12**. This is required, because v7 cannot represent an invoice date.
-2. Accept table-row evidence only with the "Invoice Date" + "Amount" header rule, or leave table rows out of scope and rely on narrative sentences.
-3. Cross-term partial overlap: block (proposed), or prefer explicit and silently drop the rule term?
+Approved: schema v8, prompt v12, table-only evidence out of scope, same-stream-only precedence.
