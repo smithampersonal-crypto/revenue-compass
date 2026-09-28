@@ -11,14 +11,15 @@ import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } fro
 import { assessSafeReanalysis, explicitScheduleSignature } from "../safe-reanalysis";
 import type { AiContractAnalysis, AiExplicitInvoice } from "../schema";
 import { guidancePackFixture } from "./merge-fixtures";
-import { genomixR1Analysis, R1_RUN_ID } from "./r1-fixtures";
+import { genomixAnalysis } from "./genomix-fixtures";
+import { RUN_ID as R1_RUN_ID } from "./merge-fixtures";
 
 type Term = AiContractAnalysis["billingTerms"][number];
 const FINGERPRINT = "sha256:redwood-fixture";
 const NEXT_RUN = "run-00000000-0000-4000-8000-00000000q1r2";
 
 function cite(excerpt: string) {
-  const base = genomixR1Analysis().billingTerms[0]!.citations[0]!;
+  const base = genomixAnalysis().promises[0]!.citations[0]!;
   return { ...base, evidenceMode: "text" as const, excerpt };
 }
 
@@ -41,7 +42,7 @@ function inv(date: string, amount: string, suffix = ""): AiExplicitInvoice {
 }
 
 function analysisWith(invoices: AiExplicitInvoice[]): AiContractAnalysis {
-  const analysis = genomixR1Analysis();
+  const analysis = genomixAnalysis();
   analysis.transactionPrice.fixedConsiderationInput = "60000";
   analysis.billingTerms = [
     {
@@ -101,7 +102,6 @@ function assess(next: AiContractAnalysis) {
   });
   // The firewall is pure: the incumbent rows are exactly as they were.
   expect(JSON.stringify({ draft, aiState })).toBe(before);
-  console.log("DECISION", JSON.stringify(decision), events(draft));
   return { decision, draft, aiState };
 }
 
