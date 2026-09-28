@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { StartAnalysisButton } from "@/components/arc/StartAnalysisButton";
-import { DEMO_SCENARIOS } from "@/lib/demo-scenarios";
+import { PUBLIC_SAMPLE_SCENARIOS } from "@/lib/demo-scenarios";
 
 const TITLE = "New Analysis — Ayden's Revenue Compass";
 const DESCRIPTION =
@@ -67,7 +67,7 @@ function NewAnalysisPage() {
             Or open a sample contract
           </h2>
           <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {DEMO_SCENARIOS.map((scenario) => (
+            {PUBLIC_SAMPLE_SCENARIOS.map((scenario) => (
               <li
                 key={scenario.id}
                 className="flex flex-col rounded-md border border-border bg-card p-4"
