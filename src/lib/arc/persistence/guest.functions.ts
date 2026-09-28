@@ -14,15 +14,26 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { WorkflowDraft } from "@/lib/asc606-workflow";
 
-import { buildGuestCookie, clearGuestCookie, readGuestCookie } from "./guest";
+import { createDemoDraftIfKnown, getDemoScenario, isDemoScenarioId } from "@/lib/demo-scenarios";
+
+import { buildGuestCookie } from "./guest";
 import {
+  GUEST_ANALYSIS_UNAVAILABLE,
   migrateGuestWorkspaceHandler,
-  resumeOrCreateGuestHandler,
+  resumeGuestAnalysisHandler,
   saveGuestDraftHandler,
   type GuestMigrationResult,
   type GuestSaveResult,
   type GuestStore,
 } from "./guest.handlers";
+import {
+  createAnalysisHandler,
+  isNewAnalysisOrigin,
+  listRecentAnalysesHandler,
+  type RecentAnalysisDto,
+} from "./guest-session.handlers";
+
+export type { RecentAnalysisDto } from "./guest-session.handlers";
 
 export interface GuestWorkspaceDto {
   kind: "guest";
@@ -32,26 +43,6 @@ export interface GuestWorkspaceDto {
   expiresAt: string;
   schemaVersion: string;
   resumed: boolean;
-}
-
-/** True on https; local http development falls back to a non-`__Host-` name. */
-function isSecureRequest(url: string, forwardedProto: string | null): boolean {
-  if (forwardedProto) return forwardedProto.split(",")[0]!.trim() === "https";
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-async function requestCookieContext() {
-  const { getRequest } = await import("@tanstack/react-start/server");
-  const request = getRequest();
-  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
-  return {
-    secure,
-    token: readGuestCookie(request.headers.get("cookie"), secure),
-  };
 }
 
 async function setCookieHeader(value: string) {
@@ -68,39 +59,109 @@ async function guestStore(): Promise<GuestStore> {
   return createGuestStore();
 }
 
+/** Package 3D-T: the derived credential of the analysis this call names. */
+async function analysisToken(analysisId: string) {
+  const { resolveRequestAnalysisToken } = await import("./guest-request.server");
+  return resolveRequestAnalysisToken(analysisId);
+}
+
+const analysisIdSchema = z.string().uuid();
+
 /**
- * Opens the visitor's temporary workspace: resumes the one their credential
- * names when it is still valid, otherwise starts a fresh 9-hour workspace and
- * issues a new HttpOnly credential. The raw credential is never returned to
- * the browser as data.
+ * Opens one temporary analysis of the visitor's browser session. Never creates
+ * anything: a missing, expired, saved or foreign analysis is unavailable.
  */
-export const resumeGuestWorkspace = createServerFn({ method: "POST" }).handler(
-  async (): Promise<GuestWorkspaceDto> => {
-    const { secure, token } = await requestCookieContext();
-    const result = await resumeOrCreateGuestHandler(
+export const resumeGuestWorkspace = createServerFn({ method: "POST" })
+  .inputValidator((input: { analysisId: string }) => ({
+    analysisId: analysisIdSchema.safeParse(input?.analysisId).success
+      ? (input.analysisId as string)
+      : null,
+  }))
+  .handler(async ({ data }): Promise<GuestWorkspaceDto> => {
+    if (!data.analysisId) throw new Error(GUEST_ANALYSIS_UNAVAILABLE);
+    const { token } = await analysisToken(data.analysisId);
+    const workspace = await resumeGuestAnalysisHandler(
       { store: await guestStore(), now: () => new Date() },
       { token },
     );
-    if (result.issuedToken) await setCookieHeader(buildGuestCookie(result.issuedToken, secure));
+    if (!workspace) throw new Error(GUEST_ANALYSIS_UNAVAILABLE);
     return {
       kind: "guest",
-      draft: result.workspace.draft,
-      lockVersion: result.workspace.lockVersion,
-      expiresAt: result.workspace.expiresAt,
-      schemaVersion: result.workspace.schemaVersion,
-      resumed: result.resumed,
+      draft: workspace.draft,
+      lockVersion: workspace.lockVersion,
+      expiresAt: workspace.expiresAt,
+      schemaVersion: workspace.schemaVersion,
+      resumed: true,
     };
+  });
+
+/**
+ * Package 3D-T: creates exactly one new temporary analysis. POST only, and
+ * only ever called from an explicit button — never from a loader, prefetch or
+ * render. A live browser session (and its remaining allowance) is reused.
+ */
+export const createTemporaryAnalysis = createServerFn({ method: "POST" })
+  .inputValidator((input: { origin: string }) => {
+    const origin = input?.origin;
+    if (!isNewAnalysisOrigin(origin)) throw new Error("Unknown way to start an analysis.");
+    if (origin.startsWith("sample:") && !isDemoScenarioId(origin.slice("sample:".length))) {
+      throw new Error("Unknown sample.");
+    }
+    return { origin };
+  })
+  .handler(async ({ data }): Promise<{ analysisId: string }> => {
+    const { readGuestRequestContext } = await import("./guest-request.server");
+    const { createGuestSessionStore } = await import("./guest-session.store.server");
+    const context = await readGuestRequestContext();
+    const draft = data.origin.startsWith("sample:")
+      ? createDemoDraftIfKnown(data.origin.slice("sample:".length))
+      : null;
+    const result = await createAnalysisHandler(
+      { store: await createGuestSessionStore(), now: () => new Date() },
+      { sessionToken: context.sessionToken, origin: data.origin, draft },
+    );
+    if (result.issuedToken) await setCookieHeader(buildGuestCookie(result.issuedToken, context.secure));
+    return { analysisId: result.analysisId };
+  });
+
+/** Package 3D-T: the visitor's live temporary analyses, newest first. No cap. */
+export const listRecentAnalyses = createServerFn({ method: "POST" }).handler(
+  async (): Promise<RecentAnalysisDto[]> => {
+    const { readGuestRequestContext } = await import("./guest-request.server");
+    const { createGuestSessionStore } = await import("./guest-session.store.server");
+    const { normalizePersistedReviewPayload } = await import("@/lib/arc/ai/review-normalization");
+    const context = await readGuestRequestContext();
+    return listRecentAnalysesHandler(
+      {
+        store: await createGuestSessionStore(),
+        now: () => new Date(),
+        reviewNeeded: (raw) => {
+          if (raw === null || raw === undefined) return false;
+          const review = normalizePersistedReviewPayload(raw);
+          return (
+            review.malformed ||
+            review.items.some((item) => item.state === "yellow" || item.state === "red")
+          );
+        },
+        sampleLabel: (origin) => {
+          const id = origin.slice("sample:".length);
+          return isDemoScenarioId(id) ? getDemoScenario(id).customer : null;
+        },
+      },
+      { sessionToken: context.sessionToken },
+    );
   },
 );
 
 /** Optimistically locked autosave for the credential's temporary workspace. */
 export const saveGuestDraft = createServerFn({ method: "POST" })
-  .inputValidator((input: { expectedLockVersion: number; draft: WorkflowDraft }) => ({
+  .inputValidator((input: { analysisId: string; expectedLockVersion: number; draft: WorkflowDraft }) => ({
+    analysisId: analysisIdSchema.parse(input?.analysisId),
     expectedLockVersion: z.number().int().min(1).parse(input?.expectedLockVersion),
     draft: input.draft,
   }))
   .handler(async ({ data }): Promise<GuestSaveResult> => {
-    const { token } = await requestCookieContext();
+    const { token } = await analysisToken(data.analysisId);
     const store = await guestStore();
 
     return saveGuestDraftHandler(
@@ -166,16 +227,18 @@ export const saveGuestDraft = createServerFn({ method: "POST" })
  * workspace into a saved customer, contract, analysis and revision 1 in one
  * trusted transaction. Signing in alone never triggers this.
  *
- * The credential is retired only after the transaction succeeds.
+ * The browser-session cookie is never cleared by a save (Package 3D-T).
  */
 export const migrateGuestWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     (input: {
+      analysisId: string;
       contractTitle: string;
       expectedLockVersion: number;
       existingCustomerId?: string | null;
     }) => ({
+      analysisId: analysisIdSchema.parse(input?.analysisId),
       contractTitle: z
         .string()
         .max(300)
@@ -194,7 +257,7 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }): Promise<GuestMigrationResult> => {
-    const { secure, token } = await requestCookieContext();
+    const { token } = await analysisToken(data.analysisId);
     const result = await migrateGuestWorkspaceHandler(
       {
         store: await guestStore(),
@@ -213,6 +276,7 @@ export const migrateGuestWorkspace = createServerFn({ method: "POST" })
       },
     );
 
-    if (result.ok) await setCookieHeader(clearGuestCookie(secure));
+    // Package 3D-T: the session cookie survives saving. It still authorizes the
+    // session's other analyses and its remaining allowance until it expires.
     return result;
   });
