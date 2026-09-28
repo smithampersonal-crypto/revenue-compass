@@ -173,6 +173,19 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
               clears all entered data.
             </Notice>
           )}
+          {persistence.mode === "guest" && persistence.status.kind === "load-error" ? (
+            <Notice tone="warning">
+              This analysis isn&apos;t available.{" "}
+              <Link to="/analysis/new" className="underline">
+                Start a new analysis
+              </Link>{" "}
+              or{" "}
+              <Link to="/recent" className="underline">
+                open Recent Analyses
+              </Link>
+              .
+            </Notice>
+          ) : null}
           {unknownSample ? (
             <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
           ) : null}
