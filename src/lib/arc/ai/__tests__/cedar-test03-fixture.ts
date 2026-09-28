@@ -14,11 +14,11 @@ type Term = AiContractAnalysis["billingTerms"][number];
 export const CEDAR_SUBSCRIPTION_SENTENCE =
   "The $120,000 hosted subscription fee will be invoiced in four equal quarterly installments in advance.";
 export const CEDAR_COMMENCEMENT_SENTENCE =
-  "The first quarterly installment is invoiced upon commencement of the subscription on January 1, 2027.";
+  "The first quarterly installment is invoiced upon commencement of the hosted subscription, and each remaining quarterly installment is invoiced at the start of each successive three-month service period.";
 export const CEDAR_TRAINING_SENTENCE =
   "The $6,000 training fee will be invoiced once, in full, upon completion of the training services.";
 export const CEDAR_IMPLEMENTATION_SENTENCE =
-  "Cedar will invoice $24,000 on January 1, 2027 for implementation services.";
+  "The fixed implementation fee is $24,000 and will be invoiced once, in full, in advance upon commencement of this Agreement.";
 
 const NEW_FIELDS = {
   targetPerformanceObligationKey: null,
@@ -136,17 +136,10 @@ export function cedarTest03Analysis(): AiContractAnalysis {
     description: "Implementation fee invoice.",
     billingTiming: "advance",
     frequency: "one_time",
-    invoiceTrigger: "Stated invoice date.",
-    amountOrRateInput: null,
+    invoiceTrigger: "Once, in full, in advance upon commencement of the Agreement.",
+    amountOrRateInput: "24000",
     citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
-    explicitInvoices: [
-      {
-        invoiceDateInput: "2027-01-01",
-        amountInput: "24000",
-        coveragePeriodText: null,
-        citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
-      },
-    ],
+    explicitInvoices: [],
   } as Term;
   const subscription: Term = {
     ...common,
