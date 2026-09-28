@@ -59,7 +59,11 @@ describe("3D-Q.2 — linked-obligation dates are structural for v9 billing", () 
     const next = cedarTest03Analysis();
     proposal(next, "po:training").recognitionDateIfContractuallyDeterminable = "2027-04-20";
     const { decision, draft } = assess(next);
-    expect(decision).toEqual({ outcome: "decline", reason: "unmatched", objectKind: "billing_term" });
+    expect(decision).toEqual({
+      outcome: "decline",
+      reason: "unmatched",
+      objectKind: "billing_term",
+    });
     expect(eventDates(draft)).toContain("2027-04-15");
     expect(eventDates(draft)).not.toContain("2027-04-20");
   });
