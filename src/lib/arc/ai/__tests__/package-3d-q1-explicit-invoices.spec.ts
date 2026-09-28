@@ -15,13 +15,14 @@ import {
   parseAiContractAnalysis,
   parsePersistedAiContractAnalysis,
   type AiContractAnalysis,
+  type AiExplicitInvoice,
 } from "../schema";
 import { AI_PROMPT_VERSION } from "../prompt";
 import { guidancePackFixture } from "./merge-fixtures";
 import { genomixR1Analysis, R1_RUN_ID } from "./r1-fixtures";
 
 type Term = AiContractAnalysis["billingTerms"][number];
-type Invoice = Term["explicitInvoices"][number];
+type Invoice = AiExplicitInvoice;
 
 function textCite(excerpt: string) {
   const base = genomixR1Analysis().billingTerms[0]!.citations[0]!;
@@ -111,7 +112,7 @@ describe("versions", () => {
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {
-      expect(parsed.analysis.billingTerms.every((t) => t.explicitInvoices.length === 0)).toBe(true);
+      expect(parsed.analysis.billingTerms.every((t) => (t.explicitInvoices ?? []).length === 0)).toBe(true);
     }
   });
 });
@@ -226,7 +227,7 @@ describe("merge — Redwood explicit invoices", () => {
   it("creates nothing for a term whose one invoice fails, and blocks", () => {
     const analysis = redwood();
     const sub = analysis.billingTerms[1]!;
-    sub.explicitInvoices[3] = invoice("2027-10-01", "30000", Q[2][1]);
+    sub.explicitInvoices![3] = invoice("2027-10-01", "30000", Q[2][1]);
     const { draft, issues } = run(analysis);
     expect(events(draft).filter((e) => e.endsWith("|30000"))).toHaveLength(0);
     expect(
