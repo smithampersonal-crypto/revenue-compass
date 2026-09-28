@@ -28,7 +28,7 @@ function textCite(excerpt: string) {
   return { ...base, evidenceMode: "text" as const, excerpt };
 }
 
-function invoice(date: string, amount: string, excerpt: string): Invoice {
+export function invoice(date: string, amount: string, excerpt: string): Invoice {
   return {
     invoiceDateInput: date,
     amountInput: amount,
@@ -61,7 +61,7 @@ function explicitTerm(key: string, description: string, invoices: Invoice[]): Te
   } as Term;
 }
 
-function redwood(): AiContractAnalysis {
+export function redwood(): AiContractAnalysis {
   const analysis = genomixR1Analysis();
   analysis.transactionPrice.fixedConsiderationInput = "150000";
   analysis.billingTerms = [
@@ -80,7 +80,7 @@ function redwood(): AiContractAnalysis {
   return analysis;
 }
 
-function run(analysis: AiContractAnalysis, draft?: WorkflowDraft, state?: AiAnalysisState) {
+export function run(analysis: AiContractAnalysis, draft?: WorkflowDraft, state?: AiAnalysisState) {
   return mergeAiAnalysis({
     currentDraft: draft ?? createEmptyDraft(),
     currentAiState: state ?? createEmptyAiAnalysisState(),
