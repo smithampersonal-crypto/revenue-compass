@@ -306,3 +306,7 @@ Fresh 3E evidence
 - [x] UI: /analysis/new chooser, /recent, header, entry points, missing-item state
 - [x] Tests (full matrix) + full verify + frozen state + ZIP (no publish, no AI run)
 - [ ] 3D-T owner acceptance review (not published; no AI run)
+
+## 3D-T allowance refund
+- [ ] Migration: visible usage = succeeded + active; monthly refund on failure; attempt caps 6 guest / 20 auth
+- [ ] App: attempt_limit messages; SQL suite + vitest; verify; restore frozen state
