@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 
 import { DiscardDraftRevisionAction } from "@/components/arc/AmendmentDraftActions";
+import { StartAnalysisButton } from "@/components/arc/StartAnalysisButton";
 import { CreateRevisionAction } from "@/components/arc/CreateRevisionAction";
 import { DeleteDraftContractAction } from "@/components/arc/DeleteDraftContractAction";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";

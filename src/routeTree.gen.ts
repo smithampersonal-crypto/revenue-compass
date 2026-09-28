@@ -15,6 +15,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AnalysisRouteRouteImport } from './routes/analysis/route'
 import { Route as EngineCheckRouteImport } from './routes/engine-check'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RecentRouteImport } from './routes/recent'
 import { Route as SitemapRouteImport } from './routes/sitemap'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
@@ -24,6 +25,7 @@ import { Route as AnalysisDocumentsRouteImport } from './routes/analysis/documen
 import { Route as AnalysisJournalsRouteImport } from './routes/analysis/journals'
 import { Route as AnalysisReviewRouteImport } from './routes/analysis/review'
 import { Route as AnalysisScheduleRouteImport } from './routes/analysis/schedule'
+import { Route as AnalysisNewRouteImport } from './routes/analysis_.new'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as ApiPublicMaintenanceRouteImport } from './routes/api/public/maintenance'
@@ -55,6 +57,11 @@ const EngineCheckRoute = EngineCheckRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecentRoute = RecentRouteImport.update({
+  id: '/recent',
+  path: '/recent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapRoute = SitemapRouteImport.update({
@@ -102,6 +109,11 @@ const AnalysisScheduleRoute = AnalysisScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => AnalysisRouteRoute,
 } as any)
+const AnalysisNewRoute = AnalysisNewRouteImport.update({
+  id: '/analysis_/new',
+  path: '/analysis/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
@@ -124,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
+  '/recent': typeof RecentRoute
   '/sitemap': typeof SitemapRoute
   '/account': typeof AuthenticatedAccountRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
@@ -132,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -142,6 +156,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
+  '/recent': typeof RecentRoute
   '/sitemap': typeof SitemapRoute
   '/account': typeof AuthenticatedAccountRoute
   '/workspace': typeof AuthenticatedWorkspaceRoute
@@ -150,6 +165,7 @@ export interface FileRoutesByTo {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis': typeof AnalysisIndexRoute
   '/auth': typeof AuthIndexRoute
@@ -163,6 +179,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/engine-check': typeof EngineCheckRoute
   '/privacy': typeof PrivacyRoute
+  '/recent': typeof RecentRoute
   '/sitemap': typeof SitemapRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
@@ -171,6 +188,7 @@ export interface FileRoutesById {
   '/analysis/journals': typeof AnalysisJournalsRoute
   '/analysis/review': typeof AnalysisReviewRoute
   '/analysis/schedule': typeof AnalysisScheduleRoute
+  '/analysis_/new': typeof AnalysisNewRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/analysis/': typeof AnalysisIndexRoute
   '/auth/': typeof AuthIndexRoute
@@ -184,6 +202,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/engine-check'
     | '/privacy'
+    | '/recent'
     | '/sitemap'
     | '/account'
     | '/workspace'
@@ -192,6 +211,7 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/analysis/new'
     | '/auth/callback'
     | '/analysis/'
     | '/auth/'
@@ -202,6 +222,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/engine-check'
     | '/privacy'
+    | '/recent'
     | '/sitemap'
     | '/account'
     | '/workspace'
@@ -210,6 +231,7 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/analysis/new'
     | '/auth/callback'
     | '/analysis'
     | '/auth'
@@ -222,6 +244,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/engine-check'
     | '/privacy'
+    | '/recent'
     | '/sitemap'
     | '/_authenticated/account'
     | '/_authenticated/workspace'
@@ -230,6 +253,7 @@ export interface FileRouteTypes {
     | '/analysis/journals'
     | '/analysis/review'
     | '/analysis/schedule'
+    | '/analysis_/new'
     | '/auth/callback'
     | '/analysis/'
     | '/auth/'
@@ -243,7 +267,9 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   EngineCheckRoute: typeof EngineCheckRoute
   PrivacyRoute: typeof PrivacyRoute
+  RecentRoute: typeof RecentRoute
   SitemapRoute: typeof SitemapRoute
+  AnalysisNewRoute: typeof AnalysisNewRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthIndexRoute: typeof AuthIndexRoute
   ApiPublicMaintenanceRoute: typeof ApiPublicMaintenanceRoute
@@ -291,6 +317,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recent': {
+      id: '/recent'
+      path: '/recent'
+      fullPath: '/recent'
+      preLoaderRoute: typeof RecentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap': {
@@ -355,6 +388,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/analysis/schedule'
       preLoaderRoute: typeof AnalysisScheduleRouteImport
       parentRoute: typeof AnalysisRouteRoute
+    }
+    '/analysis_/new': {
+      id: '/analysis_/new'
+      path: '/analysis/new'
+      fullPath: '/analysis/new'
+      preLoaderRoute: typeof AnalysisNewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/': {
       id: '/auth/'
@@ -422,7 +462,9 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   EngineCheckRoute: EngineCheckRoute,
   PrivacyRoute: PrivacyRoute,
+  RecentRoute: RecentRoute,
   SitemapRoute: SitemapRoute,
+  AnalysisNewRoute: AnalysisNewRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthIndexRoute: AuthIndexRoute,
   ApiPublicMaintenanceRoute: ApiPublicMaintenanceRoute,
