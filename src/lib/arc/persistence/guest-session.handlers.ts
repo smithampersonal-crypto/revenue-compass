@@ -254,7 +254,12 @@ export async function listRecentAnalysesHandler(
       return {
         analysisId: row.id,
         label: customerNameOf(row.draft_json) || "Untitled analysis",
-        source: row.firstSourceName ?? (sample ? `Sample — ${sample}` : "No source document"),
+        // Exact-origin rule: the Horizon sample keeps its sample label even
+        // though it now carries the canonical Horizon source document.
+        source:
+          row.origin === "sample:horizon" && sample
+            ? `Sample — ${sample}`
+            : (row.firstSourceName ?? (sample ? `Sample — ${sample}` : "No source document")),
         status: recentAnalysisStatus({
           origin: row.origin,
           hasSource: row.firstSourceName !== null,
