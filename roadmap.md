@@ -298,3 +298,10 @@ Fresh 3E evidence
 - [ ] Step 3: remove billing override; blocking source_conflict when a complete billing total disagrees
 - [ ] Schema v9 / prompt v13; installment + trigger evidence checks; deterministic derivation; merge + Safe Re-analysis
 - [ ] Tests + full verify + frozen state + ZIP (no publish, no AI run)
+
+## Package 3D-T — New Analysis & Recent Analyses
+- [x] Plan approved (Option A guest_sessions; derived per-analysis credentials; lazy legacy upgrade; session-level guest quota; cookie survives save; explicit creation; safe Continue return)
+- [ ] Migration (guest_sessions, session links, ai_runs.guest_session_id, quota count, cleanup, purge, legacy backfill)
+- [ ] Server: session/derived-credential resolution across guest, document and AI callers; create/list/resume
+- [ ] UI: /analysis/new chooser, /recent, header, entry points, missing-item state
+- [ ] Tests (full matrix) + full verify + frozen state + ZIP (no publish, no AI run)
