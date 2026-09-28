@@ -22,6 +22,10 @@ import { loadContractAnalysis, saveDraftRevision } from "@/lib/arc/persistence/r
 import type { LoadedRevisionDto } from "@/lib/arc/persistence/revisions.functions";
 import { resumeGuestWorkspace, saveGuestDraft } from "@/lib/arc/persistence/guest.functions";
 import type { GuestWorkspaceDto } from "@/lib/arc/persistence/guest.functions";
+import {
+  clearActiveGuestAnalysisId,
+  setActiveGuestAnalysisId,
+} from "@/lib/arc/persistence/active-guest-analysis";
 import type { DemoScenario } from "@/lib/demo-scenarios";
 import { serializeDraft } from "@/lib/arc/persistence/schema";
 import type { SaveStatus } from "@/lib/arc/persistence/save-status";
@@ -214,6 +218,7 @@ export function AnalysisProvider({
   contractId,
   revisionId,
   guest = false,
+  guestAnalysisId,
   children,
 }: {
   sample: string | undefined;
@@ -221,6 +226,8 @@ export function AnalysisProvider({
   revisionId?: string | undefined;
   /** Bare /analysis in the running app: back the analysis with a guest workspace. */
   guest?: boolean;
+  /** Package 3D-T: the temporary analysis named by `?a=`. */
+  guestAnalysisId?: string | undefined;
   children: ReactNode;
 }) {
   // Samples are always ephemeral fixtures and are never autosaved, so a sample
@@ -234,6 +241,19 @@ export function AnalysisProvider({
         ? "guest"
         : "memory";
   const persistenceEnabled = mode === "contract" || mode === "guest";
+
+  // Package 3D-T: server calls made from inside this temporary analysis name
+  // it in a request header (a resource target only; the server re-derives the
+  // credential from the session cookie). Assigned during render so the very
+  // first request already carries it; cleared when this analysis unmounts.
+  if (mode === "guest" && typeof window !== "undefined") {
+    setActiveGuestAnalysisId(guestAnalysisId ?? null);
+  }
+  useEffect(() => {
+    if (mode !== "guest") return;
+    setActiveGuestAnalysisId(guestAnalysisId ?? null);
+    return () => clearActiveGuestAnalysisId(guestAnalysisId ?? null);
+  }, [mode, guestAnalysisId]);
 
   // Initial state only: later user edits are never overwritten by a rerender,
   // and navigating between parent areas never remounts this provider.
@@ -254,8 +274,8 @@ export function AnalysisProvider({
   const queryClient = useQueryClient();
 
   const queryKey = useMemo(
-    () => ["arc-analysis-revision", mode, contractId ?? null, revisionId ?? null] as const,
-    [mode, contractId, revisionId],
+    () => ["arc-analysis-revision", mode, contractId ?? null, revisionId ?? null, guestAnalysisId ?? null] as const,
+    [mode, contractId, revisionId, guestAnalysisId],
   );
 
   /**
@@ -276,7 +296,7 @@ export function AnalysisProvider({
     refetchOnWindowFocus: false,
     queryFn: (): Promise<LoadedRevisionDto | GuestWorkspaceDto> =>
       mode === "guest"
-        ? resumeGuest({ data: undefined as never })
+        ? resumeGuest({ data: { analysisId: guestAnalysisId ?? "" } })
         : loadRevision({
             data: { contractId: contractId!, ...(revisionId ? { revisionId } : {}) },
           }),
@@ -438,7 +458,11 @@ export function AnalysisProvider({
           outcome =
             target.kind === "guest"
               ? await saveGuest({
-                  data: { expectedLockVersion: lockVersionRef.current, draft: payload },
+                  data: {
+                    analysisId: guestAnalysisId ?? "",
+                    expectedLockVersion: lockVersionRef.current,
+                    draft: payload,
+                  },
                 })
               : await saveRevision({
                   data: {
