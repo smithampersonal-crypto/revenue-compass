@@ -101,6 +101,7 @@ function assess(next: AiContractAnalysis) {
   });
   // The firewall is pure: the incumbent rows are exactly as they were.
   expect(JSON.stringify({ draft, aiState })).toBe(before);
+  console.log("DECISION", JSON.stringify(decision), events(draft));
   return { decision, draft, aiState };
 }
 
