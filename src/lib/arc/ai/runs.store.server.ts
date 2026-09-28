@@ -435,6 +435,7 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
         reserved: Boolean(row["reserved"]),
         alreadyReserved: Boolean(row["already_reserved"]),
         remainingAllowance: Number(row["remaining_allowance"] ?? 0),
+        attemptLimited: Boolean(row["attempt_limited"]),
       };
     },
 

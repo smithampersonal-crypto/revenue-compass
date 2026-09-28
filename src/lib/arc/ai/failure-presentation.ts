@@ -25,7 +25,9 @@ export type AiFailurePresentationCategory =
   /** Not a failure: ARC deliberately declined to apply a structurally unsafe result. */
   | "structurally_declined"
   /** Not a failure of the system: an expected availability condition. */
-  | "allowance_exhausted";
+  | "allowance_exhausted"
+  /** Not the visible allowance: ARC's separate technical provider-attempt ceiling. */
+  | "attempt_limited";
 
 export interface AiFailurePresentation {
   category: AiFailurePresentationCategory;
@@ -46,6 +48,8 @@ export interface AiFailureFacts {
   hadPriorSuccessfulAnalysis: boolean;
   /** Authoritative: the provider-start boundary was crossed for this run. */
   allowanceConsumed: boolean;
+  /** Persisted run quota scope; selects session vs month wording for the attempt ceiling. */
+  quotaScope?: "guest" | "authenticated" | null;
 }
 
 export const AI_FAILURE_HEADLINE_FIRST_RUN = "AI analysis failed · Existing analysis unchanged";
@@ -53,9 +57,13 @@ export const AI_FAILURE_HEADLINE_REANALYSIS = "Re-analysis failed · Previous an
 export const AI_REANALYSIS_DECLINED_HEADLINE =
   "Re-analysis not applied · Previous analysis preserved";
 export const AI_ALLOWANCE_HEADLINE = "AI analysis not run · No analyses remaining";
+export const AI_ATTEMPT_LIMIT_HEADLINE = "AI analysis not run · Temporary processing limit reached";
+export const AI_ATTEMPT_LIMIT_GUEST =
+  "ARC has reached the temporary AI processing limit for this session. Your remaining analysis allowance has not been reduced. Please try again later.";
+export const AI_ATTEMPT_LIMIT_AUTHENTICATED =
+  "ARC has reached the temporary AI processing limit for this month. Your remaining analysis allowance has not been reduced.";
 
 const ALLOWANCE_NOT_USED = "No AI allowance was used.";
-const ALLOWANCE_USED = "This attempt used one AI analysis from your allowance.";
 
 const IMPACT_FIRST_RUN = "Your existing analysis was not changed.";
 const IMPACT_REANALYSIS = "Your previous AI analysis and your current workspace were preserved.";
@@ -75,6 +83,7 @@ const CATEGORY_BY_CODE: Readonly<Record<string, Record<string, AiFailurePresenta
     sources_changed: "workspace_conflict",
     reanalysis_source_changed: "structurally_declined",
     allowance_exhausted: "allowance_exhausted",
+    attempt_limit: "attempt_limited",
   },
   api: {
     authentication_or_configuration: "ai_service",
@@ -143,6 +152,10 @@ const COPY: Readonly<Record<AiFailurePresentationCategory, CategoryCopy>> = {
     whatYouCanDo:
       "ARC still works fully without AI. You can keep working manually and run an AI analysis once your allowance resets.",
   },
+  attempt_limited: {
+    whatHappened: AI_ATTEMPT_LIMIT_GUEST,
+    whatYouCanDo: "ARC still works fully without AI. You can keep working manually in the meantime.",
+  },
 };
 
 function categoryFor(facts: AiFailureFacts): AiFailurePresentationCategory {
@@ -166,19 +179,22 @@ export function presentAiFailure(facts: AiFailureFacts): AiFailurePresentation {
     headline:
       category === "allowance_exhausted"
         ? AI_ALLOWANCE_HEADLINE
+        : category === "attempt_limited"
+          ? AI_ATTEMPT_LIMIT_HEADLINE
         : category === "structurally_declined"
           ? AI_REANALYSIS_DECLINED_HEADLINE
           : facts.hadPriorSuccessfulAnalysis
             ? AI_FAILURE_HEADLINE_REANALYSIS
             : AI_FAILURE_HEADLINE_FIRST_RUN,
-    whatHappened: copy.whatHappened,
+    whatHappened:
+      category === "attempt_limited" && facts.quotaScope === "authenticated"
+        ? AI_ATTEMPT_LIMIT_AUTHENTICATED
+        : copy.whatHappened,
     impact: copy.extraImpact ? `${impactBase} ${copy.extraImpact}` : impactBase,
     whatYouCanDo: copy.whatYouCanDo,
-    // Truthful by construction: taken from the provider-start boundary, never
-    // inferred from the failure category.
-    allowance:
-      category === "allowance_exhausted" || !facts.allowanceConsumed
-        ? ALLOWANCE_NOT_USED
-        : ALLOWANCE_USED,
+    // Package 3D-T allowance refund: the visible allowance counts only
+    // delivered analyses, so a failed run never uses it — even one that
+    // reached the provider (it counts only toward the technical ceiling).
+    allowance: ALLOWANCE_NOT_USED,
   };
 }
