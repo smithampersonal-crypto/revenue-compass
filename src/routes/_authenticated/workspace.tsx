@@ -185,18 +185,16 @@ export function WorkspacePage() {
               grants access to anything, and with none chosen the hint is
               omitted so the save panel defaults to creating a customer. */}
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Link
-              to="/analysis"
-              search={{
-                upload: "1",
-                ...(customers.length > 0
-                  ? { customer: contractCustomerId || (customers[0]?.id ?? "") }
-                  : {}),
-              }}
-              className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+            <StartAnalysisButton
+              origin="upload"
+              destination="upload"
+              variant="outline"
+              customer={
+                customers.length > 0 ? contractCustomerId || (customers[0]?.id ?? "") : undefined
+              }
             >
               Upload Contract PDF
-            </Link>
+            </StartAnalysisButton>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
             ARC keeps an uploaded PDF with the analysis so you can read it alongside your work. It
@@ -308,10 +306,10 @@ export function WorkspacePage() {
             </ul>
           )}
           <Link
-            to="/analysis"
+            to="/recent"
             className="mt-6 inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-medium text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Open analysis workspace
+            Recent Analyses
           </Link>
         </section>
       </main>

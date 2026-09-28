@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { CalculatorIcon, GavelIcon, ReviewIcon } from "@/components/arc/icons";
+import { StartAnalysisButton } from "@/components/arc/StartAnalysisButton";
 import { Button } from "@/components/ui/button";
 const TITLE = "ASC 606 Analysis Platform — Ayden's Revenue Compass";
 const DESCRIPTION =
@@ -89,11 +90,11 @@ function Index() {
               Upload a contract PDF. AI interprets the contract and sends the structured analysis to
               ARC’s deterministic accounting engines.
             </p>
-            <Button asChild variant="outline" className="mt-5 w-fit">
-              <Link to="/analysis" search={{ upload: "1" }}>
+            <div className="mt-5">
+              <StartAnalysisButton origin="upload" destination="upload" variant="outline" className="w-fit">
                 Upload PDF
-              </Link>
-            </Button>
+              </StartAnalysisButton>
+            </div>
           </article>
 
           <article className="flex h-full flex-col border-t-2 border-border bg-card p-5 sm:p-6">
@@ -103,9 +104,11 @@ function Index() {
             <p className="mt-2 flex-1 text-sm leading-6 text-muted-foreground">
               Enter contract facts and accounting judgments directly in the ARC workspace.
             </p>
-            <Button asChild variant="outline" className="mt-5 w-fit">
-              <Link to="/analysis">Start Manually</Link>
-            </Button>
+            <div className="mt-5">
+              <StartAnalysisButton origin="blank" variant="outline" className="w-fit">
+                Start Manually
+              </StartAnalysisButton>
+            </div>
           </article>
         </section>
 
