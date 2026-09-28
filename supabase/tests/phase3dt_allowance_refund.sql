@@ -108,7 +108,9 @@ begin
   /* Concurrency: in-flight counts; limit cannot be exceeded */
   select * into r from pg_temp.arc_rf_reserve(v_b, b_hash); v_active := r.run_id;
   insert into arc_test_results values ('23 third reservation allowed, 0 left', r.reserved and r.remaining = 0);
-  select * into r from pg_temp.arc_rf_reserve(v_b, b_hash);
+  insert into public.guest_workspaces (token_hash, draft_json, schema_version, expires_at, session_id, credential_kind, origin)
+  values (repeat('e', 64), draft, 'arc.workflow.v1', now() + interval '9 hours', v_session, 'derived', 'blank') returning id into v_c;
+  select * into r from pg_temp.arc_rf_reserve(v_c, repeat('e', 64));
   insert into arc_test_results values
     ('24 fourth refused while third in flight', not r.reserved and not r.attempt_limited);
   perform public.arc_mark_ai_run_failure(v_active, 'analyzing', 'api', 'api_failure', 'x');
