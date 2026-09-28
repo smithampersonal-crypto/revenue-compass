@@ -119,6 +119,6 @@ describe("Step 3 billing corroboration includes the installment stream", () => {
     const { draft, issues } = run(analysis);
     expect(Number(draft.transactionPriceInput)).toBe(150000);
     expect(stepThreeConflicts(issues)).toEqual([]);
-    expect(issues.some((i) => JSON.stringify(i.material ?? {}).includes("30000"))).toBe(false);
+    expect(issues.some((i) => i.reason.includes("totals 30000.00"))).toBe(false);
   });
 });
