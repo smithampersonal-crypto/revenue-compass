@@ -2094,9 +2094,22 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // filtering, so a schedule built from one surviving term can never pose as
   // the whole contract. A complete schedule that disagrees raises a blocking
   // conflict; neither figure is silently replaced.
-  const fixedTypedTerms = analysis.billingTerms.filter(
-    (term) => (term.amountKind ?? "unknown") === "fixed_invoice_amount",
-  );
+  // Candidate streams: every fixed_invoice_amount term, plus every
+  // pricing_basis_only term carrying the complete v9 equal-installment
+  // structure (fixed total, count, equal, recurring cadence). Ordinary
+  // pricing-basis terms without that structure never count.
+  const fixedTypedTerms = analysis.billingTerms.filter((term) => {
+    const kind = term.amountKind ?? "unknown";
+    if (kind === "fixed_invoice_amount") return true;
+    return (
+      kind === "pricing_basis_only" &&
+      (term.billingBasisTotalInput ?? null) !== null &&
+      term.installmentCount != null &&
+      term.equalInstallments === true &&
+      term.frequency !== "one_time" &&
+      term.frequency !== "unknown"
+    );
+  });
   const contractPeriodForTotal = deriveContractServicePeriod(draft);
   const termTotals = fixedTypedTerms.map((term) => {
     const invoices = term.explicitInvoices ?? [];

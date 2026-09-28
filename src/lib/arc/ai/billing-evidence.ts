@@ -550,7 +550,12 @@ export interface AiInstallmentTerm {
 export function aiInstallmentEligibility(
   term: AiInstallmentTerm,
 ): { ok: true; timing: "advance" | "arrears" } | { ok: false; reason: InstallmentEvidenceRefusal } {
-  if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
+  // 3D-Q.2 live patch: the installment total is a fixed BILLING BASIS that ARC
+  // divides itself, so pricing_basis_only is the natural classification;
+  // fixed_invoice_amount stays accepted for compatibility. Rate, percentage,
+  // formula and unknown kinds still fail closed.
+  const kind = term.amountKind ?? "unknown";
+  if (kind !== "fixed_invoice_amount" && kind !== "pricing_basis_only") {
     return { ok: false, reason: "amount_not_fixed_invoice" };
   }
   if (!AI_FIXED_SCHEDULE_REVIEW_STATES.includes(term.reviewState)) {
