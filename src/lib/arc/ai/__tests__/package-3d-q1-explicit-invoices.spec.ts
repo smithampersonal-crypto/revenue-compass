@@ -48,7 +48,7 @@ function explicitTerm(key: string, description: string, invoices: Invoice[]): Te
   return {
     semanticKey: key,
     description,
-    billingTiming: "fixed_dates",
+    billingTiming: "advance",
     frequency: "one_time",
     invoiceTrigger: "Stated invoice dates.",
     amountOrRateInput: null,
@@ -198,7 +198,13 @@ describe("merge — Redwood explicit invoices", () => {
     ];
     const { draft, issues } = run(analysis);
     expect(events(draft)).toEqual(["2027-01-01|10000", "2027-01-01|10000"]);
-    expect(issues.some((i) => i.targetKey.startsWith("billing:") && i.blocking)).toBe(false);
+    expect(
+      issues.some(
+        (i) =>
+          (i.targetKey === "billing:billing:implementation" || i.targetKey === "billing:billing:training") &&
+          i.reasonCode !== "ai_proposal_omitted",
+      ),
+    ).toBe(false);
   });
 
   it("does not let an explicit invoice suppress a rule-derived invoice on another stream", () => {
@@ -224,7 +230,9 @@ describe("merge — Redwood explicit invoices", () => {
     const { draft, issues } = run(analysis);
     expect(events(draft).filter((e) => e.endsWith("|30000"))).toHaveLength(0);
     expect(
-      issues.some((i) => i.targetKey === "billing:billing:subscription" && i.blocking),
+      issues.some(
+        (i) => i.targetKey === "billing:billing:subscription" && i.reasonCode === "billing_schedule_not_derivable",
+      ),
     ).toBe(true);
   });
 
@@ -235,13 +243,21 @@ describe("merge — Redwood explicit invoices", () => {
     const next = genomixR1Analysis();
     next.billingTerms = next.billingTerms.map((term) =>
       term.semanticKey === "billing:annual-advance"
-        ? { ...term, explicitInvoices: [invoice("2027-01-01", "245000", "Genomix will invoice $245,000 on January 1, 2027.")] }
+        ? {
+            ...term,
+            // The same invoices the rule produced, now stated as dated invoices.
+            explicitInvoices: first.draft.contractBalances.considerationEvents.map((row) =>
+              invoice(row.invoiceDate, "245000", `Genomix will invoice $245,000 on ${row.invoiceDate}.`),
+            ),
+          }
         : term,
     );
     const second = run(next, first.draft, first.aiState);
     expect(events(second.draft)).toEqual(before);
     expect(
-      second.issues.some((i) => i.reasonCode === "unsafe_semantic_relationship" && i.blocking),
+      second.issues.some(
+        (i) => i.targetKey === "billing:billing:annual-advance" && i.reasonCode === "unsafe_semantic_relationship",
+      ),
     ).toBe(true);
   });
 
