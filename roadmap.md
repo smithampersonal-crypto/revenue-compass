@@ -255,3 +255,9 @@
 - [x] User toggles, "Go to Step" links and review navigation share the one store
 - [x] Regression tests A–H (router-level + review/read-only harness)
 - [x] Full `bun run verify` green; frozen .env / build tool / Genomix hash confirmed
+
+## Package 3D-S — About ARC Page
+- [x] Public /about route (Privacy page pattern, no GitHub link)
+- [x] Footer: About · Privacy · Sitemap; Sitemap lists About before Privacy
+- [x] Focused tests A–F; full `bun run verify`; frozen state confirmed
+- [ ] Publish + live smoke (awaiting owner authorization)

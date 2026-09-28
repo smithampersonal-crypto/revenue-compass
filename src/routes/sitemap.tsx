@@ -65,6 +65,11 @@ function SitemapPage() {
             <Note>Sign-in required</Note>
           </li>
           <li className="px-4 py-3">
+            <Link to="/about" className={LINK}>
+              About
+            </Link>
+          </li>
+          <li className="px-4 py-3">
             <Link to="/privacy" className={LINK}>
               Privacy
             </Link>
