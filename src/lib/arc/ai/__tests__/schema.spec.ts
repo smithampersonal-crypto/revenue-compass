@@ -77,6 +77,7 @@ describe("AiContractAnalysis schema", () => {
     // v5 predates the v7 billing amountKind discriminator.
     for (const term of legacy["billingTerms"] as Array<Record<string, unknown>>) {
       delete term["amountKind"];
+      delete term["explicitInvoices"];
     }
 
     expect(parseAiContractAnalysis(legacy).ok).toBe(false);
