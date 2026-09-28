@@ -275,6 +275,7 @@ export type Database = {
           failure_category: string | null
           failure_code: string | null
           failure_stage: string | null
+          guest_session_id: string | null
           guest_token_hash: string | null
           guest_workspace_id: string | null
           guidance_registry_hash: string
@@ -307,6 +308,7 @@ export type Database = {
           failure_category?: string | null
           failure_code?: string | null
           failure_stage?: string | null
+          guest_session_id?: string | null
           guest_token_hash?: string | null
           guest_workspace_id?: string | null
           guidance_registry_hash: string
@@ -339,6 +341,7 @@ export type Database = {
           failure_category?: string | null
           failure_code?: string | null
           failure_stage?: string | null
+          guest_session_id?: string | null
           guest_token_hash?: string | null
           guest_workspace_id?: string | null
           guidance_registry_hash?: string
@@ -659,6 +662,30 @@ export type Database = {
           },
         ]
       }
+      guest_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          token_hash: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       guest_source_document_selections: {
         Row: {
           created_at: string
@@ -695,6 +722,7 @@ export type Database = {
       guest_workspaces: {
         Row: {
           created_at: string
+          credential_kind: string
           draft_json: Json
           expires_at: string
           id: string
@@ -704,13 +732,16 @@ export type Database = {
           migrated_customer_id: string | null
           migrated_revision_id: string | null
           migrated_user_id: string | null
+          origin: string
           schema_version: string
+          session_id: string | null
           status: Database["public"]["Enums"]["arc_guest_workspace_status"]
           token_hash: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          credential_kind?: string
           draft_json: Json
           expires_at: string
           id?: string
@@ -720,13 +751,16 @@ export type Database = {
           migrated_customer_id?: string | null
           migrated_revision_id?: string | null
           migrated_user_id?: string | null
+          origin?: string
           schema_version: string
+          session_id?: string | null
           status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
           token_hash: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          credential_kind?: string
           draft_json?: Json
           expires_at?: string
           id?: string
@@ -736,7 +770,9 @@ export type Database = {
           migrated_customer_id?: string | null
           migrated_revision_id?: string | null
           migrated_user_id?: string | null
+          origin?: string
           schema_version?: string
+          session_id?: string | null
           status?: Database["public"]["Enums"]["arc_guest_workspace_status"]
           token_hash?: string
           updated_at?: string
@@ -768,6 +804,13 @@ export type Database = {
             columns: ["migrated_revision_id"]
             isOneToOne: false
             referencedRelation: "analysis_revisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_workspaces_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -1337,6 +1380,13 @@ export type Database = {
           lock_version: number
         }[]
       }
+      arc_resolve_guest_session: {
+        Args: { p_session_hash: string }
+        Returns: {
+          expires_at: string
+          session_id: string
+        }[]
+      }
       arc_restore_pre_ai_run: {
         Args: {
           p_expected_lock_version: number
@@ -1416,6 +1466,14 @@ export type Database = {
           p_source_document_id: string
         }
         Returns: string
+      }
+      arc_upgrade_legacy_guest_workspace: {
+        Args: {
+          p_new_token_hash: string
+          p_session_hash: string
+          p_workspace_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
