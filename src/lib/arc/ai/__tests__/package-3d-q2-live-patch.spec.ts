@@ -85,11 +85,14 @@ describe("installment amount-kind semantics", () => {
     expect(
       draft.contractBalances.considerationEvents.filter((r) => Number(r.amountInput) === 30000),
     ).toHaveLength(0);
-    // Remaining fixed streams ($24,000 + $6,000) are complete among themselves
-    // but the pricing-basis term never joins them; no $30,000 figure replaces Step 3.
+    // The unstructured pricing-basis term never joins the billing population.
+    // Step 3 is never replaced; whatever the remaining streams total is, at most,
+    // a blocking conflict for review — never an authority over Step 3.
     expect(Number(draft.transactionPriceInput)).toBe(150000);
+    expect(eventTotal(draft)).toBe(30000);
     for (const conflict of stepThreeConflicts(issues)) {
-      expect(conflict.material).not.toHaveProperty("billingTotalInput", "150000.00");
+      expect(conflict.blocking).toBe(true);
+      expect(conflict.reason).not.toContain("150000.00, but");
     }
   });
 });
@@ -109,14 +112,13 @@ describe("Step 3 billing corroboration includes the installment stream", () => {
       invoiceTriggerKind: "none",
       citations: subscription(cedarTest03Analysis()).citations.map((c) => ({
         ...c,
-        excerpt: "The $120,000 hosted subscription fee will be invoiced in four equal quarterly installments.",
+        excerpt:
+          "The $120,000 hosted subscription fee will be invoiced in four equal quarterly installments.",
       })),
     });
     const { draft, issues } = run(analysis);
     expect(Number(draft.transactionPriceInput)).toBe(150000);
     expect(stepThreeConflicts(issues)).toEqual([]);
-    expect(
-      issues.some((i) => JSON.stringify(i.material ?? {}).includes("30000")),
-    ).toBe(false);
+    expect(issues.some((i) => JSON.stringify(i.material ?? {}).includes("30000"))).toBe(false);
   });
 });
