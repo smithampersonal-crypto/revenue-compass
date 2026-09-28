@@ -539,7 +539,7 @@ export function AnalysisProvider({
         // A newer draft arrived mid-save: keep saving before reporting Saved.
       }
     },
-    [saveRevision, saveGuest, queryClient, queryKey],
+    [saveRevision, saveGuest, queryClient, queryKey, guestAnalysisId],
   );
 
   /**
