@@ -94,7 +94,9 @@ function run(analysis: AiContractAnalysis) {
 
 const events = (analysis: AiContractAnalysis) =>
   run(analysis)
-    .draft.contractBalances.considerationEvents.map((row) => `${row.invoiceDate}|${Number(row.amountInput)}`)
+    .draft.contractBalances.considerationEvents.map(
+      (row) => `${row.invoiceDate}|${Number(row.amountInput)}`,
+    )
     .sort();
 
 /* ================================================ interval-boundary rule */
@@ -180,10 +182,12 @@ describe("installment and trigger evidence", () => {
   it("blocks installments when the advance / commencement timing is absent", () => {
     const text =
       "Customer will be invoiced the total fee of $490,000 in eight equal quarterly installments.";
-    expect(aiInstallmentEligibility(installmentTerm({ invoiceTriggerKind: "none" }, text))).toEqual({
-      ok: false,
-      reason: "no_timing_evidence",
-    });
+    expect(aiInstallmentEligibility(installmentTerm({ invoiceTriggerKind: "none" }, text))).toEqual(
+      {
+        ok: false,
+        reason: "no_timing_evidence",
+      },
+    );
   });
 
   it("blocks a commencement trigger the citation does not state", () => {
@@ -201,9 +205,7 @@ describe("installment and trigger evidence", () => {
   it("blocks a wrong count, a missing 'equal' and a completion trigger phrase that is absent", () => {
     expect(aiInstallmentEligibility(installmentTerm({ installmentCount: 4 })).ok).toBe(false);
     expect(
-      aiInstallmentEligibility(
-        installmentTerm({}, INSTALLMENT_TEXT.replace("equal ", "")),
-      ).ok,
+      aiInstallmentEligibility(installmentTerm({}, INSTALLMENT_TEXT.replace("equal ", ""))).ok,
     ).toBe(false);
     expect(
       aiTriggerEligibility(
