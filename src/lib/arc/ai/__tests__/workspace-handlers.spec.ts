@@ -275,6 +275,38 @@ describe("AI workspace read boundary", () => {
     });
   });
 
+  describe("3D-T: one shared session-wide guest allowance", () => {
+    // Stand-in for arc_guest_workspace_usage: A and B belong to one session.
+    const B = "44444444-4444-4444-8444-444444444444";
+    function sessionFixture(sessionUsed: number) {
+      const { deps } = fixture();
+      const bySession = new Map([
+        [GUEST, "S"],
+        [B, "S"],
+      ]);
+      const counts = new Map([["S", sessionUsed]]);
+      deps.store.guestConsumed = async (workspaceId: string) =>
+        counts.get(bySession.get(workspaceId) ?? "") ?? 0;
+      deps.store.findActiveGuestWorkspace = async () => ({ id: B, lockVersion: 1 });
+      return deps;
+    }
+    const callerB: AiCallerScope = { ...guestCaller, guestWorkspaceId: B };
+
+    it("B reports A's usage before B has ever run: used 2, remaining 1", async () => {
+      const state = await aiWorkspaceStateHandler(sessionFixture(2), callerB);
+      expect(state.allowance).toMatchObject({ scope: "guest", limit: 3, used: 2, remaining: 1 });
+    });
+
+    it("after the session's third run, A and B both report remaining 0", async () => {
+      const deps = sessionFixture(3);
+      const a = await aiWorkspaceStateHandler(deps, guestCaller);
+      const b = await aiWorkspaceStateHandler(deps, callerB);
+      expect(a.allowance.remaining).toBe(0);
+      expect(b.allowance.remaining).toBe(0);
+      expect(b.allowance.used).toBe(3);
+    });
+  });
+
   it("has no side effects: no run, no allowance, no event, no acknowledgment", async () => {
     const { deps, calls } = fixture();
     await aiWorkspaceStateHandler(deps, revisionCaller);
