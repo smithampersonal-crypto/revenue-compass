@@ -260,4 +260,4 @@
 - [x] Public /about route (Privacy page pattern, no GitHub link)
 - [x] Footer: About · Privacy · Sitemap; Sitemap lists About before Privacy
 - [x] Focused tests A–F; full `bun run verify`; frozen state confirmed
-- [ ] Publish + live smoke (awaiting owner authorization)
+- [x] Publish + live smoke (About page, footer links, sitemap order verified on ayden-rc.com)
