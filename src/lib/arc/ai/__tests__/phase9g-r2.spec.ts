@@ -371,7 +371,7 @@ describe("R2 — provisional stated contract price as a standalone selling price
     const again = merge(provisional(1)).issues.find(
       (entry) => entry.targetKey === PROVISIONAL_SSP_TARGET_KEY,
     );
-    expect(again?.fingerprint).toBe(item?.fingerprint);
+    expect(again?.reviewFingerprint).toBe(item?.reviewFingerprint);
   });
 });
 
