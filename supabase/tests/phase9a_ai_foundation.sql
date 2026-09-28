@@ -278,15 +278,16 @@ begin
   insert into arc_test_results values (
     '20 another user cannot reserve against a run they do not own', v_reserved is not true);
 
-  -- A post-reservation failure stays consumed.
+  -- Package 3D-T allowance refund: a post-reservation failure releases the
+  -- visible monthly allowance; the failed run itself stays in history.
   perform public.arc_mark_ai_run_failure(v_run, 'openai_request', 'api', 'timeout',
                                          'The AI service did not respond in time.');
   insert into arc_test_results
-  select '21 a failure after the OpenAI start boundary remains consumed',
+  select '21 a failure after the OpenAI start boundary releases the allowance but stays recorded',
          (select stage from public.ai_runs where id = v_run) = 'api_failed'
      and (select openai_started_at from public.ai_runs where id = v_run) is not null
      and (select runs_consumed from public.ai_monthly_usage
-           where user_id = v_user_a and usage_month = v_month) = 1;
+           where user_id = v_user_a and usage_month = v_month) = 0;
 
   insert into arc_test_results
   select '22 a terminal run no longer blocks a new run on the same revision',
@@ -299,7 +300,7 @@ begin
    where revision_id = v_revision and openai_started_at is null;
 
   -- Ten reservations per UTC month, the eleventh rejected.
-  for v_i in 2..10 loop
+  for v_i in 1..10 loop
     v_run2 := gen_random_uuid();
     insert into public.ai_runs (id, revision_id, quota_scope,
                                 source_set_fingerprint, pre_run_canonical_inputs, model,

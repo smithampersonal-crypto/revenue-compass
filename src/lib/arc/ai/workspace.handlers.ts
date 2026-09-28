@@ -318,6 +318,7 @@ export async function aiWorkspaceStateHandler(
           failureCode: latest.failureCode,
           hadPriorSuccessfulAnalysis: hasAnalysis,
           allowanceConsumed: latest.allowanceConsumed,
+          quotaScope: latest.quotaScope,
         })
       : null;
 

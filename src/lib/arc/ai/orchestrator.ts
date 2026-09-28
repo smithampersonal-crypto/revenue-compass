@@ -126,7 +126,13 @@ export interface AiRunExecutionStore extends AiRunStore {
     utcMonth: string;
     userMonthlyLimit: number;
     guestLimit: number;
-  }): Promise<{ reserved: boolean; alreadyReserved: boolean; remainingAllowance: number }>;
+  }): Promise<{
+    reserved: boolean;
+    alreadyReserved: boolean;
+    remainingAllowance: number;
+    /** Refused by the technical provider-attempt ceiling, not the visible allowance. */
+    attemptLimited?: boolean;
+  }>;
   /** `arc_apply_ai_run`: canonical inputs + sidecar + run success, atomically. */
   applyRun(args: AiApplyArgs): Promise<void>;
   /**
@@ -198,6 +204,8 @@ function mergeDiagnosticOf(error: unknown): { errorName: string; frames: readonl
     .map((line) => line.replace(/^at\s+/, "").slice(0, 160));
   return { errorName, frames };
 }
+
+export const AI_ATTEMPT_LIMITED = "ARC has reached its temporary AI processing limit.";
 
 export const AI_ALLOWANCE_EXHAUSTED =
   "You have used all of your AI analyses for now. ARC still works fully without AI.";
@@ -427,8 +435,8 @@ export async function executeAiRunHandler(
         runId: run.id,
         failureStage: "preflight_ready",
         category: "preflight",
-        code: "allowance_exhausted",
-        safeMessage: AI_ALLOWANCE_EXHAUSTED,
+        code: reservation.attemptLimited ? "attempt_limit" : "allowance_exhausted",
+        safeMessage: reservation.attemptLimited ? AI_ATTEMPT_LIMITED : AI_ALLOWANCE_EXHAUSTED,
       });
       return finish(deps, caller, run.id);
     }
