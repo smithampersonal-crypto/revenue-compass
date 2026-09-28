@@ -91,8 +91,8 @@ describe("installment amount-kind semantics", () => {
     expect(Number(draft.transactionPriceInput)).toBe(150000);
     expect(eventTotal(draft)).toBe(30000);
     for (const conflict of stepThreeConflicts(issues)) {
-      expect(conflict.blocking).toBe(true);
-      expect(conflict.reason).not.toContain("150000.00, but");
+      expect(conflict.severity).toBe("red");
+      expect(conflict.reason).toContain("totals 30000.00");
     }
   });
 });
