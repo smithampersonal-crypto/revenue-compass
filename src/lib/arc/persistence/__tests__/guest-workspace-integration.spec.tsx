@@ -93,7 +93,11 @@ function renderGuest(options: { autoOpen?: boolean; sample?: string } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider sample={options.sample} guest={!options.sample}>
+      <AnalysisProvider
+        sample={options.sample}
+        guest={!options.sample}
+        guestAnalysisId={options.sample ? undefined : "00000000-0000-4000-8000-000000000001"}
+      >
         <SaveStatusIndicator />
         <GuestSavePanel autoOpen={options.autoOpen ?? false} />
         <Probe />
@@ -157,7 +161,10 @@ describe("explicit save of a guest analysis", () => {
     renderGuest();
     await screen.findByText("Northwind");
     fireEvent.click(screen.getByRole("button", { name: "Save this analysis" }));
-    expect(navigate).toHaveBeenCalledWith({ to: "/auth", search: { next: "/analysis?save=1" } });
+    expect(navigate).toHaveBeenCalledWith({
+      to: "/auth",
+      search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" },
+    });
     expect(migrate).not.toHaveBeenCalled();
   });
 
@@ -232,7 +239,10 @@ describe("explicit save of a guest analysis", () => {
     await waitFor(() => expect(saveGuest).toHaveBeenCalledTimes(1));
     expect(saveGuest.mock.calls[0]![0].data.draft.contract.customerName).toBe("Edited");
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({ to: "/auth", search: { next: "/analysis?save=1" } }),
+      expect(navigate).toHaveBeenCalledWith({
+        to: "/auth",
+        search: { next: "/analysis?a=00000000-0000-4000-8000-000000000001&save=1" },
+      }),
     );
     expect(migrate).not.toHaveBeenCalled();
   });

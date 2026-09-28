@@ -31,6 +31,7 @@ export const Route = createFileRoute("/analysis")({
     search: Record<string, unknown>,
   ): {
     sample?: string;
+    a?: string;
     contract?: string;
     revision?: string;
     save?: string;
@@ -39,6 +40,9 @@ export const Route = createFileRoute("/analysis")({
     review?: string;
   } => ({
     ...(typeof search["sample"] === "string" ? { sample: search["sample"] } : {}),
+    // Package 3D-T: which temporary analysis of this browser session. A
+    // resource target only; the server proves ownership from the cookie.
+    ...(typeof search["a"] === "string" ? { a: search["a"] } : {}),
     ...(typeof search["contract"] === "string" ? { contract: search["contract"] } : {}),
     ...(typeof search["revision"] === "string" ? { revision: search["revision"] } : {}),
     // Carries only the intent to save a temporary workspace after signing in.
@@ -58,8 +62,15 @@ export const Route = createFileRoute("/analysis")({
     ...(typeof search["review"] === "string" ? { review: search["review"] } : {}),
   }),
   beforeLoad: ({ search, location }) => {
-    if (search.sample && (search.contract || search.revision)) {
+    if (search.sample && (search.contract || search.revision || search.a)) {
       throw redirect({ to: "/analysis", search: { sample: search.sample } });
+    }
+    // Package 3D-T: there is no implicit analysis any more. A bare /analysis
+    // (or a pre-3D-T save link without `a`) goes to the chooser or the list;
+    // nothing is ever created by visiting a URL.
+    if (!search.sample && !search.contract && !search.a) {
+      if (search.save === "1") throw redirect({ to: "/recent" });
+      throw redirect({ to: "/analysis/new" });
     }
     // Starting from Home with a PDF lands on Source Documents with the upload
     // dialog open, in the very same temporary analysis.
@@ -68,6 +79,7 @@ export const Route = createFileRoute("/analysis")({
         to: "/analysis/documents",
         search: {
           upload: "1",
+          ...(search.a ? { a: search.a } : {}),
           ...(search.customer ? { customer: search.customer } : {}),
         },
       });
@@ -87,7 +99,7 @@ export const Route = createFileRoute("/analysis")({
 });
 
 function AnalysisLayout() {
-  const { sample, contract, revision, save } = Route.useSearch();
+  const { sample, a, contract, revision, save } = Route.useSearch();
 
   // The analysis identity — sample, contract and revision — keys the provider,
   // so switching to a different analysis mounts a fresh persistence state with
@@ -95,7 +107,9 @@ function AnalysisLayout() {
   // previous revision can therefore never read or write the new one's state.
   // Navigating between parent areas keeps the same identity and preserves the
   // draft.
-  const identity = `sample:${sample ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
+  // Package 3D-T: the temporary analysis id is part of the identity, so no
+  // draft, autosave or view state ever carries from one analysis to another.
+  const identity = `sample:${sample ?? ""}|a:${a ?? ""}|contract:${contract ?? ""}|revision:${revision ?? ""}`;
   // Package 3D-R: presentation-only accordion state per identity, in memory.
   // This layout stays mounted across child workpapers and identity changes.
   const viewStateStore = useRef<AccordionViewStateMap>(new Map()).current;
@@ -108,7 +122,8 @@ function AnalysisLayout() {
       sample={sample}
       contractId={contract}
       revisionId={revision}
-      guest={!sample && !contract}
+      guest={!sample && !contract && Boolean(a)}
+      guestAnalysisId={a}
     >
       <AnalysisViewStateProvider identity={identity} store={viewStateStore}>
         <AnalysisWorkspace autoOpenSave={save === "1"} />
@@ -158,6 +173,19 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
               clears all entered data.
             </Notice>
           )}
+          {persistence.mode === "guest" && persistence.status.kind === "load-error" ? (
+            <Notice tone="warning">
+              This analysis isn&apos;t available.{" "}
+              <Link to="/analysis/new" className="underline">
+                Start a new analysis
+              </Link>{" "}
+              or{" "}
+              <Link to="/recent" className="underline">
+                open Recent Analyses
+              </Link>
+              .
+            </Notice>
+          ) : null}
           {unknownSample ? (
             <Notice>That sample was not recognized, so a blank analysis was opened.</Notice>
           ) : null}

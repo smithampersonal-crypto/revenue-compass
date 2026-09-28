@@ -78,7 +78,11 @@ function renderPanel() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <AnalysisProvider sample={undefined} guest>
+      <AnalysisProvider
+        sample={undefined}
+        guest
+        guestAnalysisId="00000000-0000-4000-8000-000000000001"
+      >
         <GuestSavePanel autoOpen />
       </AnalysisProvider>
     </QueryClientProvider>,
@@ -87,7 +91,7 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.history.replaceState({}, "", "/analysis");
+  window.history.replaceState({}, "", "/analysis?a=00000000-0000-4000-8000-000000000001");
   resume.mockResolvedValue(guestWorkspace());
   saveGuest.mockResolvedValue({ ok: true, lockVersion: 2, savedAt: new Date().toISOString() });
   migrate.mockResolvedValue({
@@ -139,7 +143,11 @@ describe("saving under an existing customer", () => {
   });
 
   it("preselects the customer named in the page address", async () => {
-    window.history.replaceState({}, "", `/analysis?customer=${CUSTOMER_B}`);
+    window.history.replaceState(
+      {},
+      "",
+      `/analysis?a=00000000-0000-4000-8000-000000000001&customer=${CUSTOMER_B}`,
+    );
     renderPanel();
     await screen.findByDisplayValue("Northwind");
     await screen.findByDisplayValue("Beta Systems");

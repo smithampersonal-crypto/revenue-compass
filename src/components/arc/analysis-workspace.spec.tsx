@@ -75,7 +75,7 @@ describe("ARC analysis workspace (Phase 1)", () => {
 
   it("still suppresses financial output when the engine reports blocking failures", async () => {
     const user = userEvent.setup();
-    await renderAt("/analysis");
+    await renderAt("/analysis?a=00000000-0000-4000-8000-000000000001");
 
     await user.click(navLink({ name: "Journal Entries" }));
     expect(

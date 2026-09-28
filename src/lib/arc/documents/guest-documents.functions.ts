@@ -10,8 +10,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { readGuestCookie } from "@/lib/arc/persistence/guest";
-
 import { scopedToCaller } from "./caller-scope";
 
 import {
@@ -33,51 +31,25 @@ import {
   type UploadIntentDto,
 } from "./types";
 
-function isSecureRequest(url: string, forwardedProto: string | null): boolean {
-  if (forwardedProto) return forwardedProto.split(",")[0]!.trim() === "https";
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
+/**
+ * Package 3D-T: the derived credential of the temporary analysis this call
+ * names (request header), proven against the HttpOnly session cookie. Null —
+ * and therefore refused downstream — when the session does not own it.
+ */
 async function guestCaller(): Promise<DocumentCaller> {
-  const { getRequest } = await import("@tanstack/react-start/server");
-  const request = getRequest();
-  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
-  return { kind: "guest", token: readGuestCookie(request.headers.get("cookie"), secure) };
+  const { resolveRequestAnalysisToken } =
+    await import("@/lib/arc/persistence/guest-request.server");
+  const { token } = await resolveRequestAnalysisToken();
+  return { kind: "guest", token };
 }
 
 /**
- * The credential for this visitor's temporary workspace, starting one when
- * they do not have a valid workspace yet. Uploading a PDF is a legitimate
- * first action, so it must not fail merely because no analysis has been saved
- * yet. Resuming is never destructive: an existing valid workspace, its
- * credential and its lock version are returned untouched.
+ * Uploading happens inside an analysis that already exists: since Package 3D-T
+ * a temporary analysis is only ever created by an explicit button, never as a
+ * side effect of an upload.
  */
 async function ensureGuestCaller(): Promise<DocumentCaller> {
-  const { getRequest, setResponseHeader } = await import("@tanstack/react-start/server");
-  const request = getRequest();
-  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
-  const token = readGuestCookie(request.headers.get("cookie"), secure);
-
-  const [{ resumeOrCreateGuestHandler }, { createGuestStore }, { buildGuestCookie }] =
-    await Promise.all([
-      import("@/lib/arc/persistence/guest.handlers"),
-      import("@/lib/arc/persistence/guest.store.server"),
-      import("@/lib/arc/persistence/guest"),
-    ]);
-
-  const result = await resumeOrCreateGuestHandler(
-    { store: await createGuestStore(), now: () => new Date() },
-    { token },
-  );
-  if (result.issuedToken) {
-    setResponseHeader("Set-Cookie", buildGuestCookie(result.issuedToken, secure));
-    return { kind: "guest", token: result.issuedToken };
-  }
-  return { kind: "guest", token };
+  return guestCaller();
 }
 
 async function deps(): Promise<DocumentDeps> {

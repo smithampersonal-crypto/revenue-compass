@@ -3,6 +3,7 @@ import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/r
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "./lib/auth/attach-supabase-auth";
 import { noStoreMiddleware } from "./lib/auth/no-store";
+import { attachGuestAnalysis } from "./lib/arc/persistence/attach-guest-analysis";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -30,5 +31,5 @@ export const startInstance = createStart(() => ({
   // `noStoreMiddleware` keeps every private RPC response out of shared and
   // browser caches; `attachSupabaseAuth` supplies the bearer token client-side.
   requestMiddleware: [errorMiddleware, csrfMiddleware, noStoreMiddleware],
-  functionMiddleware: [attachSupabaseAuth],
+  functionMiddleware: [attachSupabaseAuth, attachGuestAnalysis],
 }));

@@ -76,6 +76,11 @@ if (typeof document !== "undefined") {
         code: "failed" as const,
         reason: "not available in tests",
       }),
+      // Package 3D-T doubles.
+      createTemporaryAnalysis: async () => ({
+        analysisId: "00000000-0000-4000-8000-000000000001",
+      }),
+      listRecentAnalyses: async () => [],
     };
   });
 }

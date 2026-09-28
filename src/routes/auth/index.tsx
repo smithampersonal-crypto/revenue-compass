@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { PublicAppShell } from "@/components/arc/PublicAppShell";
 import { useSupabaseSession } from "@/components/arc/use-supabase-session";
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_SIGNED_IN_PATH, sanitizeLocalPath } from "@/lib/arc/redirect";
+import {
+  continueWithoutSignInPath,
+  DEFAULT_SIGNED_IN_PATH,
+  sanitizeLocalPath,
+} from "@/lib/arc/redirect";
 import { buildAuthCallbackUrl } from "@/lib/auth/session.functions";
 
 const TITLE = "Sign in — Ayden's Revenue Compass";
@@ -117,9 +121,9 @@ function SignInPage() {
         </div>
 
         <p className="mt-6 text-sm text-muted-foreground">
-          <Link to="/analysis" className="underline hover:text-foreground">
+          <a href={continueWithoutSignInPath(next)} className="underline hover:text-foreground">
             Continue without signing in
-          </Link>
+          </a>
         </p>
       </main>
     </PublicAppShell>

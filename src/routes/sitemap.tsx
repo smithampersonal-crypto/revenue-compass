@@ -38,8 +38,13 @@ function SitemapPage() {
             </Link>
           </li>
           <li className="px-4 py-3">
-            <Link to="/analysis" className={LINK}>
-              Analyze Contract
+            <Link to="/analysis/new" className={LINK}>
+              New Analysis
+            </Link>
+          </li>
+          <li className="px-4 py-3">
+            <Link to="/recent" className={LINK}>
+              Recent Analyses
             </Link>
           </li>
           <li className="px-4 py-3">

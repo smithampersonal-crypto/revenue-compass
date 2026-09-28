@@ -109,6 +109,37 @@ export interface ResumeGuestResult {
   resumed: boolean;
 }
 
+/* ---------------------------------------------------- 3D-T resume only -- */
+
+export const GUEST_ANALYSIS_UNAVAILABLE =
+  "This analysis isn't available. It may have expired, been saved to My Contracts, or belong to a different browser session.";
+
+/**
+ * Package 3D-T: opens one temporary analysis by its derived credential. Never
+ * creates anything — a missing, expired, saved or foreign analysis is simply
+ * unavailable.
+ */
+export async function resumeGuestAnalysisHandler(
+  deps: GuestDeps,
+  input: { token: string | null },
+): Promise<GuestWorkspaceState | null> {
+  if (!input.token) return null;
+  const row = await deps.store.findByHash(await hashGuestToken(input.token));
+  if (!row || row.status !== "active" || isGuestExpired(row.expires_at, deps.now())) return null;
+  const parsed = parseCanonicalInputs(row.draft_json, row.schema_version);
+  if (!parsed.ok) {
+    throw new Error(
+      "This temporary workspace could not be opened. Nothing was changed — please try again.",
+    );
+  }
+  return {
+    draft: parsed.draft,
+    lockVersion: row.lock_version,
+    expiresAt: row.expires_at,
+    schemaVersion: row.schema_version,
+  };
+}
+
 /* ----------------------------------------------------------- resume/create */
 
 export async function resumeOrCreateGuestHandler(
