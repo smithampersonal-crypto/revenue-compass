@@ -11,7 +11,7 @@
  * Server-only: blocked from client bundles by its `.server` name.
  */
 
-import { hashGuestToken, readGuestCookie } from "@/lib/arc/persistence/guest";
+import { hashGuestToken } from "@/lib/arc/persistence/guest";
 
 import {
   deriveAiCaller,
@@ -19,16 +19,6 @@ import {
   type AiCallerScope,
   type AiRunStore,
 } from "./runs.handlers";
-
-/** True on https; local http development falls back to a non-`__Host-` name. */
-function isSecureRequest(url: string, forwardedProto: string | null): boolean {
-  if (forwardedProto) return forwardedProto.split(",")[0]!.trim() === "https";
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Optional session identity.
@@ -89,8 +79,10 @@ export async function resolveAiCallerFromRequest(
 ): Promise<AiCallerScope> {
   const { getRequest } = await import("@tanstack/react-start/server");
   const request = getRequest();
-  const secure = isSecureRequest(request.url, request.headers.get("x-forwarded-proto"));
-  const rawToken = readGuestCookie(request.headers.get("cookie"), secure);
+  // Package 3D-T: the credential of the temporary analysis named by the
+  // request, derived from and proven against the HttpOnly session cookie.
+  const { resolveRequestAnalysisToken } = await import("@/lib/arc/persistence/guest-request.server");
+  const { token: rawToken } = await resolveRequestAnalysisToken();
 
   const identity: AiCallerRequest = {
     authenticatedUserId: await verifiedUserId(request),
