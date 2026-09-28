@@ -111,6 +111,12 @@ describe("Package 3D-P polish", () => {
   it("keeps Sample label while dropping fictional descriptors", async () => {
     await renderAt("/analysis?sample=horizon");
     expect(await screen.findByText("Sample — Horizon Logistics")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This sample is for exploration only. Changes stay in this browser tab and reset when the page is refreshed.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/one in-memory analysis|Nothing is saved/i)).toBeNull();
     expect(screen.queryByText("Fictional sample contract")).toBeNull();
     expect(screen.queryByText(/Sample Analysis — Fictional Contract/i)).toBeNull();
   });

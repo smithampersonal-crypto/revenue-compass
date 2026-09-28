@@ -169,8 +169,8 @@ function AnalysisWorkspace({ autoOpenSave }: { autoOpenSave: boolean }) {
             <SaveStatusIndicator />
           ) : (
             <Notice>
-              This workspace holds one in-memory analysis. Nothing is saved: refreshing the page
-              clears all entered data.
+              This sample is for exploration only. Changes stay in this browser tab and reset when
+              the page is refreshed.
             </Notice>
           )}
           {persistence.mode === "guest" && persistence.status.kind === "load-error" ? (
