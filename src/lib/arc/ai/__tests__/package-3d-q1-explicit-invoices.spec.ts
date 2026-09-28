@@ -71,6 +71,11 @@ function explicitTerm(key: string, description: string, invoices: Invoice[]): Te
     reviewState: "supported",
     amountKind: "fixed_invoice_amount",
     explicitInvoices: invoices,
+    targetPerformanceObligationKey: null,
+    billingBasisTotalInput: null,
+    installmentCount: null,
+    equalInstallments: null,
+    invoiceTriggerKind: "none",
   } as Term;
 }
 
@@ -120,14 +125,19 @@ const events = (draft: WorkflowDraft) =>
 /* ========================================================== versions */
 
 describe("versions", () => {
-  it("pins schema v8 and prompt v12, keeping v7 readable", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v8");
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v12");
+  it("keeps the explicit-invoice path under schema v9 / prompt v13, keeping v7 readable", () => {
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v13");
     expect(parseAiContractAnalysis(redwood()).ok).toBe(true);
     const legacy = structuredClone(genomixR1Analysis()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION;
     for (const term of legacy["billingTerms"] as Record<string, unknown>[]) {
       delete term["explicitInvoices"];
+      delete term["targetPerformanceObligationKey"];
+      delete term["billingBasisTotalInput"];
+      delete term["installmentCount"];
+      delete term["equalInstallments"];
+      delete term["invoiceTriggerKind"];
     }
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION);
     expect(parsed.ok).toBe(true);
@@ -225,7 +235,7 @@ describe("merge — Redwood explicit invoices", () => {
       0,
     );
     expect(total).toBe(150000);
-    expect(draft.transactionPriceInput).toBe("150000");
+    expect(draft.transactionPriceInput).toBe("150000.00");
     for (const cash of draft.contractBalances.cashCollections) {
       expect(cash).not.toHaveProperty("status", "actual");
     }

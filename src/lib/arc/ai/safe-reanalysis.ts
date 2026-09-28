@@ -113,6 +113,46 @@ export function explicitScheduleSignature(
   return [...entries].sort().join(";");
 }
 
+/**
+ * Package 3D-Q.2. The structural facts of a derivable installment / trigger
+ * rule: count, cadence, timing, trigger kind, linked obligation and exact
+ * cents. Any change is structural and declines. Prose is not identity.
+ * `null` when the term carries no derivable-rule facts.
+ */
+export function derivableRuleSignature(term: {
+  installmentCount?: number | null | undefined;
+  equalInstallments?: boolean | null | undefined;
+  billingBasisTotalInput?: string | null | undefined;
+  invoiceTriggerKind?: string | undefined;
+  targetPerformanceObligationKey?: string | null | undefined;
+  frequency: string;
+  billingTiming: string;
+  amountOrRateInput: string | null;
+}): string | null {
+  const installment =
+    term.installmentCount != null ||
+    term.equalInstallments != null ||
+    (term.billingBasisTotalInput ?? null) !== null;
+  const trigger = (term.invoiceTriggerKind ?? "none") !== "none";
+  if (!installment && !trigger) return null;
+  const cents = (value: string | null | undefined) => {
+    if (value === null || value === undefined) return "";
+    const parsed = exactCents(value);
+    return parsed === null ? `raw:${value}` : parsed.toString();
+  };
+  return [
+    installment ? "installment" : "trigger",
+    term.installmentCount ?? "",
+    term.equalInstallments ?? "",
+    cents(term.billingBasisTotalInput),
+    installment ? "" : cents(term.amountOrRateInput),
+    term.invoiceTriggerKind ?? "none",
+    term.targetPerformanceObligationKey ?? "",
+    term.frequency,
+    term.billingTiming,
+  ].join("|");
+}
+
 function spansOf(citations: readonly AiCitation[] | undefined): CitationSpan[] {
   return (citations ?? []).map((citation) => ({
     documentId: citation.documentId,
@@ -550,6 +590,11 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       if (next === undefined) continue;
       const before = explicitScheduleSignature(priorTerm.explicitInvoices);
       const after = explicitScheduleSignature(next.explicitInvoices);
+      const ruleBefore = derivableRuleSignature(priorTerm);
+      const ruleAfter = derivableRuleSignature(next);
+      if (ruleBefore !== ruleAfter) {
+        return { outcome: "decline", reason: "unmatched", objectKind: "billing_term" };
+      }
       if (before === null && after === null) continue;
       if (before !== after) {
         return { outcome: "decline", reason: "unmatched", objectKind: "billing_term" };

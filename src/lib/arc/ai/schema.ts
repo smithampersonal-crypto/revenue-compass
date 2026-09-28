@@ -14,7 +14,13 @@
 import { z } from "zod";
 
 /** Single source of truth for new-generation output (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v8";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v9";
+/**
+ * Package 3D-Q.2. Frozen v8 immutable-result version: identical to v9 except
+ * its billing terms carry no installment / trigger / obligation-reference
+ * facts. Read-only; normalized to null / "none".
+ */
+export const LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v8";
 /**
  * Package 3D-Q.1. Frozen v7 immutable-result version: identical to v8 except
  * its billing terms carry no `explicitInvoices`. Read-only; normalized to [].
@@ -23,7 +29,11 @@ export const LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v7";
 
 /** Schema versions whose billing terms passed through ARC's evidence gate (3D-Q+). */
 export function isEvidenceGatedSchemaVersion(version: string): boolean {
-  return version === AI_OUTPUT_SCHEMA_VERSION || version === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION;
+  return (
+    version === AI_OUTPUT_SCHEMA_VERSION ||
+    version === LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION ||
+    version === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION
+  );
 }
 /** Frozen immutable-result version accepted only by persisted-result dispatch. */
 export const LEGACY_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
@@ -503,6 +513,27 @@ const billingTermSchemaV8 = billingTermSchemaV7
   })
   .strict();
 
+/**
+ * Package 3D-Q.2. Facts the model may report so ARC — never the model — can
+ * derive equal installments and event-triggered invoices. The obligation
+ * reference is an AI-side semanticKey in the same result, never an ARC ID.
+ */
+export const INVOICE_TRIGGER_KINDS = [
+  "commencement",
+  "completion_of_linked_obligation",
+  "none",
+] as const;
+export type InvoiceTriggerKind = (typeof INVOICE_TRIGGER_KINDS)[number];
+const billingTermSchemaV9 = billingTermSchemaV8
+  .extend({
+    targetPerformanceObligationKey: z.string().max(AI_SCHEMA_BOUNDS.semanticKey).nullable(),
+    billingBasisTotalInput: decimalInput,
+    installmentCount: z.number().int().min(1).max(120).nullable(),
+    equalInstallments: z.boolean().nullable(),
+    invoiceTriggerKind: z.enum(INVOICE_TRIGGER_KINDS),
+  })
+  .strict();
+
 const projectedCollectionAssumptionsSchema = z
   .object({
     contractualDueDateBasis: z.enum([
@@ -621,12 +652,25 @@ export const aiContractAnalysisV7ObjectSchema = z
   })
   .strict();
 
-/** Plain v8 object form — the provider JSON Schema is generated from exactly this. */
+/** Frozen v8 object shape for immutable historical results only. */
+export const aiContractAnalysisV8ObjectSchema = z
+  .object({
+    schemaVersion: z.literal(LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    billingTerms: z.array(billingTermSchemaV8).max(AI_SCHEMA_BOUNDS.billingTerms),
+    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchema)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
+  })
+  .strict();
+
+/** Plain v9 object form — the provider JSON Schema is generated from exactly this. */
 export const aiContractAnalysisObjectSchema = z
   .object({
     schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
     ...analysisRootShape,
-    billingTerms: z.array(billingTermSchemaV8).max(AI_SCHEMA_BOUNDS.billingTerms),
+    billingTerms: z.array(billingTermSchemaV9).max(AI_SCHEMA_BOUNDS.billingTerms),
     promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
     performanceObligations: z
       .array(performanceObligationSchema)
@@ -642,6 +686,7 @@ function addAnalysisRefinements(
   value:
     | z.infer<typeof aiContractAnalysisV5ObjectSchema>
     | z.infer<typeof aiContractAnalysisV6ObjectSchema>
+    | z.infer<typeof aiContractAnalysisV8ObjectSchema>
     | z.infer<typeof aiContractAnalysisV7ObjectSchema>
     | z.infer<typeof aiContractAnalysisObjectSchema>,
   ctx: z.RefinementCtx,
@@ -738,6 +783,9 @@ export const aiContractAnalysisV6Schema =
 export const aiContractAnalysisV7Schema =
   aiContractAnalysisV7ObjectSchema.superRefine(addAnalysisRefinements);
 
+export const aiContractAnalysisV8Schema =
+  aiContractAnalysisV8ObjectSchema.superRefine(addAnalysisRefinements);
+
 /** Exactly zero, however the model spelled the decimal. */
 export function isZeroDecimal(value: string | null): boolean {
   return typeof value === "string" && /^-?0(\.0+)?$/.test(value);
@@ -749,6 +797,7 @@ const DECIMAL_FIELD_NAMES = new Set([
   "observedAmountInput",
   "amountOrRateInput",
   "amountInput",
+  "billingBasisTotalInput",
   "priceIncreaseInput",
   "initialEstimatedAmountInput",
   "initialIncludedAmountInput",
@@ -768,7 +817,8 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-export type AiContractAnalysisV8 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV9 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV8 = z.infer<typeof aiContractAnalysisV8ObjectSchema>;
 export type AiContractAnalysisV7 = z.infer<typeof aiContractAnalysisV7ObjectSchema>;
 export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisV6ObjectSchema>;
 export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSchema>;
@@ -779,6 +829,7 @@ export type AiContractAnalysis = Omit<
 > & {
   schemaVersion:
     | typeof AI_OUTPUT_SCHEMA_VERSION
+    | typeof LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_AI_OUTPUT_SCHEMA_VERSION;
@@ -791,6 +842,12 @@ export type AiContractAnalysis = Omit<
       amountKind?: BillingAmountKind | undefined;
       /** Package 3D-Q.1. Required on v8; legacy terms normalize to []. */
       explicitInvoices?: AiExplicitInvoice[] | undefined;
+      /** Package 3D-Q.2. Required on v9; legacy terms normalize to null / "none". */
+      targetPerformanceObligationKey?: string | null | undefined;
+      billingBasisTotalInput?: string | null | undefined;
+      installmentCount?: number | null | undefined;
+      equalInstallments?: boolean | null | undefined;
+      invoiceTriggerKind?: InvoiceTriggerKind | undefined;
     }
   >;
   promises: Array<
@@ -1035,7 +1092,7 @@ export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProvid
 /** Safe parse helper used by the client after every generation. */
 export function parseAiContractAnalysis(
   value: unknown,
-): { ok: true; analysis: AiContractAnalysisV8 } | { ok: false; issues: string[] } {
+): { ok: true; analysis: AiContractAnalysisV9 } | { ok: false; issues: string[] } {
   const result = aiContractAnalysisSchema.safeParse(value);
   if (result.success) return { ok: true, analysis: result.data };
   return {
@@ -1072,6 +1129,12 @@ export function parsePersistedAiContractAnalysis(
     return { ok: false, issues: ["schemaVersion: stored run metadata does not match result"] };
   }
   if (payloadVersion === AI_OUTPUT_SCHEMA_VERSION) return parseAiContractAnalysis(value);
+  if (payloadVersion === LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION) {
+    const result = aiContractAnalysisV8Schema.safeParse(value);
+    return result.success
+      ? { ok: true, analysis: normalizeLegacyInstallmentFacts(result.data) }
+      : { ok: false, issues: parseIssues(result) };
+  }
   if (payloadVersion === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION) {
     const result = aiContractAnalysisV7Schema.safeParse(value);
     return result.success
@@ -1105,6 +1168,7 @@ function normalizeLegacyBillingTerms(analysis: AiContractAnalysis): AiContractAn
       ...term,
       amountKind: "unknown" as const,
       explicitInvoices: [],
+      ...LEGACY_INSTALLMENT_FACTS,
     })),
   };
 }
@@ -1117,7 +1181,31 @@ function normalizeLegacyBillingTerms(analysis: AiContractAnalysis): AiContractAn
 function normalizeLegacyExplicitInvoices(analysis: AiContractAnalysis): AiContractAnalysis {
   return {
     ...analysis,
-    billingTerms: analysis.billingTerms.map((term) => ({ ...term, explicitInvoices: [] })),
+    billingTerms: analysis.billingTerms.map((term) => ({
+      ...term,
+      explicitInvoices: [],
+      ...LEGACY_INSTALLMENT_FACTS,
+    })),
+  };
+}
+
+/** Package 3D-Q.2. The v9 installment / trigger facts a legacy result never stated. */
+const LEGACY_INSTALLMENT_FACTS = {
+  targetPerformanceObligationKey: null,
+  billingBasisTotalInput: null,
+  installmentCount: null,
+  equalInstallments: null,
+  invoiceTriggerKind: "none" as const,
+};
+
+/**
+ * Package 3D-Q.2. A v8 result states no installment, trigger or obligation
+ * facts; it behaves exactly as before. The stored payload is never rewritten.
+ */
+function normalizeLegacyInstallmentFacts(analysis: AiContractAnalysis): AiContractAnalysis {
+  return {
+    ...analysis,
+    billingTerms: analysis.billingTerms.map((term) => ({ ...term, ...LEGACY_INSTALLMENT_FACTS })),
   };
 }
 

@@ -477,3 +477,186 @@ export function aiExplicitInvoiceEligibility(
     })),
   };
 }
+
+/* ============================================ Package 3D-Q.2 derivable rules */
+
+/**
+ * Package 3D-Q.2 — ARC-owned evidence checks for two narrow billing rules ARC
+ * can derive itself: equal installments of a stated total, and a single
+ * invoice triggered by a linked obligation's commencement or completion.
+ *
+ * Same philosophy as the checks above: ONE sentence of the term's own text
+ * citations must establish every fact the derivation uses. A trigger or
+ * timing the model reports is never accepted on the model's word. Sentences
+ * are never combined. Unfamiliar wording fails closed.
+ */
+
+const COUNT_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+const EQUAL_WORD = /\bequal\b/i;
+const COMMENCEMENT_PHRASE =
+  /\b(?:upon|at|on)\s+(?:the\s+)?(?:contract\s+|service\s+|subscription\s+)?commencement\b|\bbeginning\s+(?:on|at)\s+(?:the\s+)?(?:effective\s+date|commencement)\b|\b(?:upon|on|at)\s+the\s+effective\s+date\b|\bupon\s+(?:execution|signature|signing)\b|\bat\s+(?:execution|signing)\b/i;
+const COMPLETION_PHRASE = /\bupon\s+(?:the\s+)?(?:successful\s+)?completion\b/i;
+
+function statesCount(sentence: string, count: number): boolean {
+  const pattern =
+    /\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b(?:\s*\((\d{1,3})\))?\s+(?:equal\s+)?(?:[a-z-]+\s+){0,2}instal(?:l)?ments?\b/gi;
+  for (const found of sentence.matchAll(pattern)) {
+    const word = found[1]!.toLowerCase();
+    const value = /^\d+$/.test(word) ? Number(word) : COUNT_WORDS[word];
+    if (value === count) return true;
+  }
+  return false;
+}
+
+export type InstallmentEvidenceRefusal =
+  | "amount_not_fixed_invoice"
+  | "billing_term_not_source_supported"
+  | "no_text_evidence"
+  | "no_currency_amount"
+  | "rate_like_amount"
+  | "no_installment_evidence"
+  | "no_timing_evidence";
+
+export interface AiInstallmentTerm {
+  amountKind?: string | null | undefined;
+  reviewState: string;
+  billingTiming: BillingTimingInput;
+  frequency: BillingFrequency;
+  billingBasisTotalInput?: string | null | undefined;
+  installmentCount?: number | null | undefined;
+  equalInstallments?: boolean | null | undefined;
+  invoiceTriggerKind?: string | undefined;
+  citations: FixedBillingEvidenceInput["citations"];
+}
+
+/**
+ * One sentence must state: an invoicing word, the exact total, the installment
+ * count, "equal", the cadence, AND the timing / first-invoice trigger that
+ * fixes the dates (advance or commencement; arrears for period-end billing).
+ */
+export function aiInstallmentEligibility(
+  term: AiInstallmentTerm,
+): { ok: true } | { ok: false; reason: InstallmentEvidenceRefusal } {
+  if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
+    return { ok: false, reason: "amount_not_fixed_invoice" };
+  }
+  if (!AI_FIXED_SCHEDULE_REVIEW_STATES.includes(term.reviewState)) {
+    return { ok: false, reason: "billing_term_not_source_supported" };
+  }
+  if (term.equalInstallments !== true || term.installmentCount == null) {
+    return { ok: false, reason: "no_installment_evidence" };
+  }
+  const basis = term.billingBasisTotalInput ?? null;
+  const target = basis === null ? null : exactCents(basis);
+  if (target === null || target <= 0n) return { ok: false, reason: "no_currency_amount" };
+  const sentences = sentencesOf(term.citations);
+  if (sentences.length === 0) return { ok: false, reason: "no_text_evidence" };
+  const cadence = CADENCE[term.frequency];
+  if (cadence === undefined || term.frequency === "one_time") {
+    return { ok: false, reason: "no_installment_evidence" };
+  }
+
+  let sawRateLike = false;
+  let sawAmount = false;
+  let sawInstallment = false;
+  for (const sentence of sentences) {
+    const verdict = amountVerdict(sentence, target);
+    if (verdict === "rate_like") sawRateLike = true;
+    if (verdict !== "match") continue;
+    sawAmount = true;
+    if (
+      !INVOICING_WORD.test(sentence) ||
+      !EQUAL_WORD.test(sentence) ||
+      !statesCount(sentence, term.installmentCount) ||
+      !cadence.test(sentence)
+    ) {
+      continue;
+    }
+    sawInstallment = true;
+    const trigger = term.invoiceTriggerKind ?? "none";
+    if (trigger === "completion_of_linked_obligation") continue;
+    if (trigger === "commencement" && !COMMENCEMENT_PHRASE.test(sentence)) continue;
+    const timingOk =
+      term.billingTiming === "advance"
+        ? ADVANCE_PHRASE.test(sentence) || COMMENCEMENT_PHRASE.test(sentence)
+        : term.billingTiming === "arrears"
+          ? ARREARS_PHRASE.test(sentence)
+          : false;
+    if (timingOk) return { ok: true };
+  }
+  if (!sawAmount)
+    return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
+  if (!sawInstallment) return { ok: false, reason: "no_installment_evidence" };
+  return { ok: false, reason: "no_timing_evidence" };
+}
+
+export type TriggerEvidenceRefusal =
+  | "amount_not_fixed_invoice"
+  | "billing_term_not_source_supported"
+  | "unsupported_trigger"
+  | "no_text_evidence"
+  | "no_currency_amount"
+  | "rate_like_amount"
+  | "no_trigger_evidence";
+
+export interface AiTriggerTerm {
+  amountKind?: string | null | undefined;
+  reviewState: string;
+  amountOrRateInput: string | null;
+  invoiceTriggerKind?: string | undefined;
+  citations: FixedBillingEvidenceInput["citations"];
+}
+
+/**
+ * One sentence must state an invoicing word, the exact amount and a trigger
+ * phrase matching the trigger kind. The date is never read from that sentence;
+ * it comes only from the linked obligation's own workpaper date.
+ */
+export function aiTriggerEligibility(
+  term: AiTriggerTerm,
+): { ok: true } | { ok: false; reason: TriggerEvidenceRefusal } {
+  if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
+    return { ok: false, reason: "amount_not_fixed_invoice" };
+  }
+  if (!AI_FIXED_SCHEDULE_REVIEW_STATES.includes(term.reviewState)) {
+    return { ok: false, reason: "billing_term_not_source_supported" };
+  }
+  const phrase =
+    term.invoiceTriggerKind === "commencement"
+      ? COMMENCEMENT_PHRASE
+      : term.invoiceTriggerKind === "completion_of_linked_obligation"
+        ? COMPLETION_PHRASE
+        : null;
+  if (phrase === null) return { ok: false, reason: "unsupported_trigger" };
+  const target = term.amountOrRateInput === null ? null : exactCents(term.amountOrRateInput);
+  if (target === null || target <= 0n) return { ok: false, reason: "no_currency_amount" };
+  const sentences = sentencesOf(term.citations);
+  if (sentences.length === 0) return { ok: false, reason: "no_text_evidence" };
+
+  let sawRateLike = false;
+  let sawAmount = false;
+  for (const sentence of sentences) {
+    const verdict = amountVerdict(sentence, target);
+    if (verdict === "rate_like") sawRateLike = true;
+    if (verdict !== "match") continue;
+    sawAmount = true;
+    if (INSTALLMENT_WORD.test(sentence)) continue;
+    if (INVOICING_WORD.test(sentence) && phrase.test(sentence)) return { ok: true };
+  }
+  if (!sawAmount)
+    return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
+  return { ok: false, reason: "no_trigger_evidence" };
+}

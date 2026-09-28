@@ -58,7 +58,7 @@ Two narrow patterns. All arithmetic and dates are done in TypeScript, never by t
 **A. Equal installments of a stated total** (subscription)
 - Facts from the model: `billingBasisTotalInput` = 120000, `installmentCount` = 4, `equalInstallments` = true, frequency quarterly, timing advance, `firstInvoiceTrigger` = `commencement`, linked obligation.
 - ARC works out: 120000 ÷ 4 = 30000.00 exactly. A remainder in cents fails closed; ARC never rounds.
-- Dates: the linked obligation's service start, plus 0/3/6/9 months (Jan 1, Apr 1, Jul 1, Oct 1). Count × months must fit the linked service period exactly.
+- Dates: the linked obligation's service start, plus 0/3/6/9 months (Jan 1, Apr 1, Jul 1, Oct 1). Coverage uses ARC's existing inclusive-end convention (exclusive boundary = serviceEnd + 1 day, as `deriveBillingSchedule` does): count × months must equal the whole months from serviceStart to that exclusive boundary. Jan 1–Dec 31 with 4 quarterly periods (Jan 1–Mar 31 … Oct 1–Dec 31) is accepted; a count/cadence that cannot cover the period fails closed.
 
 **B. A single invoice triggered by an event**
 - `invoiceTrigger` = `commencement` → the linked obligation's service start (Implementation: Jan 1).
@@ -138,7 +138,8 @@ No changes to the UI, database, security rules, sign-in, allocation or recogniti
   - N5: the implementation date is not used for training.
   - N6: rate, interest and percentage language is still refused.
   - A total that doesn't divide exactly into cents.
-  - The installment count doesn't fit the service period.
+  - The installment count doesn't fit the service period (e.g. 3 quarterly over Jan 1–Dec 31) → blocked.
+  - Jan 1–Dec 31 + four quarterly installments → Jan 1 / Apr 1 / Jul 1 / Oct 1, accepted.
   - Installment facts are complete, but the advance/commencement wording is missing from the qualifying sentence → blocked.
   - The model returns a `commencement` trigger that its citation doesn't support → blocked.
   - The trigger phrase doesn't match the trigger kind → blocked.

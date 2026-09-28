@@ -32,7 +32,7 @@ export const AI_PROMPT_SECTIONS = {
  * constant, so a live run can never be labelled with a version it did not
  * receive. Changing the trusted instruction body REQUIRES bumping this literal.
  */
-export const AI_PROMPT_VERSION = "arc.ai.prompt.v12" as const;
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v13" as const;
 
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
@@ -187,6 +187,7 @@ function taskSection(outputSchemaVersion: string): string {
     "- use reviewState supported for a billing term only when the cited text itself states the invoiced currency amount, the invoicing cadence and the billing timing; ARC independently verifies that evidence before creating any invoice and creates none otherwise;",
     '- when the contract states a dated invoice (for example "Redwood will invoice $6,000 on April 15, 2027"), list every such invoice of that billing stream in explicitInvoices with invoiceDateInput as YYYY-MM-DD, amountInput as the exact invoiced amount, coveragePeriodText when a service period is stated, and citations to the one sentence that states that invoice\'s amount and date; never infer, compute or shift an invoice date, and leave explicitInvoices empty when the contract states no exact invoice date;',
     "- report each billing stream once: when a stream's invoices are listed in explicitInvoices, do not also return a separate billing term for the same stream's recurring rule; a stream with stated dated invoices may use reviewState supported when each listed invoice's own citation states its invoiced amount and exact date;",
+    '- for every billing term also report the installment and trigger facts, and never compute an invoice amount or date yourself: targetPerformanceObligationKey is the semanticKey of the one performance obligation in this result that the billed service belongs to (null when not exactly one); when the contract states a total billed in a stated number of equal installments (for example "$120,000, payable in four equal quarterly installments in advance, the first upon commencement"), set billingBasisTotalInput to that total, installmentCount to that number, equalInstallments to true, frequency and billingTiming to the stated cadence and timing, and cite the one sentence that states all of them; otherwise leave billingBasisTotalInput, installmentCount and equalInstallments null; invoiceTriggerKind is commencement when the cited sentence says invoicing occurs upon commencement, signing or the effective date, completion_of_linked_obligation when it says invoicing occurs upon completion of the linked service, and none otherwise;',
     "- identify the additional ASC 606 topics that are genuinely relevant to THIS contract's facts. Include a topic only when the evidence contains a fact that actually engages it, never merely because the topic exists or a Guidance Card mentions it, and never report the same topic or the same underlying issue twice under different wording;",
     "- return citations and supplied Guidance references for material conclusions;",
     "- surface uncertainty and conflicts through reviewState instead of inventing facts.",

@@ -36,12 +36,12 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("pins the output schema version to the 9C constant", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v8");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
   });
 
   it("accepts only the authoritative schema version literal", () => {
     const good = validAnalysisFixture();
-    good.schemaVersion = "arc.ai.schema.v8";
+    good.schemaVersion = "arc.ai.schema.v9";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
     for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
@@ -78,6 +78,11 @@ describe("AiContractAnalysis schema", () => {
     for (const term of legacy["billingTerms"] as Array<Record<string, unknown>>) {
       delete term["amountKind"];
       delete term["explicitInvoices"];
+      delete term["targetPerformanceObligationKey"];
+      delete term["billingBasisTotalInput"];
+      delete term["installmentCount"];
+      delete term["equalInstallments"];
+      delete term["invoiceTriggerKind"];
     }
 
     expect(parseAiContractAnalysis(legacy).ok).toBe(false);

@@ -58,28 +58,42 @@ function withFixed(value: string | null): AiContractAnalysis {
 
 /* ================================================== fixed-consideration matrix */
 
-describe("R1 acceptance — the deterministic full-term total is authoritative", () => {
-  it("A. corrects a model amount that is one billing period's fee", () => {
-    expect(run({ analysis: withFixed("245000") }).draft.transactionPriceInput).toBe("490000.00");
+describe("R1 acceptance — billing corroborates Step 3 but never replaces it (3D-Q.2)", () => {
+  const conflicts = (issues: ReturnType<typeof run>["issues"]) =>
+    issues.filter((issue) => issue.reasonCode === "source_conflict" && issue.section === "step_3");
+
+  it("A. keeps a model amount that is one billing period's fee and blocks for review", () => {
+    const { draft, issues } = run({ analysis: withFixed("245000") });
+    expect(draft.transactionPriceInput).toBe("245000");
+    expect(conflicts(issues)).toHaveLength(1);
+    expect(conflicts(issues)[0]!.severity).toBe("red");
   });
 
-  it("B. keeps the same canonical amount when the model already agrees", () => {
-    expect(run({ analysis: withFixed("490000") }).draft.transactionPriceInput).toBe("490000.00");
+  it("B. keeps the same canonical amount when the model already agrees, with no conflict", () => {
+    const { draft, issues } = run({ analysis: withFixed("490000") });
+    expect(draft.transactionPriceInput).toBe("490000.00");
+    expect(conflicts(issues)).toHaveLength(0);
   });
 
-  it("C. overrides a model amount that is simply wrong", () => {
-    expect(run({ analysis: withFixed("500000") }).draft.transactionPriceInput).toBe("490000.00");
+  it("C. never overrides a disagreeing model amount; raises a blocking conflict", () => {
+    const { draft, issues } = run({ analysis: withFixed("500000") });
+    expect(draft.transactionPriceInput).toBe("500000");
+    expect(conflicts(issues)).toHaveLength(1);
   });
 
-  it("D. supplies the total when the model reported nothing", () => {
-    expect(run({ analysis: withFixed(null) }).draft.transactionPriceInput).toBe("490000.00");
+  it("D. never supplies the total from billing when the model reported nothing", () => {
+    expect(run({ analysis: withFixed(null) }).draft.transactionPriceInput).toBe("");
   });
 
-  it("D2. raises no missing-input item when ARC derived the total", () => {
+  it("D2. raises the missing-input item, citing the billing total for reference only", () => {
     const { issues } = run({ analysis: withFixed(null) });
-    expect(
-      issues.filter((issue) => issue.targetKey === fieldKeys.transactionPrice("input")),
-    ).toHaveLength(0);
+    const missing = issues.filter(
+      (issue) =>
+        issue.targetKey === fieldKeys.transactionPrice("input") &&
+        issue.reasonCode === "missing_required_input",
+    );
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.reason).toContain("490000.00");
   });
 
   it("E. preserves the accountant's own price and raises exactly one item", () => {
@@ -128,12 +142,10 @@ describe("R1 acceptance — the deterministic full-term total is authoritative",
     ).toBe(true);
   });
 
-  it("writes ARC's own derivation wording whenever ARC supplied the amount", () => {
-    for (const reported of ["245000", "490000", "500000", null]) {
+  it("never writes billing-derivation wording as the transaction price note", () => {
+    for (const reported of ["245000", "490000", "500000"]) {
       const notes = run({ analysis: withFixed(reported) }).draft.transactionPriceNotes;
-      expect(notes).toContain("490000.00");
-      expect(notes).toContain("annual");
-      expect(notes).not.toContain("500000");
+      expect(notes).not.toContain("ARC derived the full-term");
     }
   });
 
