@@ -58,7 +58,7 @@ describe("Package 3D-P polish", () => {
       "href",
       "/sitemap",
     );
-    expect(within(footer).getByText(/© 2026 Ayden&apos;s Revenue Compass \(ARC\)/)).toBeInTheDocument();
+    expect(within(footer).getByText(/© 2026 Ayden's Revenue Compass \(ARC\)/)).toBeInTheDocument();
     expect(
       within(footer).queryByText(
         /Icons by Fajriah Robiatul Adawiah, Afqoh, rendicon, and Nur Khasan/,
