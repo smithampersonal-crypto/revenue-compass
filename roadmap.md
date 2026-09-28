@@ -261,3 +261,7 @@
 - [x] Footer: About · Privacy · Sitemap; Sitemap lists About before Privacy
 - [x] Focused tests A–F; full `bun run verify`; frozen state confirmed
 - [x] Publish + live smoke (About page, footer links, sitemap order verified on ayden-rc.com)
+
+## Package 3E — Final Production Verification, Docs Reconciliation & Recruiter Archive
+- [x] Plan approved (with corrections for Step 8 tracked-change check and "no dependency change versus the accepted (161) baseline" wording)
+- [ ] Implementation — waiting for the owner to upload revenue-compass-main(161).zip as the authoritative baseline

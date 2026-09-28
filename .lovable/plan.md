@@ -71,7 +71,9 @@ P  Prerequisite: owner uploads revenue-compass-main(161).zip
 5  bun run verify                                 (writes only ignored build output)
 6  Hygiene + secret scans (Section 6)             (read-only)
 7  sha256sum fixtures/genomix-synthesis-contract-package.pdf
-8  Frozen check F2 + git status --short (verify left no tracked changes)
+8  Frozen check F2 + tracked-change check: verify and the other checks added no unexpected tracked changes.
+   Only expected changes: README.md, docs/operations.md, docs/phase-8-acceptance.md, roadmap.md.
+   .env, package.json and bun.lock must match (161) byte-for-byte, so they are not 3E changes. Any other tracked change = STOP
 9  DIFF B — final release diff vs (161): authoritative; every changed path classified
    expected = approved docs/evidence files only (plus drift files now matching (161) exactly)
 10 Owner confirms GitHub app + database jobs green on the final 3E commit (external)
@@ -131,7 +133,7 @@ B. Previously accepted production evidence (not re-run)
    Genomix production AI run | live About page | prior smoke tests
 C. Owner-confirmed / external evidence
    GitHub application job | GitHub database job (with run links/dates supplied by owner)
-D. Confirmations: no AI run, no publish, no dependency change, no runtime source change
+D. Confirmations: no AI run, no publish, no dependency change versus the accepted (161) baseline, no runtime source change
 E. Deliverable: ARC-recruiter-v1-source.zip
 ```
 
