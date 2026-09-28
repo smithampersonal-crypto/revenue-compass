@@ -46,10 +46,7 @@ describe("Package 3D-P polish", () => {
   it("renders the recruiter-facing footer links", async () => {
     await renderAt("/");
     const footer = await screen.findByRole("contentinfo");
-    expect(within(footer).getByRole("link", { name: "About" })).toHaveAttribute(
-      "href",
-      "/about",
-    );
+    expect(within(footer).getByRole("link", { name: "About" })).toHaveAttribute("href", "/about");
     expect(within(footer).getByRole("link", { name: "Privacy" })).toHaveAttribute(
       "href",
       "/privacy",
