@@ -39,7 +39,7 @@ import {
 import { canonicalGroupDecompositionRules, resolveIdentityGraph } from "./identity-graph";
 import type { AiAnalysisState } from "./merge";
 import { parseBillingEventSemanticKey } from "./billing-identity";
-import { AI_OUTPUT_SCHEMA_VERSION, type AiCitation, type AiContractAnalysis } from "./schema";
+import { isEvidenceGatedSchemaVersion, type AiCitation, type AiContractAnalysis } from "./schema";
 
 /* ------------------------------------------------------------------ types */
 
@@ -481,7 +481,7 @@ export function assessSafeReanalysis(input: SafeReanalysisInput): SafeReanalysis
       (retractableLegacyTerms.get(parsed.termKey) ?? true) && legacyUntouched,
     );
   }
-  if (input.analysis.schemaVersion === AI_OUTPUT_SCHEMA_VERSION) {
+  if (isEvidenceGatedSchemaVersion(input.analysis.schemaVersion)) {
     const proposed = new Set(input.analysis.billingTerms.map((term) => term.semanticKey));
     for (const [termKey, retractable] of retractableLegacyTerms) {
       if (retractable && !proposed.has(termKey)) canonicalTermKeys.delete(termKey);
