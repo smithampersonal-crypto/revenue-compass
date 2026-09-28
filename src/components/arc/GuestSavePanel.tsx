@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -44,8 +44,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const session = useSupabaseSession();
   const navigate = useNavigate();
   const migrate = useServerFn(migrateGuestWorkspace);
-  // Package 3D-T: the temporary analysis this panel saves, named by `?a=`.
-  const guestAnalysisId = (useSearch({ strict: false }) as { a?: string }).a ?? "";
+
   const listCustomers = useServerFn(listCustomerChoices);
 
   const [open, setOpen] = useState(autoOpen);

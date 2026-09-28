@@ -74,6 +74,8 @@ export interface AnalysisPersistence {
   revision: LoadedRevisionDto | null;
   /** Guest only: when this temporary workspace stops working. */
   guestExpiresAt: string | null;
+  /** Package 3D-T, guest only: the temporary analysis id named by `?a=`. */
+  guestAnalysisId: string | null;
   /**
    * The newest lock version the server has accepted for this revision. It is
    * initialized from the adopted fresh load and advances only on an accepted
@@ -833,6 +835,7 @@ export function AnalysisProvider({
       status,
       revision,
       guestExpiresAt: loaded?.guestExpiresAt ?? null,
+      guestAnalysisId: mode === "guest" ? (guestAnalysisId ?? null) : null,
       lockVersion: loaded ? (lockVersion ?? loaded.lockVersion) : null,
       readOnly: Boolean(loaded?.readOnly),
       reload,
