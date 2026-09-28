@@ -1154,6 +1154,14 @@ export type Database = {
         Args: { p_guest_workspace_id: string; p_revision_id: string }
         Returns: undefined
       }
+      arc_guest_session_usage: {
+        Args: { p_session_id: string }
+        Returns: number
+      }
+      arc_guest_workspace_usage: {
+        Args: { p_workspace_id: string }
+        Returns: number
+      }
       arc_lock_ai_review_scope: {
         Args: {
           p_guest_token_hash: string
