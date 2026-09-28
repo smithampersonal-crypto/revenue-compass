@@ -26,7 +26,7 @@ Answers:
 - **Q2 – what happened to the $120,000 and $6,000:** they were left out because billing couldn't be worked out, and then the billing-derived total took precedence over the model's figure. They were not missing from the AI output as billing terms. Whether the model's own `fixedConsiderationInput` said $150,000 will be confirmed read-only from the stored Test 03 result before implementation. The code path overrides it either way.
 - **Q3 – is the billing total authoritative for Step 3:** yes. It was added in 3D-Q to stop a periodic fee being taken as the contract total (e.g. $245,000 a year on a two-year term = $490,000). That's appropriate only when the billing schedule covers all of the fixed consideration. Nothing checks that today.
 - **Q4 – does a billing check affect the price:** yes. `aiFixedScheduleEligibility`, used as a pre-filter, together with `derivedTotal ?? proposedFixed`.
-- **Q5 – proposed order of authority:** see section 4.
+- **Q5 – proposed order of authority:** see section 3.
 
 ## 2. Current rule-based billing: why Test 03 fails
 - `deriveBillingSchedule` uses one contract-wide service period (`deriveContractServicePeriod`). It has no link from a billing term to an obligation.
@@ -139,6 +139,11 @@ No changes to the UI, database, security rules, sign-in, allocation or recogniti
   - N6: rate, interest and percentage language is still refused.
   - A total that doesn't divide exactly into cents.
   - The installment count doesn't fit the service period.
+  - Installment facts are complete, but the advance/commencement wording is missing from the qualifying sentence → blocked.
+  - The model returns a `commencement` trigger that its citation doesn't support → blocked.
+  - The trigger phrase doesn't match the trigger kind → blocked.
+  - An unknown or missing obligation reference → blocked.
+  - An obligation reference that matches more than one obligation → blocked.
   - All existing 3D-Q and 3D-Q.1 negatives.
 - **Re-analysis:**
   - Unchanged facts keep the same IDs with no duplicates.
@@ -167,6 +172,6 @@ Restore any drift afterwards without republishing.
 
 ## 12. Risks / stop conditions
 - If the stored Test 03 result shows the model's own figure was not $150,000, the Step 3 fix alone won't reach $150,000 until the billing rules are in place. Report it and don't add any new source for the price.
-- **Owner decision:** keep the 3D-Q billing-total replacement when the schedule is complete (as recommended, to protect Horizon and the periodic-fee case), or always treat a difference as a conflict to review.
+- Removing the billing override changes the accepted 3D-Q behaviour for the periodic-fee case, from a silent $490,000 to a blocking conflict. Existing 3D-Q tests asserting the override will be updated as part of this package. Any Horizon or Genomix output change is a stop condition.
 - Stop if this needs obligation-level contract prices to become a new Step 3 source, fuzzy linking, changes to allocation or recognition, or changes outside billing and consideration.
 - 3E and Recent Analyses stay paused.
