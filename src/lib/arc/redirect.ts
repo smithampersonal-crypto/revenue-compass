@@ -33,3 +33,34 @@ export function sanitizeLocalPath(value: unknown, fallback = DEFAULT_SIGNED_IN_P
 
   return candidate;
 }
+
+const ANALYSIS_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Where "Continue without signing in" goes when there is no safe analysis to return to. */
+export const CONTINUE_WITHOUT_SIGN_IN_FALLBACK = "/recent";
+
+/**
+ * Package 3D-T: "Continue without signing in" returns to the analysis the
+ * visitor came from only when `next` is a safe ARC-local `/analysis…?a=<uuid>`
+ * path (same validator as the sign-in return). Anything else goes to Recent
+ * Analyses. The analysis page still checks session ownership independently.
+ */
+export function continueWithoutSignInPath(next: unknown): string {
+  const safe = sanitizeLocalPath(next, "");
+  if (safe === "") return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  let url: URL;
+  try {
+    url = new URL(safe, "https://arc.invalid");
+  } catch {
+    return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  }
+  if (url.origin !== "https://arc.invalid") return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  const path = url.pathname.replace(/\/$/, "");
+  if (path !== "/analysis" && !path.startsWith("/analysis/")) {
+    return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  }
+  if (path === "/analysis/new") return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  const id = url.searchParams.get("a");
+  if (!id || !ANALYSIS_ID.test(id)) return CONTINUE_WITHOUT_SIGN_IN_FALLBACK;
+  return `${url.pathname}${url.search}`;
+}
