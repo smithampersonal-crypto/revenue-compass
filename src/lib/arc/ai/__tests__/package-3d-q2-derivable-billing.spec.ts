@@ -176,6 +176,7 @@ describe("trigger dates come only from the linked obligation", () => {
 describe("installment and trigger evidence", () => {
   it("accepts one cohesive sentence", () => {
     expect(aiInstallmentEligibility(installmentTerm()).ok).toBe(true);
+    // "in advance beginning on the Effective Date" — both bases stated.
     expect(aiTriggerEligibility(triggerTerm()).ok).toBe(true);
   });
 
@@ -190,10 +191,60 @@ describe("installment and trigger evidence", () => {
     );
   });
 
-  it("blocks a commencement trigger the citation does not state", () => {
-    const text =
-      "Customer will be invoiced the total fee of $490,000 in eight equal quarterly installments in advance.";
-    expect(aiInstallmentEligibility(installmentTerm({}, text)).ok).toBe(false);
+  describe("one supported date-driving basis is enough", () => {
+    const BASE =
+      "Customer will be invoiced the total fee of $490,000 in eight equal quarterly installments";
+    const withCites = (texts: string[], overrides: Partial<Term>) =>
+      installmentTerm({ ...overrides, citations: texts.map(cite) });
+
+    it("advance supported + trigger none → pass", () => {
+      expect(
+        aiInstallmentEligibility(
+          withCites([`${BASE} in advance.`], { invoiceTriggerKind: "none" }),
+        ),
+      ).toEqual({ ok: true, timing: "advance" });
+    });
+
+    it("advance supported + commencement stated only elsewhere → pass on advance", () => {
+      expect(
+        aiInstallmentEligibility(
+          withCites(
+            [
+              `${BASE} in advance.`,
+              "The first quarterly installment is invoiced upon commencement of the subscription.",
+            ],
+            { invoiceTriggerKind: "commencement" },
+          ),
+        ),
+      ).toEqual({ ok: true, timing: "advance" });
+    });
+
+    it("no advance/arrears support + commencement supported in the sentence → pass", () => {
+      expect(
+        aiInstallmentEligibility(
+          withCites([`${BASE}, the first upon commencement of the subscription.`], {
+            billingTiming: "unknown",
+            invoiceTriggerKind: "commencement",
+          }),
+        ),
+      ).toEqual({ ok: true, timing: "advance" });
+    });
+
+    it("neither supported → fail", () => {
+      expect(
+        aiInstallmentEligibility(
+          withCites([`${BASE}.`], { billingTiming: "unknown", invoiceTriggerKind: "none" }),
+        ),
+      ).toEqual({ ok: false, reason: "no_timing_evidence" });
+    });
+
+    it("model says commencement but the evidence supports neither → fail", () => {
+      expect(
+        aiInstallmentEligibility(
+          withCites([`${BASE}.`], { billingTiming: "unknown", invoiceTriggerKind: "commencement" }),
+        ),
+      ).toEqual({ ok: false, reason: "no_timing_evidence" });
+    });
   });
 
   it("never composes facts across sentences", () => {
