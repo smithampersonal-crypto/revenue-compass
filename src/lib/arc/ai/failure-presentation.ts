@@ -154,7 +154,8 @@ const COPY: Readonly<Record<AiFailurePresentationCategory, CategoryCopy>> = {
   },
   attempt_limited: {
     whatHappened: AI_ATTEMPT_LIMIT_GUEST,
-    whatYouCanDo: "ARC still works fully without AI. You can keep working manually in the meantime.",
+    whatYouCanDo:
+      "ARC still works fully without AI. You can keep working manually in the meantime.",
   },
 };
 
@@ -181,11 +182,11 @@ export function presentAiFailure(facts: AiFailureFacts): AiFailurePresentation {
         ? AI_ALLOWANCE_HEADLINE
         : category === "attempt_limited"
           ? AI_ATTEMPT_LIMIT_HEADLINE
-        : category === "structurally_declined"
-          ? AI_REANALYSIS_DECLINED_HEADLINE
-          : facts.hadPriorSuccessfulAnalysis
-            ? AI_FAILURE_HEADLINE_REANALYSIS
-            : AI_FAILURE_HEADLINE_FIRST_RUN,
+          : category === "structurally_declined"
+            ? AI_REANALYSIS_DECLINED_HEADLINE
+            : facts.hadPriorSuccessfulAnalysis
+              ? AI_FAILURE_HEADLINE_REANALYSIS
+              : AI_FAILURE_HEADLINE_FIRST_RUN,
     whatHappened:
       category === "attempt_limited" && facts.quotaScope === "authenticated"
         ? AI_ATTEMPT_LIMIT_AUTHENTICATED
