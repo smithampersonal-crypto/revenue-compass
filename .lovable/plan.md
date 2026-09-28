@@ -35,13 +35,20 @@ Answers:
 - The evidence check needs the per-invoice amount stated in the text, so "$120,000 in four equal installments" can never pass.
 
 ## 3. Step 3 correction (keeps billing out of the price)
-New order of authority for the fixed transaction price:
-1. The accountant's amount. Unchanged; never overwritten.
-2. The model's validated full-term fixed consideration (`fixedConsiderationInput`).
-3. The billing-derived total, which **confirms or challenges** (2) but may **replace** it only when the schedule is complete: every billing term the model marked `fixed_invoice_amount` passed the evidence check and was used in the derivation. The count happens **before** filtering. Any refused fixed term means incomplete, and the billing total has no say in Step 3.
-4. If the schedule is complete and differs from (2): keep today's 3D-Q replacement, so the periodic-fee protection and Horizon stay unchanged. Also raise a visible, non-blocking Step 3 review item saying the figure came from the schedule. If the schedule is incomplete and differs: (2) stands and a Step 3 vs billing conflict review item is raised.
+Order of authority for the fixed transaction price:
+1. **The accountant's amount.** It decides the price, as it does today, and is never overwritten.
+2. **The model's validated full-term fixed consideration** (`fixedConsiderationInput`). This is the proposed Step 3 figure.
+3. **The billing-derived total.** It only confirms or challenges the Step 3 figure and **never replaces** it. The `derivedTotal ?? proposedFixed` override is removed.
 
-Test 03 result: the schedule is incomplete, so the model's $150,000 stands. After section 4 the schedule is complete and totals $150,000, so the two agree and nothing is raised.
+How the billing total is used:
+- **Complete** means every billing term the model marked `fixed_invoice_amount` passed its evidence check and was used. ARC counts these before filtering out refused terms.
+- **Incomplete or can't be worked out:** billing has no authority over Step 3, and no comparison is made.
+- **Complete and agrees with Step 3:** nothing is raised.
+- **Complete but disagrees with Step 3:** the Step 3 amount stays. ARC raises a **blocking** Step 3 / billing conflict item on the transaction price (reason code `source_conflict`, which already exists). Neither figure is silently changed, and the accountant must resolve it before finalizing.
+- **The model gives no Step 3 figure:** the existing "enter the transaction price" item is raised. If a complete billing total exists, it is shown in that item for reference only and is never applied.
+- **The $245,000 a year × 2 years case:** ARC now detects the disagreement and blocks for review instead of using the billing total.
+
+For Test 03, the model's $150,000 stands. Once section 4 is in place, the schedule is complete, totals $150,000 and agrees, so nothing is raised.
 
 No change to allocation, recognition or reconciliation math, or to how variable consideration is derived.
 
@@ -66,12 +73,24 @@ The existing recurring and one-time paths and the 3D-Q.1 dated-invoice path stay
 
 ## 6. Evidence and linkage rules
 - **Unsafe combining stays blocked:** the recurring check and the 3D-Q.1 check are unchanged. Separate sentences are never merged.
-- **New installment check:** one sentence from that term's own citations must state an invoicing word, the exact total, the installment count (in words or digits), the word "equal", and the cadence. It gets the same rate, percentage, interest and per-unit exclusions.
-- **New trigger check:** one sentence must state an invoicing word, the exact amount, and a trigger phrase ("upon completion of", "upon commencement", "at signing/effective date"). The date is not taken from that sentence. It comes only from the linked obligation's date already in the workpaper, which is deterministic and linked by exact key.
-- **It fails closed when:**
-  - the obligation link is missing or unknown;
+- **New installment check.** One sentence from that term's own citations must state all of the following:
+  - an invoicing word;
+  - the exact total billing basis;
+  - the installment count, in words or digits;
+  - the word "equal";
+  - the cadence;
+  - the timing or first-invoice trigger that sets the dates. This is an advance or commencement phrase such as "in advance", "upon commencement", "beginning on the Effective Date" or "at the start of each".
+
+  The check applies the same rate, percentage, interest and per-unit exclusions as the existing checks. A `commencement` trigger or `advance` timing from the model is never accepted on the model's word: if the qualifying sentence doesn't state it, the stream is blocked. No second clause is combined with it, not even one from the same billing section.
+- **New trigger check.** One sentence must state an invoicing word, the exact amount, and a trigger phrase matching the trigger kind the model returned: "upon completion of" for `completion_of_linked_obligation`; "upon commencement" or "at signing/effective date" for `commencement`. If the phrase doesn't match the kind, the term is blocked. The date is never taken from that sentence. It comes only from the linked obligation's date already in the workpaper.
+- **Who owns the obligation link.** `targetPerformanceObligationKey` is only an AI-side reference to a performance obligation's `semanticKey` in the same AI result. It is never an ARC ID. ARC:
+  1. checks the reference matches exactly one AI obligation in that result;
+  2. resolves it to the canonical workflow obligation using the adapter's existing semantic-key mapping (`poIdBySemanticKey`);
+  3. fails closed if the reference is missing, unknown, matches more than one obligation, or maps ambiguously.
+
+  The model never supplies or changes ARC's canonical IDs or relationships.
+- **It also fails closed when:**
   - the linked obligation has no date;
-  - the link is ambiguous (the key doesn't exactly match one obligation);
   - the trigger is a completion trigger but the linked obligation is ongoing with no end date.
 - No fuzzy matching of names or descriptions.
 
@@ -99,10 +118,13 @@ No changes to the UI, database, security rules, sign-in, allocation or recogniti
 - **Transaction price:**
   - TP1: billing can't be worked out, and the price keeps $120,000.
   - TP2: Test 03 gives $150,000.
-  - TP3: the billing total differs from the Step 3 figure → a conflict item is raised and nothing is silently replaced.
+  - TP3: a complete billing total differs from the Step 3 figure → a blocking conflict item; Step 3 is not replaced.
   - TP4: no billing total, and the price still comes from the contract figure.
   - TP5: usage, rate and variable amounts never become fixed price.
-  - Plus: Horizon and the $245,000 × 2 case still give their existing totals.
+  - A complete billing total agrees with Step 3 → no item.
+  - The model gives no Step 3 figure → the missing-input item is raised and the billing total is never applied.
+  - The $245,000 × 2 case now gives a blocking conflict instead of a silent $490,000. Existing 3D-Q tests that expected the replacement are updated to match.
+  - Horizon, the deterministic sample, is unchanged.
 - **Billing positives:**
   - B1: four quarterly installments of $30,000.
   - B2: implementation billed Jan 1, $24,000.
