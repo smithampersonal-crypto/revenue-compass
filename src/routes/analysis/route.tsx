@@ -62,7 +62,7 @@ export const Route = createFileRoute("/analysis")({
     ...(typeof search["review"] === "string" ? { review: search["review"] } : {}),
   }),
   beforeLoad: ({ search, location }) => {
-    if (search.sample && (search.contract || search.revision)) {
+    if (search.sample && (search.contract || search.revision || search.a)) {
       throw redirect({ to: "/analysis", search: { sample: search.sample } });
     }
     // Package 3D-T: there is no implicit analysis any more. A bare /analysis
