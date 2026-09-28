@@ -44,6 +44,8 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
   const session = useSupabaseSession();
   const navigate = useNavigate();
   const migrate = useServerFn(migrateGuestWorkspace);
+  // Package 3D-T: the temporary analysis this panel saves, named by `?a=`.
+  const guestAnalysisId = (useSearch({ strict: false }) as { a?: string }).a ?? "";
   const listCustomers = useServerFn(listCustomerChoices);
 
   const [open, setOpen] = useState(autoOpen);
@@ -136,6 +138,7 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
     try {
       const result = await migrate({
         data: {
+          analysisId: guestAnalysisId,
           contractTitle: request.contractTitle,
           expectedLockVersion: lockVersion,
           existingCustomerId: request.existingCustomerId,
@@ -169,13 +172,20 @@ export function GuestSavePanel({ autoOpen = false }: { autoOpen?: boolean }) {
       // An unknown outcome keeps the analysis locked against edits.
       setFinalizing(unknown);
     }
-  }, [customerName, lockVersion, migrate, navigate, setFinalizing]);
+  }, [customerName, guestAnalysisId, lockVersion, migrate, navigate, setFinalizing]);
 
   const goToSignIn = useCallback(() => {
     // Preserve the intent to save across the magic-link round trip, using
     // only a local path — never the guest credential.
-    void navigate({ to: "/auth", search: { next: "/analysis?save=1" } });
-  }, [navigate]);
+    void navigate({
+      to: "/auth",
+      search: {
+        next: guestAnalysisId
+          ? `/analysis?a=${encodeURIComponent(guestAnalysisId)}&save=1`
+          : "/analysis?save=1",
+      },
+    });
+  }, [guestAnalysisId, navigate]);
 
   // A queued intent runs only once the server has accepted the visible draft.
   // A failed or conflicted save keeps the existing Retry / Reload flows and
