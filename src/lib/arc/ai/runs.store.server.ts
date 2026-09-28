@@ -247,14 +247,13 @@ export async function createAiRunStore(): Promise<AiRunExecutionStore> {
     },
 
     guestConsumed: async (guestWorkspaceId) => {
-      const { count, error } = await supabaseAdmin
-        .from("ai_runs")
-        .select("id", { count: "exact", head: true })
-        .eq("guest_workspace_id", guestWorkspaceId)
-        .eq("quota_scope", "guest")
-        .not("openai_started_at", "is", null);
+      // 3D-T: the one authoritative session-wide definition, shared with
+      // arc_reserve_ai_allowance. Never re-derived in TypeScript.
+      const { data, error } = await supabaseAdmin.rpc("arc_guest_workspace_usage" as never, {
+        p_workspace_id: guestWorkspaceId,
+      } as never);
       if (error) fail("temporary workspace usage", error);
-      return count ?? 0;
+      return typeof data === "number" ? data : 0;
     },
 
     /* ------------------------------------------------- Phase 9F execution */
