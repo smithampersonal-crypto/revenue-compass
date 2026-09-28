@@ -36,24 +36,89 @@ export function cedarTest03Analysis(): AiContractAnalysis {
   const [ssp] = base.sspAndAllocation.items;
 
   base.promises = [
-    { ...promise!, semanticKey: "promise:implementation", description: "Implementation services", promiseType: "professional_service", citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE) },
-    { ...promise!, semanticKey: "promise:subscription", description: "Hosted analytics subscription", citations: quote(2, CEDAR_SUBSCRIPTION_SENTENCE) },
-    { ...promise!, semanticKey: "promise:training", description: "Training services", promiseType: "professional_service", citations: quote(3, CEDAR_TRAINING_SENTENCE) },
+    {
+      ...promise!,
+      semanticKey: "promise:implementation",
+      description: "Implementation services",
+      promiseType: "professional_service",
+      citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
+    },
+    {
+      ...promise!,
+      semanticKey: "promise:subscription",
+      description: "Hosted analytics subscription",
+      citations: quote(2, CEDAR_SUBSCRIPTION_SENTENCE),
+    },
+    {
+      ...promise!,
+      semanticKey: "promise:training",
+      description: "Training services",
+      promiseType: "professional_service",
+      citations: quote(3, CEDAR_TRAINING_SENTENCE),
+    },
   ];
   base.performanceObligations = [
-    { ...po!, semanticKey: "po:implementation", promiseKeys: ["promise:implementation"], description: "Implementation services", satisfactionPattern: "point_in_time", citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE) },
-    { ...po!, semanticKey: "po:subscription", promiseKeys: ["promise:subscription"], description: "Hosted analytics subscription", citations: quote(2, CEDAR_SUBSCRIPTION_SENTENCE) },
-    { ...po!, semanticKey: "po:training", promiseKeys: ["promise:training"], description: "Training services", satisfactionPattern: "point_in_time", citations: quote(3, CEDAR_TRAINING_SENTENCE) },
+    {
+      ...po!,
+      semanticKey: "po:implementation",
+      promiseKeys: ["promise:implementation"],
+      description: "Implementation services",
+      satisfactionPattern: "point_in_time",
+      citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
+    },
+    {
+      ...po!,
+      semanticKey: "po:subscription",
+      promiseKeys: ["promise:subscription"],
+      description: "Hosted analytics subscription",
+      citations: quote(2, CEDAR_SUBSCRIPTION_SENTENCE),
+    },
+    {
+      ...po!,
+      semanticKey: "po:training",
+      promiseKeys: ["promise:training"],
+      description: "Training services",
+      satisfactionPattern: "point_in_time",
+      citations: quote(3, CEDAR_TRAINING_SENTENCE),
+    },
   ];
   base.recognitionProposals = [
-    { ...pointInTime!, performanceObligationKey: "po:implementation", recognitionDateIfContractuallyDeterminable: "2027-01-31" },
-    { ...overTime!, performanceObligationKey: "po:subscription", serviceStartDate: "2027-01-01", serviceEndDate: "2027-12-31" },
-    { ...pointInTime!, performanceObligationKey: "po:training", recognitionDateIfContractuallyDeterminable: "2027-04-15" },
+    {
+      ...pointInTime!,
+      performanceObligationKey: "po:implementation",
+      recognitionDateIfContractuallyDeterminable: "2027-01-31",
+    },
+    {
+      ...overTime!,
+      performanceObligationKey: "po:subscription",
+      serviceStartDate: "2027-01-01",
+      serviceEndDate: "2027-12-31",
+    },
+    {
+      ...pointInTime!,
+      performanceObligationKey: "po:training",
+      recognitionDateIfContractuallyDeterminable: "2027-04-15",
+    },
   ];
   base.sspAndAllocation.items = [
-    { ...ssp!, semanticKey: "ssp:implementation", appliesToKey: "po:implementation", observedAmountInput: "30000" },
-    { ...ssp!, semanticKey: "ssp:subscription", appliesToKey: "po:subscription", observedAmountInput: "120000" },
-    { ...ssp!, semanticKey: "ssp:training", appliesToKey: "po:training", observedAmountInput: "10000" },
+    {
+      ...ssp!,
+      semanticKey: "ssp:implementation",
+      appliesToKey: "po:implementation",
+      observedAmountInput: "30000",
+    },
+    {
+      ...ssp!,
+      semanticKey: "ssp:subscription",
+      appliesToKey: "po:subscription",
+      observedAmountInput: "120000",
+    },
+    {
+      ...ssp!,
+      semanticKey: "ssp:training",
+      appliesToKey: "po:training",
+      observedAmountInput: "10000",
+    },
   ];
   base.transactionPrice.fixedConsiderationInput = "150000";
   base.transactionPrice.variableConsiderationComponents = [];
@@ -76,7 +141,12 @@ export function cedarTest03Analysis(): AiContractAnalysis {
     amountOrRateInput: null,
     citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
     explicitInvoices: [
-      { invoiceDateInput: "2027-01-01", amountInput: "24000", coveragePeriodText: null, citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE) },
+      {
+        invoiceDateInput: "2027-01-01",
+        amountInput: "24000",
+        coveragePeriodText: null,
+        citations: quote(2, CEDAR_IMPLEMENTATION_SENTENCE),
+      },
     ],
   } as Term;
   const subscription: Term = {
