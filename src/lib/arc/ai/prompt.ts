@@ -32,7 +32,7 @@ export const AI_PROMPT_SECTIONS = {
  * constant, so a live run can never be labelled with a version it did not
  * receive. Changing the trusted instruction body REQUIRES bumping this literal.
  */
-export const AI_PROMPT_VERSION = "arc.ai.prompt.v11" as const;
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v12" as const;
 
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
@@ -185,6 +185,8 @@ function taskSection(outputSchemaVersion: string): string {
     "- never invent an installment schedule or divide a total into installments unless the contract itself states the number, amount and cadence of the installments; when an installment schedule is ambiguous use frequency unknown and reviewState needs_user_input;",
     "- when commercial terms conflict with each other (for example a unit price, quantity and stated total that do not reconcile) use reviewState source_conflict for the affected billing term;",
     "- use reviewState supported for a billing term only when the cited text itself states the invoiced currency amount, the invoicing cadence and the billing timing; ARC independently verifies that evidence before creating any invoice and creates none otherwise;",
+    '- when the contract states a dated invoice (for example "Redwood will invoice $6,000 on April 15, 2027"), list every such invoice of that billing stream in explicitInvoices with invoiceDateInput as YYYY-MM-DD, amountInput as the exact invoiced amount, coveragePeriodText when a service period is stated, and citations to the one sentence that states that invoice\'s amount and date; never infer, compute or shift an invoice date, and leave explicitInvoices empty when the contract states no exact invoice date;',
+    "- report each billing stream once: when a stream's invoices are listed in explicitInvoices, do not also return a separate billing term for the same stream's recurring rule; a stream with stated dated invoices may use reviewState supported when each listed invoice's own citation states its invoiced amount and exact date;",
     "- identify the additional ASC 606 topics that are genuinely relevant to THIS contract's facts. Include a topic only when the evidence contains a fact that actually engages it, never merely because the topic exists or a Guidance Card mentions it, and never report the same topic or the same underlying issue twice under different wording;",
     "- return citations and supplied Guidance references for material conclusions;",
     "- surface uncertainty and conflicts through reviewState instead of inventing facts.",

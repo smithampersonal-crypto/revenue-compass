@@ -247,6 +247,7 @@ export function genomixR1Analysis(): AiContractAnalysis {
         citations: [cite(1, "billing schedule annual advance ($245,000/yr net 30)")],
         reviewState: "supported",
         amountKind: "fixed_invoice_amount",
+        explicitInvoices: [],
       },
       {
         semanticKey: "billing:overage",
@@ -260,6 +261,7 @@ export function genomixR1Analysis(): AiContractAnalysis {
         citations: [cite(1, "1.35 per sample")],
         reviewState: "supported",
         amountKind: "per_unit_rate",
+        explicitInvoices: [],
       },
     ],
     projectedCollectionAssumptions: {

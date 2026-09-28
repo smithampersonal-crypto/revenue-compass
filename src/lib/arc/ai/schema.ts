@@ -14,7 +14,17 @@
 import { z } from "zod";
 
 /** Single source of truth for new-generation output (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v7";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v8";
+/**
+ * Package 3D-Q.1. Frozen v7 immutable-result version: identical to v8 except
+ * its billing terms carry no `explicitInvoices`. Read-only; normalized to [].
+ */
+export const LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v7";
+
+/** Schema versions whose billing terms passed through ARC's evidence gate (3D-Q+). */
+export function isEvidenceGatedSchemaVersion(version: string): boolean {
+  return version === AI_OUTPUT_SCHEMA_VERSION || version === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION;
+}
 /** Frozen immutable-result version accepted only by persisted-result dispatch. */
 export const LEGACY_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v5";
 /**
@@ -75,6 +85,7 @@ export const AI_SCHEMA_BOUNDS = {
   sspItems: 40,
   recognitionProposals: 40,
   billingTerms: 40,
+  explicitInvoicesPerTerm: 24,
   additionalTopics: 20,
   issues: 60,
   parties: 12,
@@ -470,6 +481,28 @@ const billingTermSchemaV7 = billingTermSchema
   .extend({ amountKind: z.enum(BILLING_AMOUNT_KINDS) })
   .strict();
 
+/**
+ * Package 3D-Q.1. One source-stated dated invoice ("Redwood will invoice
+ * $6,000 on April 15, 2027"). Each invoice carries its own citations; ARC
+ * verifies it only against those, never against the term's shared citations.
+ */
+export const EXPLICIT_INVOICE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const explicitInvoiceSchema = z
+  .object({
+    invoiceDateInput: z.string().max(10).regex(EXPLICIT_INVOICE_DATE_PATTERN),
+    amountInput: decimalInput,
+    coveragePeriodText: nullableShortText,
+    citations,
+  })
+  .strict();
+export type AiExplicitInvoice = z.infer<typeof explicitInvoiceSchema>;
+
+const billingTermSchemaV8 = billingTermSchemaV7
+  .extend({
+    explicitInvoices: z.array(explicitInvoiceSchema).max(AI_SCHEMA_BOUNDS.explicitInvoicesPerTerm),
+  })
+  .strict();
+
 const projectedCollectionAssumptionsSchema = z
   .object({
     contractualDueDateBasis: z.enum([
@@ -575,12 +608,25 @@ export const aiContractAnalysisV6ObjectSchema = z
   })
   .strict();
 
-/** Plain v7 object form — the provider JSON Schema is generated from exactly this. */
+/** Frozen v7 object shape for immutable historical results only. */
+export const aiContractAnalysisV7ObjectSchema = z
+  .object({
+    schemaVersion: z.literal(LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    billingTerms: z.array(billingTermSchemaV7).max(AI_SCHEMA_BOUNDS.billingTerms),
+    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchema)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
+  })
+  .strict();
+
+/** Plain v8 object form — the provider JSON Schema is generated from exactly this. */
 export const aiContractAnalysisObjectSchema = z
   .object({
     schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
     ...analysisRootShape,
-    billingTerms: z.array(billingTermSchemaV7).max(AI_SCHEMA_BOUNDS.billingTerms),
+    billingTerms: z.array(billingTermSchemaV8).max(AI_SCHEMA_BOUNDS.billingTerms),
     promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
     performanceObligations: z
       .array(performanceObligationSchema)
@@ -596,6 +642,7 @@ function addAnalysisRefinements(
   value:
     | z.infer<typeof aiContractAnalysisV5ObjectSchema>
     | z.infer<typeof aiContractAnalysisV6ObjectSchema>
+    | z.infer<typeof aiContractAnalysisV7ObjectSchema>
     | z.infer<typeof aiContractAnalysisObjectSchema>,
   ctx: z.RefinementCtx,
 ): void {
@@ -688,6 +735,9 @@ export const aiContractAnalysisSchema =
 export const aiContractAnalysisV6Schema =
   aiContractAnalysisV6ObjectSchema.superRefine(addAnalysisRefinements);
 
+export const aiContractAnalysisV7Schema =
+  aiContractAnalysisV7ObjectSchema.superRefine(addAnalysisRefinements);
+
 /** Exactly zero, however the model spelled the decimal. */
 export function isZeroDecimal(value: string | null): boolean {
   return typeof value === "string" && /^-?0(\.0+)?$/.test(value);
@@ -698,6 +748,7 @@ const DECIMAL_FIELD_NAMES = new Set([
   "contractualRateOrAmountInput",
   "observedAmountInput",
   "amountOrRateInput",
+  "amountInput",
   "priceIncreaseInput",
   "initialEstimatedAmountInput",
   "initialIncludedAmountInput",
@@ -717,7 +768,8 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-export type AiContractAnalysisV7 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV8 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV7 = z.infer<typeof aiContractAnalysisV7ObjectSchema>;
 export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisV6ObjectSchema>;
 export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSchema>;
 /** Internal compatibility representation; v5 carries no synthesized presentation label. */
@@ -727,6 +779,7 @@ export type AiContractAnalysis = Omit<
 > & {
   schemaVersion:
     | typeof AI_OUTPUT_SCHEMA_VERSION
+    | typeof LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_AI_OUTPUT_SCHEMA_VERSION;
   /**
@@ -734,7 +787,11 @@ export type AiContractAnalysis = Omit<
    * normalized to `unknown` on read; a term lacking it is treated as `unknown`.
    */
   billingTerms: Array<
-    AiContractAnalysisV5["billingTerms"][number] & { amountKind?: BillingAmountKind | undefined }
+    AiContractAnalysisV5["billingTerms"][number] & {
+      amountKind?: BillingAmountKind | undefined;
+      /** Package 3D-Q.1. Required on v8; legacy terms normalize to []. */
+      explicitInvoices?: AiExplicitInvoice[] | undefined;
+    }
   >;
   promises: Array<
     AiContractAnalysisV5["promises"][number] & { accountingLabel?: string | undefined }
@@ -978,7 +1035,7 @@ export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProvid
 /** Safe parse helper used by the client after every generation. */
 export function parseAiContractAnalysis(
   value: unknown,
-): { ok: true; analysis: AiContractAnalysisV7 } | { ok: false; issues: string[] } {
+): { ok: true; analysis: AiContractAnalysisV8 } | { ok: false; issues: string[] } {
   const result = aiContractAnalysisSchema.safeParse(value);
   if (result.success) return { ok: true, analysis: result.data };
   return {
@@ -1015,6 +1072,12 @@ export function parsePersistedAiContractAnalysis(
     return { ok: false, issues: ["schemaVersion: stored run metadata does not match result"] };
   }
   if (payloadVersion === AI_OUTPUT_SCHEMA_VERSION) return parseAiContractAnalysis(value);
+  if (payloadVersion === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION) {
+    const result = aiContractAnalysisV7Schema.safeParse(value);
+    return result.success
+      ? { ok: true, analysis: normalizeLegacyExplicitInvoices(result.data) }
+      : { ok: false, issues: parseIssues(result) };
+  }
   if (payloadVersion === LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION) {
     const result = aiContractAnalysisV6Schema.safeParse(value);
     return result.success
@@ -1041,7 +1104,20 @@ function normalizeLegacyBillingTerms(analysis: AiContractAnalysis): AiContractAn
     billingTerms: analysis.billingTerms.map((term) => ({
       ...term,
       amountKind: "unknown" as const,
+      explicitInvoices: [],
     })),
+  };
+}
+
+/**
+ * Package 3D-Q.1. A v7 result states no dated invoices; it keeps its
+ * `amountKind` and behaves exactly as before. The stored payload is never
+ * rewritten.
+ */
+function normalizeLegacyExplicitInvoices(analysis: AiContractAnalysis): AiContractAnalysis {
+  return {
+    ...analysis,
+    billingTerms: analysis.billingTerms.map((term) => ({ ...term, explicitInvoices: [] })),
   };
 }
 
