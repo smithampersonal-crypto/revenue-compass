@@ -1,137 +1,216 @@
-# Package 3D-T — New Analysis & Recent Analyses (PLAN ONLY)
+# Package 3D-T — New Analysis & Recent Analyses (revised PLAN ONLY)
 
-No accounting, billing, AI model/prompt/schema, quota amounts, or Safe Re-analysis changes. No publish, no AI run, no production data change. **This package needs a database migration**, so per the stop conditions it goes back to you for decisions (section 19) before any code.
+No accounting, billing, AI model/prompt/schema, quota amounts, or Safe Re-analysis changes. No publish, AI run or production data change until this plan is approved. Owner decisions D1–D5 are recorded in section 19.
 
 ## 1. How it works today (checked in code)
 
-- **`/analysis` with no sample or contract:** `AnalysisLayout` passes `guest = !sample && !contract` to `AnalysisProvider`. That calls `resumeGuestWorkspace` → `resumeOrCreateGuestHandler`. It hashes the HttpOnly `__Host-arc_guest` cookie, finds that `guest_workspaces` row, and resumes it if it is active and not expired. Only if there is no row does it create one. This also happens for signed-in users: bare `/analysis` is backed by the cookie workspace, not a saved contract.
-- **New Analysis:** `AppHeader` links to `/analysis` with no search params, which goes down the same resume path.
-- **Temporary workspace:** the `guest_workspaces` table has `token_hash` (unique), `draft_json`, `schema_version`, `lock_version`, `status` (active/migrated), `migrated_user_id` and `expires_at` (created + 9 h, `GUEST_LIFETIME_SECONDS = 32400`). Expiry is checked on every load/save. The cookie Max-Age is 9 h, and the hourly maintenance job cleans up.
-- **Draft storage:** a guest draft lives in `guest_workspaces.draft_json`, saved with an optimistic lock (`saveGuestDraftHandler`, or `arc_save_draft_with_ai_reconciliation` when AI data exists). A saved-contract draft lives in `analysis_revisions`.
-- **Records tied 1:1 to the workspace:** `guest_source_document_selections`, `source_documents`, `document_upload_intents`, `ai_runs`, `ai_analysis_state`, `ai_review_events`. Each has a `guest_workspace_id` foreign key (cascade delete), and about 15 trusted functions authorise with `p_guest_token_hash` + `guest_workspace_id`.
-- **My Contracts:** `/workspace` (in `_authenticated`) reads the `customers → contracts → analyses → analysis_revisions` rows the user owns, under RLS.
-- **Samples:** `?sample=horizon` etc. use the in-memory `sample` mode. Nothing is saved. A refresh reloads the canonical sample.
-- **AI allowance:** `arc_reserve_ai_allowance`. Guest runs are counted with `count(ai_runs where guest_workspace_id = X and quota_scope='guest')`. Signed-in runs count against `ai_monthly_usage` per user per month.
-- **Save to My Contracts:** `migrateGuestWorkspaceHandler` → `arc_migrate_guest_workspace_by_token_v3`. It is one transaction that creates customer (or reuses one) → contract → analysis → revision 1 from the guest draft, moves the AI state, review events and documents, marks the workspace `migrated`, and then clears the cookie.
+- **Bare `/analysis`:** `AnalysisLayout` sets `guest = !sample && !contract`. This calls `resumeOrCreateGuestHandler`, which hashes the HttpOnly `__Host-arc_guest` cookie and resumes that one `guest_workspaces` row, or creates one. Signed-in users take the same path for unsaved work.
+- **New Analysis** in the header links to bare `/analysis`, so it resumes that same row.
+- **`guest_workspaces`** has `token_hash` (globally UNIQUE), `draft_json`, `lock_version`, `status` (active/migrating/migrated/expired) and `expires_at` (created + 9 h). The hourly maintenance job expires and deletes rows.
+- **Linked records** use `guest_workspace_id`: source-document selections, source documents, upload intents, AI runs, AI state and review events. About 15 trusted functions authorise with `p_guest_token_hash` + the workspace id.
+- **My Contracts** (`/workspace`) reads the customer → contract → analysis → revision rows the user owns, under RLS.
+- **Samples** use the in-memory `sample` mode and are never saved.
+- **Guest AI allowance:** `arc_reserve_ai_allowance` counts `ai_runs where guest_workspace_id = X and quota_scope='guest' and openai_started_at is not null`. Signed-in runs use `ai_monthly_usage`.
+- **Save to My Contracts** (`arc_migrate_guest_workspace_v3`, called via `_by_token_v3`) runs as one transaction. It creates the customer, contract, analysis and revision 1, then moves the workspace's records to the new revision:
+  - documents: `source_documents.guest_workspace_id = null`, and selections become `revision_source_documents`;
+  - **AI runs:** `revision_id = new`, `guest_workspace_id = null`. `quota_scope` and `guest_token_hash` are kept;
+  - AI state and review events: moved to the revision the same way;
+  - the workspace row is marked `migrated`.
 
 ## 2. Root cause
 
-The system assumes "one browser cookie = one `guest_workspaces` row = one draft". New Analysis goes to `/analysis`, which resumes that single row. There is nowhere to hold a second analysis, so "new" always reopens the current one.
+The system assumes one cookie = one workspace row = one draft. Because New Analysis goes to bare `/analysis`, it can only resume that row.
 
-## 3. Proposed identity model
+## 3. Identity model
 
 ```text
-Browser session (cookie, 9 h)  ── AI allowance bucket (3 runs), expiry
-   ├── Temporary analysis A  (own draft, docs, AI state, review events, lock)
-   ├── Temporary analysis B
-   └── ...
-Signed-in user ── AI allowance bucket (10/month)
-   ├── Temporary analyses (unsaved)      → Recent Analyses
-   └── Saved contracts (existing tables) → My Contracts
+Browser session (guest_sessions, cookie, 9 h) ── guest AI bucket: 3 runs
+   ├── temporary analysis A = guest_workspaces row (own credential, draft, docs, AI, reviews, lock)
+   └── temporary analysis B
+Signed-in user ── 10 runs/month (unchanged) ── saved contracts (unchanged tables)
 ```
 
-## 4. Persistence model — options
+Recent Analyses belongs to this browser only, for guests and signed-in users alike (D3). It does not sync across browsers or devices.
 
-- **Option A (recommended): one `guest_workspaces` row per analysis, grouped by a new session.** Add a `guest_sessions` table (token_hash, expires_at, optional `user_id`). Add `guest_workspaces.session_id` and `label_hint`, and drop `token_hash` uniqueness per session. The cookie holds only the session credential. For each analysis row, the server stores `hash(HMAC(sessionToken, analysisId))`. Because each row still has its own token hash, every existing trusted function, RLS rule and document path keeps working unchanged: saving, AI, review, restore and migration still see "one workspace = one analysis". Only two functions change:
-  - `arc_reserve_ai_allowance`, so the guest count is per **session** (sum across its rows), not per row. Without this, each new analysis would get 3 fresh runs.
-  - Maintenance cleanup, so it expires by session.
-- **Option B:** a new `temporary_analyses` child table, with all six tables and about 15 functions re-pointed from `guest_workspace_id` to it. This is much larger and touches the frozen AI and document functions. Not recommended.
+## 4. Credentials and schema (Option A, D1)
 
-## 5. Guest lifecycle (Option A)
+- **Session credential:** a new random token in the cookie. `guest_sessions.token_hash = sha256(sessionToken)`.
+- **Per-analysis credential:** `derived = HMAC-SHA256(key = sessionToken, msg = analysisId)`, base64url. `guest_workspaces.token_hash = sha256(derived)`. Each value is unique per (session, analysis), so **`token_hash` stays globally UNIQUE** (correction 1). The server computes the derived token for each request. It is never stored, sent to the browser or logged.
+- Every existing trusted function still receives a per-analysis `p_guest_token_hash` and so stays unchanged, apart from the quota function (section 11).
 
-- **Create:** New Analysis → the server creates a session if needed, then a new analysis row with an empty draft (or a sample seed, section 14). It redirects to `/analysis?a=<analysisId>`.
-- **Resume:** `?a=<id>` loads the row only if its `session_id` matches the cookie session and it is active and not expired. Otherwise it shows "This analysis is no longer available", with links back. It never falls back to another row.
-- **Expiry:** each row keeps `expires_at = session expires_at` (9 h from session start, unchanged). Opening a new analysis does not extend the session.
-- **Isolation:** the browser never lists by ID. The list server function filters by the cookie session hash only.
+**Exact schema changes, in one migration:**
+
+```text
+guest_sessions
+  id uuid pk default gen_random_uuid()
+  token_hash text not null unique
+  expires_at timestamptz not null
+  created_at, updated_at timestamptz not null default now()  (+ arc_set_updated_at trigger)
+  -- no user_id (D3)
+  grants: service_role only; RLS enabled, no policies (same pattern as guest_workspaces)
+
+guest_workspaces
+  + session_id uuid null references guest_sessions(id) on delete cascade
+  + credential_kind text not null default 'legacy'  -- 'legacy' | 'derived'
+  + origin text not null default 'blank'            -- 'blank' | 'upload' | 'sample:<key>'
+  index (session_id, status, updated_at desc)
+
+ai_runs
+  + guest_session_id uuid null references guest_sessions(id) on delete set null
+  index (guest_session_id) where quota_scope = 'guest'
+```
+
+## 5. Guest lifecycle
+
+- **Create:** New Analysis chooser → a server function looks up or creates the session. It inserts a workspace row with `session_id` set, the session's `expires_at`, the derived credential and `origin`, then returns the id. The browser goes to `/analysis?a=<id>`.
+- **Resume:** `?a=<id>` loads the row only if `session_id` equals the cookie session's id, the row's `token_hash` matches the derived credential, and the row is active and not expired. Otherwise it shows "This analysis is no longer available", with links to Recent Analyses and New Analysis. It never falls back to another row.
+- **Expiry:** 9 h from session creation. Starting a new analysis never extends it (D2 applies the same rule to signed-in unsaved work).
+- **Multi-tab:** each tab autosaves its own row with its own lock version, so there is no shared lock across analyses.
 
 ## 6. Signed-in lifecycle
 
-Signed-in users already use the cookie workspace for unsaved work, and this stays the same. The list function also includes session rows stamped with `user_id` (section 7). Save moves exactly one analysis through the existing migration transaction (section 11). **Retention for signed-in unsaved work does not exist today apart from the 9-hour guest lifetime.** Keeping it at 9 h is the default. A longer period is an owner decision.
+Signed-in users use the same browser session. Recent Analyses shows this browser's rows. Save to My Contracts promotes exactly one row (section 11). AI runs started while signed in keep using the existing signed-in 10/month bucket.
 
-Three separate clocks: AI allowance (3 per 9-h session / 10 per calendar month), temporary retention (9 h), sign-in session (Supabase, unrelated).
+## 7. Signing in
 
-## 7. Signing in with temporary work
+The cookie survives sign-in, so temporary analyses stay in Recent Analyses. Nothing is attached to the account (D3), and nothing is saved automatically.
 
-Today the cookie survives sign-in, so the unsaved analysis is still there, and it moves only when "Save to account" is used. Proposal: on sign-in, stamp `guest_sessions.user_id` if it is unset. Recent Analyses then shows that session's analyses to that user on this browser. No automatic save and no merging by name. Sessions from other browsers are not pulled in. **Owner decision D3.**
+## 8. Existing workspaces after release (correction 2)
 
-## 8. Routing
+1. **Migration:** for each active, unmigrated workspace with no session, create a `guest_sessions` row with `token_hash = <the workspace's existing token_hash>` and the same `expires_at`. Link the workspace to it and leave `credential_kind = 'legacy'`. Nothing is deleted, and no row's credential changes.
+2. **Before upgrade:** a request whose cookie hashes to a session that has a `legacy` row accepts that row with its original credential, so access is never lost.
+3. **Upgrade on the first real request:** a trusted function `arc_upgrade_legacy_guest_workspace(p_session_hash, p_workspace_id, p_new_token_hash)` runs `select … for update`. It checks that the row is legacy, belongs to the session and has `token_hash = p_session_hash`. It then sets `token_hash = sha256(HMAC(cookie, id))` and `credential_kind = 'derived'`. If a repeat request finds the row already derived, it does nothing and returns the same row, so no second session or workspace is created. The cookie value itself stays the same: it becomes the session credential.
+4. From then on, the row is resumed only by its exact `?a=<id>`.
 
-- `/analysis` = a safe entry point. With a valid session and no `a`, it goes to `/analysis/new` (never auto-resumes).
-- `/analysis/new` = chooser.
-- `/analysis?a=<uuid>` = the exact temporary analysis, carried to child pages (`/analysis/documents?a=…` etc.).
-- `/recent` = Recent Analyses.
-- `?sample=` (read-only preview) and `?contract=&revision=` stay as they are.
-- A row UUID is fine in the address bar: it is useless without the session cookie, and it is not the credential.
-- 3D-R view state is keyed by an identity string, which gains `a`, so accordion state does not carry across analyses.
+## 9. Routing audit (correction 4)
 
-## 9. Recent Analyses page
+Links that go to bare `/analysis`, with their new behaviour:
 
-A single list with newest first. Each row shows:
-- the customer/contract label (Step 1 customer name, otherwise "Untitled analysis");
-- the source file name or "Sample — Horizon";
+| Entry point | Today | After 3D-T |
+|---|---|---|
+| Header "New Analysis" (`AppHeader`) | resumes current row | `/analysis/new` chooser |
+| Bare `/analysis` URL | resume/create | redirect to `/analysis/new` |
+| Home "Try the Sample" (`?sample=horizon`) | read-only sample | **unchanged** (D4) |
+| Home "Upload PDF" (`?upload=1`) | current row → documents upload | creates a new analysis (`origin=upload`) → `/analysis/documents?a=<id>&upload=1` |
+| Home "Start Manually" | resumes current row | creates a new blank analysis → `/analysis?a=<id>` |
+| Sitemap "ASC 606 Analysis" | resumes | `/analysis/new` |
+| Sitemap sample link | read-only sample | unchanged |
+| Auth page "Continue without signing in" | resumes | `/recent` |
+| My Contracts "Upload PDF" (`?upload=1&customer=`) | current row → upload | new analysis → documents upload, keeping the `customer` hint |
+| My Contracts "Open analysis workspace" | resumes | `/recent` |
+| My Contracts contract/revision links (`?contract=`) | saved contract | unchanged |
+| `AnalysisNavigation`, `analysis/index` review cleanup, `review.tsx`, `CreateRevisionAction`, `AmendmentDraftActions` | keep current search params | unchanged; they carry `a` because they spread the current search |
+| `GuestSavePanel` after save | navigates to the saved contract | unchanged; the save panel also refreshes Recent |
+
+- The chooser's **Analyze a Contract** creates a new analysis (`origin=upload`) and opens its upload step.
+- The chooser's **Try a Sample Contract** creates a new analysis seeded from the canonical Horizon sample (`origin=sample:horizon`).
+- **Resume** always uses `?a=<id>`. The id is a row UUID: it is useless without the session cookie and is not the credential.
+- The 3D-R view-state key gains `a`, so view state never carries from one analysis to another.
+
+## 10. Recent Analyses (`/recent`)
+
+A list with newest first. Each row shows:
+- label: the Step 1 customer name, otherwise "Untitled analysis";
+- source: the first selected document's name, or "Sample — Horizon";
 - status;
-- "Updated 2h ago";
-- when it expires.
+- updated time;
+- expiry time.
 
-Actions: **Resume Analysis** (primary), and **Save to My Contracts** for signed-in users.
+Actions: **Resume Analysis**, plus **Save to My Contracts** when signed in.
 
-Status comes from existing fields only: no selected source and no AI run → "Not analyzed"; an `ai_runs` row that is running → "Analysis in progress"; `ai_analysis_state.review_items` with unresolved blocking items → "Review needed"; otherwise "Draft".
+Status comes from existing fields only:
+- an `ai_runs` row that is not yet completed or failed → "Analysis in progress";
+- `ai_analysis_state.review_items` with unresolved blocking items → "Review needed";
+- no selected source and no successful run → "Not analyzed";
+- otherwise → "Draft".
 
-Empty state: "No recent analyses yet." plus a New Analysis button.
+Empty state: "No recent analyses yet." plus a New Analysis button. There is no cap on how many can be listed (D5).
 
-## 10. Header
+## 11. Saving, and keeping guest AI history (correction 3)
 
-- Guest: **New Analysis · Recent Analyses · Sign in**.
-- Signed in: **New Analysis · Recent Analyses · My Contracts · Account** (My Contracts moves out of the account menu).
-- On small screens the links wrap as they do today, and "Recent Analyses" shortens to "Recent".
+**Problem found:** the save transaction sets `ai_runs.guest_workspace_id = null`. Today's quota count uses that column, so after a save:
+- Today: the cookie is cleared, so no one can reuse the bucket.
+- With sessions: if the other rows keep the cookie alive, a count based on the workspace would drop A's runs. The session would then appear to have runs back.
 
-## 11. Saving to My Contracts
+**Smallest safe correction:** the new `ai_runs.guest_session_id`, set by `arc_create_ai_run` from the workspace's session and **never cleared by the save transaction** (that transaction is not changed). `arc_reserve_ai_allowance` counts guest runs as follows (the limit stays 3):
+- `guest_session_id = <session>` for new runs;
+- the same workspace test as today for legacy runs with no session id.
 
-The existing transaction is reused unchanged for the one analysis row. It creates a new durable identity (contract/analysis/revision IDs) and moves that row's AI state, review events, runs and documents. It never re-runs AI and never uses allowance. The row becomes `migrated`, so it drops out of Recent. Change: **the cookie is cleared only when the session has no other active rows.** The migration is identity-changing (temporary ID → new revision ID), not a copy.
+The migration backfills `guest_session_id` for existing runs whose workspace is linked to a session.
 
-## 12. Security / access rules
+**Save flow:**
+- The existing transaction runs unchanged on that one row. It moves the row's AI runs, state, review events and documents to the new revision, creating a new durable identity.
+- It does not re-run AI and does not use any allowance.
+- The row becomes `migrated` and leaves Recent Analyses.
+- The session cookie is cleared only if no other active rows remain.
 
-New table `guest_sessions` has no browser access at all (same pattern as `guest_workspaces`: revoke anon/authenticated, service_role only). No existing RLS rule is relaxed, and storage paths are unchanged. The list function returns metadata for the caller's session only.
+## 12. Security
 
-## 13. Existing workspaces
+- `guest_sessions` is service-role only. No RLS rule is relaxed, and storage paths are unchanged.
+- The list function filters by the cookie session only.
+- The HMAC key never leaves the server request.
 
-The migration creates one `guest_sessions` row for each active workspace. On the first request after release, the existing cookie is recognised as a legacy token: the server wraps the row into a session, and it appears in Recent. Nothing is lost, and nothing needs re-uploading or re-running.
+## 13. Samples
 
-## 14. Samples
+- The chooser's sample path copies the frozen sample definition into a new temporary row. Sample accounting is unchanged.
+- The Home sample preview is unchanged (D4).
 
-Opening a sample from the chooser creates a temporary row seeded from the canonical sample draft, and it shows in Recent. The accounting inputs are copied from the frozen sample definition and are not changed. The Home page "Try the Sample" read-only preview keeps working. **Owner decision D4:** also make the Home button create a temporary analysis?
+## 14. Files
 
-## 15. Exact files (planned)
+- **Migration** (section 4 schema), plus:
+  - `arc_upgrade_legacy_guest_workspace`;
+  - `arc_create_ai_run` sets `guest_session_id`;
+  - the `arc_reserve_ai_allowance` count change;
+  - `arc_delete_expired_guest_workspaces` / `arc_expire_guest_workspaces` also expire and delete sessions;
+  - the legacy backfill.
+- `persistence/guest.ts`: session cookie and derived-credential helpers.
+- `guest.handlers.ts`, `guest.store.server.ts` and `guest.functions.ts`: create, resume by id, list, upgrade, and partial cookie clearing.
+- The `ai/*` and `documents/*` server functions that read the guest cookie: resolve the per-analysis hash from `?a` instead of the cookie hash (the functions they call keep the same parameters).
+- `routes/analysis/route.tsx` (`a` param, identity key, bare redirect).
+- New routes: `routes/analysis/new.tsx` and `routes/recent.tsx`.
+- `index.tsx`, `sitemap.tsx`, `auth/index.tsx` and `_authenticated/workspace.tsx`: entry points per section 9.
+- `AppHeader.tsx` and `AccountMenu.tsx`: headers (guest: New Analysis · Recent Analyses · Sign in; signed in: New Analysis · Recent Analyses · My Contracts · Account).
+- `analysis-context.tsx`: resume by id, and the missing-item state.
+- `GuestSavePanel.tsx`: after a save, refresh Recent.
+- `supabase/tests/phase3dt_sessions.sql`, plus unit and screen tests.
 
-- Migration: `guest_sessions`, `guest_workspaces.session_id`/`label_hint`/index, updated `arc_reserve_ai_allowance` (guest count by session; limits unchanged), maintenance cleanup, and the legacy backfill.
-- `persistence/guest.ts`, `guest.handlers.ts`, `guest.store.server.ts`, `guest.functions.ts`: session cookie, derived per-analysis hash, create/resume by id, list, partial cookie clear.
-- `ai/*` and `documents/*` callers: pass the derived per-analysis hash (the signature stays the same).
-- `routes/analysis/route.tsx` (`a` param, identity key, entry redirect), `routes/analysis/new.tsx`, `routes/recent.tsx`.
-- `AppHeader.tsx`, `AccountMenu.tsx`, `analysis-context.tsx` (resume by id, missing-item state), `GuestSavePanel.tsx` (after save → My Contracts).
-- New SQL suite `supabase/tests/phase3dt_sessions.sql`, plus unit and screen tests.
+## 15. Tests
 
-## 16. Tests
+The brief's G1–G7, A1–A6, S1–S3, I1–I6, N1–N5 and Q1–Q3, plus:
 
-G1–G7, A1–A6, S1–S3, I1–I6, N1–N5 and Q1–Q3 exactly as in the brief. Additions:
-- two tabs on A and B autosaving without conflict;
-- a legacy cookie upgrading into a session;
-- a forged `?a=` from another session being refused;
-- an expired session refusing every row.
+- **Legacy upgrade:**
+  - a legacy cookie still resumes its row before the upgrade;
+  - the upgrade is atomic;
+  - an exact `?a` resume works afterwards;
+  - repeated or simultaneous first requests create no duplicate session or workspace.
+- **Uniqueness:** derived hashes for (S, A), (S, B) and (S', A) differ, and the global UNIQUE constraint still holds.
+- **Quota history:**
+  - session with A and B; 2 of 3 guest runs used across them;
+  - sign in and save A: no run is used, and B stays temporary;
+  - the session count still reads 2 used;
+  - no fresh bucket comes from saving, New Analysis, another analysis or the legacy upgrade.
+- **Isolation:** a `?a` from another session is refused; an expired session refuses every row; two tabs autosave A and B without conflict.
+- **Entry points:** every row of the section 9 table.
 
-## 17. Verification
+## 16. Verification
 
-- Focused unit, routing and SQL suites (local harness).
+- Focused unit, routing and SQL suites.
 - Full `bun run verify`, then both GitHub jobs green.
-- Frozen-state check: `.env` has the two public values, `^2.15.0`, lock at 2.15.0 Europe West 4, Genomix SHA unchanged.
+- Frozen state: `.env` has the two public values, `^2.15.0`, lock at 2.15.0 Europe West 4, Genomix SHA unchanged.
 
-## 18. Live acceptance
+## 17. Live acceptance
 
-The guest and signed-in flows from brief section 33, after publish approval. No AI run beyond what the owner chooses.
+The guest and signed-in flows from brief section 33, after publish approval. The guest-to-sign-in case: the temporary analyses stay in Recent on the same browser, and only the analysis explicitly saved moves to My Contracts.
 
-## 19. Owner decisions needed before implementation
+## 18. Risks
 
-- **D1:** approve a database migration and Option A (session grouping), including the change to how `arc_reserve_ai_allowance` **counts** guest runs (per session instead of per analysis; amounts unchanged).
-- **D2:** signed-in unsaved retention: keep 9 h (default), or set a longer period.
-- **D3:** on sign-in, attach this browser's temporary session to the user (proposed), or leave it guest-only.
-- **D4:** should Home "Try the Sample" also create a Recent entry, or stay a read-only preview?
-- **D5:** is a cap on temporary analyses per session wanted? None is proposed; the AI allowance is unaffected.
+- The quota function change alters how runs are counted, not the limits. Any accidental increase in remaining runs is a stop condition, covered by the tests in section 15.
+- About 15 server functions switch from the cookie hash to the derived hash. Each one gets a boundary test.
+
+## 19. Owner decisions (recorded)
+
+- **D1:** Option A approved.
+- **D2:** 9-hour retention for signed-in unsaved work.
+- **D3:** no `user_id` binding; Recent Analyses is per browser.
+- **D4:** Home sample preview unchanged.
+- **D5:** no cap on the number of analyses.
