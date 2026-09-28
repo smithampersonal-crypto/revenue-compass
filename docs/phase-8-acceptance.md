@@ -98,7 +98,18 @@ hosted browser) · **Human** (must be confirmed by a reviewer).
 - `bun run db:test` requires a local Supabase database; in the build sandbox the
   SQL suites are confirmed through GitHub Actions.
 
-## Manual production configuration still required
+## Manual production configuration (at the Phase 8 checkpoint)
+
+> **Current-state note (Package 3E):** this list records what was outstanding
+> at the Phase 8 checkpoint and is kept as history. Since then, the GitHub
+> Actions workflow has become the authoritative production maintenance
+> scheduler, and pg_cron remains optional and unapplied. The maintenance
+> secrets are configured, and production runs at `https://ayden-rc.com`. The
+> owner has also verified signed-in persistence (save, My Contracts, reopen,
+> refresh, and denial of signed-out direct access). See `docs/operations.md`
+> for current truth.
+
+At that checkpoint:
 
 1. Enable `pg_cron` and apply `supabase/schedules/arc-hourly-maintenance.sql`
    (the authoritative hourly trigger for upload cleanup and guest expiry).

@@ -104,7 +104,7 @@ ARC is designed to fail safely when automation is uncertain.
 
 ## Quality & Testing
 
-The current repository passes **2,592 automated tests across 200 test files**. The verification workflow also includes:
+The current repository passes **2,812 automated tests across 223 test files**. The verification workflow also includes:
 
 - TypeScript type checking;
 - ESLint and formatting enforcement;
@@ -113,6 +113,10 @@ The current repository passes **2,592 automated tests across 200 test files**. T
 - SQL suites covering row-level security, privileges, persistence, and concurrency behavior.
 
 Accounting tests emphasize exact monetary reconciliation, date boundaries, allocation integrity, schedule totals, balanced journal entries, modification treatment, and failure behavior—not only rendered UI states.
+
+## Production
+
+ARC recruiter-v1 is live at [ayden-rc.com](https://ayden-rc.com). Sign-in is email magic-link only. Guest analyses run in a temporary nine-hour workspace; saved contracts need sign-in. An hourly GitHub Actions workflow calls a secret-protected maintenance endpoint. That endpoint cleans up abandoned uploads, removes expired guest workspaces, and deletes queued private documents.
 
 ## Technology
 
