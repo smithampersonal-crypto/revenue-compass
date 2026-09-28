@@ -72,36 +72,27 @@ One entrypoint performs every recurring cleanup:
 `public.arc_run_maintenance(limit)` runs steps 1 and 2 in isolated blocks, so
 one failing category never discards another's work.
 
-### Production deployment (required manual steps)
+### Production scheduling (current, recruiter-v1)
 
-1. **Database schedule.** Enable `pg_cron` in the Supabase project and apply
-   `supabase/schedules/arc-hourly-maintenance.sql` once. This runs steps 1
-   and 2 every hour.
-2. **Storage drain schedule.** Set the repository secrets
-   `ARC_MAINTENANCE_URL` (the deployed
-   `https://<host>/api/public/maintenance`) and `ARC_MAINTENANCE_SECRET`
-   (identical to the deployed `ARC_MAINTENANCE_SECRET` environment variable).
-   `.github/workflows/maintenance.yml` then calls the endpoint hourly. The
-   endpoint verifies the bearer secret in constant time and is closed when the
-   secret is unset; it returns counts only.
+**Authoritative scheduler: GitHub Actions → deployed maintenance endpoint.**
+`.github/workflows/maintenance.yml` runs hourly at minute 17 (`17 * * * *`)
+and can be started manually (`workflow_dispatch`). It calls
+`https://ayden-rc.com/api/public/maintenance`, which runs steps 1, 2 and 3
+above in one bounded invocation. The endpoint verifies the bearer secret in
+constant time, is closed when the secret is unset, and returns counts only.
+The repository secrets `ARC_MAINTENANCE_URL` and `ARC_MAINTENANCE_SECRET` and
+the deployed `ARC_MAINTENANCE_SECRET` are configured; manual and natural
+scheduled runs have both returned a counts-only 200 without logging the secret.
 
-#### Which schedule is authoritative
-
-`pg_cron` (step 1) is the **authoritative production hourly trigger** for
-abandoned-upload cleanup and guest expiry. It runs inside the database, needs
-no deployed application and no secret.
-
-The GitHub Actions workflow (step 2) is the **only** trigger for the Storage
-drain, because deleting private objects requires the application's storage
-credentials. It also re-runs steps 1 and 2 as a harmless fallback.
-
-Enable both: they cover different work. They are deliberately offset (`7 * * * *`
-for pg_cron, `17 * * * *` for the workflow) and remain correct if they overlap —
+**Optional artifact: `supabase/schedules/arc-hourly-maintenance.sql`.**
+This pg_cron schedule stays in the repository as an optional database-side
+trigger for steps 1 and 2. It is **not applied, not required and not
+authoritative** for recruiter-v1. The GitHub workflow alone covers all three
+steps. If it is ever applied, it is offset (`7 * * * *`) and safe to overlap:
 claiming is `for update skip locked`, queue rows are terminal, and the
-`cleanup_queued_at` marker makes stale-intent cleanup one-time. Do not add a
-third scheduler.
+`cleanup_queued_at` marker makes stale-intent cleanup one-time.
 
-Both schedules are safe to overlap, to fail partially and to restart midway.
+Every run is safe to overlap, fail partially and restart midway.
 
 ### Observability
 
@@ -121,13 +112,14 @@ recorded.
 - `.github/workflows/verify.yml` runs both on push and pull request using a
   local Supabase stack; no production service-role secret is required.
 
-## Production release prerequisites (outside this codebase)
+## Production configuration (completed)
 
-- **Custom SMTP.** ARC v1 is magic-link only. Supabase's built-in development
-  mail service is intentionally rate-limited and is not suitable for public or
-  recruiter traffic. A verified sending domain and SMTP provider must be
-  configured in Supabase Auth before launch.
-- **`ARC_SITE_URL`** must be set to the deployed origin so magic-link callback
+- **Domain.** Production runs at `https://ayden-rc.com` over HTTPS; `www`
+  redirects to the apex.
+- **Auth and mail.** ARC v1 is email magic-link only (no passwords, no social
+  login). Magic links are delivered through a custom SMTP provider on the
+  verified sending domain `mail.ayden-rc.com`, configured in Supabase Auth.
+- **`ARC_SITE_URL`** is set to `https://ayden-rc.com`, so magic-link callback
   URLs are built from trusted configuration.
 - **Leaked-password protection** is reported by the Supabase linter but is not
   applicable: ARC stores no passwords.

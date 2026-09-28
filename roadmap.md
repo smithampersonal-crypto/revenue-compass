@@ -229,7 +229,7 @@
 ## Package 3D — Focused Production Verification
 
 - [x] 1 Domain routing  - [x] 2 Horizon smoke  - [x] 3 Guest upload  - [x] 4 One guest AI run
-- [x] 5 Outputs  - [x] 6 Review/Evidence  - [ ] 7 Owner-session persistence (owner)
+- [x] 5 Outputs  - [x] 6 Review/Evidence  - [x] 7 Owner-session persistence (owner-verified: save, My Contracts, reopen, refresh, signed-out denial)
 - [x] 8 Quotas  - [x] 9 Isolation  - [x] 10 Bundle audit  - [x] 11 Maintenance evidence
 
 ## Package 3D-P — Final UI/UX Polish
