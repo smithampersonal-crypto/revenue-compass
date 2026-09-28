@@ -397,7 +397,7 @@ describe("R2 — duplicate output never becomes duplicate accountant work", () =
 describe("R2 — version pins", () => {
   it("pins new generations to schema v6 and prompt v10", () => {
     expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
-    expect(AI_LIMITS.promptVersion).toBe("arc.ai.prompt.v13");
+    expect(AI_LIMITS.promptVersion).toBe("arc.ai.prompt.v14");
   });
 });
 
