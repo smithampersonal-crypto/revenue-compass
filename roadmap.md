@@ -342,3 +342,9 @@ Fresh 3E evidence
 
 - [x] Unknown-kind terms listing dated invoices pass only when every invoice is proven by its own sentence; shared candidate rule keeps refused terms in the Step 3 completeness denominator; reason-specific refusal copy. Schema v9 / prompt v14 unchanged; no migration.
 - [ ] Owner: acceptance, GitHub jobs, publish, and new final archive pending
+
+## Package 3F.1 — Table billing + generic Additional Topics review
+
+- [ ] Table-row explicit-invoice evidence (text citations only), prompt v15 carve-out
+- [ ] Read-only AI review topics list in Additional Topics (shared badge/list set)
+- [ ] Tests, verify, SQL suites, protected state, ZIP
