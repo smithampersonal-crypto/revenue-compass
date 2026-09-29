@@ -30,6 +30,7 @@ import {
   REVIEW_NOTE_MAX_LENGTH,
   ASSUMPTIONS_GROUP_DESCRIPTION,
   ASSUMPTIONS_GROUP_LABEL,
+  aiReviewItemElementId,
   citationLabel,
   citationOpenAccessibleLabel,
   describeReviewTarget,

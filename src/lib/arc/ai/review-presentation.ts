@@ -488,9 +488,6 @@ export function genericReviewTopicLabel(targetKey: string): string {
   if (targetKey.startsWith("billing:")) return "Billing schedule";
   if (targetKey.startsWith("cash:")) return "Cash collections";
   const topic = /^additionalTopic:([A-Za-z0-9_]+)$/.exec(targetKey);
-  if (topic) {
-    const label = humanize(topic[1]!);
-    return label.charAt(0).toUpperCase() + label.slice(1);
-  }
+  if (topic) return humanize(topic[1]!);
   return "Additional topic";
 }
