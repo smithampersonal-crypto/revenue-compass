@@ -40,7 +40,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 let aiState: AiWorkspaceStateDto;
 
 vi.mock("@/lib/arc/ai/workspace.functions", () => ({
-  getAiWorkspaceState: async () => aiState,
+  getAiWorkspaceState: async () => { ((globalThis as any).__log ??= []).push(["ai", performance.now(), Object.keys((aiState as any).fieldProvenance).length]); return aiState; },
   requestAiAnalysis: async () => aiState,
   affirmAiReviewItem: async () => aiState,
   resolveAiReviewIssue: async () => aiState,
@@ -48,14 +48,14 @@ vi.mock("@/lib/arc/ai/workspace.functions", () => ({
 }));
 
 vi.mock("@/lib/arc/persistence/guest.functions", () => ({
-  resumeGuestWorkspace: async () => ({
+  resumeGuestWorkspace: async () => { ((globalThis as any).__log ??= []).push(["resume", performance.now(), manualSecondMeter]); return ({
     kind: "guest",
     draft: fixtureDraft(),
     lockVersion: 1,
     expiresAt: new Date(Date.now() + 9 * 3_600_000).toISOString(),
     schemaVersion: "arc.workflow.v1",
     resumed: false,
-  }),
+  }); },
   saveGuestDraft: vi.fn(),
   migrateGuestWorkspace: vi.fn(),
 }));
@@ -543,6 +543,7 @@ describe("deterministic AI meter fields are presented individually", () => {
 
   it("never lets a manually added meter steal the AI meter's anchors or provenance", async () => {
     manualSecondMeter = true;
+    (globalThis as any).__log = [["start", performance.now()]];
     aiState = workspace({
       fieldProvenance: { [UNIT]: { state: "ai_generated_user_edited" } } as never,
     });
@@ -585,7 +586,7 @@ describe("deterministic AI meter fields are presented individually", () => {
         "ariaEdited", container.querySelectorAll('[aria-label="AI drafted · edited"]').length,
         "status", Array.from(container.querySelectorAll('[role=status],[aria-live]')).map(n=>n.textContent).join("|"));
       console.log("DBG unitNow", a?.outerHTML?.slice(0,1500));
-      console.log("DBG unitOrig", origHtml?.slice(0,1500));
+      console.log("DBG unitOrig", origHtml?.slice(0,300)); console.log("DBG log", JSON.stringify((globalThis as any).__log), "now", performance.now()); console.log("DBG body", container.textContent?.slice(0,600)); console.log("DBG manualMeterInputs", container.innerHTML.includes("seat"), container.querySelectorAll("input").length);
       throw e;
     }
   });
