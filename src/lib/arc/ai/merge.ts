@@ -570,6 +570,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     initialIncludedAmountInput: component.initialIncludedAmountInput,
     initialEstimateRationale: component.initialEstimateRationale,
     constraintAssessment: component.constraintAssessment,
+    // Package 3F.3. Present only on v10: legacy material stays byte-identical.
+    ...(component.includedQuantityInput !== undefined
+      ? { includedQuantityInput: component.includedQuantityInput }
+      : {}),
   });
 
   const modificationMaterial = () => ({
