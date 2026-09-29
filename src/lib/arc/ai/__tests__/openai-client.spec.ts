@@ -39,6 +39,7 @@ import {
   FIXTURE_PAGE_COUNT,
   FIXTURE_PAGE_TEXT,
   validAnalysisFixture,
+  asV10Output,
 } from "./analysis-fixture";
 
 /* ------------------------------------------------------- canonical request */
@@ -208,7 +209,7 @@ function evidence(): AiDocumentEvidence[] {
   ];
 }
 
-function generativeResponse(analysis: unknown = validAnalysisFixture()) {
+function generativeResponse(analysis: unknown = asV10Output(validAnalysisFixture())) {
   return {
     id: "resp_fake_1",
     model: "gpt-5.6-terra",
@@ -341,7 +342,7 @@ async function expectRejection(analysis: unknown) {
 
 describe("TerraAnalyzer fails closed on provenance validation", () => {
   it("rejects an unknown Guidance ID instead of returning the analysis", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.guidanceIds = [99999];
     const error = await expectRejection(analysis);
     expect(error).toBeInstanceOf(TerraAnalysisError);
@@ -353,7 +354,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("rejects a Guidance ID that exists but was not supplied in this pack", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     const absent = [...Array(116).keys()]
       .map((index) => index + 1)
       .find((id) => !pack.cards.some((card) => card.id === id))!;
@@ -364,7 +365,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("rejects a fabricated document citation", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.citations[0]!.documentId = "doc-invented";
     const error = await expectRejection(analysis);
     expect(error.category).toBe("citation_validation_failure");
@@ -372,7 +373,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("rejects an out-of-range page", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.citations[0]!.pageStart = 42;
     analysis.promises[0]!.citations[0]!.pageEnd = 42;
     const error = await expectRejection(analysis);
@@ -381,7 +382,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("rejects a fabricated excerpt", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.citations[0]!.excerpt = "perpetual irrevocable source licence";
     const error = await expectRejection(analysis);
     expect(error.category).toBe("citation_validation_failure");
@@ -389,7 +390,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("rejects a material conclusion asserted with no citation at all", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.performanceObligations[0]!.citations = [];
     const error = await expectRejection(analysis);
     expect(error.category).toBe("citation_validation_failure");
@@ -399,7 +400,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
   });
 
   it("omits excerpt diagnostics unless the developer fixture asks for them", async () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.citations[0]!.excerpt = "a paraphrased clause never printed";
 
     const quiet = await expectRejection(analysis);
@@ -449,7 +450,7 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
       model: "gpt-5.6-terra",
       output: [
         {
-          content: [{ type: "output_text", text: JSON.stringify(validAnalysisFixture()) }],
+          content: [{ type: "output_text", text: JSON.stringify(asV10Output(validAnalysisFixture())) }],
         },
       ],
     });

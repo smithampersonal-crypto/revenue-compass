@@ -19,6 +19,7 @@ import {
   FIXTURE_PAGE_COUNT,
   FIXTURE_PAGE_TEXT,
   validAnalysisFixture,
+  asV10Output,
 } from "./analysis-fixture";
 import { materializeAiCitationAnchors } from "../citation-anchor-materializer";
 import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
@@ -222,7 +223,7 @@ describe("citation anchor materializer — anchorIds contract", () => {
     for (const page of buildCitationAnchorPages(fixtureEvidence)) {
       for (let index = 0; index < page.anchors.length; index += 1) {
         const end = Math.min(index + CITATION_ANCHOR_MAX_RANGE, page.anchors.length);
-        const provider = toProviderCitations(validAnalysisFixture(), {
+        const provider = toProviderCitations(asV10Output(validAnalysisFixture()), {
           documentId: page.documentId,
           pageStart: page.pageNumber,
           pageEnd: page.pageNumber,
@@ -246,7 +247,7 @@ describe("citation anchor materializer — anchorIds contract", () => {
   });
 
   it("produces internal citations carrying excerpt and no anchor fields", () => {
-    const provider = toProviderCitations(validAnalysisFixture(), {
+    const provider = toProviderCitations(asV10Output(validAnalysisFixture()), {
       documentId: FIXTURE_DOCUMENT_ID,
       pageStart: 1,
       pageEnd: 1,

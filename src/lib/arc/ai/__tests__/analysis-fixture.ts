@@ -284,3 +284,19 @@ export function validAnalysisFixture(): AiContractAnalysis {
     ],
   };
 }
+
+/**
+ * Package 3F.3. Historical regression fixtures predate schema v10 and carry no
+ * `includedQuantityInput` (which keeps them on the accepted legacy merge path).
+ * Parse-level tests of the CURRENT strict schema add the required nullable
+ * field here — null means "unresolved", never zero.
+ */
+export function asV10Output<T>(analysis: T): T {
+  const clone = structuredClone(analysis) as unknown as {
+    transactionPrice: { variableConsiderationComponents: Array<Record<string, unknown>> };
+  };
+  for (const component of clone.transactionPrice.variableConsiderationComponents) {
+    if (!("includedQuantityInput" in component)) component["includedQuantityInput"] = null;
+  }
+  return clone as unknown as T;
+}

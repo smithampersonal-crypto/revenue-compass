@@ -31,7 +31,7 @@ function walkObjects(node: unknown, visit: (object: JsonSchema) => void): void {
 
 describe("AiContractAnalysis schema", () => {
   it("accepts a complete valid analysis", () => {
-    const result = parseAiContractAnalysis(validAnalysisFixture());
+    const result = parseAiContractAnalysis(asV10Output(validAnalysisFixture()));
     expect(result.ok).toBe(true);
   });
 
@@ -40,35 +40,35 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("accepts only the authoritative schema version literal", () => {
-    const good = validAnalysisFixture();
+    const good = asV10Output(validAnalysisFixture());
     good.schemaVersion = "arc.ai.schema.v9";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
     for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
-      const bad = validAnalysisFixture() as unknown as { schemaVersion: string };
+      const bad = asV10Output(validAnalysisFixture()) as unknown as { schemaVersion: string };
       bad.schemaVersion = wrong;
       expect(parseAiContractAnalysis(bad).ok).toBe(false);
     }
   });
 
   it("requires bounded nonblank accounting labels on every v6 Promise and PO", () => {
-    const missing = validAnalysisFixture() as unknown as {
+    const missing = asV10Output(validAnalysisFixture()) as unknown as {
       promises: Array<Record<string, unknown>>;
     };
     delete missing.promises[0]!["accountingLabel"];
     expect(parseAiContractAnalysis(missing).ok).toBe(false);
 
-    const blank = validAnalysisFixture();
+    const blank = asV10Output(validAnalysisFixture());
     blank.performanceObligations[0]!.accountingLabel = "   ";
     expect(parseAiContractAnalysis(blank).ok).toBe(false);
 
-    const long = validAnalysisFixture();
+    const long = asV10Output(validAnalysisFixture());
     long.promises[0]!.accountingLabel = "x".repeat(81);
     expect(parseAiContractAnalysis(long).ok).toBe(false);
   });
 
   it("dispatches strict frozen v5 immutable results without synthesizing labels", () => {
-    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
+    const legacy = structuredClone(asV10Output(validAnalysisFixture())) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
     const promises = legacy["promises"] as Array<Record<string, unknown>>;
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
@@ -94,7 +94,7 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("fails closed for unknown, mismatched, or malformed persisted versions", () => {
-    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
+    const legacy = structuredClone(asV10Output(validAnalysisFixture())) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
     const promises = legacy["promises"] as Array<Record<string, unknown>>;
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
@@ -173,58 +173,58 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("expresses optionality as nullability, never as a missing property", () => {
-    const analysis = validAnalysisFixture() as Record<string, unknown>;
+    const analysis = asV10Output(validAnalysisFixture()) as Record<string, unknown>;
     delete analysis["issues"];
     expect(parseAiContractAnalysis(analysis).ok).toBe(false);
   });
 
   it("rejects an unknown top-level property", () => {
-    const analysis = { ...validAnalysisFixture(), revisionId: "rev-1" };
+    const analysis = { ...asV10Output(validAnalysisFixture()), revisionId: "rev-1" };
     expect(parseAiContractAnalysis(analysis).ok).toBe(false);
   });
 
   it("rejects pageEnd before pageStart", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.logicalDocuments[0]!.citations[0]!.pageEnd = 0;
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
   it("rejects a text citation with a null or blank excerpt", () => {
-    const blank = validAnalysisFixture();
+    const blank = asV10Output(validAnalysisFixture());
     blank.logicalDocuments[0]!.citations[0]!.excerpt = "   ";
     expect(aiContractAnalysisSchema.safeParse(blank).success).toBe(false);
 
-    const missing = validAnalysisFixture();
+    const missing = asV10Output(validAnalysisFixture());
     missing.logicalDocuments[0]!.citations[0]!.excerpt = null;
     expect(aiContractAnalysisSchema.safeParse(missing).success).toBe(false);
   });
 
   it("accepts a visual citation with a null excerpt", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     expect(analysis.transactionPrice.fixedConsiderationCitations[0]!.evidenceMode).toBe("visual");
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(true);
   });
 
   it("rejects a non decimal-safe amount string", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.transactionPrice.fixedConsiderationInput = "245,000";
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
   it("rejects a zero or negative guidance id", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.guidanceIds = [0];
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
   it("bounds semantic keys to 120 characters", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     analysis.promises[0]!.semanticKey = "p".repeat(121);
     expect(aiContractAnalysisSchema.safeParse(analysis).success).toBe(false);
   });
 
   it("collects every citation and guidance reference for downstream validation", () => {
-    const analysis = validAnalysisFixture();
+    const analysis = asV10Output(validAnalysisFixture());
     expect(collectCitations(analysis).length).toBeGreaterThan(15);
     expect(collectGuidanceIds(analysis).length).toBeGreaterThan(10);
     expect(collectCitations(analysis).every((entry) => entry.path.length > 0)).toBe(true);
