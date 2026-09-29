@@ -2754,7 +2754,11 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         // priced meter: nothing is created or patched, and the accountant is
         // asked instead.
         const rate = normalizeUsageRate(component.contractualRateOrAmountInput);
-        const threshold = checkIncludedQuantityEvidence(component);
+        const threshold = checkIncludedQuantityEvidence({
+          includedQuantityInput: component.includedQuantityInput,
+          contractualRateOrAmountInput: component.contractualRateOrAmountInput,
+          citations: component.citations,
+        });
         if (rate.ok && threshold.ok) {
           mergeMeter([
             nameAndUnit[0]!,
@@ -2782,11 +2786,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
             citations: component.citations,
             value: null,
             material: {
+              ...vcMaterial(component),
               rateProblem,
               thresholdProblem,
-              contractualRateOrAmountInput: component.contractualRateOrAmountInput,
               includedQuantityInput: component.includedQuantityInput,
-              ...vcMaterial(component),
             },
             aiReviewState: "needs_user_input",
             blocking: true,
