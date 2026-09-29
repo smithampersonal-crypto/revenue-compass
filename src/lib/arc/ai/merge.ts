@@ -97,7 +97,11 @@ import {
   type AiTombstoneKind,
 } from "./tombstones";
 import { normalizePersistedReviewItems } from "./review-normalization";
-import { aiExplicitInvoiceEligibility, aiFixedScheduleEligibility } from "./billing-evidence";
+import {
+  aiExplicitInvoiceEligibility,
+  aiFixedScheduleEligibility,
+  isExplicitInvoiceCandidate,
+} from "./billing-evidence";
 import {
   carryForwardReviewResolutions,
   deriveReviewItem,
@@ -2098,9 +2102,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
   // pricing_basis_only term carrying the complete v9 equal-installment
   // structure (fixed total, count, equal, recurring cadence). Ordinary
   // pricing-basis terms without that structure never count.
+  // Package 3F: an explicit-invoice candidate (including an `unknown` kind
+  // listing dated invoices) joins this denominator BEFORE eligibility, so a
+  // refused candidate leaves the schedule incomplete rather than vanishing.
   const fixedTypedTerms = analysis.billingTerms.filter((term) => {
     const kind = term.amountKind ?? "unknown";
     if (kind === "fixed_invoice_amount") return true;
+    if (isExplicitInvoiceCandidate(term)) return true;
     return (
       kind === "pricing_basis_only" &&
       (term.billingBasisTotalInput ?? null) !== null &&
@@ -3201,7 +3209,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           targetKey: `billing:${semanticKey}`,
           section: "additional_topics",
           reasonCode: "billing_schedule_not_derivable",
-          reason: `ARC did not create the dated invoices for "${term.description.slice(0, 100)}" because at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together. No invoices from this billing stream were created. Enter the actual billing events if known.`,
+          reason: `ARC did not create the dated invoices for "${term.description.slice(0, 100)}" because ${
+            explicit.reason === "amount_not_fixed_invoice"
+              ? "the billing term's amounts are not identified as fixed invoice amounts"
+              : explicit.reason === "billing_term_not_source_supported"
+                ? "the billing term is not marked as directly supported by the contract"
+                : "at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together"
+          }. No invoices from this billing stream were created. Enter the actual billing events if known.`,
           guidanceIds: [],
           citations: term.citations,
           value: explicit.reason,

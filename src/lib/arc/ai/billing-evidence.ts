@@ -447,13 +447,18 @@ export function aiExplicitInvoiceEligibility(
 ):
   | { ok: true; events: ExplicitInvoiceEvent[] }
   | { ok: false; reason: AiExplicitInvoiceRefusal; invoiceIndex?: number } {
-  if ((term.amountKind ?? "unknown") !== "fixed_invoice_amount") {
+  const invoices = term.explicitInvoices ?? [];
+  // Package 3F. An explicitly `unknown` kind reaches the per-invoice evidence
+  // check ONLY for a term that lists dated invoices; the whole term then
+  // passes only if ARC itself proves every invoice's fixed amount, invoicing
+  // language and exact date from its own sentence. Every other kind
+  // (pricing basis, rates, percentages, formulas) stays refused.
+  if (!isExplicitInvoiceCandidate(term)) {
     return { ok: false, reason: "amount_not_fixed_invoice" };
   }
   if (!AI_FIXED_SCHEDULE_REVIEW_STATES.includes(term.reviewState)) {
     return { ok: false, reason: "billing_term_not_source_supported" };
   }
-  const invoices = term.explicitInvoices ?? [];
   const seen = new Map<string, { date: string; cents: bigint; amountInput: string }>();
   for (const [index, invoice] of invoices.entries()) {
     const verdict = checkExplicitInvoiceEvidence(invoice);
@@ -476,6 +481,22 @@ export function aiExplicitInvoiceEligibility(
       amountInput: entry.amountInput,
     })),
   };
+}
+
+/**
+ * Package 3F — the single definition of an explicit-invoice billing candidate,
+ * decided BEFORE any evidence filtering: a term that lists dated invoices and
+ * whose kind is `fixed_invoice_amount` or an explicit `unknown` (never a legacy
+ * missing kind). Used both by event creation (through
+ * `aiExplicitInvoiceEligibility`) and by the Step 3 completeness denominator,
+ * so a refused candidate can never vanish and make a schedule look complete.
+ */
+export function isExplicitInvoiceCandidate(term: {
+  amountKind?: string | null | undefined;
+  explicitInvoices?: readonly unknown[] | undefined;
+}): boolean {
+  if ((term.explicitInvoices ?? []).length === 0) return false;
+  return term.amountKind === "fixed_invoice_amount" || term.amountKind === "unknown";
 }
 
 /* ============================================ Package 3D-Q.2 derivable rules */

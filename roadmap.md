@@ -337,3 +337,8 @@ Fresh 3E evidence
 
 - A curated advanced-sample gallery (for example variable consideration)
 - Additional document formats or OCR
+
+## Package 3F — Contract-level explicit invoices
+
+- [x] Unknown-kind terms listing dated invoices pass only when every invoice is proven by its own sentence; shared candidate rule keeps refused terms in the Step 3 completeness denominator; reason-specific refusal copy. Schema v9 / prompt v14 unchanged; no migration.
+- [ ] Owner: acceptance, GitHub jobs, publish, and new final archive pending
