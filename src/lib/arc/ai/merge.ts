@@ -2789,21 +2789,28 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
               const thresholdAccountantOwned =
                 thresholdPrior !== undefined && thresholdPrior.state !== "ai_generated_untouched";
               if (!thresholdAccountantOwned) {
-                for (const field of ["rateAmountInput", "rateQuantityInput"] as const) {
-                  const key = fieldKeys.vc(canonicalId, `meter.${field}`);
-                  const prior = fieldProvenance[key];
-                  const value = existing[field] ?? "";
-                  if (
+                // Pricing is disabled as a unit, and only when every non-blank
+                // pricing field is still ARC's untouched value; a single
+                // accountant-owned pricing field leaves the whole meter alone.
+                const pricingFields = ["rateAmountInput", "rateQuantityInput"] as const;
+                const aiOwned = (field: (typeof pricingFields)[number]) => {
+                  const prior = fieldProvenance[fieldKeys.vc(canonicalId, `meter.${field}`)];
+                  return (
                     prior?.state === "ai_generated_untouched" &&
-                    valueFingerprint(value) === prior.valueFingerprint &&
-                    value !== ""
-                  ) {
-                    update({
-                      meters: current().meters.map((row) =>
-                        row.id === meterId ? { ...row, [field]: "" } : row,
-                      ),
-                    });
-                    fieldProvenance[key] = {
+                    valueFingerprint(existing[field] ?? "") === prior.valueFingerprint
+                  );
+                };
+                const present = pricingFields.filter((f) => (existing[f] ?? "") !== "");
+                if (present.length > 0 && present.every(aiOwned)) {
+                  update({
+                    meters: current().meters.map((row) =>
+                      row.id === meterId
+                        ? { ...row, rateAmountInput: "", rateQuantityInput: "" }
+                        : row,
+                    ),
+                  });
+                  for (const field of present) {
+                    fieldProvenance[fieldKeys.vc(canonicalId, `meter.${field}`)] = {
                       state: "ai_generated_untouched",
                       semanticKey: component.semanticKey,
                       lastAiRunId: runId,

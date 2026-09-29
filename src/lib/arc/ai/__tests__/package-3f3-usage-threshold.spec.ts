@@ -591,7 +591,7 @@ describe("3F.3 acceptance — legacy AI meter with a blank threshold fails close
     const item = second.issues.find(
       (i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput`,
     );
-    expect(item?.blocking).toBe(true);
+    expect(item?.state).toBe("red");
 
     const result = buildProgressiveInput(withUsage(second.draft));
     const codes = result.blocked.filter((f) => f.ownerId === meter.id).map((f) => f.code);
@@ -621,7 +621,7 @@ describe("3F.3 acceptance — legacy AI meter with a blank threshold fails close
     expect(row.meters[0]!.rateQuantityInput).toBe("1");
     expect(
       second.issues.some(
-        (i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput` && i.blocking,
+        (i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput` && i.state === "red",
       ),
     ).toBe(true);
   });
