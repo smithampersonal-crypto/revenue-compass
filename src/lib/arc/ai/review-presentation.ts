@@ -475,12 +475,14 @@ export function aiReviewTopicRowId(reviewItemId: string): string {
 export function genericAdditionalTopicReviewItems<
   T extends { state: AiReviewItemState; targetKey: string; section: GuidanceReviewSection },
 >(items: readonly T[]): T[] {
-  return items.filter(
-    (item) =>
-      item.state !== "resolved" &&
-      describeReviewTarget(item.targetKey, item.section).sectionElementId ===
-        SECTION_ELEMENT_IDS.additional_topics,
-  );
+  return items.filter((item) => {
+    if (item.state === "resolved") return false;
+    const presentation = describeReviewTarget(item.targetKey, item.section);
+    return (
+      presentation.kind === "section" &&
+      presentation.sectionElementId === SECTION_ELEMENT_IDS.additional_topics
+    );
+  });
 }
 
 /** Accountant-readable topic label; the internal target key is never shown. */
