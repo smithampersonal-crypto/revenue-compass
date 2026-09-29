@@ -22,6 +22,7 @@ import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } fro
 import { assessSafeReanalysis } from "../safe-reanalysis";
 import type { AiContractAnalysis, AiExplicitInvoice } from "../schema";
 import { guidancePackFixture } from "./merge-fixtures";
+import { genomixAnalysis } from "./genomix-fixtures";
 import { genomixR1Analysis, R1_RUN_ID } from "./r1-fixtures";
 
 type Term = AiContractAnalysis["billingTerms"][number];
@@ -74,8 +75,12 @@ function asterTerm(overrides: Partial<Term> = {}, invoices = asterInvoices()): T
   } as Term;
 }
 
-function aster(step3 = "148000", terms: Term[] = [asterTerm()]): AiContractAnalysis {
-  const analysis = genomixR1Analysis();
+function aster(
+  step3 = "148000",
+  terms: Term[] = [asterTerm()],
+  base: () => AiContractAnalysis = genomixR1Analysis,
+): AiContractAnalysis {
+  const analysis = base();
   analysis.transactionPrice.fixedConsiderationInput = step3;
   analysis.billingTerms = terms;
   return analysis;
@@ -259,7 +264,7 @@ describe("3F completeness fails closed", () => {
 
 describe("3F identity / Safe Re-analysis", () => {
   function applied() {
-    const merged = run(aster());
+    const merged = run(aster("148000", [asterTerm()], genomixAnalysis));
     return {
       draft: merged.draft,
       aiState: { ...merged.aiState, lastSuccessfulRunId: R1_RUN_ID, sourceSetFingerprint: FINGERPRINT },
@@ -270,7 +275,7 @@ describe("3F identity / Safe Re-analysis", () => {
     return {
       decision: assessSafeReanalysis({
         analysis: next,
-        priorAnalysis: aster(),
+        priorAnalysis: aster("148000", [asterTerm()], genomixAnalysis),
         priorAnalysisLoad: "loaded",
         currentDraft: draft,
         currentAiState: aiState,
@@ -282,10 +287,9 @@ describe("3F identity / Safe Re-analysis", () => {
   }
 
   it("an unchanged rerun keeps the same IDs and creates no duplicates", () => {
-    const { decision, draft, aiState } = assess(aster());
-    console.log("DECISION", JSON.stringify(decision));
+    const { decision, draft, aiState } = assess(aster("148000", [asterTerm()], genomixAnalysis));
     expect(decision.outcome).toBe("apply");
-    const again = run(aster(), draft, aiState, NEXT_RUN);
+    const again = run(aster("148000", [asterTerm()], genomixAnalysis), draft, aiState, NEXT_RUN);
     expect(again.draft.contractBalances.considerationEvents.map((r) => r.id).sort()).toEqual(
       draft.contractBalances.considerationEvents.map((r) => r.id).sort(),
     );
@@ -294,19 +298,19 @@ describe("3F identity / Safe Re-analysis", () => {
   it("a changed amount is declined", () => {
     const changed = asterInvoices();
     changed[0] = inv("2026-10-01", "70000", ASTER_1.replace("$74,000", "$70,000"));
-    expect(assess(aster("148000", [asterTerm({}, changed)])).decision).toMatchObject({ outcome: "decline" });
+    expect(assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision).toMatchObject({ outcome: "decline" });
   });
 
   it("a changed date is declined", () => {
     const changed = asterInvoices();
     changed[1] = inv("2026-11-15", "37000", ASTER_2.replace("November 1, 2026", "November 15, 2026"));
-    expect(assess(aster("148000", [asterTerm({}, changed)])).decision).toMatchObject({ outcome: "decline" });
+    expect(assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision).toMatchObject({ outcome: "decline" });
   });
 
   it("explicit → recurring rule on the same stream stays blocked", () => {
     const { draft, aiState } = applied();
     const rule = asterTerm({ amountKind: "fixed_invoice_amount", explicitInvoices: [], frequency: "monthly", billingTiming: "advance", amountOrRateInput: "12000" }, []);
-    const next = run(aster("148000", [rule]), draft, aiState, NEXT_RUN);
+    const next = run(aster("148000", [rule], genomixAnalysis), draft, aiState, NEXT_RUN);
     expect(events(next.draft)).toEqual(events(draft));
     expect(next.issues.some((i) => i.reasonCode === "unsafe_semantic_relationship")).toBe(true);
   });
@@ -318,7 +322,7 @@ describe("3F identity / Safe Re-analysis", () => {
       ...draft,
       contractBalances: { ...draft.contractBalances, considerationEvents: [...draft.contractBalances.considerationEvents, manual] },
     };
-    const next = run(aster(), withManual, aiState, NEXT_RUN);
+    const next = run(aster("148000", [asterTerm()], genomixAnalysis), withManual, aiState, NEXT_RUN);
     expect(next.draft.contractBalances.considerationEvents.map((r) => r.id)).toContain("ce-manual-3f");
   });
 });
