@@ -1,118 +1,118 @@
-# Package 3F.3 — Contractual usage threshold (PLAN ONLY)
+# Package 3G — Recruiter v1 release freeze and canonical archive (PLAN ONLY)
 
-No implementation, AI run, publish, migration or dependency change. Findings come from read-only queries, source reading and one throwaway local parse check (deleted).
+Nothing was changed. Findings come from read-only inspection of the current repository.
 
-## A. Stored Stonebridge usage data
+## A. Frozen baseline found in source
 
-Run `d84b4159-0204-4003-b00e-015af36c0500` (succeeded, 2026-09-29 07:15 UTC, schema v9). Usage component as stored:
+- Schema `arc.ai.schema.v10` (v5–v9 kept as legacy only). Prompt `arc.ai.prompt.v17`. Both are compiled constants.
+- Maintenance workflow runs `17 * * * *`. The pg_cron SQL is present but optional.
+- Genomix PDF `7487979e…fdd4c7` and Horizon PDF `a39c8883…9c70` both match.
+- 741 tracked files.
+- **STOP-level finding: the platform drift has come back since the last restore.** Compared with `b1ea538e`:
+  - `package.json` now pins `@lovable.dev/vite-tanstack-config` to `2.23.1` instead of `^2.15.0`.
+  - `bun.lock` resolves 2.23.1 from the europe-west1 registry.
+  - `.env` has 6 keys instead of the 2 approved VITE values.
+  - Restoring these three files byte-for-byte from `b1ea538e` is the first step of implementation. No verification or archive build happens before that.
 
-- semanticKey `vc_usage_overage`, type `usage`
-- description: "Usage-based overage charge of USD 0.004 for each API processing event above the 2,000,000-event monthly included quantity."
-- contractualRateOrAmountInput **"0.004"**
-- unitDescription "per excess API processing event above 2,000,000 events in a calendar month"
-- billingFrequency "monthly"; trigger "Actual monthly API processing events exceed 2,000,000; …"
-- initialEstimateBasis `not_applicable_usage_as_incurred`, estimates null
-- allocation `specific_series_period`, target `po_hosted_saas_series`, relatesSpecifically yes, consistent yes
-- reviewState `inference`
-- citations (text, p.2): the "includes up to 2,000,000 … $0.004 per excess event …" sentence, and "No minimum overage quantity or minimum overage charge is committed…"
+## B. Documentation drift (factual only)
 
-There is no structured included-quantity field in the output. The 2,000,000 appears only inside prose (description, unit, trigger). Schema v9 has nowhere to put it.
+1. `README.md` line 107 says "2,908 automated tests across 234 test files". That's stale. It becomes the count from the final gate (currently 3,038 / 239).
+2. `roadmap.md` line 273 in the production summary says "`arc.ai.prompt.v14`, `arc.ai.schema.v9`". That's stale. It becomes `arc.ai.prompt.v17`, `arc.ai.schema.v10`.
+3. `roadmap.md` needs a short "Package 3G — Release freeze" task list, following the project's roadmap rule.
+4. Checked and accurate, so no change: README live domain and magic-link-only auth, operations.md (9-hour retention, minute-17 GitHub scheduler, optional pg_cron, domain/www/SMTP), AGENTS.md.
+5. The `maintenance.yml` comment's example URL (`<project>.lovable.app`) is only a placeholder example, not a claim. Leave it.
+6. `package.json` `"name": "tanstack_start_ts"` is template metadata. It's not wrong, so leave it.
 
-## B. Static root cause — points A–F confirmed, plus one more serious link
+## C. Repository hygiene
 
-- A. `VcMeterDraft.includedQuantityInput` exists (workflow types). Confirmed.
-- B. Persistence schema keeps `includedQuantityInput`. Confirmed.
-- C. The R3 adapter reads it. A blank value becomes "no threshold", not zero. An invalid value blocks with `usage.meter.included_quantity`. Confirmed.
-- D. Edit reconciliation and fingerprints include `includedQuantityInput` in `VC_METER_FIELDS`. Confirmed. Gap: the display-field set in `review-presentation.ts` lists only name/rate/rateQuantity/unit, so an AI review row for the threshold would have no readable label.
-- E. `variableComponentSchema` has no threshold field. Confirmed.
-- F. Merge fills in name, rateAmountInput, rateQuantityInput="1" and unit, and never includedQuantityInput. Confirmed.
+- A. Belongs in the repo: `src/`, `supabase/` (migrations, tests, schedules), `.github/`, `scripts/` (including the audit, SQL runners and the phase9d/9f live scripts, which hold no secrets), `docs/` plus 3 screenshots, `fixtures/` Genomix PDF, `public/samples/` Horizon PDF, `guidance/`, and the config files.
+- B. Kept locally but excluded from the archive: `.env`, `.lovable/` (tracked planning history), `.workspace/`, `.git/`, `node_modules/`, `tsconfig.tsbuildinfo` (ignored), any `dist/.output/coverage`.
+- C. Remove from the repo: none. There are no tracked ZIPs, logs, dumps, OS or editor files, or customer PDFs.
+- `/mnt/documents` holds about 100 historical ZIPs and PNGs. They sit outside the repo and are never archived. The historical `arc-recruiter-v1.zip` (60a4df5a…) gets replaced under the same name.
 
-**G. An extra link, and the real cause of the "invalid rate" message.** Merge copies `0.004` into `rateAmountInput` with `rateQuantityInput = "1"`. The adapter reads the rate with `parseUsdToCents`, which rejects anything past two decimal places ("Enter no more than two decimal places"). So the rate turns into `UNUSABLE` → `usage.meter.rate` blocker → the engine error "usage meter … has an invalid rate". **A blank threshold on its own does not cause this message.** If we fixed only the threshold, Stonebridge would still fail the same way. The domain already stores meters as exact ratios ("never a fractional-cent unit price"), so the lossless form of $0.004 per event is `rateAmountInput "4.00"` / `rateQuantityInput "1000"`.
+## D. Security and secret audit
 
-## C. Exact missing representation
+- A quick scan of tracked files found no literal `sk-` keys, `sb_secret_` values, or credentialed `postgres://` strings. `service_role` appears only as a role name in SQL grants and policies.
+- Checks for the final gate:
+  - `audit:bundle` on the fresh build.
+  - rg over the staged archive for `sk-[A-Za-z0-9]{20,}`, `sb_secret_\w{8,}`, service-role JWT payloads (`"role":"service_role"` or base64 `cm9sZSI6InNlcnZpY2Vfcm9sZ`), `://[^:@\s]+:[^@\s]+@`, `-----BEGIN .*PRIVATE KEY`, and `re_[A-Za-z0-9]{20,}` (Resend).
+  - Confirm that no `.env*` file is staged.
+  - Confirm the only PDFs are the two canonical ones.
+- Environment-variable names alone are not treated as secrets.
 
-1. A nullable structured threshold on the usage proposal. It maps 1:1 onto the existing canonical `includedQuantityInput`.
-2. Lossless conversion of a sub-cent per-unit contractual rate into the existing ratio fields. This needs no new field.
+## E. Files that need changes
 
-## D. Recommended smallest architecture
+- Restore `.env`, `package.json` and `bun.lock` from `b1ea538e` (protected state, not a product change).
+- `README.md`: one test-count sentence.
+- `roadmap.md`: the version line, plus the 3G task list.
+- No other files.
 
-1. **Schema:** add `includedQuantityInput: nonNegativeIntegerInput | null` to `variableComponentSchema`. The name matches the canonical meter field, so there's no second vocabulary. It must be null for every non-`usage` type (a schema refine or a merge fail-closed check).
-2. **Prompt v17:** fill it only when the cited text states the included allowance for that exact usage stream, as a literal quantity. Otherwise null: no threshold stated, ambiguous, belongs to another stream, a minimum commitment, a forecast or expected volume, or anything that needs calculating. The same citation must contain the number.
-3. **Merge (usage only):** add `includedQuantityInput` to the existing `meterFields` loop, so it gets the same mergeScalar provenance, unclaimed/edited protection, field key `vc:<id>.meter.includedQuantityInput`, citations and reviewState. Fail closed (skip plus review item) if:
-   - the value isn't a non-negative whole number; or
-   - the digits (with or without thousands separators) don't appear in one of the component's own materialized citation excerpts. ARC checks this; the description prose is never authority.
-   No usage period, actual, revenue or invoice is created.
-4. **Rate normalization (needs owner approval, see K):** in merge, turn a decimal per-unit rate with more than 2 decimals into an exact ratio. Scale by 10^k until the amount is whole cents: 0.004/1 → 4.00/1000. It's exact decimal arithmetic with no rounding. If it isn't exact, or it goes over bounds, leave it and let the current blocker stand. Rates with 2 decimals or fewer stay exactly as they are today (rateQuantity "1"), so existing fixtures don't change.
-5. Add `includedQuantityInput` to the review-presentation meter display fields and label it "Included quantity".
+## F. Archive policy
 
-## E. Version decision
+- Root: `arc-recruiter-v1.zip` → `revenue-compass-main/…`
+- Contents: `git ls-files` at the final verified commit state, minus these exclusions: `.env`, `.env.*` except `.env.example`, `.lovable/**`, `.workspace/**`.
+- Because the list comes from tracked files only, `.git`, `node_modules`, `dist`, `.output`, coverage, logs, caches, tsbuildinfo and ZIPs are excluded automatically.
+- Required contents (asserted): `.github/`, `supabase/migrations`, `supabase/tests`, `scripts/audit-bundle.sh`, source tests, both canonical PDFs, and `docs/assets`.
 
-- The strict response schema changes, so this is **schema v9 → v10**. v9 is added to the legacy-version list, following the v5–v8 pattern.
-- The new instruction means **prompt v16 → v17**.
-- Engine, persistence snapshot and database: no change. No migration.
+## G. Build procedure
 
-## F. Legacy compatibility
+1. Only after the gate in section I passes with a clean working tree.
+2. `git ls-files -z`, filter out the exclusions, copy with `rsync --files-from` into `/tmp/arc-release/revenue-compass-main/`.
+3. List every staged entry, including hidden files, and review it.
+4. `cd /tmp/arc-release && zip -rX /tmp/arc-recruiter-v1.zip revenue-compass-main`. This never runs inside the repo, so the archive can't include itself.
+5. Copy to `/mnt/documents/arc-recruiter-v1.zip`, then report the name, SHA-256, file count, compressed size and uncompressed size.
 
-- Stored v9 and older results still parse under their own legacy schemas. The field is absent, and the merge reads it as null.
-- Opening or autosaving a legacy analysis re-runs no merge, so no threshold is invented. The stored Stonebridge v9 result stays without a threshold.
-- Rate normalization runs only during a merge (Analyze/Reanalyze). Existing canonical meters holding "0.004" are not rewritten on load. They keep the current blocker until the accountant edits them or re-analyzes.
+## H. Post-build verification
 
-## G. Safe Re-analysis effect
+Unzip into a fresh `/tmp/arc-verify/` and check:
 
-- The threshold uses the existing meter field key and mergeScalar path, so it gets the same rules as every other meter field.
-  - Unchanged value: same identity, no duplicate.
-  - Changed source value on an untouched field: refreshed with provenance.
-  - Accountant-edited value: kept, and a proposed difference raises the existing review item.
-  - Tombstoned or deleted meter or component: stays protected, because `meter()` is undefined and nothing is recreated.
-- `includedQuantityInput` is already in the fingerprint and edit-reconciliation projections, so it needs no identity change and no fuzzy matching.
-- Rate normalization changes the proposed values for a sub-cent rate. On re-analysis of a meter that's still untouched and holds "0.004"/"1", the normal refresh applies. If it was edited, it's preserved with a review item.
+- Forbidden paths are absent: `.env`, `.lovable`, `.workspace`, `.git`, `node_modules`, `dist`, `.output`, coverage, `*.zip`, `*.log`, `*.tsbuildinfo`.
+- Required paths are present (the list in section F).
+- Versions: v10 and v17 constants, `^2.15.0` in package.json, 2.15.0 plus the accepted europe-west4 line in bun.lock.
+- Both PDF hashes match.
+- Manifest diff: `sha256sum` of every file in the extract compared with the same files in the working tree, and the file list compared with the filtered `git ls-files`. Both must be identical.
+- The secret rg from section D runs again on the extract.
 
-## H. Files that would change
+## I. Final source verification
 
-- `src/lib/arc/ai/schema.ts`: v10, the field, the usage-only constraint, v9 in the legacy list
-- `src/lib/arc/ai/prompt.ts`: v17 and the threshold rules
-- `src/lib/arc/ai/merge.ts`: the threshold meter field, the citation check, rate normalization (if approved)
-- `src/lib/arc/ai/review-presentation.ts`: the meter display field
-- Version pins in the existing prompt/schema spec files, plus analysis fixtures that assert the schema version
-- New `src/lib/arc/ai/__tests__/package-3f3-usage-threshold.spec.ts`
+1. Restore the protected files. Check the PDF hashes.
+2. Make the doc edits.
+3. Run `bun run verify`: tests, typecheck, lint (exactly 0 errors / 11 warnings), build, bundle audit.
+4. `bun run db:test` on all 26 SQL files.
+5. Contention driver.
+6. Protected-state and PDF-hash recheck, then restore any drift the tooling reintroduced.
+7. Set the README test count to the observed numbers, then build the archive.
 
-No changes to billing-evidence, r3-adapter, the progressive engine, persistence, UI steps or the database.
+Any failure means STOP, and no archive gets built.
 
-## I. Failing tests first
+## J. GitHub CI
 
-Stonebridge positive, built from the exact stored excerpts:
-- The meter gets rate 4.00/1000 and unit "excess API processing event" (0.004 → 4.00/1000 is pinned separately), with included quantity 2000000.
-- No usage periods, actuals or usage revenue.
-- The adapter produces no `usage.meter.rate` blocker and no "invalid rate" error. The component reaches the usage-pending state.
-- Fixed billing is exactly 70k/58k/58k, and Step 3 stays $186,000.
-- SLA percentages and 1.0% interest stay out of fixed billing, and no cash is invented.
+Tracked files change (README and roadmap, plus the protected-file restore), so both GitHub jobs must run on the pushed final state. The owner confirms both are green before the archive is accepted as canonical. If any tracked file changes after CI, the archive is rebuilt.
 
-Negatives:
-- No threshold in the source → null.
-- Ambiguous threshold → skipped with a review item.
-- A threshold from another component's citation → not borrowed.
-- A minimum commitment → not accepted.
-- A forecast volume → not accepted.
-- A number found only in the description → refused.
-- A non-usage type carrying the field → rejected.
-- A non-integer or negative value → rejected.
-- A non-exact rate → unchanged and still blocked.
+## K. Owner-run production smoke test (no AI run)
 
-Re-analysis: unchanged value, changed source value, accountant edit kept, tombstoned meter not recreated, a legacy v9 result loads without a threshold.
+1. `http://www.ayden-rc.com` redirects to `https://ayden-rc.com` with a valid certificate.
+2. The home page and header navigation load, and the footer shows About, Privacy and Sitemap.
+3. New Analysis opens the chooser, and Horizon is the only public sample.
+4. The Horizon analysis opens and its source PDF shows under Source Documents.
+5. Tabs: ASC 606 (Step 3 is $153,000), Revenue Schedule, Balances, Journals.
+6. Review & Finalize renders.
+7. Recent Analyses lists "Sample — Horizon" and Resume works.
+8. About and Sitemap load.
+9. The sign-in page offers email magic link only.
 
-Versions: pins for v10/v17 and v9 legacy parsing.
+## L. Stop conditions and risks
 
-## J. Regression plan
+- Protected drift can't be restored, or it keeps coming back after restore.
+- A PDF hash changes.
+- A real secret is found.
+- Any test, SQL or lint regression, or a new warning.
+- Anything that would need product, schema, prompt, engine, auth, migration or dependency changes.
+- Known risk: two UI specs have flaked on a first full run before. A flake needs a green re-run and gets reported. It is never accepted silently.
+- Platform publishing can reintroduce drift. This package doesn't publish.
 
-Aster (table and prose, $148,000), Meridian ($168,000), Redwood (six invoices), Horizon ($153,000), Genomix unchanged. All 3F–3F.2 suites, plus existing usage/R3 tests to confirm rates with 2 decimals or fewer are unchanged. Then full `bun run verify`, 26 SQL files plus the contention driver, protected-file and PDF-hash checks, and a ZIP.
+## M. Recommendation
 
-## K. Risks and stop conditions
+The minimal tracked changes are the protected-file restore, one README sentence, and the roadmap version line plus the 3G tasks. There are no product changes.
 
-- **Decision needed:** point G (rate normalization) is outside the brief's "threshold only" scope, but without it Stonebridge still fails with the same message. Without approval, 3F.3 ships the threshold alone, and the acceptance criterion in section 10 cannot be met.
-- Stop if any change reaches the r3-adapter, the progressive engine, allocation, billing evidence or Series logic.
-- Stop if a regression fixture changes outcome.
-- Stop if a migration or dependency is needed.
-- The model can still leave the threshold null. That fails safe: the meter charges from the first unit, and the accountant can enter the threshold.
-- Series warning, financing/noncash review noise and Additional Topics: unchanged.
-
-Confirmed: no implementation, no AI run, no publish, no migration, no dependency change.
+Confirmed: no implementation, no product behavior change, no AI run, no publish, no archive built, no migration, no dependency change.
