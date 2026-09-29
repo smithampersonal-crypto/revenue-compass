@@ -351,6 +351,6 @@ Fresh 3E evidence
 
 ## Package 3F.2 — Explicit-invoice review-state (prompt v16)
 
-- [ ] Prompt v16: explicit dated-invoice exception to cadence rule, completeness-gated
-- [ ] Meridian fixture + guard variants + partial-schedule policy tests
-- [ ] Verify, protected state, ZIP
+- [x] Prompt v16: explicit dated-invoice exception to cadence rule, completeness-gated
+- [x] Meridian fixture + guard variants + partial-schedule policy tests
+- [x] Verify, protected state, ZIP
