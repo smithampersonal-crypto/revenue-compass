@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 import { AccordionSection } from "./AccordionSection";
+import { AiReviewTopicsList, type AiReviewTopicItem } from "./AiReviewTopicsList";
 import { issueStatus } from "./issue-status";
 
 /**
@@ -28,6 +29,8 @@ export function AdditionalTopics({
   onToggle,
   onNavigate,
   aiReviewStatus,
+  genericReviewItems = [],
+  onOpenReviewItem,
 }: {
   draft: WorkflowDraft;
   onChange: (draft: WorkflowDraft) => void;
@@ -38,6 +41,9 @@ export function AdditionalTopics({
   /** Phase 9G — Task 7. AI review count for a topic accordion, kept separate
    *  from the deterministic issue status. */
   aiReviewStatus?: ((sectionId: string) => string | null) | undefined;
+  /** Package 3F.1 — the one shared generic set behind the badge AND the rows. */
+  genericReviewItems?: readonly AiReviewTopicItem[];
+  onOpenReviewItem?: ((reviewItemId: string) => void) | undefined;
 }) {
   const vcRelevant = draft.hasVariableConsideration;
   const materialRightPromises = draft.promises.filter((p) => p.kind === "customer_option");
@@ -50,7 +56,9 @@ export function AdditionalTopics({
   // Phase 9G — Task 7. A generic additional-topics review item has no
   // subtopic accordion of its own, so this area owns the stable fallback
   // boundary and shows that count next to its heading.
-  const genericAiReview = aiReviewStatus?.("additional-topics") ?? null;
+  // Package 3F.1: the badge is counted from exactly the rows rendered below.
+  const genericAiReview =
+    genericReviewItems.length === 0 ? null : `${genericReviewItems.length} AI review`;
 
   return (
     <div id="additional-topics" className="space-y-4">
@@ -64,6 +72,10 @@ export function AdditionalTopics({
           </span>
         ) : null}
       </div>
+
+      {genericReviewItems.length > 0 ? (
+        <AiReviewTopicsList items={genericReviewItems} onOpenReviewItem={onOpenReviewItem} />
+      ) : null}
 
       <AccordionSection
         id="topic-modifications"

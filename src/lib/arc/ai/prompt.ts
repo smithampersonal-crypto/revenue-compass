@@ -32,7 +32,7 @@ export const AI_PROMPT_SECTIONS = {
  * constant, so a live run can never be labelled with a version it did not
  * receive. Changing the trusted instruction body REQUIRES bumping this literal.
  */
-export const AI_PROMPT_VERSION = "arc.ai.prompt.v14" as const;
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v15" as const;
 
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
@@ -144,6 +144,7 @@ function evidenceSection(sources: readonly AiInstructionSourceDescriptor[]): str
     'For evidenceMode "text", select the SMALLEST contiguous ordered set of 1 to 3 ARC anchors in the anchored mirror of the cited document and physical page. ARC materialises the excerpt from its own extraction; you never write, construct or return excerpt text.',
     "Never widen a selection past the supporting language, never span more than one physical page, and never combine separate rows, columns, cells, headings or pages into one anchor selection.",
     'If the fact depends on table, grid or layout relationships rather than running prose, use evidenceMode "visual" and return an empty anchorIds array.',
+    'Narrow exception for explicit dated invoices only: when an explicit dated invoice appears in a billing table and the mirror preserves the table header line (naming the Invoice Date and Amount columns) and that invoice\'s row as text within 1 to 3 contiguous anchors on one page, cite that invoice with evidenceMode "text" selecting the anchors that cover the header line and the row. Otherwise cite it visually; ARC will then leave that billing schedule unresolved. This exception applies to no other table-derived fact.',
     "Cite every claim by ARC documentId and physical page number as printed in the ARC identity block, not by any footer page label.",
     "Selected source documents:",
     ...sources.map((source) =>

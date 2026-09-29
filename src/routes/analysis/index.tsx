@@ -8,7 +8,12 @@ import { issueStatus } from "@/components/arc/issue-status";
 import { AdditionalTopics } from "@/components/arc/AdditionalTopics";
 import { AiReviewTargetProvider } from "@/components/arc/AiReviewTarget";
 import { useAnalysis } from "@/components/arc/analysis-context";
-import { describeReviewTarget } from "@/lib/arc/ai/review-presentation";
+import {
+  aiReviewItemElementId,
+  aiReviewTopicRowId,
+  describeReviewTarget,
+  genericAdditionalTopicReviewItems,
+} from "@/lib/arc/ai/review-presentation";
 import { IssueList } from "@/components/asc606-workflow/fields";
 import { Step1Contract } from "@/components/asc606-workflow/Step1Contract";
 import { Step2PerformanceObligations } from "@/components/asc606-workflow/Step2PerformanceObligations";
@@ -107,6 +112,17 @@ export function Asc606AnalysisArea() {
     }
     return counts;
   }, [ai.workspace]);
+  const genericReviewItems = useMemo(
+    () => genericAdditionalTopicReviewItems(ai.workspace?.reviewItems ?? []),
+    [ai.workspace],
+  );
+  const openReviewItem = (reviewItemId: string) => {
+    void navigate({
+      to: "/analysis/review",
+      search,
+      hash: aiReviewItemElementId(reviewItemId),
+    });
+  };
   const aiReviewStatus = (id: string) => {
     const count = aiReviewCounts[id] ?? 0;
     return count === 0 ? null : `${count} AI review`;
@@ -166,9 +182,15 @@ export function Asc606AnalysisArea() {
     // the accountant back to the top of Step 1.
     void navigate({ to: "/analysis", search: withoutReview, replace: true, resetScroll: false });
 
+    // Package 3F.1: a generic Additional Topics item lands on its own visible
+    // read-only row rather than on the area heading.
+    const genericRow =
+      target.anchorId === null && genericReviewItems.some((item) => item.id === reviewItem.id)
+        ? aiReviewTopicRowId(reviewItem.id)
+        : null;
     scrollToReviewTarget({
       sectionId,
-      anchorId: target.anchorId,
+      anchorId: genericRow ?? target.anchorId,
       // Assumptions are never turned into actionable review merely to
       // highlight the accounting they explain.
       focusLabel:
@@ -178,7 +200,15 @@ export function Asc606AnalysisArea() {
             ? "Review this item"
             : null,
     });
-  }, [requestedReview, reviewItem, navigate, search, ai.loadState, openSection]);
+  }, [
+    requestedReview,
+    reviewItem,
+    navigate,
+    search,
+    ai.loadState,
+    openSection,
+    genericReviewItems,
+  ]);
 
   return (
     <AiReviewTargetProvider workspace={ai.workspace}>
@@ -272,6 +302,8 @@ export function Asc606AnalysisArea() {
           onToggle={toggle}
           onNavigate={reveal}
           aiReviewStatus={aiReviewStatus}
+          genericReviewItems={genericReviewItems}
+          onOpenReviewItem={openReviewItem}
         />
       </div>
     </AiReviewTargetProvider>
