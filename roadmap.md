@@ -345,6 +345,6 @@ Fresh 3E evidence
 
 ## Package 3F.1 — Table billing + generic Additional Topics review
 
-- [ ] Table-row explicit-invoice evidence (text citations only), prompt v15 carve-out
-- [ ] Read-only AI review topics list in Additional Topics (shared badge/list set)
-- [ ] Tests, verify, SQL suites, protected state, ZIP
+- [x] Table-row explicit-invoice evidence (text citations only), prompt v15 carve-out
+- [x] Read-only AI review topics list in Additional Topics (shared badge/list set)
+- [x] Tests, verify, SQL suites, protected state, ZIP
