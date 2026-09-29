@@ -341,7 +341,7 @@ Fresh 3E evidence
 ## Package 3F — Contract-level explicit invoices
 
 - [x] Unknown-kind terms listing dated invoices pass only when every invoice is proven by its own sentence; shared candidate rule keeps refused terms in the Step 3 completeness denominator; reason-specific refusal copy. Schema v9 / prompt v14 unchanged; no migration.
-- [ ] Owner: acceptance, GitHub jobs, publish, and new final archive pending
+- Owner: acceptance, GitHub jobs, publish, and new final archive pending
 
 ## Package 3F.1 — Table billing + generic Additional Topics review
 
@@ -369,6 +369,6 @@ Fresh 3E evidence
 
 - [x] Restore protected .env / package.json / bun.lock from b1ea538e
 - [x] Factual doc corrections (README test count, roadmap AI versions)
-- [ ] Final verify (239 / 3,038), 26 SQL files + contention driver, protected-state recheck
-- [ ] Build and verify release candidate arc-recruiter-v1.zip (tracked files only)
-- [ ] Owner: GitHub CI green + production smoke check + acceptance
+- Release gate: final verify (239 / 3,038), 26 SQL files + contention driver, protected-state recheck
+- Release candidate: build and verify release candidate arc-recruiter-v1.zip (tracked files only)
+- Owner: GitHub CI green + production smoke check + acceptance
