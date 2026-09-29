@@ -125,9 +125,9 @@ const events = (draft: WorkflowDraft) =>
 /* ========================================================== versions */
 
 describe("versions", () => {
-  it("keeps the explicit-invoice path under schema v9 / prompt v15, keeping v7 readable", () => {
+  it("keeps the explicit-invoice path under schema v9 / prompt v16, keeping v7 readable", () => {
     expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v15");
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v16");
     expect(parseAiContractAnalysis(redwood()).ok).toBe(true);
     const legacy = structuredClone(genomixR1Analysis()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION;

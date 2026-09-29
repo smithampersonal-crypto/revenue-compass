@@ -348,3 +348,9 @@ Fresh 3E evidence
 - [x] Table-row explicit-invoice evidence (text citations only), prompt v15 carve-out
 - [x] Read-only AI review topics list in Additional Topics (shared badge/list set)
 - [x] Tests, verify, SQL suites, protected state, ZIP
+
+## Package 3F.2 — Explicit-invoice review-state (prompt v16)
+
+- [ ] Prompt v16: explicit dated-invoice exception to cadence rule, completeness-gated
+- [ ] Meridian fixture + guard variants + partial-schedule policy tests
+- [ ] Verify, protected state, ZIP
