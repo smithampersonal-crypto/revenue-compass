@@ -312,9 +312,9 @@ describe("3F.1 table evidence fails closed", () => {
 
 /* ================================================================ prompt */
 
-describe("3F.1 prompt v15", () => {
-  it("bumps to v15 with a narrow explicit-invoice table exception, keeping tables visual by default", () => {
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v15");
+describe("3F.1 prompt table carve-out (v16)", () => {
+  it("keeps (since v15) a narrow explicit-invoice table exception, keeping tables visual by default", () => {
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v16");
     const source = readFileSync("src/lib/arc/ai/prompt.ts", "utf8");
     expect(source).toContain("Narrow exception for explicit dated invoices only");
     expect(source).toContain("This exception applies to no other table-derived fact.");
