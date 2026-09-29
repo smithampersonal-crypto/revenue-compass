@@ -35,7 +35,12 @@ function cite(excerpt: string) {
 }
 
 function inv(date: string, amount: string, excerpt: string): AiExplicitInvoice {
-  return { invoiceDateInput: date, amountInput: amount, coveragePeriodText: null, citations: [cite(excerpt)] };
+  return {
+    invoiceDateInput: date,
+    amountInput: amount,
+    coveragePeriodText: null,
+    citations: [cite(excerpt)],
+  };
 }
 
 const ASTER_1 =
@@ -86,7 +91,12 @@ function aster(
   return analysis;
 }
 
-function run(analysis: AiContractAnalysis, draft?: WorkflowDraft, state?: AiAnalysisState, runId = R1_RUN_ID) {
+function run(
+  analysis: AiContractAnalysis,
+  draft?: WorkflowDraft,
+  state?: AiAnalysisState,
+  runId = R1_RUN_ID,
+) {
   return mergeAiAnalysis({
     currentDraft: draft ?? createEmptyDraft(),
     currentAiState: state ?? createEmptyAiAnalysisState(),
@@ -98,16 +108,26 @@ function run(analysis: AiContractAnalysis, draft?: WorkflowDraft, state?: AiAnal
 }
 
 const events = (draft: WorkflowDraft) =>
-  draft.contractBalances.considerationEvents.map((row) => `${row.invoiceDate}|${Number(row.amountInput)}`).sort();
+  draft.contractBalances.considerationEvents
+    .map((row) => `${row.invoiceDate}|${Number(row.amountInput)}`)
+    .sort();
 
 const conflict = (issues: { reasonCode: string; targetKey: string }[]) =>
-  issues.some((issue) => issue.reasonCode === "source_conflict" && issue.targetKey.endsWith(":billing-conflict"));
+  issues.some(
+    (issue) =>
+      issue.reasonCode === "source_conflict" && issue.targetKey.endsWith(":billing-conflict"),
+  );
 
 /* ============================================================ eligibility */
 
 describe("3F eligibility — unknown kind with explicit invoices", () => {
   const term = (overrides: Partial<AiExplicitInvoiceTerm> = {}, invoices = asterInvoices()) =>
-    ({ amountKind: "unknown", reviewState: "supported", explicitInvoices: invoices, ...overrides }) as AiExplicitInvoiceTerm;
+    ({
+      amountKind: "unknown",
+      reviewState: "supported",
+      explicitInvoices: invoices,
+      ...overrides,
+    }) as AiExplicitInvoiceTerm;
 
   it("accepts unknown when every invoice is proven by its own sentence", () => {
     const result = aiExplicitInvoiceEligibility(term());
@@ -122,44 +142,91 @@ describe("3F eligibility — unknown kind with explicit invoices", () => {
   });
 
   it("refuses unknown with zero explicit invoices", () => {
-    expect(aiExplicitInvoiceEligibility(term({}, []))).toEqual({ ok: false, reason: "amount_not_fixed_invoice" });
+    expect(aiExplicitInvoiceEligibility(term({}, []))).toEqual({
+      ok: false,
+      reason: "amount_not_fixed_invoice",
+    });
     expect(isExplicitInvoiceCandidate({ amountKind: "unknown", explicitInvoices: [] })).toBe(false);
   });
 
   it("never treats a missing (legacy) kind as a candidate", () => {
-    expect(isExplicitInvoiceCandidate({ amountKind: undefined, explicitInvoices: asterInvoices() })).toBe(false);
-    expect(isExplicitInvoiceCandidate({ amountKind: null, explicitInvoices: asterInvoices() })).toBe(false);
+    expect(
+      isExplicitInvoiceCandidate({ amountKind: undefined, explicitInvoices: asterInvoices() }),
+    ).toBe(false);
+    expect(
+      isExplicitInvoiceCandidate({ amountKind: null, explicitInvoices: asterInvoices() }),
+    ).toBe(false);
   });
 
-  it.each(["pricing_basis_only", "per_unit_rate", "percentage_rate", "formula"])("still refuses %s", (kind) => {
-    expect(aiExplicitInvoiceEligibility(term({ amountKind: kind }))).toEqual({ ok: false, reason: "amount_not_fixed_invoice" });
-  });
+  it.each(["pricing_basis_only", "per_unit_rate", "percentage_rate", "formula"])(
+    "still refuses %s",
+    (kind) => {
+      expect(aiExplicitInvoiceEligibility(term({ amountKind: kind }))).toEqual({
+        ok: false,
+        reason: "amount_not_fixed_invoice",
+      });
+    },
+  );
 
-  it.each(["inference", "needs_review", "source_conflict", "needs_user_input"])("refuses review state %s", (reviewState) => {
-    expect(aiExplicitInvoiceEligibility(term({ reviewState }))).toEqual({
-      ok: false,
-      reason: "billing_term_not_source_supported",
-    });
-  });
+  it.each(["inference", "needs_review", "source_conflict", "needs_user_input"])(
+    "refuses review state %s",
+    (reviewState) => {
+      expect(aiExplicitInvoiceEligibility(term({ reviewState }))).toEqual({
+        ok: false,
+        reason: "billing_term_not_source_supported",
+      });
+    },
+  );
 
   const refusals: [string, AiExplicitInvoice, string][] = [
-    ["missing invoicing word", inv("2026-10-01", "74000", "Customer pays $74,000 on October 1, 2026."), "no_invoicing_language"],
-    ["missing date", inv("2026-10-01", "74000", "Aster Peak will invoice Customer $74,000 at go-live."), "no_matching_invoice_date"],
+    [
+      "missing invoicing word",
+      inv("2026-10-01", "74000", "Customer pays $74,000 on October 1, 2026."),
+      "no_invoicing_language",
+    ],
+    [
+      "missing date",
+      inv("2026-10-01", "74000", "Aster Peak will invoice Customer $74,000 at go-live."),
+      "no_matching_invoice_date",
+    ],
     ["invalid date", inv("2026-13-01", "74000", ASTER_1), "invalid_invoice_date"],
     ["mismatched date", inv("2026-10-02", "74000", ASTER_1), "no_matching_invoice_date"],
     ["mismatched amount", inv("2026-10-01", "75000", ASTER_1), "no_currency_amount"],
-    ["per-unit rate", inv("2026-10-01", "74", "Aster Peak will invoice $74 per user on October 1, 2026."), "rate_like_amount"],
-    ["percentage", inv("2026-10-01", "5", "Aster Peak will invoice 5% on October 1, 2026."), "no_currency_amount"],
-    ["interest", inv("2026-10-01", "740", "Aster Peak will invoice interest of $740 on October 1, 2026."), "rate_like_amount"],
-    ["late fee", inv("2026-10-01", "50", "Aster Peak will invoice a $50 late fee on October 1, 2026."), "rate_like_amount"],
-    ["penalty", inv("2026-10-01", "500", "Aster Peak will invoice a $500 penalty on October 1, 2026."), "rate_like_amount"],
+    [
+      "per-unit rate",
+      inv("2026-10-01", "74", "Aster Peak will invoice $74 per user on October 1, 2026."),
+      "rate_like_amount",
+    ],
+    [
+      "percentage",
+      inv("2026-10-01", "5", "Aster Peak will invoice 5% on October 1, 2026."),
+      "no_currency_amount",
+    ],
+    [
+      "interest",
+      inv("2026-10-01", "740", "Aster Peak will invoice interest of $740 on October 1, 2026."),
+      "rate_like_amount",
+    ],
+    [
+      "late fee",
+      inv("2026-10-01", "50", "Aster Peak will invoice a $50 late fee on October 1, 2026."),
+      "rate_like_amount",
+    ],
+    [
+      "penalty",
+      inv("2026-10-01", "500", "Aster Peak will invoice a $500 penalty on October 1, 2026."),
+      "rate_like_amount",
+    ],
   ];
 
-  it.each(refusals)("one invalid invoice (%s) refuses the whole unknown term", (_label, bad, reason) => {
-    const [first, second] = asterInvoices();
-    const result = aiExplicitInvoiceEligibility(term({}, [first!, second!, bad]));
-    expect(result).toMatchObject({ ok: false, reason, invoiceIndex: 2 });
-  });
+  it.each(refusals)(
+    "one invalid invoice (%s) refuses the whole unknown term",
+    (_label, bad, reason) => {
+      const [first, second] = asterInvoices();
+      const result = aiExplicitInvoiceEligibility(term({}, [first!, second!, bad]));
+      expect(result).toMatchObject({ ok: false, reason, invoiceIndex: 2 });
+    },
+  );
 });
 
 /* ================================================================ Aster */
@@ -168,11 +235,16 @@ describe("3F Aster — contract-level explicit invoices", () => {
   it("creates exactly the three contract-level invoices ($148,000), no PO, balances unblocked", () => {
     const { draft, issues } = run(aster());
     expect(events(draft)).toEqual(["2026-10-01|74000", "2026-11-01|37000", "2027-02-01|37000"]);
-    const total = draft.contractBalances.considerationEvents.reduce((sum, row) => sum + Number(row.amountInput), 0);
+    const total = draft.contractBalances.considerationEvents.reduce(
+      (sum, row) => sum + Number(row.amountInput),
+      0,
+    );
     expect(total).toBe(148000);
     for (const row of draft.contractBalances.considerationEvents) {
       expect(row.unconditionalRightDate).toBe(row.invoiceDate);
-      expect((row as unknown as Record<string, unknown>)["performanceObligationId"] ?? null).toBeNull();
+      expect(
+        (row as unknown as Record<string, unknown>)["performanceObligationId"] ?? null,
+      ).toBeNull();
     }
     expect(issues.some((i) => i.reasonCode === "billing_schedule_not_derivable")).toBe(false);
     const ids = validateContractBalanceDraft(draft).issues.map((i) => i.id);
@@ -195,7 +267,8 @@ describe("3F Aster — contract-level explicit invoices", () => {
   it("does not change any recognition date (unresolved implementation date stays unresolved)", () => {
     const withBilling = run(aster()).draft;
     const withoutBilling = run(aster("148000", [])).draft;
-    const dates = (draft: WorkflowDraft) => draft.performanceObligations.map((po) => [po.id, po.recognitionDate]);
+    const dates = (draft: WorkflowDraft) =>
+      draft.performanceObligations.map((po) => [po.id, po.recognitionDate]);
     expect(dates(withBilling)).toEqual(dates(withoutBilling));
   });
 
@@ -240,7 +313,10 @@ describe("3F completeness fails closed", () => {
     expect(agrees.draft.transactionPriceInput).toBe("74000");
     expect(conflict(agrees.issues)).toBe(false);
     expect(
-      agrees.issues.some((i) => i.reasonCode === "billing_schedule_not_derivable" && i.targetKey === "billing:billing:b"),
+      agrees.issues.some(
+        (i) =>
+          i.reasonCode === "billing_schedule_not_derivable" && i.targetKey === "billing:billing:b",
+      ),
     ).toBe(true);
     // Step 3 = full $148,000: an incomplete total must not challenge it either.
     const full = run(aster("148000", [termA, termB]));
@@ -267,7 +343,11 @@ describe("3F identity / Safe Re-analysis", () => {
     const merged = run(aster("148000", [asterTerm()], genomixAnalysis));
     return {
       draft: merged.draft,
-      aiState: { ...merged.aiState, lastSuccessfulRunId: R1_RUN_ID, sourceSetFingerprint: FINGERPRINT },
+      aiState: {
+        ...merged.aiState,
+        lastSuccessfulRunId: R1_RUN_ID,
+        sourceSetFingerprint: FINGERPRINT,
+      },
     };
   }
   function assess(next: AiContractAnalysis) {
@@ -298,18 +378,35 @@ describe("3F identity / Safe Re-analysis", () => {
   it("a changed amount is declined", () => {
     const changed = asterInvoices();
     changed[0] = inv("2026-10-01", "70000", ASTER_1.replace("$74,000", "$70,000"));
-    expect(assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision).toMatchObject({ outcome: "decline" });
+    expect(
+      assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision,
+    ).toMatchObject({ outcome: "decline" });
   });
 
   it("a changed date is declined", () => {
     const changed = asterInvoices();
-    changed[1] = inv("2026-11-15", "37000", ASTER_2.replace("November 1, 2026", "November 15, 2026"));
-    expect(assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision).toMatchObject({ outcome: "decline" });
+    changed[1] = inv(
+      "2026-11-15",
+      "37000",
+      ASTER_2.replace("November 1, 2026", "November 15, 2026"),
+    );
+    expect(
+      assess(aster("148000", [asterTerm({}, changed)], genomixAnalysis)).decision,
+    ).toMatchObject({ outcome: "decline" });
   });
 
   it("explicit → recurring rule on the same stream stays blocked", () => {
     const { draft, aiState } = applied();
-    const rule = asterTerm({ amountKind: "fixed_invoice_amount", explicitInvoices: [], frequency: "monthly", billingTiming: "advance", amountOrRateInput: "12000" }, []);
+    const rule = asterTerm(
+      {
+        amountKind: "fixed_invoice_amount",
+        explicitInvoices: [],
+        frequency: "monthly",
+        billingTiming: "advance",
+        amountOrRateInput: "12000",
+      },
+      [],
+    );
     const next = run(aster("148000", [rule], genomixAnalysis), draft, aiState, NEXT_RUN);
     expect(events(next.draft)).toEqual(events(draft));
     expect(next.issues.some((i) => i.reasonCode === "unsafe_semantic_relationship")).toBe(true);
@@ -317,12 +414,27 @@ describe("3F identity / Safe Re-analysis", () => {
 
   it("a manual billing event is preserved", () => {
     const { draft, aiState } = applied();
-    const manual = { ...draft.contractBalances.considerationEvents[0]!, id: "ce-manual-3f", amountInput: "1000", amountSource: "manual" as const };
+    const manual = {
+      ...draft.contractBalances.considerationEvents[0]!,
+      id: "ce-manual-3f",
+      amountInput: "1000",
+      amountSource: "manual" as const,
+    };
     const withManual: WorkflowDraft = {
       ...draft,
-      contractBalances: { ...draft.contractBalances, considerationEvents: [...draft.contractBalances.considerationEvents, manual] },
+      contractBalances: {
+        ...draft.contractBalances,
+        considerationEvents: [...draft.contractBalances.considerationEvents, manual],
+      },
     };
-    const next = run(aster("148000", [asterTerm()], genomixAnalysis), withManual, aiState, NEXT_RUN);
-    expect(next.draft.contractBalances.considerationEvents.map((r) => r.id)).toContain("ce-manual-3f");
+    const next = run(
+      aster("148000", [asterTerm()], genomixAnalysis),
+      withManual,
+      aiState,
+      NEXT_RUN,
+    );
+    expect(next.draft.contractBalances.considerationEvents.map((r) => r.id)).toContain(
+      "ce-manual-3f",
+    );
   });
 });
