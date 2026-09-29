@@ -3209,7 +3209,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           targetKey: `billing:${semanticKey}`,
           section: "additional_topics",
           reasonCode: "billing_schedule_not_derivable",
-          reason: `ARC did not create the dated invoices for "${term.description.slice(0, 100)}" because at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together. No invoices from this billing stream were created. Enter the actual billing events if known.`,
+          reason: `ARC did not create the dated invoices for "${term.description.slice(0, 100)}" because ${
+            explicit.reason === "amount_not_fixed_invoice"
+              ? "the billing term's amounts are not identified as fixed invoice amounts"
+              : explicit.reason === "billing_term_not_source_supported"
+                ? "the billing term is not marked as directly supported by the contract"
+                : "at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together"
+          }. No invoices from this billing stream were created. Enter the actual billing events if known.`,
           guidanceIds: [],
           citations: term.citations,
           value: explicit.reason,
