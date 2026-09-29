@@ -200,7 +200,15 @@ export function Asc606AnalysisArea() {
             ? "Review this item"
             : null,
     });
-  }, [requestedReview, reviewItem, navigate, search, ai.loadState, openSection, genericReviewItems]);
+  }, [
+    requestedReview,
+    reviewItem,
+    navigate,
+    search,
+    ai.loadState,
+    openSection,
+    genericReviewItems,
+  ]);
 
   return (
     <AiReviewTargetProvider workspace={ai.workspace}>

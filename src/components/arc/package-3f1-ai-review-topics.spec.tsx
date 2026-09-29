@@ -71,20 +71,25 @@ describe("3F.1 generic Additional Topics review", () => {
   });
 
   it("modification and VC navigation are unchanged", () => {
-    expect(describeReviewTarget("modification:mod-1.effectiveDate", "additional_topics").sectionElementId).toBe(
-      "topic-modifications",
-    );
-    expect(describeReviewTarget("vc:vc-1.meter.unitRate", "additional_topics").sectionElementId).toBe(
-      "topic-variable-consideration",
-    );
+    expect(
+      describeReviewTarget("modification:mod-1.effectiveDate", "additional_topics")
+        .sectionElementId,
+    ).toBe("topic-modifications");
+    expect(
+      describeReviewTarget("vc:vc-1.meter.unitRate", "additional_topics").sectionElementId,
+    ).toBe("topic-variable-consideration");
     expect(
       describeReviewTarget("contract.criteria.collectibility_probable.answer", "step_1").kind,
     ).toBe("exact");
   });
 
   it("uses accountant-readable labels, never target keys", () => {
-    expect(genericReviewTopicLabel("billing:billing_fixed_dated_invoices")).toBe("Billing schedule");
-    expect(genericReviewTopicLabel("additionalTopic:customer_acceptance")).toBe("Customer acceptance");
+    expect(genericReviewTopicLabel("billing:billing_fixed_dated_invoices")).toBe(
+      "Billing schedule",
+    );
+    expect(genericReviewTopicLabel("additionalTopic:customer_acceptance")).toBe(
+      "Customer acceptance",
+    );
   });
 
   it("badge count equals the visible rows; rows are read-only", () => {

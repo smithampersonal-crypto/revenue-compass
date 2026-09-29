@@ -421,7 +421,8 @@ export function checkExplicitInvoiceEvidence(
 const TABLE_PROHIBITED =
   /%|\bpercent(?:age)?\b|\bper\s+[a-z]|\brate\b|\bformula\b|\bcalculated\b|\bmultipl(?:y|ied)\b|\binterest\b|\bpenalt(?:y|ies)\b|\blate\s+(?:fee|fees|charge|charges|payment|payments)\b|\boverdue\b|\bpast\s+due\b|\bservice\s+credits?\b|\bliquidated\s+damages\b|\beach\s+[a-z]/i;
 /** Any money-bearing column label other than the single Amount column. */
-const OTHER_MONEY_LABEL = /\b(?:fee|fees|price|prices|total|totals|tax|taxes|rate|rates|cost|costs|balance|subtotal)\b/i;
+const OTHER_MONEY_LABEL =
+  /\b(?:fee|fees|price|prices|total|totals|tax|taxes|rate|rates|cost|costs|balance|subtotal)\b/i;
 
 function countMatches(text: string, pattern: RegExp): number {
   return [...text.matchAll(new RegExp(pattern.source, "gi"))].length;

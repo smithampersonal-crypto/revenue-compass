@@ -29,7 +29,8 @@ const S0008 =
   "excluded and will be invoiced separately where required.\n3. Billing Schedule\nInvoice Date Billing Event Amount Due Date\n";
 const S0009 =
   "October 1, 2026 Execution of Agreement $74,000 October 31, 2026\nNovember 1, 2026 Platform go-live $37,000 December 1, 2026\n";
-const S0010 = "February 1, 2027 Third installment $37,000 March 3, 2027\nInvoices are payable in U.S. ";
+const S0010 =
+  "February 1, 2027 Third installment $37,000 March 3, 2027\nInvoices are payable in U.S. ";
 
 const HEADER = "Invoice Date Billing Event Amount Due Date";
 
@@ -189,17 +190,32 @@ describe("3F.1 table evidence fails closed", () => {
     const item = issues.find((i) => i.reasonCode === "billing_schedule_not_derivable");
     expect(item?.reason).toContain("page image or layout reference");
     // incomplete schedule can neither corroborate nor challenge Step 3
-    expect(run(aster(invoices, "150000")).issues.some((i) => i.reasonCode === "source_conflict")).toBe(
-      false,
-    );
+    expect(
+      run(aster(invoices, "150000")).issues.some((i) => i.reasonCode === "source_conflict"),
+    ).toBe(false);
   });
 
   it.each<[string, string, string, string]>([
     ["due date proposed as invoice date", "2026-10-31", "74000", `${HEADER}\n${row1}`],
     ["wrong amount", "2026-10-01", "75000", `${HEADER}\n${row1}`],
-    ["missing Invoice Date header", "2026-10-01", "74000", `Date Billing Event Amount Due Date\n${row1}`],
-    ["missing Amount header", "2026-10-01", "74000", `Invoice Date Billing Event Due Date\n${row1}`],
-    ["missing date in row", "2026-10-01", "74000", `${HEADER}\nOctober 1, 2026 Execution of Agreement $74,000`],
+    [
+      "missing Invoice Date header",
+      "2026-10-01",
+      "74000",
+      `Date Billing Event Amount Due Date\n${row1}`,
+    ],
+    [
+      "missing Amount header",
+      "2026-10-01",
+      "74000",
+      `Invoice Date Billing Event Due Date\n${row1}`,
+    ],
+    [
+      "missing date in row",
+      "2026-10-01",
+      "74000",
+      `${HEADER}\nOctober 1, 2026 Execution of Agreement $74,000`,
+    ],
     [
       "extra date in row",
       "2026-10-01",
