@@ -5,6 +5,8 @@
  * anchors exactly as ARC's own extractor materializes them (P0002-S0008..S0010).
  * Deterministic only: no provider, no network, no database.
  */
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,7 +18,7 @@ import {
 
 import { checkExplicitInvoiceEvidence, aiExplicitInvoiceEligibility } from "../billing-evidence";
 import { createEmptyAiAnalysisState, mergeAiAnalysis } from "../merge";
-import { AI_PROMPT_VERSION, buildAiInstructions } from "../prompt";
+import { AI_PROMPT_VERSION } from "../prompt";
 import type { AiContractAnalysis, AiExplicitInvoice } from "../schema";
 import { guidancePackFixture } from "./merge-fixtures";
 import { genomixR1Analysis, R1_RUN_ID } from "./r1-fixtures";
@@ -297,7 +299,12 @@ describe("3F.1 table evidence fails closed", () => {
 describe("3F.1 prompt v15", () => {
   it("bumps to v15 with a narrow explicit-invoice table exception, keeping tables visual by default", () => {
     expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v15");
-    const text = JSON.stringify(buildAiInstructions);
-    expect(typeof text).toBe("string");
+    const source = readFileSync("src/lib/arc/ai/prompt.ts", "utf8");
+    expect(source).toContain("Narrow exception for explicit dated invoices only");
+    expect(source).toContain("This exception applies to no other table-derived fact.");
+    expect(source).toContain(
+      'If the fact depends on table, grid or layout relationships rather than running prose, use evidenceMode "visual"',
+    );
+    expect(source).toContain("tables, pricing or SLA grids, column/row relationships");
   });
 });
