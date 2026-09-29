@@ -13,7 +13,7 @@ import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
 
 import { buildProgressiveInput } from "@/lib/asc606-workflow/r3-adapter";
 import { parseUsdToCents } from "@/lib/asc606-workflow/money-input";
-import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
+import { createEmptyDraft, isProjectedCollection, type WorkflowDraft } from "@/lib/asc606-workflow";
 
 import { createEmptyAiAnalysisState, mergeAiAnalysis, type AiAnalysisState } from "../merge";
 import { AI_PROMPT_VERSION, buildAiInstructions } from "../prompt";
@@ -313,7 +313,10 @@ describe("3F.3 Stonebridge — threshold and exact rate reach the canonical mete
     // Fixed billing is exactly the three contract invoices: no usage, SLA or interest invoice.
     expect(events(draft)).toEqual(["2026-12-01|70000", "2027-04-01|58000", "2027-08-01|58000"]);
     expect(Number(draft.transactionPriceInput)).toBe(186000);
-    expect(draft.contractBalances.cashReceipts ?? []).toHaveLength(0);
+    // Only projected collections; no actual cash receipt is fabricated.
+    expect(draft.contractBalances.cashCollections.every((row) => isProjectedCollection(row))).toBe(
+      true,
+    );
   });
 
   it("the progressive adapter raises no rate or threshold blocker for this meter", () => {
