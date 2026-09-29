@@ -9,6 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { buildGuidancePack } from "@/lib/arc/guidance/retrieval";
+
 import { buildProgressiveInput } from "@/lib/asc606-workflow/r3-adapter";
 import { parseUsdToCents } from "@/lib/asc606-workflow/money-input";
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
@@ -198,7 +200,11 @@ describe("3F.3 versions", () => {
   });
 
   it("prompt v17 carries the threshold rules and keeps the v16 invoice rules", () => {
-    const text = buildAiInstructions({ sources: [] } as never);
+    const text = buildAiInstructions({
+      guidance: buildGuidancePack({ normalizedEvidenceText: "saas usage overage" }),
+      sources: [],
+      arcContextFacts: {},
+    });
     expect(text).toContain("includedQuantityInput");
     expect(text).toContain('Use "0" only when the cited text establishes that every unit is charged from the first unit');
     expect(text).toContain("Never put a minimum commitment, minimum purchase, forecast, expected, target or historical volume");
@@ -285,7 +291,7 @@ describe("3F.3 Stonebridge — threshold and exact rate reach the canonical mete
     expect(row.realizedEvents ?? []).toHaveLength(0);
     // Fixed billing is exactly the three contract invoices: no usage, SLA or interest invoice.
     expect(events(draft)).toEqual(["2026-12-01|70000", "2027-04-01|58000", "2027-08-01|58000"]);
-    expect(draft.transactionPriceInput).toBe("186000");
+    expect(Number(draft.transactionPriceInput)).toBe(186000);
     expect(draft.contractBalances.cashReceipts ?? []).toHaveLength(0);
   });
 
@@ -327,7 +333,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
     expect(row.meters).toHaveLength(0);
     const item = issues.find((i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput`);
     expect(item).toBeDefined();
-    expect(item!.blocking).toBe(true);
+    expect(item!.state).toBe("red");
     return item!;
   };
 
@@ -411,7 +417,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
     const { draft, issues } = run(stonebridge(usage({ contractualRateOrAmountInput: "0.0000001" })));
     const row = usageRow(draft);
     expect(row.meters).toHaveLength(0);
-    expect(issues.some((i) => i.targetKey === `vc:${row.id}.meter.rateAmountInput` && i.blocking)).toBe(true);
+    expect(issues.some((i) => i.targetKey === `vc:${row.id}.meter.rateAmountInput` && i.state === "red")).toBe(true);
   });
 });
 
