@@ -1,96 +1,166 @@
-# Package 3F — Contract-level explicit invoices (PLAN ONLY)
+# Package 3F.1 — Table billing + generic Additional Topics review (PLAN ONLY)
 
-No code changed, no AI run, no publish, no migration, no dependency change. Investigation was read-only (source code + the stored production run record).
+This is a plan only. Nothing was implemented, no AI was run, nothing was published, and there is no migration or dependency change. The investigation was read-only: I read the stored run record and ran ARC's own local PDF text extraction and anchoring on the stored original Aster PDF, using a temporary script that has since been removed.
 
-## A. Root cause
+## A. Original Aster live-run billing data
 
-Aster run: `3b81b345-295d-4ad3-9ae0-2b071f6ea193` (workspace `650921af…`, prompt v14, schema v9, succeeded, source `Aster_Peak_Cobalt_Ridge_SaaS_Agreement_Revised.pdf` only).
+Run `15a40c78-b794-4b03-86f6-4d1390b136ab` (2026-09-29 05:33 UTC, prompt v14, schema v9, succeeded). Source: `Aster_Peak_Cobalt_Ridge_SaaS_Agreement.pdf` (doc `ef99ff6a…`). An earlier original-Aster run, `e6610a76…`, exists and is superseded by this one.
 
-Runtime path: Terra v9 result → `billingTerms[0]` → `merge.ts` billing loop (line ~3197, explicit-invoice branch) → `aiExplicitInvoiceEligibility` (`billing-evidence.ts` ~445) → refused → `raise(billing_schedule_not_derivable, blocking)` → `continue` → zero consideration events → Contract Balances "Enter at least one billing event."
+- Billing term: `billing_fixed_dated_invoices`; amountKind **unknown**; reviewState **supported**; targetPerformanceObligationKey null; paymentTermsDays 30.
+- Term citations:
+  - text on p.1 (header block, "Net 30 from invoice date")
+  - visual on p.2 (no excerpt)
+- explicitInvoices. Each invoice has exactly **one citation: `evidenceMode: "visual"`, `excerpt: null`, page 2**, with no text excerpt and no anchors.
+  - 2026-10-01 · 74000
+  - 2026-11-01 · 37000
+  - 2027-02-01 · 37000
+- Stored review item `rev-c369d040eca7d1f6`, target `billing:billing_fixed_dated_invoices`. Copy: "…at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together…".
 
-Exact rejection point: the very first check in `aiExplicitInvoiceEligibility`:
+## B. Exact rejection path
+
+1. `aiExplicitInvoiceEligibility`: after 3F, unknown + invoices counts as a candidate, and the reviewState check passes.
+2. The first invoice (invoiceIndex 0) goes to `checkExplicitInvoiceEvidence`.
+3. `explicitEvidenceUnits` skips every non-text citation (billing-evidence.ts ~341). That leaves zero units, so it returns **`no_text_evidence`**.
+4. The term is refused with `explicit_invoice_evidence_missing`, and the refusal copy above is raised.
+
+Both halves of the suspected mismatch are confirmed:
+- Prompt v14 (prompt.ts lines 90 and 146) tells the model to cite tables as visual.
+- The deterministic check only accepts text.
+
+This is the exact cause. Visual citations will stay non-authoritative.
+
+## C. Actual page-2 anchorability (ARC's own extractor + anchors)
 
 ```text
-if (amountKind !== "fixed_invoice_amount") -> refuse "amount_not_fixed_invoice"
+P0002-S0008  "excluded and will be invoiced separately where required.\n3. Billing Schedule\nInvoice Date Billing Event Amount Due Date\n"
+P0002-S0009  "October 1, 2026 Execution of Agreement $74,000 October 31, 2026\nNovember 1, 2026 Platform go-live $37,000 December 1, 2026\n"
+P0002-S0010  "February 1, 2027 Third installment $37,000 March 3, 2027\nInvoices are payable in U.S. "
 ```
 
-Terra returned `amountKind: "unknown"`. The per-invoice evidence checks never ran. PO linkage, dates, duplicates and the Step 3 comparison played no part.
+- The header and every row each come out as a single line, in the correct column order.
+- Row 1 and row 2 fit in S0008–S0009 (2 anchors). Row 3 fits in S0008–S0010 (3 anchors, contiguous).
+- All three rows can therefore be cited under the existing 1–3 contiguous-anchor text contract. The anchor contract and the materializer need no change.
 
-Second effect: because `amountKind` is `unknown`, the term is also left out of the Step 3 corroboration set (`fixedTypedTerms`, merge.ts ~2101). The billing total was never compared with Step 3.
+## D. Recommended safe table-evidence design
 
-## B. What Terra actually returned (one billing term)
+Add a second pattern, `tableRowEvidence`, in `checkExplicitInvoiceEvidence`. It runs only when the narrative pattern fails, and only on verified **text** citations. The narrative pattern itself is unchanged.
 
-- semanticKey `fixed_consideration_dated_invoices`; description "Three expressly dated invoices comprising the complete billing schedule…"
-- amountKind **unknown**; reviewState **supported**; billingTiming milestone; frequency on_event
-- amountOrRateInput null; paymentTermsDays 30; dueDateRule "each invoice due on its stated calendar due date; also Net 30"
-- targetPerformanceObligationKey **null**; billingBasisTotalInput / installmentCount / equalInstallments null; invoiceTriggerKind none
-- explicitInvoices (all three extracted correctly):
-  - 2026-10-01 · 74000 · cites "Aster Peak will invoice Customer $74,000 on October 1, 2026, and the invoice is due October 31, 2026."
-  - 2026-11-01 · 37000 · cites "…will invoice Customer $37,000 on November 1, 2026…"
-  - 2027-02-01 · 37000 · cites "…will invoice Customer $37,000 on February 1, 2027, and the invoice is due March 3, 2027."
-- Term citations: one visual citation (p.2) and one text citation (p.2 closing sentences).
-- Stored review item: `billing_schedule_not_derivable` on `billing:fixed_consideration_dated_invoices`. The schedule did not disappear silently. The item's wording, though, says the citation "does not state its invoiced amount and exact invoice date together". That is wrong for this refusal reason and misleads the reviewer.
+1. Split each text excerpt into **lines**; table rows are recognised line by line.
+2. **Header line.** The line must hold the column labels as whole phrases (case-insensitive), in left-to-right order:
+   - `Invoice Date` exactly once
+   - `Amount` exactly once
+   - optionally `Due Date` and other plain labels
 
-Dry-reading the three citations against the existing per-invoice evidence rules (amount match, invoicing word, date introduced by "on"): all three would pass.
+   Record the order of the columns that hold a date (Invoice Date, Due Date, …) and the position of Amount among the currency columns. If there is no Invoice Date or no Amount label, the header is invalid.
+3. **Row line.** It must come after the header in the same citation, with no second header in between. Parse the dates in left-to-right order (named, ISO and US formats) and the currency amounts in left-to-right order. The row counts only if:
+   - its date count equals the header's date-column count, and
+   - its currency-amount count equals 1, and the header has exactly one Amount-type column.
+4. **Semantics.** The invoice date is the date at the Invoice Date column's position among the date columns. So the Due Date can never be taken as the invoice date, even though both dates appear in the row.
+5. **Pass.** The invoice-date column equals `invoiceDateInput` **and** the amount equals `amountInput` exactly (the existing `exactCents`).
+6. **Fail closed** on any of:
+   - a missing header, or a missing Invoice Date or Amount label
+   - date or amount count mismatch (a misaligned or ambiguous row)
+   - more than one matching row with different values
+   - a rate-like line (the existing `amountVerdict` rate/percent/per-unit rules)
+   - interest, penalty, late-fee or formula words on the row or header line
+7. The new reason codes stay internal. The refusal copy is unchanged apart from making the "no text evidence" wording honest, e.g. "is supported only by a page image, which ARC cannot verify locally". The review ID and fingerprint inputs are unchanged.
 
-## C. Architecture assessment
+Visual-only invoices keep failing: the term stays refused, the Step 3 completeness denominator still includes it, and the review item remains. This matches 3F.
 
-- **D (PO linkage):** only the v9 installment and trigger paths (`deriveV9Events`) require a linked PO. The explicit-invoice branch never reads `targetPerformanceObligationKey`.
-- **E (contract-level stream):** yes. A v9 term with `explicitInvoices` and a null PO key is already a genuine contract-level stream. It has stable identity through `billing-identity.ts` (semantic key + date/amount), and the `explicit_invoice_v8` derivation-mode firewall already applies.
-- **Balance engine:** `analyzeContractBalances` / `buildMonthlyRollforward` use only event amount, unconditional-right date, invoice date, and collections vs. revenue by month. There is no PO field. Contract asset/liability comes from cumulative revenue vs. cumulative rights, at contract level.
-- **Result:** no redesign, no schema change and no migration are needed. None of the stop conditions apply.
+## E. Prompt-version decision
 
-## D. Smallest implementation
+**A bump to v15 is required.** The deterministic gate can only use text citations, and v14 explicitly tells the model to cite tables visually. Without the change, the model will keep returning visual-only invoice citations.
 
-1. `src/lib/arc/ai/billing-evidence.ts` — `aiExplicitInvoiceEligibility`:
-   - Accept `amountKind` of `fixed_invoice_amount` **or** `unknown`, but only when the term has one or more explicit invoices **and** every invoice passes its own evidence check (exact amount, invoicing word and introduced exact date in the same sentence; rate-like amounts refused).
-   - `pricing_basis_only`, `usage_rate`, `percentage` and every other kind stay refused. The reviewState rule is unchanged.
-   - Rationale: the model's label is a proposal. Here ARC's own sentence-level reading proves each amount is a fixed invoiced amount, and that proof is stronger than the label.
-2. `src/lib/arc/ai/merge.ts` — the Step 3 corroboration set (`fixedTypedTerms`) also includes an `unknown`-kind term whose explicit invoices pass that same check. The billing total can then corroborate Step 3, or raise the existing blocking `source_conflict`. It still never replaces Step 3. A refused term still makes the schedule incomplete, so an incomplete schedule has no authority.
-3. `merge.ts` refusal copy (explicit branch): reason-specific wording for `amount_not_fixed_invoice` and `billing_term_not_source_supported`. All other reasons keep the current sentence. The review ID and fingerprint inputs stay unchanged (they use section, target, reason code and value).
-4. Contract-level label: no UI change. The billing rows already carry no PO. I would add "Contract-level billing" only if you want it (see Decisions).
-5. **Schema:** stays at v9 (the shape already fits). **Prompt:** stays at v14 by default. Optional one-line addition as v15: "a dated invoice with a stated currency amount is fixed_invoice_amount, and a contract-level schedule keeps targetPerformanceObligationKey null". The fix does not depend on it.
-6. **Identity / Safe Re-analysis:** unchanged mechanisms.
-   - An unchanged rerun keeps the same semantic key and the same date/amount event IDs, so no duplicates.
-   - A changed date or amount follows the existing lineage rules and fails closed.
-   - Switches between explicit invoices and rule/installment/trigger modes already raise blocking `billing_derivation_mode_changed`.
-   - Tombstones, manual-row precedence and the structural firewall are untouched.
-7. **Nothing else changes:** Step 2, Step 4 and Step 5, the revenue schedule, variable consideration, financing, modifications, journals (beyond downstream effects of valid events), auth, quotas, AI orchestration and storage.
+Narrow v15 carve-out, next to lines 90 and 146:
+> Exception: for an explicit dated invoice shown in a billing table, when the header line and that invoice's row are text-anchorable within 1–3 contiguous anchors, cite them with evidenceMode "text" covering the header line and the row. Otherwise use visual; ARC will then leave the invoice unresolved.
 
-## E. Accounting / data flow
+All other table guidance stays visual. Schema v9 is unchanged.
 
-- Each accepted invoice becomes one consideration event with invoice date = unconditional-right date = the stated date. Due dates come from the existing Net 30 rule: 2026-10-31, 2026-12-01 and 2027-03-03, matching the contract.
-- The rollforward compares cumulative rights with cumulative recognized revenue, per contract. That produces contract asset or contract liability, plus billed and unbilled AR from invoice vs. month-end.
-- Allocation (Step 4: $120k/$20k/$8k by SSP) and billing (50/25/25 installments) stay independent. No invoice is split across or assigned to a PO.
-- No actual cash receipts are created. Any collections shown come only from the existing projected-collection logic, with its existing "not evidence of cash" disclosure. I will confirm whether Aster produces projected rows at all and report it.
-- Step 3: $148,000 comes from Step 3 fixed consideration. The $148,000 billing total only corroborates it. A mismatch would raise the existing blocking conflict.
-- The implementation recognition date stays unresolved (acceptance date unknown). Nothing in this change touches recognition.
+A live AI rerun of the original Aster would be needed to confirm the model follows this. That rerun is out of scope and only happens with owner approval.
 
-## F. Tests (failing first)
+## F. Generic Additional Topics root cause (confirmed)
 
-- **Unit** (`billing-evidence`): an unknown-kind term with 3 passing invoices is accepted. Refused: unknown kind with one failing invoice (whole term), unknown kind with no invoices, pricing_basis_only, rate/percent/per-unit amounts, missing date, no invoicing word, mismatched date, unsupported reviewState.
-- **Merge:** the Aster fixture (synthetic excerpts matching the contract text) produces exactly 3 events ($74k/$37k/$37k, dates above, no PO) with the review item cleared. $148k corroborates Step 3 with no conflict. A $150k Step 3 triggers a blocking `source_conflict` with neither figure replaced. An accountant-entered Step 3 is never overwritten. Existing manual events still win.
-- **Identity:** an unchanged rerun gives no duplicates and the same IDs. A changed amount fails closed. Explicit↔rule/installment mode switches stay blocked. Tombstoned invoices are not recreated.
-- **Balance integration:** Aster events feed `analyzeContractBalances`, which is unblocked and reconciled, with no actual cash.
-- **Regressions:**
-  - Redwood/Test 03: 3 POs, $150k, allocation $28,125/$112,500/$9,375, exactly six events, balances unblocked, collections projected only.
-  - Horizon: $153k, source document unchanged.
-  - Genomix: outputs unchanged, hash unchanged.
-  - Aster recognition date remains unresolved.
-  - Legacy v5–v8 results load unchanged, with no structure created on load or autosave.
-- **Full:** `bun run verify` (baseline 234 files / 2,908 tests; the count will go up). SQL suites are unaffected, but I will run them once as a check.
+The four generic items in this run are all filed under section `additional_topics`:
 
-## G. Risks / stop conditions
+| Item | Target key |
+|---|---|
+| customer acceptance | `additionalTopic:customer_acceptance` |
+| licenses | `additionalTopic:licenses` |
+| warranties | `additionalTopic:warranties` |
+| billing refusal | `billing:billing_fixed_dated_invoices` |
 
-- **Risk:** treating `unknown` as acceptable is safe only because every invoice is checked against its own sentence. I will stop if any existing negative test starts passing.
-- **Risk:** the first Aster run (the original PDF) may differ. I will read it too and report it, without changing the plan unless it shows a different root cause.
-- None of the stop conditions are triggered: no allocation redesign, no PO assignment, no fuzzy matching, billing gets no Step 3 authority, no persistence change.
+How the empty section happens:
+- `sectionElementIdFor` (review-presentation.ts ~331) sends any additional_topics target that is not `modification:` or `vc:` to `additional-topics`.
+- The badge count is keyed to that ID, and `AdditionalTopics.tsx:53` shows it on the heading ("4 AI REVIEW").
+- `AdditionalTopics` renders only the Modifications accordion, plus VC and Material Rights when they apply. It never renders generic items.
+- As a result, "Go to section" lands on a heading with no matching content.
 
-## H. Scope confirmation
+## G. UX option A vs B — recommendation: A
 
-Plan only. No implementation, AI run, publish, migration, dependency change or roadmap edit. Once 3F is accepted, archive `60a4df5a…4d55` becomes historical.
+- **A (recommended):** a compact read-only "AI review topics" list inside Additional Topics Applied, placed under the heading and above Contract Modifications.
+  - Each row shows the topic label, the existing presented reason, and the state (Needs review / Resolved / Affirmed). A "Review in Review & Finalize" link goes to that item.
+  - No editable control. Resolution stays solely in Review & Finalize.
+  - The badge count then matches what is visible, and "Go to section" lands on real content.
+  - Size: one small presentational component (~60 lines) that reuses the existing review DTO and presenter, plus one prop. Risk is low, because the existing accordions and exact-field navigation are untouched.
+- **B:** stop counting generic items on this heading and hide "Go to section" for them.
+  - Slightly smaller (~20 lines), but it touches the shared navigation and count logic, which carries more regression risk.
+  - It also hides advisory conclusions from the analysis page, which is less honest for recruiters.
 
-## Decisions for the owner
+The billing refusal item stays under additional_topics, so under A it is listed there too. That is correct: Contract Balances already shows its own "Enter at least one billing event" message.
 
-1. Prompt: keep v14 (recommended), or add the one-line v15 wording as well.
-2. Show a small "Contract-level billing" label on these rows: no (recommended, no UI change), or yes.
+## H. Files that would change
+
+- `src/lib/arc/ai/billing-evidence.ts` — the table-row pattern and its helpers.
+- `src/lib/arc/ai/merge.ts` — refusal wording for the visual-only / no-text-evidence case only.
+- `src/lib/arc/ai/prompt.ts` — v15 carve-out and `PROMPT_VERSION` bump, plus existing version-pin tests.
+- `src/components/arc/AdditionalTopics.tsx` and a new `src/components/arc/AiReviewTopicsList.tsx` — read-only list.
+- The page that renders `AdditionalTopics` (analysis route) — passes the generic review items through.
+- Tests (below). No schema, SQL, persistence or engine files change.
+
+## I. Failing tests first
+
+New `package-3f1-table-invoices.spec.ts`:
+- **Original Aster table fixture** (the exact S0008–S0010 texts above as text citations):
+  - 3 events: 2026-10-01 $74,000; 2026-11-01 $37,000; 2027-02-01 $37,000
+  - total $148,000, no PO, Step 3 corroborated only
+  - balances unblocked, no actual cash, implementation recognition date unresolved
+- **Negative cases:**
+  - due date proposed as the invoice date (e.g. 2026-10-31)
+  - wrong amount
+  - no Invoice Date header
+  - no Amount header
+  - a row with a missing or extra date
+  - two amounts in one row
+  - row without a header
+  - visual-only citation, which keeps the whole term refused and completeness incomplete
+  - rate, percentage, interest or late-fee row
+- **Revised prose Aster** (the existing 3F fixture) still passes.
+- **Prompt:** v15 carve-out text present; general table→visual guidance still present.
+
+UI spec: generic items appear as read-only rows under Additional Topics, and the count equals the visible rows. Modification and VC subtopic navigation are unchanged, exact-field navigation is unchanged, and the rows contain no inputs.
+
+## J. Regression coverage
+
+- All 3F tests:
+  - unknown terms must prove every invoice
+  - a failed candidate keeps billing incomplete
+  - no Step 3 replacement
+  - identity / Safe Re-analysis, manual precedence, tombstones, mode-switch firewall
+- Other regressions:
+  - Redwood/Test 03 (six events, $150k, allocation)
+  - Horizon $153k
+  - Genomix outputs and hash
+  - legacy v5–v8 results load unchanged
+  - Review & Finalize resolution and finalization unchanged
+- Full `bun run verify`; all 26 SQL test files plus the contention driver run once.
+
+## K. Risks / stop conditions
+
+- Stop if any header/row case would need guessing (for example, wrapped rows split across lines, or merged cells). Those cases stay fail-closed; the parser will not be loosened.
+- Stop if any existing negative evidence test starts passing.
+- The prompt change is only effective after a real AI run. Until then, production Aster still fails closed, which is safe.
+- The Step 5 implementation recognition date stays unresolved. It will not be set to October 30.
+
+## L. Confirmation
+
+No implementation, no AI run, no publish, no migration, no dependency change. Waiting for owner approval.
