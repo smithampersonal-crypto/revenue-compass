@@ -32,7 +32,7 @@ export const AI_PROMPT_SECTIONS = {
  * constant, so a live run can never be labelled with a version it did not
  * receive. Changing the trusted instruction body REQUIRES bumping this literal.
  */
-export const AI_PROMPT_VERSION = "arc.ai.prompt.v16" as const;
+export const AI_PROMPT_VERSION = "arc.ai.prompt.v17" as const;
 
 export interface AiInstructionSourceDescriptor {
   /** Trusted ARC identity. */
@@ -202,6 +202,7 @@ function taskSection(outputSchemaVersion: string): string {
     "- Treat consideration as monetary unless the evidence actually describes noncash consideration.",
     "- Raise consideration payable to a customer only when the evidence describes an actual payment or credit to the customer, and raise it once.",
     '- For a service-level-credit or penalty component where the evidence gives no indication a trigger is expected, set initialEstimateBasis to "zero_no_expected_trigger" with initialEstimatedAmountInput and initialIncludedAmountInput both "0", and explain that basis. For usage-based consideration measured as incurred, set initialEstimateBasis to "not_applicable_usage_as_incurred" with both amounts null. Use "needs_user_input" with both amounts null only when an initial estimate is genuinely required and genuinely unavailable.',
+    '- For usage-based variable consideration, put the exact contractual per-unit usage rate in contractualRateOrAmountInput exactly as stated (for example 0.004); never round it. Put the exact contractual included quantity in includedQuantityInput as a bare whole number without separators (for example 2000000) only when the cited text itself states the quantity included before the usage rate applies for that same usage stream, such as "includes up to N units" or "N units included". Use "0" only when the cited text establishes that every unit is charged from the first unit. Use null when the included quantity is not stated, ambiguous, belongs to a different usage stream, or is not safely supported. Never put a minimum commitment, minimum purchase, forecast, expected, target or historical volume into includedQuantityInput, never calculate or infer it, and never invent actual usage. The usage component\'s own citations must include the text stating the included quantity and its allowance meaning. includedQuantityInput is always null for non-usage components.',
     "- Never forecast usage volumes, produce a revenue schedule, or compute any allocated, recognized or deferred amount. ARC computes all of that.",
     "Return only the strict structured output defined by the response schema. Do not add commentary outside it.",
   ].join("\n");

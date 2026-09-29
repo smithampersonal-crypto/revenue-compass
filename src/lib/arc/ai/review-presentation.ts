@@ -176,7 +176,15 @@ const VC_FIELDS = new Set([
 ]);
 
 /** Meter targets are composite: the component's meter group owns the anchor. */
-const VC_METER_FIELDS = new Set(["name", "rateAmountInput", "rateQuantityInput", "unit"]);
+const VC_METER_FIELDS = new Set([
+  "name",
+  "rateAmountInput",
+  "rateQuantityInput",
+  "unit",
+  "includedQuantityInput",
+]);
+/** Accountant-facing labels where the humanized field name would read poorly. */
+const VC_METER_LABELS: Record<string, string> = { includedQuantityInput: "Included quantity" };
 
 const MODIFICATION_FIELDS = new Set([
   "modificationDate",
@@ -270,7 +278,9 @@ export function describeReviewTarget(
     const meter = /^meter\.([A-Za-z0-9_]+)$/.exec(field);
     if (meter) {
       return VC_METER_FIELDS.has(meter[1]!)
-        ? exact(`Variable consideration meter — ${humanize(meter[1]!)}`)
+        ? exact(
+            `Variable consideration meter — ${VC_METER_LABELS[meter[1]!] ?? humanize(meter[1]!)}`,
+          )
         : fallback();
     }
     // A review item may name one measured month by its stable persisted row

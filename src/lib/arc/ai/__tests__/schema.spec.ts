@@ -36,7 +36,7 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("pins the output schema version to the 9C constant", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v10");
   });
 
   it("accepts only the authoritative schema version literal", () => {
