@@ -526,3 +526,134 @@ describe("3F.3 Safe Re-analysis", () => {
     expect(meter.rateAmountInput).toBe("0.04");
   });
 });
+
+/* ============================== acceptance patch: legacy blank threshold */
+
+describe("3F.3 acceptance — legacy AI meter with a blank threshold fails closed", () => {
+  const RUN_2 = "33333333-3333-4333-8333-333333333333";
+
+  function legacyRun() {
+    const legacy = stonebridge(usage({ contractualRateOrAmountInput: "1.35" }));
+    delete (legacy.transactionPrice.variableConsiderationComponents[0] as Record<string, unknown>)[
+      "includedQuantityInput"
+    ];
+    return run(legacy);
+  }
+  const v10Null = () =>
+    stonebridge(usage({ contractualRateOrAmountInput: "1.35", includedQuantityInput: null }));
+
+  function withUsage(draft: WorkflowDraft): WorkflowDraft {
+    return {
+      ...draft,
+      variableConsiderationComponents: draft.variableConsiderationComponents.map((row) =>
+        VC_ID_PATTERN.test(row.id)
+          ? {
+              ...row,
+              usagePeriods: [
+                {
+                  id: `${row.id}-p-2027-02`,
+                  month: "2027-02",
+                  quantities: { [row.meters[0]!.id]: "500" },
+                },
+              ],
+            }
+          : row,
+      ),
+    };
+  }
+
+  it("starts from the legacy shape: priced 1.35 / 1 meter, blank threshold, AI-owned", () => {
+    const first = legacyRun();
+    const row = usageRow(first.draft);
+    const meter = row.meters[0]!;
+    expect(meter.rateAmountInput).toBe("1.35");
+    expect(meter.rateQuantityInput).toBe("1");
+    expect((meter.includedQuantityInput ?? "").trim()).toBe("");
+    expect(first.aiState.fieldProvenance[`vc:${row.id}.meter.rateAmountInput`]!.state).toBe(
+      "ai_generated_untouched",
+    );
+  });
+
+  it("v10 null disables the stale AI pricing and raises the blocking threshold item", () => {
+    const first = legacyRun();
+    const second = run(v10Null(), first.draft, first.aiState, RUN_2);
+    const row = usageRow(second.draft);
+    expect(
+      second.draft.variableConsiderationComponents.filter((r) => VC_ID_PATTERN.test(r.id)),
+    ).toHaveLength(1);
+    expect(row.id).toBe(usageRow(first.draft).id);
+    expect(row.meters).toHaveLength(1);
+    const meter = row.meters[0]!;
+    expect(meter.rateAmountInput).toBe("");
+    expect(meter.rateQuantityInput).toBe("");
+    expect(meter.includedQuantityInput ?? "").toBe("");
+    expect(meter.includedQuantityInput).not.toBe("0");
+    const item = second.issues.find(
+      (i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput`,
+    );
+    expect(item?.state).toBe("red");
+
+    const result = buildProgressiveInput(withUsage(second.draft));
+    const codes = result.blocked.filter((f) => f.ownerId === meter.id).map((f) => f.code);
+    expect(codes).toContain("usage.meter.rate");
+  });
+
+  it("without the patch the same usage would have been priced from unit one (hazard proof)", () => {
+    const first = legacyRun();
+    const result = buildProgressiveInput(withUsage(first.draft));
+    const meterId = usageRow(first.draft).meters[0]!.id;
+    expect(result.blocked.filter((f) => f.ownerId === meterId)).toHaveLength(0);
+  });
+
+  it("an accountant-edited rate on the legacy meter is preserved", () => {
+    const first = legacyRun();
+    const edited: WorkflowDraft = {
+      ...first.draft,
+      variableConsiderationComponents: first.draft.variableConsiderationComponents.map((row) =>
+        VC_ID_PATTERN.test(row.id)
+          ? { ...row, meters: row.meters.map((m) => ({ ...m, rateAmountInput: "1.40" })) }
+          : row,
+      ),
+    };
+    const second = run(v10Null(), edited, first.aiState, RUN_2);
+    const row = usageRow(second.draft);
+    expect(row.meters[0]!.rateAmountInput).toBe("1.40");
+    expect(row.meters[0]!.rateQuantityInput).toBe("1");
+    expect(
+      second.issues.some(
+        (i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput` && i.state === "red",
+      ),
+    ).toBe(true);
+  });
+
+  it("a manual meter the accountant created is never disabled", () => {
+    const base = run(stonebridge(usage({ includedQuantityInput: null })));
+    const row0 = usageRow(base.draft);
+    expect(row0.meters).toHaveLength(0);
+    const manual: WorkflowDraft = {
+      ...base.draft,
+      variableConsiderationComponents: base.draft.variableConsiderationComponents.map((row) =>
+        row.id === row0.id
+          ? {
+              ...row,
+              meters: [
+                {
+                  id: `${row.id}-m1`,
+                  seq: 1,
+                  name: "Manual meter",
+                  unit: "event",
+                  rateAmountInput: "1.35",
+                  rateQuantityInput: "1",
+                  includedQuantityInput: "",
+                },
+              ],
+            }
+          : row,
+      ),
+    } as WorkflowDraft;
+    const second = run(v10Null(), manual, base.aiState, RUN_2);
+    const meter = usageRow(second.draft).meters[0]!;
+    expect(meter.rateAmountInput).toBe("1.35");
+    expect(meter.rateQuantityInput).toBe("1");
+  });
+});

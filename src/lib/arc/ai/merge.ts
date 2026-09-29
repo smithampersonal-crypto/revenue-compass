@@ -2775,6 +2775,52 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         } else {
           const rateProblem = rate.ok ? null : rate.reason;
           const thresholdProblem = threshold.ok ? null : threshold.reason;
+          // 3F.3 acceptance patch. A meter left by an earlier (legacy) AI run
+          // may carry a priced rate with a BLANK threshold, which the engine
+          // reads as zero. When v10 now says the threshold is unresolved, the
+          // stale AI-owned pricing must not stay usable. Ownership comes only
+          // from provenance: a rate field is disabled solely when it is still
+          // ARC's untouched value. Accountant-owned fields are never touched.
+          if (thresholdProblem !== null) {
+            const existing = current().meters.find((row) => row.id === meterId);
+            if (existing !== undefined && (existing.includedQuantityInput ?? "").trim() === "") {
+              const thresholdKey = fieldKeys.vc(canonicalId, "meter.includedQuantityInput");
+              const thresholdPrior = fieldProvenance[thresholdKey];
+              const thresholdAccountantOwned =
+                thresholdPrior !== undefined && thresholdPrior.state !== "ai_generated_untouched";
+              if (!thresholdAccountantOwned) {
+                // Pricing is disabled as a unit, and only when every non-blank
+                // pricing field is still ARC's untouched value; a single
+                // accountant-owned pricing field leaves the whole meter alone.
+                const pricingFields = ["rateAmountInput", "rateQuantityInput"] as const;
+                const aiOwned = (field: (typeof pricingFields)[number]) => {
+                  const prior = fieldProvenance[fieldKeys.vc(canonicalId, `meter.${field}`)];
+                  return (
+                    prior?.state === "ai_generated_untouched" &&
+                    valueFingerprint(existing[field] ?? "") === prior.valueFingerprint
+                  );
+                };
+                const present = pricingFields.filter((f) => (existing[f] ?? "") !== "");
+                if (present.length > 0 && present.every(aiOwned)) {
+                  update({
+                    meters: current().meters.map((row) =>
+                      row.id === meterId
+                        ? { ...row, rateAmountInput: "", rateQuantityInput: "" }
+                        : row,
+                    ),
+                  });
+                  for (const field of present) {
+                    fieldProvenance[fieldKeys.vc(canonicalId, `meter.${field}`)] = {
+                      state: "ai_generated_untouched",
+                      semanticKey: component.semanticKey,
+                      lastAiRunId: runId,
+                      valueFingerprint: valueFingerprint(""),
+                    };
+                  }
+                }
+              }
+            }
+          }
           raise({
             targetKey: fieldKeys.vc(
               canonicalId,
