@@ -14,7 +14,14 @@
 import { z } from "zod";
 
 /** Single source of truth for new-generation output (9C aligned). */
-export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v9";
+export const AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v10";
+/**
+ * Package 3F.3. Frozen v9 immutable-result version: identical to v10 except
+ * its usage components carry no structured `includedQuantityInput`. Read-only;
+ * the field stays ABSENT (never null, never zero) so a legacy merge keeps its
+ * accepted behavior and no threshold or normalized rate is ever invented.
+ */
+export const LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v9";
 /**
  * Package 3D-Q.2. Frozen v8 immutable-result version: identical to v9 except
  * its billing terms carry no installment / trigger / obligation-reference
@@ -31,6 +38,7 @@ export const LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION = "arc.ai.schema.v7";
 export function isEvidenceGatedSchemaVersion(version: string): boolean {
   return (
     version === AI_OUTPUT_SCHEMA_VERSION ||
+    version === LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION ||
     version === LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION ||
     version === LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION
   );
@@ -341,6 +349,26 @@ const variableComponentSchema = z
   })
   .strict();
 
+/**
+ * Package 3F.3. Exact non-negative whole-quantity string. Never a float, never
+ * money, no thousands separator.
+ */
+const includedQuantityInput = z
+  .string()
+  .max(16)
+  .regex(/^(0|[1-9]\d{0,14})$/, "must be a bare non-negative whole number")
+  .describe(
+    "Usage components only: the contractual quantity already included before the usage rate " +
+      "applies, as a bare whole number such as 2000000. \"0\" only when the cited source " +
+      "establishes that every unit is chargeable from the first unit. null when not stated, " +
+      "ambiguous or not safely supported, and always null for non-usage components.",
+  )
+  .nullable();
+
+const variableComponentSchemaV10 = variableComponentSchema
+  .extend({ includedQuantityInput })
+  .strict();
+
 const transactionPriceSchema = z
   .object({
     currency: factSchema,
@@ -362,6 +390,15 @@ const transactionPriceSchema = z
         reviewState: reviewStateSchema,
       })
       .strict(),
+  })
+  .strict();
+
+/** Package 3F.3. v10 transaction price: usage components carry the threshold. */
+const transactionPriceSchemaV10 = transactionPriceSchema
+  .extend({
+    variableConsiderationComponents: z
+      .array(variableComponentSchemaV10)
+      .max(AI_SCHEMA_BOUNDS.variableComponents),
   })
   .strict();
 
@@ -665,11 +702,25 @@ export const aiContractAnalysisV8ObjectSchema = z
   })
   .strict();
 
-/** Plain v9 object form — the provider JSON Schema is generated from exactly this. */
+/** Frozen v9 object shape for immutable historical results only. */
+export const aiContractAnalysisV9ObjectSchema = z
+  .object({
+    schemaVersion: z.literal(LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION),
+    ...analysisRootShape,
+    billingTerms: z.array(billingTermSchemaV9).max(AI_SCHEMA_BOUNDS.billingTerms),
+    promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
+    performanceObligations: z
+      .array(performanceObligationSchema)
+      .max(AI_SCHEMA_BOUNDS.performanceObligations),
+  })
+  .strict();
+
+/** Plain v10 object form — the provider JSON Schema is generated from exactly this. */
 export const aiContractAnalysisObjectSchema = z
   .object({
     schemaVersion: z.literal(AI_OUTPUT_SCHEMA_VERSION),
     ...analysisRootShape,
+    transactionPrice: transactionPriceSchemaV10,
     billingTerms: z.array(billingTermSchemaV9).max(AI_SCHEMA_BOUNDS.billingTerms),
     promises: z.array(promiseSchema).max(AI_SCHEMA_BOUNDS.promises),
     performanceObligations: z
@@ -688,6 +739,7 @@ function addAnalysisRefinements(
     | z.infer<typeof aiContractAnalysisV6ObjectSchema>
     | z.infer<typeof aiContractAnalysisV8ObjectSchema>
     | z.infer<typeof aiContractAnalysisV7ObjectSchema>
+    | z.infer<typeof aiContractAnalysisV9ObjectSchema>
     | z.infer<typeof aiContractAnalysisObjectSchema>,
   ctx: z.RefinementCtx,
 ): void {
@@ -769,6 +821,19 @@ function addAnalysisRefinements(
       });
     }
   });
+
+  // Package 3F.3. A contractual included quantity belongs only to usage.
+  value.transactionPrice.variableConsiderationComponents.forEach((component, index) => {
+    const included = (component as { includedQuantityInput?: string | null })
+      .includedQuantityInput;
+    if (component.type !== "usage" && included !== undefined && included !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["transactionPrice", "variableConsiderationComponents", index, "includedQuantityInput"],
+        message: "includedQuantityInput must be null for a non-usage component",
+      });
+    }
+  });
 }
 
 export const aiContractAnalysisV5Schema =
@@ -785,6 +850,9 @@ export const aiContractAnalysisV7Schema =
 
 export const aiContractAnalysisV8Schema =
   aiContractAnalysisV8ObjectSchema.superRefine(addAnalysisRefinements);
+
+export const aiContractAnalysisV9Schema =
+  aiContractAnalysisV9ObjectSchema.superRefine(addAnalysisRefinements);
 
 /** Exactly zero, however the model spelled the decimal. */
 export function isZeroDecimal(value: string | null): boolean {
@@ -817,7 +885,8 @@ function collectDecimalInputs(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-export type AiContractAnalysisV9 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV10 = z.infer<typeof aiContractAnalysisObjectSchema>;
+export type AiContractAnalysisV9 = z.infer<typeof aiContractAnalysisV9ObjectSchema>;
 export type AiContractAnalysisV8 = z.infer<typeof aiContractAnalysisV8ObjectSchema>;
 export type AiContractAnalysisV7 = z.infer<typeof aiContractAnalysisV7ObjectSchema>;
 export type AiContractAnalysisV6 = z.infer<typeof aiContractAnalysisV6ObjectSchema>;
@@ -825,10 +894,11 @@ export type AiContractAnalysisV5 = z.infer<typeof aiContractAnalysisV5ObjectSche
 /** Internal compatibility representation; v5 carries no synthesized presentation label. */
 export type AiContractAnalysis = Omit<
   AiContractAnalysisV5,
-  "schemaVersion" | "promises" | "performanceObligations" | "billingTerms"
+  "schemaVersion" | "promises" | "performanceObligations" | "billingTerms" | "transactionPrice"
 > & {
   schemaVersion:
     | typeof AI_OUTPUT_SCHEMA_VERSION
+    | typeof LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION
     | typeof LEGACY_V6_AI_OUTPUT_SCHEMA_VERSION
@@ -850,6 +920,18 @@ export type AiContractAnalysis = Omit<
       invoiceTriggerKind?: InvoiceTriggerKind | undefined;
     }
   >;
+  /**
+   * Package 3F.3. `includedQuantityInput` is required (nullable) on v10 and
+   * ABSENT on every legacy result: absent means "legacy merge", null means
+   * "unresolved — fail closed", never zero.
+   */
+  transactionPrice: Omit<AiContractAnalysisV5["transactionPrice"], "variableConsiderationComponents"> & {
+    variableConsiderationComponents: Array<
+      AiContractAnalysisV5["transactionPrice"]["variableConsiderationComponents"][number] & {
+        includedQuantityInput?: string | null | undefined;
+      }
+    >;
+  };
   promises: Array<
     AiContractAnalysisV5["promises"][number] & { accountingLabel?: string | undefined }
   >;
@@ -1092,7 +1174,7 @@ export const aiAnchoredContractAnalysisJsonSchema: JsonSchema = toAnchoredProvid
 /** Safe parse helper used by the client after every generation. */
 export function parseAiContractAnalysis(
   value: unknown,
-): { ok: true; analysis: AiContractAnalysisV9 } | { ok: false; issues: string[] } {
+): { ok: true; analysis: AiContractAnalysisV10 } | { ok: false; issues: string[] } {
   const result = aiContractAnalysisSchema.safeParse(value);
   if (result.success) return { ok: true, analysis: result.data };
   return {
@@ -1129,6 +1211,12 @@ export function parsePersistedAiContractAnalysis(
     return { ok: false, issues: ["schemaVersion: stored run metadata does not match result"] };
   }
   if (payloadVersion === AI_OUTPUT_SCHEMA_VERSION) return parseAiContractAnalysis(value);
+  if (payloadVersion === LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION) {
+    const result = aiContractAnalysisV9Schema.safeParse(value);
+    return result.success
+      ? { ok: true, analysis: result.data }
+      : { ok: false, issues: parseIssues(result) };
+  }
   if (payloadVersion === LEGACY_V8_AI_OUTPUT_SCHEMA_VERSION) {
     const result = aiContractAnalysisV8Schema.safeParse(value);
     return result.success
