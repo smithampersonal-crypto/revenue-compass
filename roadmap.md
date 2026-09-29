@@ -357,10 +357,10 @@ Fresh 3E evidence
 
 ## Package 3F.3 — Usage threshold + exact sub-cent rate (schema v10 / prompt v17)
 
-- [ ] Schema v10 includedQuantityInput (usage-only, whole-quantity string); v9 legacy path
-- [ ] Prompt v17 threshold rules
-- [ ] Pure sub-cent rate normalizer (smallest power of ten)
-- [ ] Threshold evidence checker; null/unsupported threshold fails closed at merge
-- [ ] Review presentation label "Included quantity"
-- [ ] Stonebridge positive + negatives + re-analysis tests; version pins
-- [ ] Verify, SQL suites, protected state, ZIP
+- [x] Schema v10 includedQuantityInput (usage-only, whole-quantity string); v9 legacy path
+- [x] Prompt v17 threshold rules
+- [x] Pure sub-cent rate normalizer (smallest power of ten)
+- [x] Threshold evidence checker; null/unsupported threshold fails closed at merge
+- [x] Review presentation label "Included quantity"
+- [x] Stonebridge positive + negatives + re-analysis tests; version pins
+- [x] Verify, SQL suites, protected state, ZIP
