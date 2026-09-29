@@ -104,7 +104,12 @@ function sla(): Vc {
 }
 
 function inv(date: string, amount: string, excerpt: string): AiExplicitInvoice {
-  return { invoiceDateInput: date, amountInput: amount, coveragePeriodText: null, citations: [cite(excerpt)] };
+  return {
+    invoiceDateInput: date,
+    amountInput: amount,
+    coveragePeriodText: null,
+    citations: [cite(excerpt)],
+  };
 }
 
 function fixedTerm(): Term {
@@ -175,7 +180,9 @@ describe("3F.3 versions", () => {
 
     const legacy = structuredClone(stonebridge()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION;
-    const tp = legacy["transactionPrice"] as { variableConsiderationComponents: Record<string, unknown>[] };
+    const tp = legacy["transactionPrice"] as {
+      variableConsiderationComponents: Record<string, unknown>[];
+    };
     for (const c of tp.variableConsiderationComponents) delete c["includedQuantityInput"];
     expect(parseAiContractAnalysis(legacy).ok).toBe(false);
     const parsed = parsePersistedAiContractAnalysis(legacy, LEGACY_V9_AI_OUTPUT_SCHEMA_VERSION);
@@ -192,7 +199,9 @@ describe("3F.3 versions", () => {
     delete missing.transactionPrice.variableConsiderationComponents[0]!["includedQuantityInput"];
     expect(parseAiContractAnalysis(missing).ok).toBe(false);
     for (const bad of ["2,000,000", "2000000.5", "-1", "2e6", " 1"]) {
-      expect(parseAiContractAnalysis(stonebridge(usage({ includedQuantityInput: bad }))).ok).toBe(false);
+      expect(parseAiContractAnalysis(stonebridge(usage({ includedQuantityInput: bad }))).ok).toBe(
+        false,
+      );
     }
     const credit = stonebridge();
     credit.transactionPrice.variableConsiderationComponents[1]!.includedQuantityInput = "10";
@@ -206,8 +215,12 @@ describe("3F.3 versions", () => {
       arcContextFacts: {},
     });
     expect(text).toContain("includedQuantityInput");
-    expect(text).toContain('Use "0" only when the cited text establishes that every unit is charged from the first unit');
-    expect(text).toContain("Never put a minimum commitment, minimum purchase, forecast, expected, target or historical volume");
+    expect(text).toContain(
+      'Use "0" only when the cited text establishes that every unit is charged from the first unit',
+    );
+    expect(text).toContain(
+      "Never put a minimum commitment, minimum purchase, forecast, expected, target or historical volume",
+    );
     expect(text).toContain("never calculate or infer it, and never invent actual usage");
     expect(text).toContain("never round it");
   });
@@ -343,9 +356,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
 
   it("no threshold stated in the source", () => {
     const noThreshold = "Customer will pay $0.004 per API processing event.";
-    expect(
-      checkIncludedQuantityEvidence(usage({ citations: [cite(noThreshold)] })).ok,
-    ).toBe(false);
+    expect(checkIncludedQuantityEvidence(usage({ citations: [cite(noThreshold)] })).ok).toBe(false);
     refused(usage({ citations: [cite(noThreshold)] }));
   });
 
@@ -371,17 +382,33 @@ describe("3F.3 threshold negatives — all fail closed", () => {
   });
 
   it.each([
-    ["minimum commitment", "Customer commits to a minimum of 2,000,000 API processing events per month and will pay $0.004 per event."],
-    ["minimum purchase", "The order includes a minimum purchase of 2,000,000 API processing events; Customer will pay $0.004 per event."],
-    ["forecast", "Customer's forecast includes up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event."],
-    ["expected volume", "Customer expects usage up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event."],
-    ["historical volume", "Historical usage included up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event."],
+    [
+      "minimum commitment",
+      "Customer commits to a minimum of 2,000,000 API processing events per month and will pay $0.004 per event.",
+    ],
+    [
+      "minimum purchase",
+      "The order includes a minimum purchase of 2,000,000 API processing events; Customer will pay $0.004 per event.",
+    ],
+    [
+      "forecast",
+      "Customer's forecast includes up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event.",
+    ],
+    [
+      "expected volume",
+      "Customer expects usage up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event.",
+    ],
+    [
+      "historical volume",
+      "Historical usage included up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event.",
+    ],
   ])("%s is not an included quantity", (_label, text) => {
     expect(checkIncludedQuantityEvidence(usage({ citations: [cite(text)] })).ok).toBe(false);
   });
 
   it("digits found only in the generated description / trigger are not authority", () => {
-    const text = "Customer will pay $0.004 per excess API processing event above the included quantity.";
+    const text =
+      "Customer will pay $0.004 per excess API processing event above the included quantity.";
     const component = usage({ citations: [cite(text)] });
     expect(component.description).toContain("2,000,000");
     expect(checkIncludedQuantityEvidence(component).ok).toBe(false);
@@ -393,8 +420,12 @@ describe("3F.3 threshold negatives — all fail closed", () => {
   });
 
   it("non-integer and negative thresholds are refused", () => {
-    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "2000000.5" })).ok).toBe(false);
-    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "-2000000" })).ok).toBe(false);
+    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "2000000.5" })).ok).toBe(
+      false,
+    );
+    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "-2000000" })).ok).toBe(
+      false,
+    );
   });
 
   it("a claimed zero threshold without source support is refused", () => {
@@ -408,16 +439,23 @@ describe("3F.3 threshold negatives — all fail closed", () => {
   it("zero is accepted only for an unqualified every-unit charge", () => {
     const text = "Customer will pay $0.004 per API processing event.";
     const component = usage({ includedQuantityInput: "0", citations: [cite(text)] });
-    expect(checkIncludedQuantityEvidence(component)).toEqual({ ok: true, includedQuantityInput: "0" });
+    expect(checkIncludedQuantityEvidence(component)).toEqual({
+      ok: true,
+      includedQuantityInput: "0",
+    });
     const { draft } = run(stonebridge(component));
     expect(usageRow(draft).meters[0]!.includedQuantityInput).toBe("0");
   });
 
   it("an unrepresentable rate creates no meter and raises a rate item", () => {
-    const { draft, issues } = run(stonebridge(usage({ contractualRateOrAmountInput: "0.0000001" })));
+    const { draft, issues } = run(
+      stonebridge(usage({ contractualRateOrAmountInput: "0.0000001" })),
+    );
     const row = usageRow(draft);
     expect(row.meters).toHaveLength(0);
-    expect(issues.some((i) => i.targetKey === `vc:${row.id}.meter.rateAmountInput` && i.state === "red")).toBe(true);
+    expect(
+      issues.some((i) => i.targetKey.startsWith(`vc:${row.id}.meter.`) && i.state === "red"),
+    ).toBe(true);
   });
 });
 
@@ -440,7 +478,9 @@ describe("3F.3 Safe Re-analysis", () => {
   it("a changed source threshold refreshes an untouched AI meter", () => {
     const first = run(stonebridge());
     const changed = USAGE_1.replace("2,000,000", "3,000,000");
-    const next = stonebridge(usage({ includedQuantityInput: "3000000", citations: [cite(changed), cite(USAGE_2)] }));
+    const next = stonebridge(
+      usage({ includedQuantityInput: "3000000", citations: [cite(changed), cite(USAGE_2)] }),
+    );
     const second = run(next, first.draft, first.aiState, RUN_2);
     expect(usageRow(second.draft).meters[0]!.includedQuantityInput).toBe("3000000");
   });
@@ -455,16 +495,25 @@ describe("3F.3 Safe Re-analysis", () => {
       })),
     };
     const changed = USAGE_1.replace("2,000,000", "3,000,000");
-    const next = stonebridge(usage({ includedQuantityInput: "3000000", citations: [cite(changed), cite(USAGE_2)] }));
+    const next = stonebridge(
+      usage({ includedQuantityInput: "3000000", citations: [cite(changed), cite(USAGE_2)] }),
+    );
     const second = run(next, edited, first.aiState, RUN_2);
     const row = usageRow(second.draft);
     expect(row.meters[0]!.includedQuantityInput).toBe("2500000");
-    expect(second.issues.some((i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput`)).toBe(true);
+    expect(
+      second.issues.some((i) => i.targetKey === `vc:${row.id}.meter.includedQuantityInput`),
+    ).toBe(true);
   });
 
   it("a later unresolved threshold never patches an existing meter", () => {
     const first = run(stonebridge());
-    const second = run(stonebridge(usage({ includedQuantityInput: null })), first.draft, first.aiState, RUN_2);
+    const second = run(
+      stonebridge(usage({ includedQuantityInput: null })),
+      first.draft,
+      first.aiState,
+      RUN_2,
+    );
     const meter = usageRow(second.draft).meters[0]!;
     expect(meter.includedQuantityInput).toBe("2000000");
     expect(meter.rateAmountInput).toBe("0.04");

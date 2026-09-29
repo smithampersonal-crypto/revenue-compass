@@ -359,7 +359,7 @@ const includedQuantityInput = z
   .regex(/^(0|[1-9]\d{0,14})$/, "must be a bare non-negative whole number")
   .describe(
     "Usage components only: the contractual quantity already included before the usage rate " +
-      "applies, as a bare whole number such as 2000000. \"0\" only when the cited source " +
+      'applies, as a bare whole number such as 2000000. "0" only when the cited source ' +
       "establishes that every unit is chargeable from the first unit. null when not stated, " +
       "ambiguous or not safely supported, and always null for non-usage components.",
   )
@@ -824,12 +824,16 @@ function addAnalysisRefinements(
 
   // Package 3F.3. A contractual included quantity belongs only to usage.
   value.transactionPrice.variableConsiderationComponents.forEach((component, index) => {
-    const included = (component as { includedQuantityInput?: string | null })
-      .includedQuantityInput;
+    const included = (component as { includedQuantityInput?: string | null }).includedQuantityInput;
     if (component.type !== "usage" && included !== undefined && included !== null) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["transactionPrice", "variableConsiderationComponents", index, "includedQuantityInput"],
+        path: [
+          "transactionPrice",
+          "variableConsiderationComponents",
+          index,
+          "includedQuantityInput",
+        ],
         message: "includedQuantityInput must be null for a non-usage component",
       });
     }
@@ -925,7 +929,10 @@ export type AiContractAnalysis = Omit<
    * ABSENT on every legacy result: absent means "legacy merge", null means
    * "unresolved — fail closed", never zero.
    */
-  transactionPrice: Omit<AiContractAnalysisV5["transactionPrice"], "variableConsiderationComponents"> & {
+  transactionPrice: Omit<
+    AiContractAnalysisV5["transactionPrice"],
+    "variableConsiderationComponents"
+  > & {
     variableConsiderationComponents: Array<
       AiContractAnalysisV5["transactionPrice"]["variableConsiderationComponents"][number] & {
         includedQuantityInput?: string | null | undefined;

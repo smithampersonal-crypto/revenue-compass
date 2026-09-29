@@ -18,7 +18,10 @@ import type { AiCitation } from "./schema";
 
 export type UsageRateNormalization =
   | { ok: true; rateAmountInput: string; rateQuantityInput: string }
-  | { ok: false; reason: "rate_missing" | "rate_invalid" | "rate_not_positive" | "rate_out_of_bounds" };
+  | {
+      ok: false;
+      reason: "rate_missing" | "rate_invalid" | "rate_not_positive" | "rate_out_of_bounds";
+    };
 
 const RATE_PATTERN = /^(\d{1,15})(?:\.(\d{1,6}))?$/;
 

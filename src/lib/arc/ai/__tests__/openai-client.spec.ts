@@ -450,7 +450,9 @@ describe("TerraAnalyzer fails closed on provenance validation", () => {
       model: "gpt-5.6-terra",
       output: [
         {
-          content: [{ type: "output_text", text: JSON.stringify(asV10Output(validAnalysisFixture())) }],
+          content: [
+            { type: "output_text", text: JSON.stringify(asV10Output(validAnalysisFixture())) },
+          ],
         },
       ],
     });
