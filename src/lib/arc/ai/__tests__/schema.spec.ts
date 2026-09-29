@@ -41,7 +41,7 @@ describe("AiContractAnalysis schema", () => {
 
   it("accepts only the authoritative schema version literal", () => {
     const good = asV10Output(validAnalysisFixture());
-    good.schemaVersion = "arc.ai.schema.v9";
+    good.schemaVersion = "arc.ai.schema.v10";
     expect(parseAiContractAnalysis(good).ok).toBe(true);
 
     for (const wrong of ["arc.ai.schema.fake", "arc.ai.schema.v1", ""]) {
@@ -68,7 +68,7 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("dispatches strict frozen v5 immutable results without synthesizing labels", () => {
-    const legacy = structuredClone(asV10Output(validAnalysisFixture())) as unknown as Record<string, unknown>;
+    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
     const promises = legacy["promises"] as Array<Record<string, unknown>>;
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
@@ -94,7 +94,7 @@ describe("AiContractAnalysis schema", () => {
   });
 
   it("fails closed for unknown, mismatched, or malformed persisted versions", () => {
-    const legacy = structuredClone(asV10Output(validAnalysisFixture())) as unknown as Record<string, unknown>;
+    const legacy = structuredClone(validAnalysisFixture()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_AI_OUTPUT_SCHEMA_VERSION;
     const promises = legacy["promises"] as Array<Record<string, unknown>>;
     const obligations = legacy["performanceObligations"] as Array<Record<string, unknown>>;
