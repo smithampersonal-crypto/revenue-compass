@@ -27,7 +27,7 @@ const item = (
   section: "additional_topics",
   state: "red",
   severity: "red",
-  reason: `reason for ${targetKey}`,
+  reason: `Advisory reason ${id}.`,
   ...overrides,
 });
 
