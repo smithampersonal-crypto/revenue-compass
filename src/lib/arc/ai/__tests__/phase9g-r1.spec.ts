@@ -4,6 +4,7 @@
  * Deterministic only: synthetic analyses, no provider, no live model.
  */
 
+import { asV10Output } from "./analysis-fixture";
 import { describe, expect, it } from "vitest";
 
 import { validateWorkflow } from "@/lib/asc606-workflow/validation";
@@ -62,7 +63,7 @@ describe("R1 — schema and prompt versions", () => {
   });
 
   it("accepts the Genomix benchmark analysis under the strict current schema", () => {
-    expect(() => aiContractAnalysisSchema.parse(genomixR1Analysis())).not.toThrow();
+    expect(() => aiContractAnalysisSchema.parse(asV10Output(genomixR1Analysis()))).not.toThrow();
   });
 
   it("rejects a variable-consideration component missing the allocation proposal", () => {

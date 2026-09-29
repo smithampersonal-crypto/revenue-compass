@@ -14,7 +14,7 @@ import {
   parsePersistedAiContractAnalysis,
 } from "../schema";
 
-import { validAnalysisFixture } from "./analysis-fixture";
+import { asV10Output, validAnalysisFixture } from "./analysis-fixture";
 
 type JsonSchema = Record<string, unknown>;
 
