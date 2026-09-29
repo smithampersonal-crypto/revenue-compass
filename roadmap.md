@@ -354,3 +354,13 @@ Fresh 3E evidence
 - [x] Prompt v16: explicit dated-invoice exception to cadence rule, completeness-gated
 - [x] Meridian fixture + guard variants + partial-schedule policy tests
 - [x] Verify, protected state, ZIP
+
+## Package 3F.3 — Usage threshold + exact sub-cent rate (schema v10 / prompt v17)
+
+- [ ] Schema v10 includedQuantityInput (usage-only, whole-quantity string); v9 legacy path
+- [ ] Prompt v17 threshold rules
+- [ ] Pure sub-cent rate normalizer (smallest power of ten)
+- [ ] Threshold evidence checker; null/unsupported threshold fails closed at merge
+- [ ] Review presentation label "Included quantity"
+- [ ] Stonebridge positive + negatives + re-analysis tests; version pins
+- [ ] Verify, SQL suites, protected state, ZIP
