@@ -2775,6 +2775,49 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
         } else {
           const rateProblem = rate.ok ? null : rate.reason;
           const thresholdProblem = threshold.ok ? null : threshold.reason;
+          // 3F.3 acceptance patch. A meter left by an earlier (legacy) AI run
+          // may carry a priced rate with a BLANK threshold, which the engine
+          // reads as zero. When v10 now says the threshold is unresolved, the
+          // stale AI-owned pricing must not stay usable. Ownership comes only
+          // from provenance: a rate field is disabled solely when it is still
+          // ARC's untouched value. Accountant-owned fields are never touched.
+          if (thresholdProblem !== null) {
+            const existing = current().meters.find((row) => row.id === meterId);
+            if (
+              existing !== undefined &&
+              (existing.includedQuantityInput ?? "").trim() === ""
+            ) {
+              const thresholdKey = fieldKeys.vc(canonicalId, "meter.includedQuantityInput");
+              const thresholdPrior = fieldProvenance[thresholdKey];
+              const thresholdAccountantOwned =
+                thresholdPrior !== undefined &&
+                thresholdPrior.state !== "ai_generated_untouched";
+              if (!thresholdAccountantOwned) {
+                for (const field of ["rateAmountInput", "rateQuantityInput"] as const) {
+                  const key = fieldKeys.vc(canonicalId, `meter.${field}`);
+                  const prior = fieldProvenance[key];
+                  const value = existing[field] ?? "";
+                  if (
+                    prior?.state === "ai_generated_untouched" &&
+                    valueFingerprint(value) === prior.valueFingerprint &&
+                    value !== ""
+                  ) {
+                    update({
+                      meters: current().meters.map((row) =>
+                        row.id === meterId ? { ...row, [field]: "" } : row,
+                      ),
+                    });
+                    fieldProvenance[key] = {
+                      state: "ai_generated_untouched",
+                      semanticKey: component.semanticKey,
+                      lastAiRunId: runId,
+                      valueFingerprint: valueFingerprint(""),
+                    };
+                  }
+                }
+              }
+            }
+          }
           raise({
             targetKey: fieldKeys.vc(
               canonicalId,
