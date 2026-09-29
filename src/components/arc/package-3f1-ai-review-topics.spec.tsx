@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Package 3F.1 — generic Additional Topics AI review items are visible,
  * read-only, and counted from exactly the rows that are rendered.
