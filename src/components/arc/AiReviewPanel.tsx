@@ -302,7 +302,7 @@ function ReviewItemRow({
   const actionBusy = busy || pendingItemId !== null;
 
   return (
-    <li className="rounded-md border border-border p-3">
+    <li id={aiReviewItemElementId(item.id)} className="rounded-md border border-border p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

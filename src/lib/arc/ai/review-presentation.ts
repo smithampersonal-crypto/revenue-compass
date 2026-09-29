@@ -453,3 +453,44 @@ export function aiReviewFinalizeBlock(
     outstanding === 1 ? "s" : ""
   } your confirmation or resolution before this revision can be finalized.`;
 }
+
+/* ------------------------------------ generic Additional Topics (3F.1) */
+
+/** DOM id of one actionable review item in Review & Finalize. */
+export function aiReviewItemElementId(reviewItemId: string): string {
+  return `ai-review-item-${reviewItemId}`;
+}
+
+/** DOM id of one read-only generic topic row inside Additional Topics Applied. */
+export function aiReviewTopicRowId(reviewItemId: string): string {
+  return `ai-review-topic-${reviewItemId}`;
+}
+
+/**
+ * Package 3F.1 — the ONE shared set behind both the Additional Topics Applied
+ * "AI review" badge and its read-only topic rows: unresolved review items whose
+ * only destination is the Additional Topics Applied area (no exact field and no
+ * modification / variable-consideration subtopic).
+ */
+export function genericAdditionalTopicReviewItems<
+  T extends { state: AiReviewItemState; targetKey: string; section: GuidanceReviewSection },
+>(items: readonly T[]): T[] {
+  return items.filter(
+    (item) =>
+      item.state !== "resolved" &&
+      describeReviewTarget(item.targetKey, item.section).sectionElementId ===
+        SECTION_ELEMENT_IDS.additional_topics,
+  );
+}
+
+/** Accountant-readable topic label; the internal target key is never shown. */
+export function genericReviewTopicLabel(targetKey: string): string {
+  if (targetKey.startsWith("billing:")) return "Billing schedule";
+  if (targetKey.startsWith("cash:")) return "Cash collections";
+  const topic = /^additionalTopic:([A-Za-z0-9_]+)$/.exec(targetKey);
+  if (topic) {
+    const label = humanize(topic[1]!);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }
+  return "Additional topic";
+}
