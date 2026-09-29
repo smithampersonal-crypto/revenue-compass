@@ -120,4 +120,24 @@ describe("3F.1 generic Additional Topics review", () => {
     expect(screen.queryByText(/AI review$/)).toBeNull();
     expect(screen.queryByTestId("ai-review-topics")).toBeNull();
   });
+
+  it("an exact-field item persisted under additional_topics is not generic", () => {
+    const exactItem = item("e", "promise:p1.conveysMaterialRight");
+    expect(describeReviewTarget(exactItem.targetKey, "additional_topics").kind).toBe("exact");
+    const withExact = [...ASTER_ITEMS, exactItem];
+    expect(genericAdditionalTopicReviewItems(withExact).map((i) => i.id)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+    renderTopics(withExact);
+    expect(screen.getByText("4 AI review")).toBeInTheDocument();
+    const list = screen.getByTestId("ai-review-topics");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(4);
+    expect(document.getElementById(aiReviewTopicRowId("e"))).toBeNull();
+    for (const label of ["Customer acceptance", "Licenses", "Warranties", "Billing schedule"]) {
+      expect(within(list).getByText(label)).toBeInTheDocument();
+    }
+  });
 });
