@@ -3,6 +3,7 @@
  *
  * Deterministic only: synthetic data, no provider, no network, no database.
  */
+import { asV10Output } from "./analysis-fixture";
 import { describe, expect, it } from "vitest";
 
 import { createEmptyDraft, type WorkflowDraft } from "@/lib/asc606-workflow";
@@ -125,10 +126,10 @@ const events = (draft: WorkflowDraft) =>
 /* ========================================================== versions */
 
 describe("versions", () => {
-  it("keeps the explicit-invoice path under schema v9 / prompt v16, keeping v7 readable", () => {
-    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v9");
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v16");
-    expect(parseAiContractAnalysis(redwood()).ok).toBe(true);
+  it("keeps the explicit-invoice path under schema v10 / prompt v17, keeping v7 readable", () => {
+    expect(AI_OUTPUT_SCHEMA_VERSION).toBe("arc.ai.schema.v10");
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v17");
+    expect(parseAiContractAnalysis(asV10Output(redwood())).ok).toBe(true);
     const legacy = structuredClone(genomixR1Analysis()) as unknown as Record<string, unknown>;
     legacy["schemaVersion"] = LEGACY_V7_AI_OUTPUT_SCHEMA_VERSION;
     for (const term of legacy["billingTerms"] as Record<string, unknown>[]) {

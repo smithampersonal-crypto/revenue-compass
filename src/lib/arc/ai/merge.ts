@@ -114,6 +114,7 @@ import {
 import type { AiCitation, AiContractAnalysis, AiReviewState } from "./schema";
 import { isEvidenceGatedSchemaVersion } from "./schema";
 import { aiInstallmentEligibility, aiTriggerEligibility } from "./billing-evidence";
+import { checkIncludedQuantityEvidence, normalizeUsageRate } from "./usage-evidence";
 import type { PriorAccountingContext } from "./types";
 
 /* ------------------------------------------------------------ sidecar model */
@@ -569,6 +570,10 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     initialIncludedAmountInput: component.initialIncludedAmountInput,
     initialEstimateRationale: component.initialEstimateRationale,
     constraintAssessment: component.constraintAssessment,
+    // Package 3F.3. Present only on v10: legacy material stays byte-identical.
+    ...(component.includedQuantityInput !== undefined
+      ? { includedQuantityInput: component.includedQuantityInput }
+      : {}),
   });
 
   const modificationMaterial = () => ({
@@ -2687,9 +2692,13 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
     }
 
     if (isUsage) {
-      const rate = usableAmount(component.contractualRateOrAmountInput);
       const meterId = `${canonicalId}-m1`;
-      if (rate !== null) {
+      // Shared meter merge: every field goes through field provenance, so a
+      // later contractual change refreshes an untouched AI meter instead of
+      // silently going stale — and never overwrites an edited one.
+      const mergeMeter = (
+        meterFields: ReadonlyArray<{ field: keyof VcMeterDraft & string; proposed: string }>,
+      ) => {
         let meterCreated = false;
         if (current().meters.length === 0) {
           // Future usage volume is never invented, so no usage period is added.
@@ -2697,41 +2706,98 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
           meterCreated = true;
         }
         const meter = () => current().meters.find((row) => row.id === meterId);
-        if (meter() !== undefined) {
-          const patchMeter = (patch: Partial<VcMeterDraft>) =>
-            update({
-              meters: current().meters.map((row) =>
-                row.id === meterId ? { ...row, ...patch } : row,
-              ),
-            });
-          // Every meter field is tracked through field provenance, so a later
-          // contractual rate change refreshes an untouched AI meter instead of
-          // silently going stale — and never overwrites an edited one.
-          const meterFields = [
-            { field: "name" as const, proposed: component.description.slice(0, 120) },
-            { field: "rateAmountInput" as const, proposed: rate },
+        if (meter() === undefined) return;
+        const patchMeter = (patch: Partial<VcMeterDraft>) =>
+          update({
+            meters: current().meters.map((row) =>
+              row.id === meterId ? { ...row, ...patch } : row,
+            ),
+          });
+        for (const spec of meterFields) {
+          const currentValue = meter()![spec.field] as string | undefined;
+          mergeScalar<string>({
+            key: fieldKeys.vc(canonicalId, `meter.${spec.field}`),
+            semanticKey: component.semanticKey,
+            current: currentValue ?? "",
+            proposed: spec.proposed,
+            unclaimed: meterCreated || isUnclaimedString(currentValue ?? ""),
+            apply: (value) => patchMeter({ [spec.field]: value } as Partial<VcMeterDraft>),
+            section,
+            guidanceIds: component.guidanceIds,
+            citations: component.citations,
+            aiReviewState: component.reviewState,
+            label: `Usage meter ${spec.field}`,
+          });
+        }
+      };
+      const nameAndUnit = [
+        { field: "name" as const, proposed: component.description.slice(0, 120) },
+        {
+          field: "unit" as const,
+          proposed: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
+        },
+      ];
+
+      if (component.includedQuantityInput === undefined) {
+        // Legacy (pre-v10) result: the accepted behavior, byte-for-byte. No
+        // threshold and no normalized rate is ever invented from old output.
+        const rate = usableAmount(component.contractualRateOrAmountInput);
+        if (rate !== null) {
+          mergeMeter([
+            nameAndUnit[0]!,
+            { field: "rateAmountInput", proposed: rate },
             // A contractual per-unit rate is a one-unit rate.
-            { field: "rateQuantityInput" as const, proposed: "1" },
-            {
-              field: "unit" as const,
-              proposed: (component.unitDescription ?? "unit").replace(/^per\s+/i, ""),
+            { field: "rateQuantityInput", proposed: "1" },
+            nameAndUnit[1]!,
+          ]);
+        }
+      } else {
+        // Package 3F.3 (v10). A usable AI meter needs BOTH an exact rate and an
+        // ARC-verified contractual included quantity. The engine reads a blank
+        // threshold as zero, so an unresolved threshold must never reach a
+        // priced meter: nothing is created or patched, and the accountant is
+        // asked instead.
+        const rate = normalizeUsageRate(component.contractualRateOrAmountInput);
+        const threshold = checkIncludedQuantityEvidence({
+          includedQuantityInput: component.includedQuantityInput,
+          contractualRateOrAmountInput: component.contractualRateOrAmountInput,
+          citations: component.citations,
+        });
+        if (rate.ok && threshold.ok) {
+          mergeMeter([
+            nameAndUnit[0]!,
+            // The exact ratio IS the contractual rate (smallest power of ten).
+            { field: "rateAmountInput", proposed: rate.rateAmountInput },
+            { field: "rateQuantityInput", proposed: rate.rateQuantityInput },
+            nameAndUnit[1]!,
+            { field: "includedQuantityInput", proposed: threshold.includedQuantityInput },
+          ]);
+        } else {
+          const rateProblem = rate.ok ? null : rate.reason;
+          const thresholdProblem = threshold.ok ? null : threshold.reason;
+          raise({
+            targetKey: fieldKeys.vc(
+              canonicalId,
+              thresholdProblem !== null ? "meter.includedQuantityInput" : "meter.rateAmountInput",
+            ),
+            section,
+            reasonCode: "missing_required_input",
+            reason:
+              thresholdProblem !== null
+                ? "ARC did not set up this usage meter because the contract evidence does not safely establish the quantity included before the usage rate applies. Enter the contractual included quantity (0 if every unit is charged) and the rate."
+                : "ARC did not set up this usage meter because the contractual usage rate cannot be represented exactly. Enter the rate and its quantity.",
+            guidanceIds: component.guidanceIds,
+            citations: component.citations,
+            value: null,
+            material: {
+              ...vcMaterial(component),
+              rateProblem,
+              thresholdProblem,
+              includedQuantityInput: component.includedQuantityInput,
             },
-          ];
-          for (const spec of meterFields) {
-            mergeScalar<string>({
-              key: fieldKeys.vc(canonicalId, `meter.${spec.field}`),
-              semanticKey: component.semanticKey,
-              current: meter()![spec.field],
-              proposed: spec.proposed,
-              unclaimed: meterCreated || isUnclaimedString(meter()![spec.field]),
-              apply: (value) => patchMeter({ [spec.field]: value } as Partial<VcMeterDraft>),
-              section,
-              guidanceIds: component.guidanceIds,
-              citations: component.citations,
-              aiReviewState: component.reviewState,
-              label: `Usage meter ${spec.field}`,
-            });
-          }
+            aiReviewState: "needs_user_input",
+            blocking: true,
+          });
         }
       }
       raise({

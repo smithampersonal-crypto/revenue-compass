@@ -184,7 +184,7 @@ describe("3F.2 prompt v16 policy", () => {
   const source = readFileSync("src/lib/arc/ai/prompt.ts", "utf8");
 
   it("is v16", () => {
-    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v16");
+    expect(AI_PROMPT_VERSION).toBe("arc.ai.prompt.v17");
   });
 
   it("makes explicit dated invoices an exception to the cadence requirement", () => {

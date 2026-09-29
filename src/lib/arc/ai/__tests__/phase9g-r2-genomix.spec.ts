@@ -10,6 +10,7 @@
  * while every real judgment survives untouched.
  */
 
+import { asV10Output } from "./analysis-fixture";
 import { describe, expect, it } from "vitest";
 
 import { createEmptyDraft } from "@/lib/asc606-workflow";
@@ -168,7 +169,7 @@ function runGenomix() {
 
 describe("Phase 9G-R Task R2 — synthetic Genomix benchmark", () => {
   it("is a schema-valid current analysis", () => {
-    expect(parseAiContractAnalysis(genomixAnalysis()).ok).toBe(true);
+    expect(parseAiContractAnalysis(asV10Output(genomixAnalysis())).ok).toBe(true);
   });
 
   it("keeps the full-term fixed consideration deterministic (R1)", () => {
