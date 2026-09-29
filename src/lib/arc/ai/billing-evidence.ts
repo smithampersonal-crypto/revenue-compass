@@ -407,10 +407,142 @@ export function checkExplicitInvoiceEvidence(
     sawInvoicing = true;
     if (introducedDates(unit).includes(invoiceDate)) return { ok: true };
   }
+  // Package 3F.1 — second, independent pattern: an ARC-materialized text
+  // citation holding a billing-table header and exactly one matching row.
+  if (tableRowEvidence(input.citations, invoiceDate, target)) return { ok: true };
   if (!sawAmount)
     return { ok: false, reason: sawRateLike ? "rate_like_amount" : "no_currency_amount" };
   if (!sawInvoicing) return { ok: false, reason: "no_invoicing_language" };
   return { ok: false, reason: "no_matching_invoice_date" };
+}
+
+/* ------------------------------------------------ table-row evidence (3F.1) */
+
+const TABLE_PROHIBITED =
+  /%|\bpercent(?:age)?\b|\bper\s+[a-z]|\brate\b|\bformula\b|\bcalculated\b|\bmultipl(?:y|ied)\b|\binterest\b|\bpenalt(?:y|ies)\b|\blate\s+(?:fee|fees|charge|charges|payment|payments)\b|\boverdue\b|\bpast\s+due\b|\bservice\s+credits?\b|\bliquidated\s+damages\b|\beach\s+[a-z]/i;
+/** Any money-bearing column label other than the single Amount column. */
+const OTHER_MONEY_LABEL = /\b(?:fee|fees|price|prices|total|totals|tax|taxes|rate|rates|cost|costs|balance|subtotal)\b/i;
+
+function countMatches(text: string, pattern: RegExp): number {
+  return [...text.matchAll(new RegExp(pattern.source, "gi"))].length;
+}
+
+/** Dates in left-to-right order (named, ISO, US), with their positions. */
+function datesInOrder(line: string): string[] | null {
+  const found: { at: number; iso: string | null }[] = [];
+  for (const m of line.matchAll(NAMED_DATE)) {
+    const month = MONTHS[m[1]!.toLowerCase()];
+    found.push({
+      at: m.index ?? 0,
+      iso: month === undefined ? null : isoOf(Number(m[3]), month, Number(m[2])),
+    });
+  }
+  for (const m of line.matchAll(ISO_DATE)) {
+    found.push({ at: m.index ?? 0, iso: isoOf(Number(m[1]), Number(m[2]), Number(m[3])) });
+  }
+  for (const m of line.matchAll(US_DATE)) {
+    found.push({ at: m.index ?? 0, iso: isoOf(Number(m[3]), Number(m[1]), Number(m[2])) });
+  }
+  if (found.some((entry) => entry.iso === null)) return null;
+  return found.sort((a, b) => a.at - b.at).map((entry) => entry.iso!);
+}
+
+function currencyAmounts(line: string): bigint[] | null {
+  const out: bigint[] = [];
+  for (const m of line.matchAll(new RegExp(CURRENCY_AMOUNT.source, "gi"))) {
+    const whole = m[1] ?? m[3];
+    const fraction = m[1] !== undefined ? m[2] : m[4];
+    if (whole === undefined) return null;
+    const cents = matchCents(whole, fraction);
+    if (cents === null) return null;
+    out.push(cents);
+  }
+  return out;
+}
+
+interface TableHeader {
+  dateColumns: number;
+  invoiceDateIndex: number;
+}
+
+/**
+ * A header line: `Invoice Date` exactly once, `Amount` exactly once, no other
+ * money-bearing label, nothing rate-like. Date columns are the labels ending in
+ * "Date", in extracted left-to-right order.
+ */
+function parseTableHeader(line: string): TableHeader | null | "not_header" {
+  const invoiceDates = countMatches(line, /\binvoice\s+date\b/);
+  const amounts = countMatches(line, /\bamount\b/);
+  if (invoiceDates === 0 && amounts === 0) return "not_header";
+  if (invoiceDates !== 1 || amounts !== 1) return null;
+  if (OTHER_MONEY_LABEL.test(line) || TABLE_PROHIBITED.test(line)) return null;
+  const labels = [...line.matchAll(/\b([a-z]+)\s+date\b/gi)].map((m) => m[1]!.toLowerCase());
+  const invoiceDateIndex = labels.indexOf("invoice");
+  if (invoiceDateIndex < 0 || labels.lastIndexOf("invoice") !== invoiceDateIndex) return null;
+  return { dateColumns: labels.length, invoiceDateIndex };
+}
+
+/**
+ * Line-oriented table evidence, one citation at a time (citations are never
+ * combined). The citation must hold exactly one header line; the rows are the
+ * consecutive lines after it that carry a date or an amount. Every such line
+ * must be a well-formed row (exactly the header's number of dates, exactly one
+ * currency amount, nothing rate-like) or the whole table fails closed — this
+ * rejects wrapped, merged or misaligned rows. The invoice date is read from
+ * the Invoice Date column's position, so a Due Date can never stand in for it.
+ * Exactly one row across the invoice's citations may match; duplicates fail.
+ */
+function tableRowEvidence(
+  citations: ExplicitInvoiceEvidenceInput["citations"],
+  invoiceDate: string,
+  target: bigint,
+): boolean {
+  let matches = 0;
+  for (const citation of citations) {
+    if (citation.evidenceMode !== undefined && citation.evidenceMode !== "text") continue;
+    const lines = (citation.excerpt ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter((line) => line.length > 0);
+    let header: TableHeader | null = null;
+    let headerAt = -1;
+    let invalid = false;
+    for (const [index, line] of lines.entries()) {
+      const parsed = parseTableHeader(line);
+      if (parsed === "not_header") continue;
+      if (parsed === null || header !== null) {
+        invalid = true;
+        break;
+      }
+      header = parsed;
+      headerAt = index;
+    }
+    if (invalid || header === null) continue;
+    let citationMatches = 0;
+    for (const line of lines.slice(headerAt + 1)) {
+      const dates = datesInOrder(line);
+      const amounts = currencyAmounts(line);
+      if (dates === null || amounts === null) {
+        invalid = true;
+        break;
+      }
+      if (dates.length === 0 && amounts.length === 0) break; // end of the table
+      if (
+        dates.length !== header.dateColumns ||
+        amounts.length !== 1 ||
+        TABLE_PROHIBITED.test(line)
+      ) {
+        invalid = true;
+        break;
+      }
+      if (dates[header.invoiceDateIndex] === invoiceDate && amounts[0] === target) {
+        citationMatches += 1;
+      }
+    }
+    if (invalid) continue;
+    matches += citationMatches;
+  }
+  return matches === 1;
 }
 
 export interface AiExplicitInvoiceTerm {

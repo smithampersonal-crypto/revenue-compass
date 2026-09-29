@@ -3214,7 +3214,9 @@ export function mergeAiAnalysis(args: MergeAiAnalysisArgs): MergeAiAnalysisResul
               ? "the billing term's amounts are not identified as fixed invoice amounts"
               : explicit.reason === "billing_term_not_source_supported"
                 ? "the billing term is not marked as directly supported by the contract"
-                : "at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together"
+                : explicit.reason === "no_text_evidence"
+                  ? "at least one invoice is supported only by a page image or layout reference, which ARC cannot verify locally"
+                  : "at least one invoice's own contract citation does not state its invoiced amount and exact invoice date together"
           }. No invoices from this billing stream were created. Enter the actual billing events if known.`,
           guidanceIds: [],
           citations: term.citations,
