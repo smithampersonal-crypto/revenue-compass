@@ -270,7 +270,7 @@ Current production truth
 
 - Live at https://ayden-rc.com (HTTPS; www → apex). Email magic-link only, sent through SMTP on mail.ayden-rc.com.
 - Maintenance: GitHub Actions runs hourly at :17 and calls /api/public/maintenance (authoritative). The pg_cron SQL is optional and unapplied.
-- AI: GPT-5.6 Terra (`arc.ai.prompt.v14`, `arc.ai.schema.v9`), one call per Analyze/Re-analyze, `store:false`. Visible allowance counts delivered analyses: guest 3 per 9-hour browser session (shared by every temporary analysis in it), signed-in 10 per calendar month; rejected runs release it. Attempt safeguard: 6 per guest session, 20 per signed-in month. Limits: 10 MB / 500 pages / 200k tokens.
+- AI: GPT-5.6 Terra (`arc.ai.prompt.v17`, `arc.ai.schema.v10`), one call per Analyze/Re-analyze, `store:false`. Visible allowance counts delivered analyses: guest 3 per 9-hour browser session (shared by every temporary analysis in it), signed-in 10 per calendar month; rejected runs release it. Attempt safeguard: 6 per guest session, 20 per signed-in month. Limits: 10 MB / 500 pages / 200k tokens.
 - Horizon Logistics is the only sample on New Analysis; other fixtures stay internal.
 
 Previously accepted (not re-run in 3E)
@@ -364,3 +364,11 @@ Fresh 3E evidence
 - [x] Review presentation label "Included quantity"
 - [x] Stonebridge positive + negatives + re-analysis tests; version pins
 - [x] Verify, SQL suites, protected state, ZIP
+
+## Package 3G — Recruiter v1 release freeze
+
+- [x] Restore protected .env / package.json / bun.lock from b1ea538e
+- [x] Factual doc corrections (README test count, roadmap AI versions)
+- [ ] Final verify (239 / 3,038), 26 SQL files + contention driver, protected-state recheck
+- [ ] Build and verify release candidate arc-recruiter-v1.zip (tracked files only)
+- [ ] Owner: GitHub CI green + production smoke check + acceptance
