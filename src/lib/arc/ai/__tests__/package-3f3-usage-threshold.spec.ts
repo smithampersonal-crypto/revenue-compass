@@ -162,6 +162,14 @@ function run(
   });
 }
 
+/** v10 components always carry the field (null when unresolved). */
+const evidence = (component: Vc) =>
+  checkIncludedQuantityEvidence({
+    includedQuantityInput: component.includedQuantityInput ?? null,
+    contractualRateOrAmountInput: component.contractualRateOrAmountInput,
+    citations: component.citations,
+  });
+
 const VC_ID_PATTERN = /overage/;
 const usageRow = (draft: WorkflowDraft) =>
   draft.variableConsiderationComponents.find((row) => VC_ID_PATTERN.test(row.id))!;
@@ -284,7 +292,7 @@ describe("3F.3 exact sub-cent rate normalization", () => {
 
 describe("3F.3 Stonebridge — threshold and exact rate reach the canonical meter", () => {
   it("ARC verifies the 2,000,000 included quantity from the component's own text", () => {
-    expect(checkIncludedQuantityEvidence(usage())).toEqual({
+    expect(evidence(usage())).toEqual({
       ok: true,
       includedQuantityInput: "2000000",
     });
@@ -356,14 +364,14 @@ describe("3F.3 threshold negatives — all fail closed", () => {
 
   it("no threshold stated in the source", () => {
     const noThreshold = "Customer will pay $0.004 per API processing event.";
-    expect(checkIncludedQuantityEvidence(usage({ citations: [cite(noThreshold)] })).ok).toBe(false);
+    expect(evidence(usage({ citations: [cite(noThreshold)] })).ok).toBe(false);
     refused(usage({ citations: [cite(noThreshold)] }));
   });
 
   it("ambiguous: two different allowance quantities", () => {
     const text =
       "The subscription includes up to 2,000,000 API processing events per month. Enterprise tier includes up to 5,000,000 API processing events per month. Customer will pay $0.004 per excess event.";
-    expect(checkIncludedQuantityEvidence(usage({ citations: [cite(text)] }))).toEqual({
+    expect(evidence(usage({ citations: [cite(text)] }))).toEqual({
       ok: false,
       reason: "included_quantity_ambiguous",
     });
@@ -373,7 +381,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
     const storageOnly = "Customer will pay $0.004 per excess event.";
     const other = "The storage plan includes up to 2,000,000 gigabytes per month.";
     const component = usage({ citations: [cite(storageOnly)] });
-    expect(checkIncludedQuantityEvidence(component).ok).toBe(false);
+    expect(evidence(component).ok).toBe(false);
     // Even when the other component's citation sits elsewhere in the analysis.
     const analysis = stonebridge(component);
     analysis.transactionPrice.variableConsiderationComponents[1]!.citations = [cite(other)];
@@ -403,7 +411,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
       "Historical usage included up to 2,000,000 API processing events per month. Customer will pay $0.004 per excess event.",
     ],
   ])("%s is not an included quantity", (_label, text) => {
-    expect(checkIncludedQuantityEvidence(usage({ citations: [cite(text)] })).ok).toBe(false);
+    expect(evidence(usage({ citations: [cite(text)] })).ok).toBe(false);
   });
 
   it("digits found only in the generated description / trigger are not authority", () => {
@@ -411,25 +419,21 @@ describe("3F.3 threshold negatives — all fail closed", () => {
       "Customer will pay $0.004 per excess API processing event above the included quantity.";
     const component = usage({ citations: [cite(text)] });
     expect(component.description).toContain("2,000,000");
-    expect(checkIncludedQuantityEvidence(component).ok).toBe(false);
+    expect(evidence(component).ok).toBe(false);
   });
 
   it("visual citations never evidence a threshold", () => {
     const visual = { ...cite(USAGE_1), evidenceMode: "visual" as const };
-    expect(checkIncludedQuantityEvidence(usage({ citations: [visual] })).ok).toBe(false);
+    expect(evidence(usage({ citations: [visual] })).ok).toBe(false);
   });
 
   it("non-integer and negative thresholds are refused", () => {
-    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "2000000.5" })).ok).toBe(
-      false,
-    );
-    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "-2000000" })).ok).toBe(
-      false,
-    );
+    expect(evidence(usage({ includedQuantityInput: "2000000.5" })).ok).toBe(false);
+    expect(evidence(usage({ includedQuantityInput: "-2000000" })).ok).toBe(false);
   });
 
   it("a claimed zero threshold without source support is refused", () => {
-    expect(checkIncludedQuantityEvidence(usage({ includedQuantityInput: "0" }))).toEqual({
+    expect(evidence(usage({ includedQuantityInput: "0" }))).toEqual({
       ok: false,
       reason: "zero_threshold_not_evidenced",
     });
@@ -439,7 +443,7 @@ describe("3F.3 threshold negatives — all fail closed", () => {
   it("zero is accepted only for an unqualified every-unit charge", () => {
     const text = "Customer will pay $0.004 per API processing event.";
     const component = usage({ includedQuantityInput: "0", citations: [cite(text)] });
-    expect(checkIncludedQuantityEvidence(component)).toEqual({
+    expect(evidence(component)).toEqual({
       ok: true,
       includedQuantityInput: "0",
     });
