@@ -1,96 +1,96 @@
-# Recruiter-v1 Horizon sample consistency patch (PLAN ONLY)
+# Package 3F — Contract-level explicit invoices (PLAN ONLY)
 
-No implementation, publish, AI run or migration until approved.
+No code changed, no AI run, no publish, no migration, no dependency change. Investigation was read-only (source code + the stored production run record).
 
-## 1. Confirmed root cause
+## A. Root cause
 
-- `src/routes/analysis/documents.tsx` line 64: `persistence.mode === "guest"` returns `GuestSourceDocumentsWorkspace` first. The static Horizon card is only reached at line 75 for `mode === "sample"` (Home → Try the Sample).
-- `createTemporaryAnalysis` (`guest.functions.ts` line 106) handles `sample:horizon` by seeding only the accounting draft (`createDemoDraftIfKnown`) through `createAnalysisHandler`. No `source_documents` row or `guest_source_document_selections` row is created.
-- So the New Analysis Horizon analysis is a guest workspace with zero owned documents, and the guest view correctly reports "none". The trace in the brief is confirmed.
+Aster run: `3b81b345-295d-4ad3-9ae0-2b071f6ea193` (workspace `650921af…`, prompt v14, schema v9, succeeded, source `Aster_Peak_Cobalt_Ridge_SaaS_Agreement_Revised.pdf` only).
 
-## 2. Proposed source-document lifecycle
+Runtime path: Terra v9 result → `billingTerms[0]` → `merge.ts` billing loop (line ~3197, explicit-invoice branch) → `aiExplicitInvoiceEligibility` (`billing-evidence.ts` ~445) → refused → `raise(billing_schedule_not_derivable, blocking)` → `continue` → zero consideration events → Contract Balances "Enter at least one billing event."
 
-The Horizon PDF becomes a **real guest source document owned by that one temporary workspace**. It goes through ARC's existing upload pipeline, run on the server inside the same Open-sample POST:
+Exact rejection point: the very first check in `aiExplicitInvoiceEligibility`:
 
 ```text
-click Open sample (POST createTemporaryAnalysis, origin sample:horizon)
-  -> createAnalysisHandler            (unchanged: workspace + seeded draft)
-  -> load canonical bytes             (public/samples/horizon-logistics-saas-order-form.pdf)
-  -> verify pinned SHA-256            (a39c8883...9c70); mismatch = fail closed
-  -> initiateUploadHandler            (existing intent, bound to this workspace's derived token hash)
-  -> private storage put              (pending path in arc-source-documents, existing helper)
-  -> finalizeUploadHandler            (existing server-side PDF read: size, pages, sha256)
-  -> attach selection                 (existing arc_attach_guest_source_document)
-  -> return analysisId
+if (amountKind !== "fixed_invoice_amount") -> refuse "amount_not_fixed_invoice"
 ```
 
-- Display name: `Horizon Logistics — SaaS Order Form & Billing Schedule`, with the original filename kept.
-- The accounting draft is untouched ($153,000, schedules as accepted). There is no model call, no `ai_runs` row and no allowance change.
-- Only `sample:horizon` gets a document. Other samples (internal fixtures), blank and upload origins are unchanged.
+Terra returned `amountKind: "unknown"`. The per-invoice evidence checks never ran. PO linkage, dates, duplicates and the Step 3 comparison played no part.
 
-## 3. Representation and duplication
+Second effect: because `amountKind` is `unknown`, the term is also left out of the Step 3 corroboration set (`fixedTypedTerms`, merge.ts ~2101). The billing total was never compared with Step 3.
 
-- There is still one tracked canonical file, `public/samples/horizon-logistics-saas-order-form.pdf`. No second fixture is added to the repository.
-- Each temporary Horizon analysis gets its own private storage copy and its own `source_documents` row (`guest_workspace_id` = that workspace). The existing unique index on `(guest_workspace_id, sha256)` prevents a duplicate inside one workspace. Copies are never shared across workspaces, so there is no shared ownership.
-- The copy is created only when Open sample is clicked, never on GET, loader or render.
+## B. What Terra actually returned (one billing term)
 
-## 4. How Save to My Contracts keeps it
+- semanticKey `fixed_consideration_dated_invoices`; description "Three expressly dated invoices comprising the complete billing schedule…"
+- amountKind **unknown**; reviewState **supported**; billingTiming milestone; frequency on_event
+- amountOrRateInput null; paymentTermsDays 30; dueDateRule "each invoice due on its stated calendar due date; also Net 30"
+- targetPerformanceObligationKey **null**; billingBasisTotalInput / installmentCount / equalInstallments null; invoiceTriggerKind none
+- explicitInvoices (all three extracted correctly):
+  - 2026-10-01 · 74000 · cites "Aster Peak will invoice Customer $74,000 on October 1, 2026, and the invoice is due October 31, 2026."
+  - 2026-11-01 · 37000 · cites "…will invoice Customer $37,000 on November 1, 2026…"
+  - 2027-02-01 · 37000 · cites "…will invoice Customer $37,000 on February 1, 2027, and the invoice is due March 3, 2027."
+- Term citations: one visual citation (p.2) and one text citation (p.2 closing sentences).
+- Stored review item: `billing_schedule_not_derivable` on `billing:fixed_consideration_dated_invoices`. The schedule did not disappear silently. The item's wording, though, says the citation "does not state its invoiced amount and exact invoice date together". That is wrong for this refusal reason and misleads the reviewer.
 
-No change is needed. The accepted save RPC (`arc_migrate_guest_workspace_by_token_v3`) already:
-- moves the workspace's selected guest documents to the new contract;
-- inserts `revision_source_documents` for revision 1;
-- clears the guest selections.
+Dry-reading the three citations against the existing per-invoice evidence rules (amount match, invoicing word, date introduced by "on"): all three would pass.
 
-The document therefore stays on the saved revision because the standard path carries it, with no sample-specific logic.
+## C. Architecture assessment
 
-## 5. 9-hour cleanup
+- **D (PO linkage):** only the v9 installment and trigger paths (`deriveV9Events`) require a linked PO. The explicit-invoice branch never reads `targetPerformanceObligationKey`.
+- **E (contract-level stream):** yes. A v9 term with `explicitInvoices` and a null PO key is already a genuine contract-level stream. It has stable identity through `billing-identity.ts` (semantic key + date/amount), and the `explicit_invoice_v8` derivation-mode firewall already applies.
+- **Balance engine:** `analyzeContractBalances` / `buildMonthlyRollforward` use only event amount, unconditional-right date, invoice date, and collections vs. revenue by month. There is no PO field. Contract asset/liability comes from cumulative revenue vs. cumulative rights, at contract level.
+- **Result:** no redesign, no schema change and no migration are needed. None of the stop conditions apply.
 
-No change is needed. When the workspace expires, `arc_delete_expired_guest_workspaces` cascades that workspace's own document rows and queues the private objects for the existing storage-deletion worker (hourly maintenance). A document already moved to a saved contract no longer belongs to the guest workspace, so cleanup cannot touch it. Other workspaces have their own copies.
+## D. Smallest implementation
 
-## 6. Security
+1. `src/lib/arc/ai/billing-evidence.ts` — `aiExplicitInvoiceEligibility`:
+   - Accept `amountKind` of `fixed_invoice_amount` **or** `unknown`, but only when the term has one or more explicit invoices **and** every invoice passes its own evidence check (exact amount, invoicing word and introduced exact date in the same sentence; rate-like amounts refused).
+   - `pricing_basis_only`, `usage_rate`, `percentage` and every other kind stay refused. The reviewState rule is unchanged.
+   - Rationale: the model's label is a proposal. Here ARC's own sentence-level reading proves each amount is a fixed invoiced amount, and that proof is stronger than the label.
+2. `src/lib/arc/ai/merge.ts` — the Step 3 corroboration set (`fixedTypedTerms`) also includes an `unknown`-kind term whose explicit invoices pass that same check. The billing total can then corroborate Step 3, or raise the existing blocking `source_conflict`. It still never replaces Step 3. A refused term still makes the schedule incomplete, so an incomplete schedule has no authority.
+3. `merge.ts` refusal copy (explicit branch): reason-specific wording for `amount_not_fixed_invoice` and `billing_term_not_source_supported`. All other reasons keep the current sentence. The review ID and fingerprint inputs stay unchanged (they use section, target, reason code and value).
+4. Contract-level label: no UI change. The billing rows already carry no PO. I would add "Contract-level billing" only if you want it (see Decisions).
+5. **Schema:** stays at v9 (the shape already fits). **Prompt:** stays at v14 by default. Optional one-line addition as v15: "a dated invoice with a stated currency amount is fixed_invoice_amount, and a contract-level schedule keeps targetPerformanceObligationKey null". The fix does not depend on it.
+6. **Identity / Safe Re-analysis:** unchanged mechanisms.
+   - An unchanged rerun keeps the same semantic key and the same date/amount event IDs, so no duplicates.
+   - A changed date or amount follows the existing lineage rules and fails closed.
+   - Switches between explicit invoices and rule/installment/trigger modes already raise blocking `billing_derivation_mode_changed`.
+   - Tombstones, manual-row precedence and the structural firewall are untouched.
+7. **Nothing else changes:** Step 2, Step 4 and Step 5, the revenue schedule, variable consideration, financing, modifications, journals (beyond downstream effects of valid events), auth, quotas, AI orchestration and storage.
 
-- The per-analysis HMAC-derived credential, session ownership, 9-hour expiry, the private bucket, server-only document RPCs and save ownership checks are all unchanged.
-- The copy lives in the private bucket and is read only through the existing signed guest read URL. The public sample PDF does not open any new read path for uploaded PDFs.
-- The server never takes the bytes from the browser. It loads them itself and checks the pinned hash.
+## E. Accounting / data flow
 
-## 7. Files expected to change
+- Each accepted invoice becomes one consideration event with invoice date = unconditional-right date = the stated date. Due dates come from the existing Net 30 rule: 2026-10-31, 2026-12-01 and 2027-03-03, matching the contract.
+- The rollforward compares cumulative rights with cumulative recognized revenue, per contract. That produces contract asset or contract liability, plus billed and unbilled AR from invoice vs. month-end.
+- Allocation (Step 4: $120k/$20k/$8k by SSP) and billing (50/25/25 installments) stay independent. No invoice is split across or assigned to a PO.
+- No actual cash receipts are created. Any collections shown come only from the existing projected-collection logic, with its existing "not evidence of cash" disclosure. I will confirm whether Aster produces projected rows at all and report it.
+- Step 3: $148,000 comes from Step 3 fixed consideration. The $148,000 billing total only corroborates it. A mismatch would raise the existing blocking conflict.
+- The implementation recognition date stays unresolved (acceptance date unknown). Nothing in this change touches recognition.
 
-- `src/lib/arc/persistence/guest.functions.ts`: after creation, call a new seeding helper only for `sample:horizon`.
-- New `src/lib/arc/documents/horizon-sample-source.server.ts`: canonical path, display name, pinned SHA-256, and the server-side run of the existing initiate → put → finalize → attach steps.
-- Tests (below). `documents.tsx`, the Home sample, the sample list, accounting, AI and migrations are unchanged.
+## F. Tests (failing first)
 
-## 8. Tests
+- **Unit** (`billing-evidence`): an unknown-kind term with 3 passing invoices is accepted. Refused: unknown kind with one failing invoice (whole term), unknown kind with no invoices, pricing_basis_only, rate/percent/per-unit amounts, missing date, no invoicing word, mismatched date, unsupported reviewState.
+- **Merge:** the Aster fixture (synthetic excerpts matching the contract text) produces exactly 3 events ($74k/$37k/$37k, dates above, no PO) with the review item cleared. $148k corroborates Step 3 with no conflict. A $150k Step 3 triggers a blocking `source_conflict` with neither figure replaced. An accountant-entered Step 3 is never overwritten. Existing manual events still win.
+- **Identity:** an unchanged rerun gives no duplicates and the same IDs. A changed amount fails closed. Explicit↔rule/installment mode switches stay blocked. Tombstoned invoices are not recreated.
+- **Balance integration:** Aster events feed `analyzeContractBalances`, which is unblocked and reconciled, with no actual cash.
+- **Regressions:**
+  - Redwood/Test 03: 3 POs, $150k, allocation $28,125/$112,500/$9,375, exactly six events, balances unblocked, collections projected only.
+  - Horizon: $153k, source document unchanged.
+  - Genomix: outputs unchanged, hash unchanged.
+  - Aster recognition date remains unresolved.
+  - Legacy v5–v8 results load unchanged, with no structure created on load or autosave.
+- **Full:** `bun run verify` (baseline 234 files / 2,908 tests; the count will go up). SQL suites are unaffected, but I will run them once as a check.
 
-New `src/lib/arc/documents/__tests__/horizon-sample-source.spec.ts` and `src/components/arc/new-analysis-horizon-source.spec.tsx`:
-1. One click creates exactly one temporary analysis.
-2. Its Source Documents list shows the Horizon display name.
-3. The document is selected (included) immediately.
-4. The read URL serves bytes whose SHA-256 equals the canonical file.
-5. No `ai_runs` row is created and the allowance is unchanged.
-6. Two Horizon analyses in the same session have distinct document rows and objects.
-7. Saving creates revision 1 with the Horizon document linked.
-8. Sibling Recent analyses are unchanged.
-9. Expiring or deleting one workspace leaves the other workspace's copy and the saved contract's copy intact.
-10. Home → Try the Sample still shows the same static card (existing test kept).
-11. Blank temporary analyses and non-Horizon origins get no document.
-12. Hash mismatch fails closed, and existing upload/manual tests still pass.
+## G. Risks / stop conditions
 
-SQL: add `supabase/tests/phase3e_horizon_sample_source.sql` covering items 6, 7 and 9 against the existing RPCs (rolled back, synthetic data).
+- **Risk:** treating `unknown` as acceptable is safe only because every invoice is checked against its own sentence. I will stop if any existing negative test starts passing.
+- **Risk:** the first Aster run (the original PDF) may differ. I will read it too and report it, without changing the plan unless it shows a different root cause.
+- None of the stop conditions are triggered: no allocation redesign, no PO assignment, no fuzzy matching, billing gets no Step 3 authority, no persistence change.
 
-## 9. SQL/schema change
+## H. Scope confirmation
 
-None expected. The existing tables and RPCs cover creation, selection, save migration and expiry.
+Plan only. No implementation, AI run, publish, migration, dependency change or roadmap edit. Once 3F is accepted, archive `60a4df5a…4d55` becomes historical.
 
-## 10. Stop conditions
+## Decisions for the owner
 
-Stop and report before continuing if any of these happen:
-- The finalize step cannot accept a server-placed pending object without an RPC change.
-- The canonical bytes cannot be loaded reliably on the server without adding a second copy of the file.
-- The save RPC turns out not to move guest selections to revision 1.
-- Any part would touch accounting, allowance or access rules.
-
-## Decisions needed
-
-1. **Recent Analyses label.** Recent shows the first source document's name when one exists. A seeded document would change a Horizon row's source from "Sample — Horizon" to the document name. Choose: keep "Sample — Horizon" for `sample:horizon` rows (a small display rule in Recent), or accept the document name.
-2. **Byte source on the server.** Choose: fetch the canonical file from the site's own address and check its pinned hash (no repository change), or bundle it into the server code at build time from the same tracked file (no network dependency).
-3. **Failure behaviour.** If seeding fails, either (a) fail the whole Open-sample click and create nothing (recommended), or (b) create the analysis without the document.
+1. Prompt: keep v14 (recommended), or add the one-line v15 wording as well.
+2. Show a small "Contract-level billing" label on these rows: no (recommended, no UI change), or yes.
