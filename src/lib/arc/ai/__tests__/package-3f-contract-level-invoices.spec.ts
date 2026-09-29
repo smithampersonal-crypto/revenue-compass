@@ -283,6 +283,7 @@ describe("3F identity / Safe Re-analysis", () => {
 
   it("an unchanged rerun keeps the same IDs and creates no duplicates", () => {
     const { decision, draft, aiState } = assess(aster());
+    console.log("DECISION", JSON.stringify(decision));
     expect(decision.outcome).toBe("apply");
     const again = run(aster(), draft, aiState, NEXT_RUN);
     expect(again.draft.contractBalances.considerationEvents.map((r) => r.id).sort()).toEqual(
